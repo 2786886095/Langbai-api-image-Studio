@@ -66,8 +66,8 @@
 - 仓库：`Langbai-api-image-Studio`（公开），remote `origin`，分支 `main`，首提交 `c921531`。
 - git 身份（本地）：`user.name=Langbai`，`user.email=lb2710137168@gmail.com`。gh 已登录账号 `2786886095`（token 有 repo/workflow）。
 - `.gitignore` 已排除 APK/build/.dart_tool/.gradle/backup_/qa_screenshots/qa-smoke.png/windows output。**无密钥泄露**（已扫）。
-- GitHub Actions 最新成功 run：`28443686569`，提交 `5e1535d`，四端 job 全部 success。
-- 远端 artifacts：`android-apk`（22110947 bytes）、`windows-release`（12470592 bytes）、`macos-release`（22359993 bytes）、`ios-release-unsigned`（25609526 bytes）。
+- GitHub Actions 最新成功 run：`28444209501`，提交 `74dbb76`，四端 job 全部 success。
+- 远端 artifacts：`android-apk`（22110949 bytes）、`windows-release`（12470607 bytes）、`macos-release`（22292938 bytes）、`ios-release-unsigned`（25673055 bytes）。
 - 注：`CLAUDE_HANDOFF.md`（旧）和 `qa/` 已随首提交进库；`CODEX_HANDOFF.md` 已更新；APK/ZIP 产物未进库，只保留本地 output 与 GitHub Actions artifacts。
 
 ---
@@ -111,7 +111,7 @@
   - macOS Release entitlement 已加网络客户端和用户文件读写权限。
 - **CI 已加入并验证通过**：
   - `.github/workflows/build-all-platforms.yml` 包含 Android / Windows / macOS / iOS unsigned 四个 job；
-  - 最新成功 run `28443686569` 已上传 `android-apk`、`windows-release`、`macos-release`、`ios-release-unsigned`。
+  - 最新成功 run `28444209501` 已上传 `android-apk`、`windows-release`、`macos-release`、`ios-release-unsigned`。
 - **仍未完成 / 需要外部条件**：
   - iOS unsigned app 已能生成，但安装/上架仍需 Apple Developer Team、证书、provisioning profile；
   - macOS app 已能生成，分发给普通用户仍建议签名/notarize。
