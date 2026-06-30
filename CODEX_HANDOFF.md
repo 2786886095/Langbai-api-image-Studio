@@ -6,8 +6,8 @@
 ---
 
 ## 0. 一句话现状
-本轮完成了 **UI 整体重设计（蓝白/黑紫 高级感）+ 布局重构 + 结果卡精简 + 移动端修复 + GrsAI 推荐入口 + Windows 原生包 + iOS/macOS 工程骨架 + 跨端 CI**，同步并**重打了安卓 APK**，**上传了 GitHub**。回归全绿。
-**待办**：Apple 签名证书接入、GitHub Actions 在远端实际跑一轮并下载 iOS/macOS artifacts。
+本轮完成了 **UI 整体重设计（蓝白/黑紫 高级感）+ 布局重构 + 结果卡精简 + 移动端修复 + GrsAI 推荐入口 + Windows 原生包 + iOS/macOS 工程骨架 + 跨端 CI**，同步并**重打了安卓 APK**，**上传了 GitHub**。本地回归全绿，GitHub Actions 四端构建也已全绿。
+**待办**：Apple 签名证书 / provisioning profile / macOS notarize 接入；这是发布到 iOS/macOS 用户侧前的外部账号与证书工作。
 
 ---
 
@@ -38,10 +38,11 @@
   - 流程：`robocopy 源 目标 /E /XD build .dart_tool .idea qa_screenshots backup_20260106_000000 .gradle /XF *.apk` → `flutter clean` → `flutter build apk --release` → 把 `目标\build\app\outputs\flutter-apk\app-release.apk` 复制回 `源\android\output\AI-Image-Generator-flutter.apk`。
   - 那一堆 `e: ...kotlin_module...metadata 1.8.0 expected 1.6.0` 是**既有依赖警告**，退出码 0、APK 正常生成，别被吓到。
 - **改 web 资源后必须同步**到 `android/app/src/main/assets/`（5 文件：app.js / index.html / style.css / manifest.webmanifest / sw.js），否则壳里还是旧代码。可用 SHA256 逐一比对确认。
-- **Windows 本地构建 gotcha**：当前 Flutter 3.24 工具对 VS2026 识别不完整，会硬用 `Visual Studio 16 2019` generator。已验证可行做法：先让 Flutter 生成 ephemeral，然后手动跑 VS2026 CMake：
+- **Windows 构建 gotcha**：当前 Flutter 3.24 工具对新版 Visual Studio 识别不完整，会硬用 `Visual Studio 16 2019` generator。已验证可行做法：先让 Flutter 生成 ephemeral，然后手动跑已安装的 VS CMake：
   - `cmake -S windows -B build/windows/x64 -G "Visual Studio 18 2026" -A x64 -DFLUTTER_TARGET_PLATFORM=windows-x64`
   - `cmake --build build/windows/x64 --config Release --target INSTALL`
-  - GitHub `windows-latest` 通常是 VS2022，预计 `flutter build windows --release` 可直接跑。
+  - CI 已在 `.github/workflows/build-all-platforms.yml` 里自动探测 VS2022/VS2026，并先运行 `flutter build windows --release` 生成 `windows/flutter/ephemeral/generated_config.cmake`，然后清理失败残留的 `build/windows/x64` 再手动 CMake。
+  - VS2026 会把 `webview_windows` 的旧 `<experimental/coroutine>` 提示变成硬错误；`windows/CMakeLists.txt` 已加 `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`。
 - **Windows 运行包不是单 exe**：必须保留 `data/`、`flutter_windows.dll`、`webview_windows_plugin.dll`、`WebView2Loader.dll`。项目输出 zip 已包含完整运行目录。
 - **i18n 有两套机制**：
   1. `I18N` 词典 + `translateElement()`（app.js）——**主力**。按**中文文本节点**翻译，且翻译 `title/placeholder/aria-label` 属性。加可翻译文本就**写中文 + 在 `I18N` 加 5 语言条目**（zh-Hant/en/ja/ko）。`data-no-i18n` 跳过。
@@ -59,13 +60,15 @@
 - Windows ZIP SHA256：`49DB1A2C23A471DDDE962AD63D802D4958B2FDD3BBCC9902B0EF08F66EED0D8C`
 - Windows exe SHA256：`6A29F2429512EDCA4FE15D8D2C77E6D2F8561225DAE6FAF3E9EA19D46D3B849B`
 - Windows 启动冒烟：运行 6 秒未崩溃。
-- 当前平台：Android 本地 APK、Windows 本地 ZIP；iOS/macOS 已有工程和 CI，但本机 Windows 无法实际构建 Apple 产物。
+- 当前平台：Android 本地 APK、Windows 本地 ZIP；GitHub Actions 已生成 Android / Windows / macOS / iOS unsigned 四类远端 artifacts。本机 Windows 无法实际构建 Apple 产物，但远端 macOS runner 已验证通过。
 
 ## 4. GitHub
 - 仓库：`Langbai-api-image-Studio`（公开），remote `origin`，分支 `main`，首提交 `c921531`。
 - git 身份（本地）：`user.name=Langbai`，`user.email=lb2710137168@gmail.com`。gh 已登录账号 `2786886095`（token 有 repo/workflow）。
 - `.gitignore` 已排除 APK/build/.dart_tool/.gradle/backup_/qa_screenshots/qa-smoke.png/windows output。**无密钥泄露**（已扫）。
-- 注：`CLAUDE_HANDOFF.md`（旧）和 `qa/` 已随首提交进库；`CODEX_HANDOFF.md` 本轮更新后应提交；APK 未进库。
+- GitHub Actions 最新成功 run：`28443686569`，提交 `5e1535d`，四端 job 全部 success。
+- 远端 artifacts：`android-apk`（22110947 bytes）、`windows-release`（12470592 bytes）、`macos-release`（22359993 bytes）、`ios-release-unsigned`（25609526 bytes）。
+- 注：`CLAUDE_HANDOFF.md`（旧）和 `qa/` 已随首提交进库；`CODEX_HANDOFF.md` 已更新；APK/ZIP 产物未进库，只保留本地 output 与 GitHub Actions artifacts。
 
 ---
 
@@ -106,12 +109,12 @@
   - `webview_flutter_wkwebview 3.22.0` 的 pubspec 明确支持 `ios` 和 `macos`，无需换 `flutter_inappwebview`；
   - iOS/macOS 图标已替换为吉祥物；
   - macOS Release entitlement 已加网络客户端和用户文件读写权限。
-- **CI 已加入**：
-  - `.github/workflows/build-all-platforms.yml` 包含 Android / Windows / macOS / iOS unsigned 四个 job。
+- **CI 已加入并验证通过**：
+  - `.github/workflows/build-all-platforms.yml` 包含 Android / Windows / macOS / iOS unsigned 四个 job；
+  - 最新成功 run `28443686569` 已上传 `android-apk`、`windows-release`、`macos-release`、`ios-release-unsigned`。
 - **仍未完成 / 需要外部条件**：
-  - iOS 可在 GitHub macOS runner 生成 unsigned app，但安装/上架仍需 Apple Developer Team、证书、provisioning profile；
-  - macOS 可在 GitHub macOS runner 构建 unsigned app，分发给普通用户仍建议签名/notarize；
-  - 需要推送后到 GitHub Actions 手动或 push 触发跑一轮，确认远端 macOS/iOS artifact。
+  - iOS unsigned app 已能生成，但安装/上架仍需 Apple Developer Team、证书、provisioning profile；
+  - macOS app 已能生成，分发给普通用户仍建议签名/notarize。
 
 ---
 
