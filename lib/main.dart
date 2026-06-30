@@ -151,6 +151,39 @@ Future<Map<String, Object?>> _nativeFetch(
   }
 }
 
+Future<File> _downloadUrlToFile(String url, File target) async {
+  if (!_isExternalHttpUrl(url)) {
+    throw PlatformException(
+      code: 'invalid_url',
+      message: 'Only http/https URLs can be downloaded.',
+    );
+  }
+
+  final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+  try {
+    final request = await client.getUrl(Uri.parse(url));
+    final response = await request.close();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw PlatformException(
+        code: 'download_failed',
+        message: 'HTTP ${response.statusCode}',
+      );
+    }
+    await target.parent.create(recursive: true);
+    final sink = target.openWrite();
+    try {
+      await response.pipe(sink);
+    } finally {
+      await sink.close();
+    }
+    return target;
+  } finally {
+    client.close(force: true);
+  }
+}
+
+String _psQuote(String value) => "'${value.replaceAll("'", "''")}'";
+
 bool _isExternalHttpUrl(String url) {
   final uri = Uri.tryParse(url.trim());
   return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
@@ -268,6 +301,16 @@ class _MobileWebShellState extends State<MobileWebShell>
             'mimeType': payload['mimeType'] ?? 'application/octet-stream',
             'base64': payload['base64'] ?? '',
           });
+          break;
+        case 'downloadUpdate':
+          result = await _downloads.invokeMethod<Map<dynamic, dynamic>>(
+            'downloadUpdate',
+            {
+              'url': payload['url'] ?? '',
+              'fileName': payload['fileName'] ?? 'update.apk',
+              'install': payload['install'] == true,
+            },
+          );
           break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
@@ -438,6 +481,13 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
             payload['base64']?.toString() ?? '',
           );
           break;
+        case 'downloadUpdate':
+          result = await _downloadWindowsUpdate(
+            payload['url']?.toString() ?? '',
+            payload['fileName']?.toString() ?? 'update.zip',
+            payload['install'] == true,
+          );
+          break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
           break;
@@ -497,7 +547,11 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
     return [
       root,
       'AI Image Generator',
-      kind == 'zips' ? 'zips' : 'images',
+      kind == 'zips'
+          ? 'zips'
+          : kind == 'updates'
+              ? 'updates'
+              : 'images',
     ].join(Platform.pathSeparator);
   }
 
@@ -517,6 +571,73 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
     final file = File([dir, safeName].join(Platform.pathSeparator));
     await file.writeAsBytes(base64Decode(encoded), flush: true);
     return file.path;
+  }
+
+  Future<Map<String, Object?>> _downloadWindowsUpdate(
+    String url,
+    String fileName,
+    bool install,
+  ) async {
+    final dir = Directory(_windowsDownloadDir('updates'));
+    final safeName = _sanitizeWindowsFileName(fileName);
+    final file = File([dir.path, safeName].join(Platform.pathSeparator));
+    await _downloadUrlToFile(url, file);
+
+    var installerStarted = false;
+    String? scriptPath;
+    if (install && safeName.toLowerCase().endsWith('.zip')) {
+      final script = await _writeWindowsUpdateScript(file);
+      scriptPath = script.path;
+      await Process.start(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          script.path,
+        ],
+        mode: ProcessStartMode.detached,
+      );
+      installerStarted = true;
+      unawaited(Future<void>.delayed(
+        const Duration(milliseconds: 700),
+        () => exit(0),
+      ));
+    }
+
+    return {
+      'path': file.path,
+      'installerStarted': installerStarted,
+      'scriptPath': scriptPath,
+    };
+  }
+
+  Future<File> _writeWindowsUpdateScript(File zipFile) async {
+    final updatesDir = zipFile.parent.path;
+    final script = File(
+      [updatesDir, 'apply-ai-image-generator-update.ps1']
+          .join(Platform.pathSeparator),
+    );
+    final exePath = Platform.resolvedExecutable;
+    final installDir = File(exePath).parent.path;
+    final lines = <String>[
+      r"$ErrorActionPreference = 'Stop'",
+      '\$pidToWait = $pid',
+      '\$zip = ${_psQuote(zipFile.path)}',
+      '\$target = ${_psQuote(installDir)}',
+      '\$exe = ${_psQuote(exePath)}',
+      r'Wait-Process -Id $pidToWait -ErrorAction SilentlyContinue',
+      r'Start-Sleep -Milliseconds 500',
+      r"$extract = Join-Path $env:TEMP ('aigen-update-' + [guid]::NewGuid().ToString())",
+      r'New-Item -ItemType Directory -Path $extract -Force | Out-Null',
+      r'Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force',
+      r"Copy-Item -Path (Join-Path $extract '*') -Destination $target -Recurse -Force",
+      r'Remove-Item -LiteralPath $extract -Recurse -Force',
+      r'Start-Process -FilePath $exe',
+    ];
+    await script.writeAsString(lines.join('\r\n'), flush: true);
+    return script;
   }
 
   String _sanitizeWindowsFileName(String name) {

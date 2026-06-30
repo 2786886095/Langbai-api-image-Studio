@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260630-1-0-1">
+  <link rel="stylesheet" href="style.css?v=20260630-1-0-2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -358,6 +358,24 @@
           </label>
           <p class="field-hint">只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。</p>
         </section>
+
+        <section class="settings-section update-settings">
+          <h3>软件更新</h3>
+          <div class="update-version-row">
+            <span>当前版本</span>
+            <strong id="currentVersionLabel">v1.0.2</strong>
+          </div>
+          <div class="update-version-row">
+            <span>最新版本</span>
+            <strong id="latestVersionLabel">未检测</strong>
+          </div>
+          <div class="update-actions">
+            <button type="button" id="checkUpdates" class="btn btn-sm"><span class="ui-icon ui-icon-search"></span> 检查更新</button>
+            <button type="button" id="downloadUpdate" class="btn btn-sm"><span class="ui-icon ui-icon-download"></span> 下载更新包</button>
+            <button type="button" id="installUpdate" class="btn btn-sm btn-primary"><span class="ui-icon ui-icon-spark"></span> 下载并安装</button>
+          </div>
+          <p class="field-hint" id="updateStatus">可从 GitHub Releases 检测新版。Windows 会在下载后退出并覆盖安装目录；安卓会打开系统安装器。</p>
+        </section>
       </div>
     </div>
   </div>
@@ -404,6 +422,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260630-1-0-1"></script>
+  <script src="app.js?v=20260630-1-0-2"></script>
 </body>
 </html>

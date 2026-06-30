@@ -1929,6 +1929,19 @@ textarea {
   word-break: break-word;
 }
 
+.history-prompt-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.history-prompt-text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
 @media (max-width: 1240px) {
   .main-layout {
     grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
@@ -2735,6 +2748,43 @@ main.result-panel .result-actions .btn {
   padding-inline: 10px;
 }
 
+.update-settings {
+  gap: 10px;
+}
+
+.update-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.82rem;
+}
+
+.update-version-row strong {
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.update-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.update-actions .btn {
+  min-width: 0;
+  min-height: 34px;
+  padding-inline: 8px;
+}
+
+#updateStatus[data-state="error"] { color: var(--error); }
+#updateStatus[data-state="success"] { color: var(--success); }
+
 .path-label {
   max-width: 100%;
   min-width: 0;
@@ -2748,5 +2798,9 @@ main.result-panel .result-actions .btn {
 
   .setting-row .btn {
     width: 100%;
+  }
+
+  .update-actions {
+    grid-template-columns: 1fr;
   }
 }

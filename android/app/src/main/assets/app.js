@@ -10,6 +10,8 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
+const APP_VERSION = "1.0.2";
+const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
   if (!input) return;
@@ -203,7 +205,15 @@ const CLEAN_LOCALES = {
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
     download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片",
-    failReason: "失败原因", retryFailedAll: "全部失败重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜"
+    failReason: "失败原因", retryFailedAll: "全部失败重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜",
+    softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", notChecked: "未检测",
+    checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装",
+    updateInitialHint: "可从 GitHub Releases 检测新版。Windows 会在下载后退出并覆盖安装目录；安卓会打开系统安装器。",
+    checkingUpdates: "正在检查更新…", noUpdate: "已是最新版", updateAvailable: "发现新版本 {version}",
+    updateCheckFailed: "检查更新失败", noUpdateAsset: "没有找到适合当前平台的更新包",
+    downloadingUpdate: "正在下载更新包…", updateDownloaded: "更新包已下载: {path}",
+    updateInstallStarted: "更新安装已启动。Windows 会关闭当前程序后覆盖安装目录；安卓请在系统安装器中确认。",
+    updateOpenRelease: "当前环境不能直接覆盖安装，已打开更新包下载链接。"
   },
   "zh-Hant": {
     langZh: "簡體", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -240,7 +250,15 @@ const CLEAN_LOCALES = {
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
     download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片",
-    failReason: "失敗原因", retryFailedAll: "全部失敗重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡"
+    failReason: "失敗原因", retryFailedAll: "全部失敗重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡",
+    softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", notChecked: "未檢測",
+    checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝",
+    updateInitialHint: "可從 GitHub Releases 檢測新版。Windows 會在下載後退出並覆蓋安裝目錄；Android 會開啟系統安裝器。",
+    checkingUpdates: "正在檢查更新…", noUpdate: "已是最新版本", updateAvailable: "發現新版本 {version}",
+    updateCheckFailed: "檢查更新失敗", noUpdateAsset: "沒有找到適合目前平台的更新包",
+    downloadingUpdate: "正在下載更新包…", updateDownloaded: "更新包已下載: {path}",
+    updateInstallStarted: "更新安裝已啟動。Windows 會關閉目前程式後覆蓋安裝目錄；Android 請在系統安裝器中確認。",
+    updateOpenRelease: "目前環境不能直接覆蓋安裝，已開啟更新包下載連結。"
   },
   en: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -277,7 +295,15 @@ const CLEAN_LOCALES = {
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
     download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image",
-    failReason: "Failure reason", retryFailedAll: "Retry all failed", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry"
+    failReason: "Failure reason", retryFailedAll: "Retry all failed", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry",
+    softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", notChecked: "Not checked",
+    checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install",
+    updateInitialHint: "Checks GitHub Releases for a new version. Windows exits after download and overwrites the app folder; Android opens the system installer.",
+    checkingUpdates: "Checking for updates...", noUpdate: "Already up to date", updateAvailable: "New version available: {version}",
+    updateCheckFailed: "Update check failed", noUpdateAsset: "No update package was found for this platform",
+    downloadingUpdate: "Downloading update package...", updateDownloaded: "Update package downloaded: {path}",
+    updateInstallStarted: "Update install started. Windows will close this app and overwrite the install folder; confirm in the Android installer on Android.",
+    updateOpenRelease: "This environment cannot overwrite the app directly, so the update package link was opened."
   },
   ja: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -314,7 +340,15 @@ const CLEAN_LOCALES = {
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
     download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み",
-    failReason: "失敗理由", retryFailedAll: "失敗分を再試行", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません"
+    failReason: "失敗理由", retryFailedAll: "失敗分を再試行", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません",
+    softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", notChecked: "未確認",
+    checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール",
+    updateInitialHint: "GitHub Releases から新しいバージョンを確認します。Windows はダウンロード後に終了してインストール先を上書きし、Android はシステムインストーラを開きます。",
+    checkingUpdates: "更新を確認中...", noUpdate: "最新です", updateAvailable: "新しいバージョンがあります: {version}",
+    updateCheckFailed: "更新確認に失敗しました", noUpdateAsset: "このプラットフォーム用の更新パッケージが見つかりません",
+    downloadingUpdate: "更新パッケージをダウンロード中...", updateDownloaded: "更新パッケージを保存しました: {path}",
+    updateInstallStarted: "更新インストールを開始しました。Windows はアプリを閉じてインストール先を上書きします。Android ではインストーラで確認してください。",
+    updateOpenRelease: "この環境では直接上書きできないため、更新パッケージのリンクを開きました。"
   },
   ko: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -351,7 +385,15 @@ const CLEAN_LOCALES = {
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
     download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기",
-    failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다"
+    failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
+    softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", notChecked: "확인 안 됨",
+    checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치",
+    updateInitialHint: "GitHub Releases에서 새 버전을 확인합니다. Windows는 다운로드 후 종료하고 설치 폴더를 덮어쓰며, Android는 시스템 설치 관리자를 엽니다.",
+    checkingUpdates: "업데이트 확인 중...", noUpdate: "최신 버전입니다", updateAvailable: "새 버전 발견: {version}",
+    updateCheckFailed: "업데이트 확인 실패", noUpdateAsset: "현재 플랫폼용 업데이트 패키지를 찾지 못했습니다",
+    downloadingUpdate: "업데이트 패키지 다운로드 중...", updateDownloaded: "업데이트 패키지 다운로드됨: {path}",
+    updateInstallStarted: "업데이트 설치가 시작되었습니다. Windows는 앱을 닫고 설치 폴더를 덮어씁니다. Android에서는 설치 관리자에서 확인하세요.",
+    updateOpenRelease: "현재 환경에서는 직접 덮어쓸 수 없어 업데이트 패키지 링크를 열었습니다."
   }
 };
 
@@ -629,6 +671,15 @@ function applyCleanLanguage() {
   setText(".settings-section:nth-child(3) h3", "autoRetry");
   setText(".settings-section:nth-child(3) .field span", "globalRetries");
   setText(".settings-section:nth-child(3) .field-hint", "retryHint");
+  setText(".update-settings h3", "softwareUpdate");
+  setText(".update-settings .update-version-row:nth-of-type(1) span", "currentVersion");
+  setText(".update-settings .update-version-row:nth-of-type(2) span", "latestVersion");
+  if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSION}`;
+  if (dom.latestVersionLabel && !latestUpdateRelease) dom.latestVersionLabel.textContent = cleanText("notChecked");
+  setButtonText(dom.checkUpdates, "search", "checkUpdates");
+  setButtonText(dom.downloadUpdate, "download", "downloadUpdate");
+  setButtonText(dom.installUpdate, "spark", "installUpdate");
+  if (dom.updateStatus && !dom.updateStatus.dataset.customStatus) dom.updateStatus.textContent = cleanText("updateInitialHint");
   setText("#historyTitle", "historyTitle");
   setText("#historyModal .modal-header .field-hint", "historyHint");
   setAttr("#historySearch", "placeholder", "searchHistory");
@@ -813,6 +864,12 @@ const dom = {
   historyLimit:   $("#historyLimit"),
   retryCount:     $("#retryCount"),
   clearHistory:   $("#clearHistory"),
+  currentVersionLabel: $("#currentVersionLabel"),
+  latestVersionLabel:  $("#latestVersionLabel"),
+  updateStatus:        $("#updateStatus"),
+  checkUpdates:        $("#checkUpdates"),
+  downloadUpdate:      $("#downloadUpdate"),
+  installUpdate:       $("#installUpdate"),
   // 历史
   historyBtn:    $("#historyBtn"),
   historyModal:  $("#historyModal"),
@@ -832,6 +889,7 @@ let referenceImages = [];       // { file, dataUrl, width, height } —— 多�
 let generatedImageUrls = [];
 let appWasBackgrounded = false;
 let retryAllFailedInProgress = false;
+let latestUpdateRelease = null;
 
 function getScrollableAncestor(node) {
   let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
@@ -1310,6 +1368,162 @@ document.addEventListener("keydown", e => {
   closeModal(dom.historyModal);
 });
 applySettings();
+
+function normalizeVersion(value) {
+  return String(value || "0.0.0")
+    .trim()
+    .replace(/^v/i, "")
+    .split(/[+-]/)[0]
+    .replace(/[^\d.].*$/, "") || "0.0.0";
+}
+
+function compareVersions(a, b) {
+  const pa = normalizeVersion(a).split(".").map(part => Number(part) || 0);
+  const pb = normalizeVersion(b).split(".").map(part => Number(part) || 0);
+  const len = Math.max(pa.length, pb.length, 3);
+  for (let i = 0; i < len; i++) {
+    const av = pa[i] || 0;
+    const bv = pb[i] || 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+  return 0;
+}
+
+function getRuntimePlatform() {
+  const ua = navigator.userAgent || "";
+  if (/android/i.test(ua)) return "android";
+  if (/windows/i.test(ua)) return "windows";
+  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+  if (/macintosh|mac os x/i.test(ua)) return "macos";
+  return "web";
+}
+
+function selectUpdateAsset(release, platform = getRuntimePlatform()) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  if (!assets.length) return null;
+  const byName = matcher => assets.find(asset => matcher.test(String(asset.name || "")));
+  const candidates = {
+    android: [/android.*\.apk$/i, /\.apk$/i],
+    windows: [/windows.*\.zip$/i, /win.*\.zip$/i],
+    macos: [/macos.*\.zip$/i, /darwin.*\.zip$/i],
+    ios: [/ios.*\.zip$/i],
+  }[platform] || [/windows.*\.zip$/i, /\.apk$/i, /\.zip$/i];
+  for (const matcher of candidates) {
+    const asset = byName(matcher);
+    if (asset?.browser_download_url) return asset;
+  }
+  return assets.find(asset => asset?.browser_download_url) || null;
+}
+
+function setUpdateStatus(message, type = "info", custom = true) {
+  if (!dom.updateStatus) return;
+  dom.updateStatus.textContent = message;
+  dom.updateStatus.dataset.customStatus = custom ? "true" : "";
+  dom.updateStatus.dataset.state = type;
+}
+
+function setUpdateButtonsBusy(busy) {
+  [dom.checkUpdates, dom.downloadUpdate, dom.installUpdate].forEach(button => {
+    if (button) button.disabled = !!busy;
+  });
+}
+
+async function fetchLatestReleaseInfo() {
+  try {
+    const response = await fetch(RELEASE_API_URL, {
+      cache: "no-store",
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  } catch (fetchError) {
+    if (!nativeDownload.available()) throw fetchError;
+    const result = await nativeDownload.nativeFetchPayload({
+      url: RELEASE_API_URL,
+      method: "GET",
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    const status = Number(result?.status || 0);
+    if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
+    return JSON.parse(result?.body || "{}");
+  }
+}
+
+async function checkForUpdates(options = {}) {
+  const silent = !!options.silent;
+  if (!silent) {
+    setUpdateButtonsBusy(true);
+    setUpdateStatus(cleanText("checkingUpdates"));
+  }
+  try {
+    const release = await fetchLatestReleaseInfo();
+    latestUpdateRelease = release;
+    const latest = normalizeVersion(release.tag_name || release.name || "");
+    if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSION}`;
+    if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = latest ? `v${latest}` : cleanText("notChecked");
+    const isNewer = compareVersions(latest, APP_VERSION) > 0;
+    const message = isNewer
+      ? interpolate(cleanText("updateAvailable"), { version: `v${latest}` })
+      : cleanText("noUpdate");
+    setUpdateStatus(message, isNewer ? "success" : "info");
+    if (!silent) showStatus(message, isNewer ? "success" : "info");
+    return { release, latest, isNewer };
+  } catch (err) {
+    const message = `${cleanText("updateCheckFailed")}: ${err.message || err}`;
+    setUpdateStatus(message, "error");
+    if (!silent) showStatus(message, "error");
+    throw err;
+  } finally {
+    if (!silent) setUpdateButtonsBusy(false);
+  }
+}
+
+async function downloadLatestUpdate(install = false) {
+  setUpdateButtonsBusy(true);
+  setUpdateStatus(cleanText("downloadingUpdate"));
+  try {
+    const info = latestUpdateRelease
+      ? { release: latestUpdateRelease, latest: normalizeVersion(latestUpdateRelease.tag_name || latestUpdateRelease.name || ""), isNewer: compareVersions(latestUpdateRelease.tag_name || latestUpdateRelease.name || "", APP_VERSION) > 0 }
+      : await checkForUpdates({ silent: true });
+    const asset = selectUpdateAsset(info.release);
+    if (!asset) throw new Error(cleanText("noUpdateAsset"));
+    const url = asset.browser_download_url;
+    const fileName = asset.name || `AI-Image-Generator-${info.latest || Date.now()}.zip`;
+
+    if (nativeDownload.available() && typeof nativeDownload.downloadUpdate === "function") {
+      const result = await nativeDownload.downloadUpdate(url, fileName, install, getRuntimePlatform());
+      const path = result?.path || fileName;
+      if (install && result?.installerStarted) {
+        setUpdateStatus(cleanText("updateInstallStarted"), "success");
+        showStatus(cleanText("updateInstallStarted"), "success");
+      } else {
+        const message = interpolate(cleanText("updateDownloaded"), { path });
+        setUpdateStatus(message, "success");
+        showStatus(message, "success");
+      }
+      return result;
+    }
+
+    await openExternalUrl(url);
+    setUpdateStatus(cleanText("updateOpenRelease"), "info");
+    showStatus(cleanText("updateOpenRelease"), "info");
+    return { opened: true, url };
+  } catch (err) {
+    const message = `${install ? cleanText("installUpdate") : cleanText("downloadUpdate")}: ${err.message || err}`;
+    setUpdateStatus(message, "error");
+    showStatus(message, "error");
+    throw err;
+  } finally {
+    setUpdateButtonsBusy(false);
+  }
+}
+
+if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSION}`;
+if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = cleanText("notChecked");
+dom.checkUpdates?.addEventListener("click", () => void checkForUpdates());
+dom.downloadUpdate?.addEventListener("click", () => void downloadLatestUpdate(false));
+dom.installUpdate?.addEventListener("click", () => void downloadLatestUpdate(true));
+window.AiGenUpdate = { checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset };
 
 // ─── 已知模型价格（跨平台通用） ─────────────────────────────
 const KNOWN_PRICES = {
@@ -3169,7 +3383,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     retryCount: options.retryContext?.retryCount ?? getGlobalRetryCount(),
   };
   generatedImageUrls.push({ url: imageUrl, panelId: String(panelId), prompt, recordId: record.id });
-  if (!options.skipHistory) saveGenerationRecord(record);
+  if (!options.skipHistory && record.mode !== "comic") saveGenerationRecord(record);
   updateFailedRetryTools();
   return record;
 }
@@ -3374,6 +3588,19 @@ function getPanelOnlyPrompt(source = {}, globalPrompt = "") {
   return stripGlobalPromptFromText(source.fullPrompt || "", globalPrompt);
 }
 
+function addPromptCollapseToggle(container, promptEl, text) {
+  if (!container || !promptEl || String(text || "").length <= 90) return;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "history-prompt-toggle";
+  toggle.textContent = cleanText("expand");
+  toggle.addEventListener("click", () => {
+    const expanded = promptEl.classList.toggle("expanded");
+    toggle.textContent = expanded ? cleanText("collapse") : cleanText("expand");
+  });
+  container.appendChild(toggle);
+}
+
 // ═══════════════════════════════════════════════════════════
 //  生图历史记录（本地存储，电脑端 / 安卓端共用）
 // ═══════════════════════════════════════════════════════════
@@ -3405,6 +3632,11 @@ function getHistoryThumbnail(item) {
   return isHistoryProject(item)
     ? (item.imageUrl || getHistoryImages(item)[0]?.imageUrl || "")
     : (item?.imageUrl || item?.url || "");
+}
+
+function clearAllReferenceImages() {
+  referenceImages = [];
+  renderThumbs();
 }
 
 function compactHistoryItem(item) {
@@ -3504,7 +3736,7 @@ function formatTime(iso) {
 
 function getFilteredHistory() {
   const q = (dom.historySearch?.value || "").trim().toLowerCase();
-  const list = loadHistory();
+  const list = loadHistory().filter(item => isHistoryProject(item) || item?.mode !== "comic");
   if (!q) return list;
   return list.filter(item => {
     const imageText = getHistoryImages(item)
@@ -3608,8 +3840,10 @@ function createHistoryProjectCard(item, images, thumbnail) {
     const strong = document.createElement("strong");
     strong.textContent = label;
     const body = document.createElement("span");
+    body.className = "history-prompt-text";
     body.textContent = text || cleanText("noPrompt");
     block.append(strong, body);
+    addPromptCollapseToggle(block, body, body.textContent);
     promptList.appendChild(block);
   };
 
@@ -3671,17 +3905,7 @@ function createHistoryCard(item) {
   sub.textContent = `${formatTime(item.createdAt)} · ${item.model || "-"} · ${item.size || "-"}`;
   meta.append(prompt);
   const longPrompt = prompt.title || promptText;
-  if (longPrompt.length > 120) {
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "history-prompt-toggle";
-    toggle.textContent = "展开全部";
-    toggle.addEventListener("click", () => {
-      const expanded = prompt.classList.toggle("expanded");
-      toggle.textContent = expanded ? "收起" : "展开全部";
-    });
-    meta.append(toggle);
-  }
+  addPromptCollapseToggle(meta, prompt, longPrompt);
   meta.append(sub);
 
   const actions = document.createElement("div");
@@ -3745,6 +3969,7 @@ function applyHistoryPanelSize(row, size) {
 
 function restoreHistoryProjectEditor(item, images) {
   switchMode("comic");
+  clearAllReferenceImages();
   dom.prompt.value = item.globalPrompt || item.prompt || "";
   dom.panelTbody.innerHTML = "";
   panelCounter = 0;
@@ -3779,6 +4004,7 @@ function restoreHistoryItem(item) {
   dom.resultGrid.classList.remove("hidden");
   dom.emptyState.classList.add("hidden");
   dom.resultToolbar.classList.remove("hidden");
+  clearAllReferenceImages();
 
   if (isHistoryProject(item)) {
     const images = getHistoryImages(item);
@@ -3863,7 +4089,7 @@ const nativeDownload = (() => {
     return typeof FlutterDownload !== "undefined" && FlutterDownload.postMessage;
   }
 
-  function request(action, payload = {}) {
+  function request(action, payload = {}, timeoutMs = 120000) {
     if (!available()) return Promise.reject(new Error("native bridge unavailable"));
     const id = `req_${Date.now()}_${seq++}`;
     FlutterDownload.postMessage(JSON.stringify({ id, action, ...payload }));
@@ -3873,7 +4099,7 @@ const nativeDownload = (() => {
         if (!pending.has(id)) return;
         pending.delete(id);
         reject(new Error("Android 保存通道超时"));
-      }, 120000);
+      }, timeoutMs);
     });
   }
 
@@ -3925,6 +4151,9 @@ const nativeDownload = (() => {
     },
     saveFile(kind, fileName, mimeType, base64) {
       return request("saveFile", { kind, fileName, mimeType, base64 });
+    },
+    downloadUpdate(url, fileName, install, platform) {
+      return request("downloadUpdate", { url, fileName, install: !!install, platform }, 15 * 60 * 1000);
     },
   };
 })();

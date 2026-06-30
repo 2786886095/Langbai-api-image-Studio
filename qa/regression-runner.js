@@ -846,6 +846,53 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(bad.length === 0, "All supported languages should render without bad tokens, Japanese Chinese residue, or control overflow.", bad);
 }
 
+async function testUpdateControls(cdp) {
+  logStep("Settings update controls and platform package selection");
+  const result = await cdp.eval(`(async () => {
+    const originalFetch = window.fetch;
+    window.fetch = async (url, options) => {
+      if (String(url).includes("/releases/latest")) {
+        return new Response(JSON.stringify({
+          tag_name: "v9.9.9",
+          assets: [
+            { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
+            { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+          ]
+        }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return originalFetch(url, options);
+    };
+    document.getElementById("settingsBtn").click();
+    await new Promise(r => setTimeout(r, 80));
+    document.getElementById("checkUpdates").click();
+    const start = Date.now();
+    while (Date.now() - start < 3000) {
+      if (/9\\.9\\.9/.test(document.getElementById("latestVersionLabel")?.textContent || "")) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    const selected = window.AiGenUpdate.selectUpdateAsset({
+      assets: [
+        { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
+        { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+      ]
+    }, "windows");
+    return {
+      modalOpen: !document.getElementById("settingsModal").classList.contains("hidden"),
+      latest: document.getElementById("latestVersionLabel")?.textContent || "",
+      status: document.getElementById("updateStatus")?.textContent || "",
+      selectedName: selected?.name || "",
+      checkDisabled: document.getElementById("checkUpdates").disabled,
+    };
+  })()`, true);
+  assertQa(result.modalOpen, "Settings modal should open from the header button.", result);
+  assertQa(result.latest.includes("9.9.9") && /9\.9\.9/.test(result.status), "Check update button should update latest version and status.", result);
+  assertQa(result.selectedName.includes("windows"), "Windows update selection should prefer the Windows ZIP asset.", result);
+  assertQa(!result.checkDisabled, "Update check button should be re-enabled after checking.", result);
+}
+
 async function main() {
   const server = createStaticServer();
   await new Promise(resolve => server.listen(appPort, host, resolve));
@@ -870,6 +917,7 @@ async function main() {
     await testReferencesAndAutoFill(cdp);
     await testHistoryRestoreAndExport(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testUpdateControls(cdp);
     console.log("\n[qa] All regression checks passed.");
   } finally {
     try { cdp?.close(); } catch {}

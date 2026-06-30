@@ -5,10 +5,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
+import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.net.URL
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.aigen.ai_image_generator/downloads"
@@ -45,6 +48,12 @@ class MainActivity : FlutterActivity() {
                     "openExternalUrl" -> {
                         val url = call.argument<String>("url") ?: ""
                         openExternalUrl(url, result)
+                    }
+                    "downloadUpdate" -> {
+                        val url = call.argument<String>("url") ?: ""
+                        val fileName = call.argument<String>("fileName") ?: "update.apk"
+                        val install = call.argument<Boolean>("install") ?: false
+                        downloadUpdate(url, fileName, install, result)
                     }
                     else -> result.notImplemented()
                 }
@@ -238,6 +247,67 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             result.error("open_failed", e.message, null)
         }
+    }
+
+    private fun downloadUpdate(
+        url: String,
+        fileName: String,
+        install: Boolean,
+        result: MethodChannel.Result
+    ) {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "http" && uri.scheme != "https") {
+            result.error("invalid_url", "Only http/https URLs can be downloaded.", null)
+            return
+        }
+
+        Thread {
+            try {
+                val safeName = sanitizeFileName(fileName).ifBlank { "update.apk" }
+                val dir = File(cacheDir, "updates")
+                dir.mkdirs()
+                val file = File(dir, safeName)
+                URL(url).openStream().use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+
+                runOnUiThread {
+                    try {
+                        var installerStarted = false
+                        if (install && safeName.lowercase().endsWith(".apk")) {
+                            installApk(file)
+                            installerStarted = true
+                        }
+                        result.success(
+                            mapOf(
+                                "path" to file.absolutePath,
+                                "installerStarted" to installerStarted
+                            )
+                        )
+                    } catch (e: Exception) {
+                        result.error("install_failed", e.message, null)
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    result.error("download_failed", e.message, null)
+                }
+            }
+        }.start()
+    }
+
+    private fun installApk(file: File) {
+        val uri = FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
     }
 
     private fun prefs() = getSharedPreferences(prefsName, MODE_PRIVATE)
