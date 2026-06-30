@@ -43,7 +43,9 @@ const I18N = {
   "— 手动填写 —": { "zh-Hant": "— 手動填寫 —", en: "— Manual entry —", ja: "— 手動入力 —", ko: "— 직접 입력 —" },
   "删除当前配置": { "zh-Hant": "刪除目前設定", en: "Delete current config", ja: "現在の設定を削除", ko: "현재 설정 삭제" },
   "API 地址": { "zh-Hant": "API 位址", en: "API URL", ja: "API URL", ko: "API 주소" },
-  "https://jeniya.top 或 https://grsai.com": { "zh-Hant": "https://jeniya.top 或 https://grsai.com", en: "https://jeniya.top or https://grsai.com", ja: "https://jeniya.top または https://grsai.com", ko: "https://jeniya.top 또는 https://grsai.com" },
+  "https://grsai.dakka.com.cn": { "zh-Hant": "https://grsai.dakka.com.cn", en: "https://grsai.dakka.com.cn", ja: "https://grsai.dakka.com.cn", ko: "https://grsai.dakka.com.cn" },
+  "推荐使用 GrsAI 第三方 API": { "zh-Hant": "推薦使用 GrsAI 第三方 API", en: "Recommended: GrsAI third-party API", ja: "おすすめ：GrsAI サードパーティ API", ko: "추천: GrsAI 서드파티 API" },
+  "填入推荐地址": { "zh-Hant": "填入推薦位址", en: "Use recommended URL", ja: "推奨 URL を入力", ko: "추천 주소 입력" },
   "显示/隐藏": { "zh-Hant": "顯示/隱藏", en: "Show/Hide", ja: "表示/非表示", ko: "표시/숨김" },
   "模型": { "zh-Hant": "模型", en: "Model", ja: "モデル", ko: "모델" },
   "从 API 检测可用模型": { "zh-Hant": "從 API 偵測可用模型", en: "Detect available models from API", ja: "API から利用可能なモデルを検出", ko: "API에서 사용 가능한 모델 감지" },
@@ -1113,7 +1115,7 @@ dom.toggleKey.addEventListener("click", () => {
 });
 
 // ─── 默认值 ────────────────────────────────────────────────
-if (!config.endpoint) dom.apiEndpoint.placeholder = "https://jeniya.top 或 https://grsai.com";
+if (!config.endpoint) dom.apiEndpoint.placeholder = "https://grsai.dakka.com.cn";
 if (!config.model)   dom.model.placeholder = "gpt-image-2";
 
 // 端点变化时自动检测平台并加载对应模型
@@ -1163,6 +1165,11 @@ dom.sideRail?.addEventListener("click", (e) => {
 
 // 头部导出按钮（侧栏移除后的导出入口，保留 data-rail-action 以兼容回归用例）
 $("#exportBtn")?.addEventListener("click", () => void handleExportAction());
+
+// GrsAI 推荐地址一键填入
+$("#useGrsaiEndpoint")?.addEventListener("click", () => {
+  if (dom.apiEndpoint) { dom.apiEndpoint.value = "https://grsai.dakka.com.cn"; dom.apiEndpoint.focus(); }
+});
 
 function getExportableHistoryCount() {
   return loadHistory().filter(item => {

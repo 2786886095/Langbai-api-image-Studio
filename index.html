@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260630-redesign">
+  <link rel="stylesheet" href="style.css?v=20260630-grsai">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,7 +51,12 @@
             </label>
             <label class="field">
               <span>API 地址</span>
-              <input type="url" id="apiEndpoint" placeholder="https://jeniya.top 或 https://grsai.com">
+              <input type="url" id="apiEndpoint" placeholder="https://grsai.dakka.com.cn">
+              <small class="field-hint grsai-tip">
+                <span>推荐使用 GrsAI 第三方 API</span>
+                <a href="https://grsai.com/zh/dashboard/announcements" target="_blank" rel="noopener">grsai.com</a>
+                <button type="button" id="useGrsaiEndpoint" class="btn btn-xs">填入推荐地址</button>
+              </small>
             </label>
             <label class="field">
               <span>API Key</span>
@@ -373,6 +378,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260630-redesign"></script>
+  <script src="app.js?v=20260630-grsai"></script>
 </body>
 </html>
