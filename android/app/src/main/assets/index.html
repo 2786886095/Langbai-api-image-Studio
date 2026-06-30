@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260630-1-0-0">
+  <link rel="stylesheet" href="style.css?v=20260630-1-0-1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,13 +18,25 @@
     <!-- 头部 -->
     <header class="header">
       <div class="header-actions">
-        <select id="languageSelect" class="language-select" title="界面语言" data-no-i18n>
-          <option value="zh-CN">简体</option>
-          <option value="zh-Hant">繁體</option>
-          <option value="en">EN</option>
-          <option value="ja">日本語</option>
-          <option value="ko">한국어</option>
-        </select>
+        <div class="language-control" id="languageControl">
+          <select id="languageSelect" class="language-select" title="界面语言" data-no-i18n hidden>
+            <option value="zh-CN">简体</option>
+            <option value="zh-Hant">繁體</option>
+            <option value="en">EN</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+          </select>
+          <button type="button" id="languageMenuButton" class="language-button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="languageCurrent">简体</span>
+          </button>
+          <div id="languageMenu" class="language-menu hidden" role="listbox" aria-label="界面语言">
+            <button type="button" class="language-option" role="option" data-lang="zh-CN">简体</button>
+            <button type="button" class="language-option" role="option" data-lang="zh-Hant">繁體</button>
+            <button type="button" class="language-option" role="option" data-lang="en">EN</button>
+            <button type="button" class="language-option" role="option" data-lang="ja">日本語</button>
+            <button type="button" class="language-option" role="option" data-lang="ko">한국어</button>
+          </div>
+        </div>
         <button type="button" id="historyBtn" class="icon-btn" title="查看生图记录"><span class="ui-icon ui-icon-history"></span></button>
         <button type="button" id="exportBtn" class="icon-btn hidden" title="导出 ZIP"><span class="ui-icon ui-icon-zip"></span></button>
         <button type="button" id="settingsBtn" class="icon-btn" title="设置"><span class="ui-icon ui-icon-settings"></span></button>
@@ -392,6 +404,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260630-1-0-0"></script>
+  <script src="app.js?v=20260630-1-0-1"></script>
 </body>
 </html>

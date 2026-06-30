@@ -518,6 +518,16 @@ function applyCleanLanguage() {
     });
     dom.languageSelect.title = "Language";
   }
+  if (dom.languageCurrent) dom.languageCurrent.textContent = langNames[currentLanguage] || cleanText("langZh");
+  if (dom.languageMenu) {
+    Object.entries(langNames).forEach(([value, label]) => {
+      const option = dom.languageMenu.querySelector(`[data-lang="${value}"]`);
+      if (!option) return;
+      option.textContent = label;
+      option.classList.toggle("active", value === currentLanguage);
+      option.setAttribute("aria-selected", value === currentLanguage ? "true" : "false");
+    });
+  }
 
   document.title = cleanText("appTitle");
   const appNameMeta = document.querySelector('meta[name="application-name"]');
@@ -651,6 +661,26 @@ function initI18n() {
     dom.languageSelect.title = tr("界面语言");
     dom.languageSelect.addEventListener("change", () => applyLanguage(dom.languageSelect.value));
   }
+  dom.languageMenuButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isOpen = !dom.languageMenu?.classList.contains("hidden");
+    setLanguageMenuOpen(!isOpen);
+  });
+  dom.languageMenu?.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-lang]");
+    if (!option) return;
+    event.preventDefault();
+    event.stopPropagation();
+    applyLanguage(option.dataset.lang);
+    setLanguageMenuOpen(false);
+  });
+  document.addEventListener("click", (event) => {
+    if (!dom.languageControl?.contains(event.target)) setLanguageMenuOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setLanguageMenuOpen(false);
+  });
   applyLanguage(currentLanguage);
 
   const observer = new MutationObserver(mutations => {
@@ -676,6 +706,13 @@ function initI18n() {
   });
 }
 
+function setLanguageMenuOpen(open) {
+  if (!dom.languageMenu || !dom.languageMenuButton) return;
+  dom.languageMenu.classList.toggle("hidden", !open);
+  dom.languageControl?.classList.toggle("is-open", open);
+  dom.languageMenuButton.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
 // ─── DOM 引用 ──────────────────────────────────────────────
 const dom = {
   // 配置
@@ -699,6 +736,7 @@ const dom = {
   openApiConfig: $("#openApiConfig"),
   quickDetectModels: $("#quickDetectModels"),
   // 模式
+  inputPanel:    $(".input-panel"),
   modeTabs:      $("#modeTabs"),
   sideRail:      $("#sideRail"),
   // 全局输入
@@ -759,6 +797,10 @@ const dom = {
   // 主题
   themeToggle:   $("#themeToggle"),
   languageSelect:$("#languageSelect"),
+  languageControl:$("#languageControl"),
+  languageMenuButton:$("#languageMenuButton"),
+  languageCurrent:$("#languageCurrent"),
+  languageMenu:  $("#languageMenu"),
   // 设置
   settingsBtn:   $("#settingsBtn"),
   settingsModal: $("#settingsModal"),
@@ -790,6 +832,35 @@ let referenceImages = [];       // { file, dataUrl, width, height } —— 多�
 let generatedImageUrls = [];
 let appWasBackgrounded = false;
 let retryAllFailedInProgress = false;
+
+function getScrollableAncestor(node) {
+  let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+  while (el && el !== document.body && el !== document.documentElement) {
+    const style = getComputedStyle(el);
+    const canScroll = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2;
+    if (canScroll) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function installGlobalWheelScrollBridge() {
+  window.addEventListener("wheel", event => {
+    if (event.defaultPrevented) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const activeScroller = getScrollableAncestor(event.target);
+    if (activeScroller) return;
+    const panel = dom.inputPanel;
+    if (!panel || panel.scrollHeight <= panel.clientHeight + 2) return;
+    const max = panel.scrollHeight - panel.clientHeight;
+    const next = Math.max(0, Math.min(max, panel.scrollTop + event.deltaY));
+    if (next === panel.scrollTop) return;
+    panel.scrollTop = next;
+    event.preventDefault();
+  }, { passive: false });
+}
+
+installGlobalWheelScrollBridge();
 
 // ─── 配置管理 ──────────────────────────────────────────────
 const STORAGE_KEY = "ai_image_gen_config";
