@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a12">
+  <meta name="application-name" content="AI 图片生成器">
+  <title>AI 图片生成器</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css?v=20260630-redesign">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="assets/icons/mascot-app-icon.png" type="image/png">
+</head>
+<body>
+  <div class="app">
+    <!-- 头部 -->
+    <header class="header">
+      <div class="header-actions">
+        <select id="languageSelect" class="language-select" title="界面语言" data-no-i18n>
+          <option value="zh-CN">简体</option>
+          <option value="zh-Hant">繁體</option>
+          <option value="en">EN</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+        </select>
+        <button type="button" id="historyBtn" class="icon-btn" title="查看生图记录"><span class="ui-icon ui-icon-history"></span></button>
+        <button type="button" id="exportBtn" class="icon-btn" title="导出 ZIP"><span class="ui-icon ui-icon-zip"></span></button>
+        <button type="button" id="settingsBtn" class="icon-btn" title="设置"><span class="ui-icon ui-icon-settings"></span></button>
+        <button type="button" id="themeToggle" class="icon-btn" title="切换主题"><span class="ui-icon ui-icon-moon"></span></button>
+      </div>
+      <h1><span class="brand-mark"><img class="brand-logo" src="assets/icons/mascot-avatar.png" alt=""></span>AI 图片生成器</h1>
+      <p class="subtitle">单图生成 · 漫画分镜批量生成</p>
+    </header>
+
+    <div class="main-layout">
+      <!-- 左侧：输入区 -->
+      <aside class="input-panel">
+
+        <!-- API 配置 -->
+        <details class="config-section" id="configSection">
+          <summary class="config-toggle"><span class="ui-icon ui-icon-settings"></span> API 配置</summary>
+          <div class="config-body">
+            <label class="field">
+              <span>已保存的 API</span>
+              <div class="saved-api-row">
+                <select id="savedApis"><option value="">— 手动填写 —</option></select>
+                <button type="button" id="deleteSavedApi" class="btn btn-xs btn-danger" title="删除当前配置"><span class="ui-icon ui-icon-trash"></span></button>
+              </div>
+            </label>
+            <label class="field">
+              <span>API 地址</span>
+              <input type="url" id="apiEndpoint" placeholder="https://jeniya.top 或 https://grsai.com">
+            </label>
+            <label class="field">
+              <span>API Key</span>
+              <div class="password-wrap">
+                <input type="password" id="apiKey" placeholder="sk-...">
+                <button type="button" id="toggleKey" title="显示/隐藏"><span class="ui-icon ui-icon-eye"></span></button>
+              </div>
+            </label>
+            <label class="field">
+              <span>模型</span>
+              <div class="model-input-row">
+                <input type="text" id="model" placeholder="gpt-image-2 / dall-e-3" list="modelList">
+                <datalist id="modelList">
+                  <option value="gpt-image-2">
+                  <option value="dall-e-3">
+                  <option value="dall-e-2">
+                  <option value="flux-1.1-pro">
+                  <option value="flux-dev">
+                  <option value="stable-diffusion-3.5-large">
+                  <option value="midjourney-v7">
+                </datalist>
+                <button type="button" id="detectModels" class="btn btn-xs" title="从 API 检测可用模型"><span class="ui-icon ui-icon-search"></span> 检测</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>电脑端代理地址 <em class="optional">(可选，用于解决浏览器 CORS)</em></span>
+              <input type="url" id="proxyEndpoint" placeholder="http://127.0.0.1:8787/proxy">
+            </label>
+            <button type="button" id="saveConfig" class="btn btn-sm"><span class="ui-icon ui-icon-save"></span> 保存配置</button>
+          </div>
+        </details>
+
+        <section class="api-quick-card" id="apiQuickCard">
+          <div class="api-quick-main">
+            <span class="api-state-dot" id="apiStateDot"></span>
+            <div class="api-quick-copy">
+              <strong id="apiQuickTitle">API 未接入</strong>
+              <span id="apiQuickMeta">点击接入 API 后填写地址、Key 和模型</span>
+            </div>
+          </div>
+          <div class="api-quick-actions">
+            <button type="button" id="openApiConfig" class="btn btn-xs">
+              <span class="ui-icon ui-icon-settings"></span>
+              <span data-clean="connectApi">接入 API</span>
+            </button>
+            <button type="button" id="quickDetectModels" class="btn btn-xs">
+              <span class="ui-icon ui-icon-search"></span>
+              <span data-clean="apiDetect">检测</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ========== 模式切换 ========== -->
+        <div class="mode-tabs" id="modeTabs">
+          <button type="button" class="mode-tab active" data-mode="single"><span class="ui-icon ui-icon-image"></span> 单图模式</button>
+          <button type="button" class="mode-tab" data-mode="comic"><span class="ui-icon ui-icon-comic"></span> 漫画分镜</button>
+        </div>
+
+        <!-- ========== 全局配置（两种模式共用） ========== -->
+        <!-- 全局提示词 -->
+        <label class="field" id="globalPromptField">
+          <span class="field-label-text">全局提示词</span>
+          <div class="textarea-toolbar">
+            <button type="button" id="importTxt" class="btn btn-xs" title="导入 txt 文件作为参考（支持多选）"><span class="ui-icon ui-icon-file"></span> 导入 txt</button>
+            <input type="file" id="txtFileInput" accept="text/plain,.txt" hidden multiple>
+          </div>
+          <textarea id="prompt" rows="4" placeholder="描述你想生成的图片，越详细越好……&#10;&#10;例如：一只橘猫坐在窗台上，阳光透过纱帘洒在它身上，油画风格，暖色调"></textarea>
+          <div class="badge-list hidden" id="txtFileBadges"></div>
+          <span class="field-hint" id="promptHint"></span>
+        </label>
+
+        <!-- 全局参考图片 -->
+        <div class="field compact-reference-field" id="referenceField">
+          <span>全局参考图片 <em class="optional">(可选，支持多选)</em></span>
+          <div class="image-upload" id="imageUpload">
+            <input type="file" id="refImage" accept="image/png,image/jpeg,image/webp,image/gif" hidden multiple>
+            <div class="upload-zone" id="uploadZone">
+              <span class="upload-icon"><span class="ui-icon ui-icon-image"></span></span>
+              <span>点击或拖拽上传参考图（可多选）</span>
+            </div>
+            <div class="thumb-grid hidden" id="thumbGrid"></div>
+          </div>
+          <!-- 原图尺寸开关 -->
+          <label class="checkbox-field" id="useOrigSizeToggle">
+            <input type="checkbox" id="useOrigSize">
+            <span><span class="ui-icon ui-icon-size"></span> 输出尺寸与参考图一致</span>
+          </label>
+        </div>
+
+        <!-- 全局分辨率 -->
+        <fieldset class="field">
+          <legend>全局分辨率</legend>
+          <div class="size-presets" id="sizePresets">
+            <label class="size-option"><input type="radio" name="size" value="1024x1024"><span>1024²</span><small>1:1</small></label>
+            <label class="size-option"><input type="radio" name="size" value="1536x1024" checked><span>1536×1024</span><small>横版 3:2</small></label>
+            <label class="size-option"><input type="radio" name="size" value="1024x1536"><span>1024×1536</span><small>竖版 2:3</small></label>
+            <label class="size-option size-custom">
+              <input type="radio" name="size" value="custom">
+              <span>自定义</span>
+              <span class="custom-size-row">
+                <input type="number" id="customWidth" class="custom-size-num" placeholder="宽" min="64" max="4096">
+                <span class="custom-size-x">×</span>
+                <input type="number" id="customHeight" class="custom-size-num" placeholder="高" min="64" max="4096">
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- ========== 单图模式专属：生成数量 ========== -->
+        <label class="field single-only" id="nImagesField">
+          <span>生成数量</span>
+          <div class="n-images-row">
+            <select id="nImages">
+              <option value="1">1 张</option>
+              <option value="2">2 张</option>
+              <option value="3">3 张</option>
+              <option value="4">4 张</option>
+            </select>
+            <label class="checkbox-inline" id="sequentialToggle">
+              <input type="checkbox" id="sequentialMode">
+              <span>依次生成</span>
+            </label>
+          </div>
+        </label>
+
+        <!-- ========== 漫画分镜模式专属：分镜表格 ========== -->
+        <div class="comic-only hidden" id="comicPanelSection">
+          <div class="section-header">
+            <span><span class="ui-icon ui-icon-comic"></span> 分镜列表</span>
+            <div class="section-actions">
+              <button type="button" id="addPanel" class="btn btn-sm"><span class="ui-icon ui-icon-plus"></span> 添加分镜</button>
+              <button type="button" id="clearPanels" class="btn btn-sm btn-danger">清空</button>
+            </div>
+          </div>
+          <div class="panel-tools">
+            <div class="tool-group">
+              <span class="tool-label">批量创建</span>
+              <label class="panel-count-control" title="设置要创建的分镜总数">
+                <span>分镜数</span>
+                <input type="number" id="panelCount" min="1" max="100" value="4">
+              </label>
+              <button type="button" id="createPanels" class="btn btn-sm">创建</button>
+            </div>
+            <div class="tool-group tool-group-fill">
+              <span class="tool-label">一键填写</span>
+              <select id="autoFillTemplate" class="auto-fill-select" title="一键填写模板">
+                <option value="panel-output">输出分镜 N 的图片</option>
+                <option value="ref-bubble-number">参考图 N 加编号气泡</option>
+                <option value="ref-caption-number">参考图 N 加文字编号</option>
+                <option value="custom">自定义模板...</option>
+              </select>
+              <button type="button" id="autoFillPanels" class="btn btn-sm"><span class="ui-icon ui-icon-spark"></span> 填入</button>
+            </div>
+          </div>
+          <div class="panel-table-wrap">
+            <table class="panel-table" id="panelTable">
+              <thead>
+                <tr>
+                  <th class="col-num">#</th>
+                  <th class="col-prompt">分镜提示词</th>
+                  <th class="col-size">分辨率</th>
+                  <th class="col-retry">重试</th>
+                  <th class="col-img">参考图</th>
+                  <th class="col-act"></th>
+                </tr>
+              </thead>
+              <tbody id="panelTbody"></tbody>
+            </table>
+          </div>
+          <p class="field-hint">分镜提示词会拼接在全局提示词之后一起发送</p>
+        </div>
+
+        <!-- ========== 进度条（批量生成用） ========== -->
+        <div class="progress-wrap hidden" id="progressWrap">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <span class="progress-text" id="progressText">0 / 0</span>
+        </div>
+
+        <!-- 生成按钮 -->
+        <button type="button" id="generateBtn" class="btn btn-primary">
+          <span class="ui-icon ui-icon-spark"></span> 生成图片
+        </button>
+
+        <!-- 状态提示 -->
+        <div class="status hidden" id="status"></div>
+      </aside>
+
+      <!-- 右侧：结果区 -->
+      <main class="result-panel">
+        <div class="result-toolbar hidden" id="resultToolbar">
+          <div class="download-paths">
+            <button type="button" id="chooseImageDir" class="btn btn-sm"><span class="ui-icon ui-icon-image"></span> 图片目录</button>
+            <span id="imageDirLabel" class="path-label">未选择</span>
+            <button type="button" id="chooseZipDir" class="btn btn-sm"><span class="ui-icon ui-icon-zip"></span> ZIP 目录</button>
+            <span id="zipDirLabel" class="path-label">未选择</span>
+          </div>
+          <input type="text" id="zipFileName" placeholder="压缩包名称（可选）…" class="zip-name-input">
+          <button type="button" id="downloadZip" class="btn btn-sm"><span class="ui-icon ui-icon-zip"></span> 打包下载 ZIP</button>
+          <button type="button" id="clearResults" class="btn btn-sm btn-danger">清空结果</button>
+          <div class="retry-failed-tools hidden" id="retryFailedTools">
+            <label class="retry-failed-count">
+              <span>失败重试次数</span>
+              <input type="number" id="failedRetryCount" min="0" max="10" step="1" value="3">
+            </label>
+            <button type="button" id="retryFailedAll" class="btn btn-sm"><span class="ui-icon ui-icon-retry"></span> 全部失败重试</button>
+          </div>
+          <div class="download-progress hidden" id="downloadProgress">
+            <div class="download-progress-bar"><div id="downloadProgressFill"></div></div>
+            <span id="downloadProgressText">准备下载…</span>
+          </div>
+        </div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon"><img class="empty-mascot" src="assets/icons/mascot-empty.png" alt=""></div>
+          <h3>生成的图片将显示在这里</h3>
+          <p>在左侧输入提示词，点击「生成图片」开始</p>
+        </div>
+        <div class="result-grid hidden" id="resultGrid"></div>
+        <div class="loading-overlay hidden" id="loadingOverlay">
+          <div class="spinner"></div>
+          <p id="loadingText">正在生成中……</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 设置弹层 -->
+  <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="settingsTitle">设置</h2>
+        <button type="button" class="icon-btn" id="closeSettings" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+      </div>
+      <div class="settings-grid">
+        <section class="settings-section download-settings">
+          <h3>下载路径</h3>
+          <p class="field-hint">安卓端会调用系统目录选择器并持久授权；电脑浏览器端使用浏览器默认下载目录。</p>
+          <div class="setting-row">
+            <div>
+              <strong>图片保存目录</strong>
+              <div id="settingsImageDirLabel" class="path-label">未选择</div>
+            </div>
+            <button type="button" id="settingsChooseImageDir" class="btn btn-sm">选择目录</button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <strong>压缩包保存目录</strong>
+              <div id="settingsZipDirLabel" class="path-label">未选择</div>
+            </div>
+            <button type="button" id="settingsChooseZipDir" class="btn btn-sm">选择目录</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>历史记录</h3>
+          <label class="checkbox-field">
+            <input type="checkbox" id="historyEnabled" checked>
+            <span>自动保存成功生成的图片记录</span>
+          </label>
+          <label class="field">
+            <span>最多保留记录数</span>
+            <input type="number" id="historyLimit" min="20" max="500" step="10" value="100">
+          </label>
+          <button type="button" id="clearHistory" class="btn btn-sm btn-danger">清空全部记录</button>
+        </section>
+
+        <section class="settings-section">
+          <h3>自动重试</h3>
+          <label class="field">
+            <span>全局重试次数</span>
+            <input type="number" id="retryCount" min="0" max="10" step="1" value="3">
+          </label>
+          <p class="field-hint">只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- 生图记录弹层 -->
+  <div class="modal hidden" id="historyModal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <div>
+          <h2 id="historyTitle">生图记录</h2>
+          <p class="field-hint">按日期倒序排列，数据保存在本机 localStorage。</p>
+        </div>
+        <button type="button" class="icon-btn" id="closeHistory" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+      </div>
+      <div class="history-toolbar">
+        <input type="search" id="historySearch" placeholder="搜索提示词 / 模型 / 日期">
+        <button type="button" id="refreshHistory" class="btn btn-sm">刷新</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+  </div>
+
+  <!-- 隐藏的模板：分镜行 -->
+  <template id="panelRowTemplate">
+    <tr class="panel-row">
+      <td class="col-num"><span class="panel-num"></span></td>
+      <td class="col-prompt"><textarea rows="2" placeholder="该分镜的专属提示词…"></textarea></td>
+      <td class="col-size">
+        <input type="number" class="panel-size-w" placeholder="宽" min="64" max="4096">
+        <span class="panel-size-x">×</span>
+        <input type="number" class="panel-size-h" placeholder="高" min="64" max="4096">
+      </td>
+      <td class="col-retry">
+        <input type="number" class="panel-retry-count" placeholder="继承" min="0" max="10" step="1" title="该分镜自动重试次数，留空继承全局">
+      </td>
+      <td class="col-img">
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden class="panel-img-input">
+        <button type="button" class="btn btn-xs panel-img-btn" title="上传参考图"><span class="ui-icon ui-icon-image"></span></button>
+        <span class="panel-img-preview hidden"></span>
+        <span class="panel-img-name"></span>
+        <button type="button" class="btn-clear panel-img-clear hidden" title="清除"><span class="ui-icon ui-icon-x"></span></button>
+      </td>
+      <td class="col-act"><button type="button" class="btn btn-xs btn-danger delete-panel" title="删除分镜"><span class="ui-icon ui-icon-trash"></span></button></td>
+    </tr>
+  </template>
+
+  <script src="app.js?v=20260630-redesign"></script>
+</body>
+</html>

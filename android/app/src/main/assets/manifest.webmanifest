@@ -1,0 +1,26 @@
+{
+  "name": "AI 图片生成器",
+  "short_name": "AI 生图",
+  "description": "Single image and comic storyboard generation workspace.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101310",
+  "theme_color": "#101310",
+  "categories": ["productivity", "graphics", "utilities"],
+  "icons": [
+    {
+      "src": "assets/icons/mascot-app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/mascot-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
