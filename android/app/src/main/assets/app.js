@@ -173,8 +173,11 @@ const CLEAN_LOCALES = {
     appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜批量生成",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
-    apiSettings: "API 配置", savedApis: "已保存的 API", manualApi: "手动填写",
-    apiUrl: "API 地址", model: "模型", detect: "检测", proxy: "电脑端代理地址", saveConfig: "保存配置",
+    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
+    savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
+    apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
+    apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
+    model: "模型", detect: "检测", proxy: "电脑端代理地址", saveConfig: "保存配置",
     connectApi: "接入 API", apiDetect: "检测", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "点击接入 API 后填写地址、Key 和模型",
     singleMode: "单图模式", comicMode: "漫画分镜", prompt: "提示词", globalPrompt: "全局提示词",
@@ -182,7 +185,7 @@ const CLEAN_LOCALES = {
     promptPlaceholder: "描述你想生成的图片，越详细越好……\n\n例如：一只橘猫坐在窗台上，阳光透过纱帘洒在它身上，油画风格，暖色调",
     globalRefs: "全局参考图片（可选，支持多选）", uploadRefs: "点击或拖拽上传参考图（可多选）",
     matchSize: "输出尺寸与参考图一致", resolution: "全局分辨率", landscape: "横版 3:2", portrait: "竖版 2:3",
-    custom: "自定义", width: "宽", height: "高", imageCount: "生成数量", sequential: "依次生成",
+    custom: "自定义", width: "宽", height: "高", savedSizes: "常用尺寸", saveSizePreset: "保存尺寸", deleteSizePreset: "删除常用尺寸", imageCount: "生成数量", sequential: "依次生成",
     panelList: "分镜列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜",
@@ -207,8 +210,11 @@ const CLEAN_LOCALES = {
     appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡批次生成",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
-    apiSettings: "API 設定", savedApis: "已儲存的 API", manualApi: "手動填寫",
-    apiUrl: "API 位址", model: "模型", detect: "偵測", proxy: "桌面代理位址", saveConfig: "儲存設定",
+    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
+    savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
+    apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
+    apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
+    model: "模型", detect: "偵測", proxy: "桌面代理位址", saveConfig: "儲存設定",
     connectApi: "接入 API", apiDetect: "偵測", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "點擊接入 API 後填寫位址、Key 和模型",
     singleMode: "單圖模式", comicMode: "漫畫分鏡", prompt: "提示詞", globalPrompt: "全域提示詞",
@@ -216,7 +222,7 @@ const CLEAN_LOCALES = {
     promptPlaceholder: "描述你想生成的圖片，越詳細越好……\n\n例如：一隻橘貓坐在窗台上，陽光透過紗簾灑在牠身上，油畫風格，暖色調",
     globalRefs: "全域參考圖片（可選，支援多選）", uploadRefs: "點擊或拖曳上傳參考圖（可多選）",
     matchSize: "輸出尺寸與參考圖一致", resolution: "全域解析度", landscape: "橫版 3:2", portrait: "直版 2:3",
-    custom: "自訂", width: "寬", height: "高", imageCount: "生成數量", sequential: "依序生成",
+    custom: "自訂", width: "寬", height: "高", savedSizes: "常用尺寸", saveSizePreset: "儲存尺寸", deleteSizePreset: "刪除常用尺寸", imageCount: "生成數量", sequential: "依序生成",
     panelList: "分鏡列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡",
@@ -241,8 +247,11 @@ const CLEAN_LOCALES = {
     appTitle: "AI Image Generator", subtitle: "Single images · Batch comic storyboards",
     web: "Web/PWA", desktop: "Desktop", android: "Android",
     create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
-    apiSettings: "API Settings", savedApis: "Saved APIs", manualApi: "Manual entry",
-    apiUrl: "API URL", model: "Model", detect: "Detect", proxy: "Desktop proxy URL", saveConfig: "Save config",
+    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
+    savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
+    apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
+    apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
+    model: "Model", detect: "Detect", proxy: "Desktop proxy URL", saveConfig: "Save config",
     connectApi: "Connect API", apiDetect: "Detect", apiConnected: "API connected", apiDisconnected: "API not connected",
     apiConnectHint: "Connect an API, then enter URL, key, and model",
     singleMode: "Single Image", comicMode: "Comic Panels", prompt: "Prompt", globalPrompt: "Global Prompt",
@@ -250,7 +259,7 @@ const CLEAN_LOCALES = {
     promptPlaceholder: "Describe the image you want to generate. More detail is better...\n\nExample: an orange cat on a windowsill, sunlight through sheer curtains, oil painting style, warm tones",
     globalRefs: "Global reference images (optional, multiple)", uploadRefs: "Click or drag to upload reference images",
     matchSize: "Match output size to reference", resolution: "Global Resolution", landscape: "Landscape 3:2", portrait: "Portrait 2:3",
-    custom: "Custom", width: "W", height: "H", imageCount: "Image Count", sequential: "Generate sequentially",
+    custom: "Custom", width: "W", height: "H", savedSizes: "Saved sizes", saveSizePreset: "Save size", deleteSizePreset: "Delete saved size", imageCount: "Image Count", sequential: "Generate sequentially",
     panelList: "Panel List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels",
@@ -275,8 +284,11 @@ const CLEAN_LOCALES = {
     appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画ストーリーボード一括生成",
     web: "Web/PWA", desktop: "デスクトップ", android: "Android",
     create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
-    apiSettings: "API 設定", savedApis: "保存済み API", manualApi: "手動入力",
-    apiUrl: "API URL", model: "モデル", detect: "検出", proxy: "デスクトッププロキシ URL", saveConfig: "設定を保存",
+    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
+    savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
+    apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
+    apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
+    model: "モデル", detect: "検出", proxy: "デスクトッププロキシ URL", saveConfig: "設定を保存",
     connectApi: "API 接続", apiDetect: "検出", apiConnected: "API 接続済み", apiDisconnected: "API 未接続",
     apiConnectHint: "API 接続後、URL、Key、モデルを入力してください",
     singleMode: "単体画像", comicMode: "漫画コマ", prompt: "プロンプト", globalPrompt: "全体プロンプト",
@@ -284,7 +296,7 @@ const CLEAN_LOCALES = {
     promptPlaceholder: "生成したい画像を詳しく説明してください...\n\n例：窓辺のオレンジ色の猫、薄いカーテン越しの光、油絵風、暖色",
     globalRefs: "全体参考画像（任意・複数可）", uploadRefs: "クリックまたはドラッグで参考画像をアップロード",
     matchSize: "出力サイズを参考画像に合わせる", resolution: "全体解像度", landscape: "横 3:2", portrait: "縦 2:3",
-    custom: "カスタム", width: "幅", height: "高", imageCount: "生成数", sequential: "順番に生成",
+    custom: "カスタム", width: "幅", height: "高", savedSizes: "保存サイズ", saveSizePreset: "サイズ保存", deleteSizePreset: "保存サイズ削除", imageCount: "生成数", sequential: "順番に生成",
     panelList: "コマ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成",
@@ -309,8 +321,11 @@ const CLEAN_LOCALES = {
     appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 콘티 일괄 생성",
     web: "Web/PWA", desktop: "데스크톱", android: "Android",
     create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
-    apiSettings: "API 설정", savedApis: "저장된 API", manualApi: "직접 입력",
-    apiUrl: "API URL", model: "모델", detect: "감지", proxy: "데스크톱 프록시 URL", saveConfig: "설정 저장",
+    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
+    savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
+    apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
+    apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
+    model: "모델", detect: "감지", proxy: "데스크톱 프록시 URL", saveConfig: "설정 저장",
     connectApi: "API 연결", apiDetect: "감지", apiConnected: "API 연결됨", apiDisconnected: "API 미연결",
     apiConnectHint: "API를 연결한 뒤 URL, Key, 모델을 입력하세요",
     singleMode: "단일 이미지", comicMode: "만화 콘티", prompt: "프롬프트", globalPrompt: "전체 프롬프트",
@@ -318,7 +333,7 @@ const CLEAN_LOCALES = {
     promptPlaceholder: "생성할 이미지를 자세히 설명하세요...\n\n예: 창가에 앉은 주황색 고양이, 커튼 사이로 비치는 햇빛, 유화 스타일, 따뜻한 톤",
     globalRefs: "전체 참고 이미지(선택, 다중)", uploadRefs: "클릭하거나 드래그해 참고 이미지 업로드",
     matchSize: "출력 크기를 참고 이미지와 맞춤", resolution: "전체 해상도", landscape: "가로 3:2", portrait: "세로 2:3",
-    custom: "사용자 지정", width: "너비", height: "높이", imageCount: "생성 수", sequential: "순차 생성",
+    custom: "사용자 지정", width: "너비", height: "높이", savedSizes: "저장 크기", saveSizePreset: "크기 저장", deleteSizePreset: "저장 크기 삭제", imageCount: "생성 수", sequential: "순차 생성",
     panelList: "콘티 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성",
@@ -501,7 +516,7 @@ function applyCleanLanguage() {
       const option = dom.languageSelect.querySelector(`option[value="${value}"]`);
       if (option) option.textContent = label;
     });
-    dom.languageSelect.title = cleanText("settings");
+    dom.languageSelect.title = "Language";
   }
 
   document.title = cleanText("appTitle");
@@ -518,13 +533,27 @@ function applyCleanLanguage() {
   setText(".subtitle", "subtitle");
 
   setIconLabel("#configSection .config-toggle", "settings", "apiSettings");
-  setText("#configSection .field:nth-child(1) > span", "savedApis");
+  setText("#apiProviderField > span", "apiProvider");
+  const providerLabels = {
+    official: "officialApi",
+    grsai: "grsaiImageApi",
+    custom: "customApi",
+  };
+  Object.entries(providerLabels).forEach(([value, key]) => {
+    const option = dom.apiProvider?.querySelector(`option[value="${value}"]`);
+    if (option) option.textContent = cleanText(key);
+  });
+  setText("#apiProviderHint", "apiProviderHint");
+  setText("#savedApiField > span", "savedApis");
   const manual = dom.savedApis?.querySelector('option[value=""]');
   if (manual) manual.textContent = cleanText("manualApi");
-  setText("#configSection .field:nth-child(2) > span", "apiUrl");
-  setText("#configSection .field:nth-child(4) > span", "model");
+  setButtonText(dom.setDefaultApi, "save", "setDefaultApi");
+  setText("#apiEndpointField > span", "apiUrl");
+  setText(".grsai-tip span", "grsaiWebsite");
+  setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
+  setText("#modelField > span", "model");
   setButtonText(dom.detectModels, "search", "detect");
-  setText("#configSection .field:nth-child(5) > span", "proxy");
+  setText("#proxyEndpointField > span", "proxy");
   setButtonText(dom.saveConfig, "save", "saveConfig");
   setButtonText(dom.openApiConfig, "settings", "connectApi");
   setButtonText(dom.quickDetectModels, "search", "apiDetect");
@@ -546,6 +575,10 @@ function applyCleanLanguage() {
   setText(".size-custom > span:first-of-type", "custom");
   setAttr("#customWidth", "placeholder", "width");
   setAttr("#customHeight", "placeholder", "height");
+  const savedSizesFirstOption = dom.savedSizes?.querySelector('option[value=""]');
+  if (savedSizesFirstOption) savedSizesFirstOption.textContent = cleanText("savedSizes");
+  setButtonText(dom.saveSizePreset, "save", "saveSizePreset");
+  if (dom.deleteSizePreset) dom.deleteSizePreset.title = cleanText("deleteSizePreset");
   setText("#nImagesField > span", "imageCount");
   setText("#sequentialToggle > span", "sequential");
 
@@ -602,8 +635,11 @@ function applyLanguage(lang) {
   isApplyingLanguage = true;
   try {
     refreshLocalizedUiState();
-    translateElement(document.body);
     applyCleanLanguage();
+    renderSavedApis();
+    renderSavedSizes?.();
+    updateApiProviderHint(dom.apiProvider?.value || "custom");
+    updateApiQuickState();
   } finally {
     isApplyingLanguage = false;
   }
@@ -643,6 +679,7 @@ function initI18n() {
 // ─── DOM 引用 ──────────────────────────────────────────────
 const dom = {
   // 配置
+  apiProvider:   $("#apiProvider"),
   apiEndpoint:   $("#apiEndpoint"),
   apiKey:        $("#apiKey"),
   model:         $("#model"),
@@ -651,6 +688,7 @@ const dom = {
   detectModels:  $("#detectModels"),
   saveConfig:    $("#saveConfig"),
   savedApis:     $("#savedApis"),
+  setDefaultApi: $("#setDefaultApi"),
   deleteSavedApi:$("#deleteSavedApi"),
   toggleKey:     $("#toggleKey"),
   configSection: $("#configSection"),
@@ -674,6 +712,9 @@ const dom = {
   useOrigSize:   $("#useOrigSize"),
   customWidth:   $("#customWidth"),
   customHeight:  $("#customHeight"),
+  savedSizes:    $("#savedSizes"),
+  saveSizePreset:$("#saveSizePreset"),
+  deleteSizePreset:$("#deleteSizePreset"),
   txtFileBadges: $("#txtFileBadges"),
   // 单图专属
   nImages:       $("#nImages"),
@@ -752,24 +793,126 @@ let retryAllFailedInProgress = false;
 
 // ─── 配置管理 ──────────────────────────────────────────────
 const STORAGE_KEY = "ai_image_gen_config";
+const DEFAULT_API_KEY = "ai_image_gen_default_api_id";
+const OFFICIAL_API_ENDPOINT = "https://api.openai.com/v1/images/generations";
+const GRSAI_SITE_URL = "https://grsai.com/zh";
+const GRSAI_API_ENDPOINT = "https://grsai.dakka.com.cn/v1/api/generate";
+const API_PROVIDER_PRESETS = {
+  official: { endpoint: OFFICIAL_API_ENDPOINT, labelKey: "officialApi" },
+  grsai: { endpoint: GRSAI_API_ENDPOINT, labelKey: "grsaiImageApi" },
+  custom: { endpoint: "", labelKey: "customApi" },
+};
 
 function loadConfig() {
-  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : {}; }
-  catch { return {}; }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const saved = raw ? JSON.parse(raw) : {};
+    if (saved?.endpoint) return saved;
+    return getDefaultApiConfig() || saved || {};
+  } catch {
+    return getDefaultApiConfig() || {};
+  }
 }
-function saveConfig(config) { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); }
+function saveConfig(config) { localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeApiConfig(config))); }
 function clearConfig() { localStorage.removeItem(STORAGE_KEY); }
+
+function makeApiId() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+  return `api_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function normalizeApiConfig(config = {}) {
+  const endpoint = String(config.endpoint || "").trim();
+  const apiProvider = config.apiProvider || config.provider || inferApiProvider(endpoint);
+  return {
+    id: config.id || makeApiId(),
+    name: config.name || readableEndpoint(endpoint) || cleanText("manualApi"),
+    apiProvider,
+    endpoint,
+    apiKey: config.apiKey || "",
+    model: config.model || "",
+    proxyEndpoint: config.proxyEndpoint || "",
+    platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(endpoint) || cleanText("customApi"),
+  };
+}
+
+function loadDefaultApiId() {
+  return localStorage.getItem(DEFAULT_API_KEY) || "";
+}
+
+function saveDefaultApiId(id) {
+  if (id) localStorage.setItem(DEFAULT_API_KEY, id);
+  else localStorage.removeItem(DEFAULT_API_KEY);
+}
+
+function getDefaultApiConfig() {
+  const id = loadDefaultApiId();
+  if (!id) return null;
+  return loadAllApis().find(api => api.id === id) || null;
+}
+
+function inferApiProvider(endpoint = "") {
+  const ep = String(endpoint).toLowerCase();
+  if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) return "grsai";
+  if (/api\.openai\.com/.test(ep)) return "official";
+  return "custom";
+}
+
+function isPresetEndpoint(endpoint = "") {
+  const clean = String(endpoint).trim().replace(/\/+$/, "");
+  return Object.values(API_PROVIDER_PRESETS).some(p => p.endpoint && p.endpoint.replace(/\/+$/, "") === clean);
+}
+
+function apiProviderLabel(provider) {
+  return cleanText(API_PROVIDER_PRESETS[provider]?.labelKey || "customApi");
+}
+
+function updateApiProviderHint(provider = dom.apiProvider?.value || "custom") {
+  if (!$("#apiProviderHint")) return;
+  const hints = {
+    official: `${cleanText("officialApi")} · ${OFFICIAL_API_ENDPOINT}`,
+    grsai: cleanText("apiProviderHint"),
+    custom: `${cleanText("customApi")} · ${cleanText("apiUrl")}`,
+  };
+  $("#apiProviderHint").textContent = hints[provider] || hints.custom;
+}
+
+function applyApiProvider(provider = "custom", options = {}) {
+  const next = API_PROVIDER_PRESETS[provider] ? provider : "custom";
+  if (dom.apiProvider) dom.apiProvider.value = next;
+  const preset = API_PROVIDER_PRESETS[next];
+  const shouldSetEndpoint = options.forceEndpoint || (!dom.apiEndpoint?.value.trim() && next !== "custom");
+  if (shouldSetEndpoint && preset.endpoint) dom.apiEndpoint.value = preset.endpoint;
+  if (next === "custom" && options.forceEndpoint && isPresetEndpoint(dom.apiEndpoint.value)) {
+    dom.apiEndpoint.value = "";
+  }
+  if (dom.apiEndpoint) {
+    dom.apiEndpoint.readOnly = next !== "custom";
+    dom.apiEndpoint.placeholder = preset.endpoint || "https://your-api.example.com/v1/images/generations";
+  }
+  updateApiProviderHint(next);
+  updateApiQuickState();
+}
+
 function applyConfig(cfg) {
-  if (cfg.endpoint) dom.apiEndpoint.value = cfg.endpoint;
+  const endpoint = cfg.endpoint || API_PROVIDER_PRESETS[cfg.apiProvider || "grsai"]?.endpoint || "";
+  applyApiProvider(cfg.apiProvider || cfg.provider || inferApiProvider(endpoint), { forceEndpoint: false });
+  if (endpoint) dom.apiEndpoint.value = endpoint;
   if (cfg.apiKey)   dom.apiKey.value = cfg.apiKey;
   if (cfg.model)    dom.model.value = cfg.model;
   if (cfg.proxyEndpoint) dom.proxyEndpoint.value = cfg.proxyEndpoint;
+  if (!cfg.model && inferApiProvider(endpoint) === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
+  updateApiQuickState();
 }
 
 function currentApiConfig(name = loadConfig().name || "") {
   const endpoint = dom.apiEndpoint.value.trim();
+  const active = loadConfig();
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   return {
+    id: active.id || makeApiId(),
     name: name || readableEndpoint(endpoint) || "未命名",
+    apiProvider: provider,
     endpoint,
     apiKey: dom.apiKey.value.trim(),
     model: dom.model.value.trim(),
@@ -812,10 +955,11 @@ function updateApiQuickState() {
       } catch {
         adapter = null;
       }
-      const platform = adapter?.name || readableEndpoint(endpoint);
+      const platform = apiProviderLabel(dom.apiProvider?.value || inferApiProvider(endpoint)) || adapter?.name || readableEndpoint(endpoint);
       dom.apiQuickMeta.textContent = `${platform} · ${model} · ${maskApiKey(apiKey)}`;
     } else {
-      dom.apiQuickMeta.textContent = cleanText("apiConnectHint");
+      const provider = apiProviderLabel(dom.apiProvider?.value || inferApiProvider(endpoint));
+      dom.apiQuickMeta.textContent = `${provider} · ${cleanText("apiConnectHint")}`;
     }
   }
 }
@@ -823,20 +967,37 @@ function updateApiQuickState() {
 const STORAGE_APIS = "ai_image_gen_apis";
 
 function loadAllApis() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]"); }
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]");
+    return Array.isArray(raw) ? raw.map(normalizeApiConfig) : [];
+  }
   catch { return []; }
 }
 function saveAllApis(list) { localStorage.setItem(STORAGE_APIS, JSON.stringify(list)); }
 
 function renderSavedApis() {
   const apis = loadAllApis();
-  dom.savedApis.innerHTML = `<option value="">${tr("— 手动填写 —")}</option>`;
-  apis.forEach((api, i) => {
+  const defaultId = loadDefaultApiId();
+  dom.savedApis.innerHTML = `<option value="">${cleanText("manualApi")}</option>`;
+  apis.forEach((api, index) => {
     const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = api.name || api.endpoint;
+    opt.value = String(index);
+    opt.dataset.apiId = api.id;
+    opt.textContent = `${api.id === defaultId ? "★ " : ""}${api.name || api.endpoint}`;
     dom.savedApis.appendChild(opt);
   });
+}
+
+function findSavedApiIndex(value, apis = loadAllApis()) {
+  if (!value && value !== 0) return -1;
+  const asString = String(value);
+  const byId = apis.findIndex(api => api.id === asString);
+  if (byId >= 0) return byId;
+  if (/^\d+$/.test(asString)) {
+    const byLegacyIndex = Number(asString);
+    if (byLegacyIndex >= 0 && byLegacyIndex < apis.length) return byLegacyIndex;
+  }
+  return -1;
 }
 
 function keepApiConfigVisible() {
@@ -849,15 +1010,12 @@ function keepApiConfigVisible() {
 }
 
 dom.savedApis.addEventListener("change", () => {
-  const idx = dom.savedApis.value;
-  if (idx === "") return;
+  const selectedId = dom.savedApis.value;
+  if (selectedId === "") return;
   const apis = loadAllApis();
-  const api = apis[idx];
+  const api = apis[findSavedApiIndex(selectedId, apis)];
   if (api) {
-    dom.apiEndpoint.value = api.endpoint || "";
-    dom.apiKey.value = api.apiKey || "";
-    dom.model.value = api.model || "";
-    dom.proxyEndpoint.value = api.proxyEndpoint || "";
+    applyConfig(api);
     saveConfig(api);
     showStatus(`已切换: ${api.name || api.endpoint}`, "info");
     updateApiQuickState();
@@ -869,37 +1027,77 @@ dom.saveConfig.addEventListener("click", () => {
   if (name === null) return;
   const cfg = currentApiConfig(name || "未命名");
   const apis = loadAllApis();
-  const existIdx = apis.findIndex(a => a.name === cfg.name);
-  const selectedIdx = existIdx >= 0 ? existIdx : apis.length;
-  if (existIdx >= 0) apis[existIdx] = cfg;
+  const selectedId = dom.savedApis.value;
+  const active = loadConfig();
+  if (!selectedId && active.id && active.endpoint !== cfg.endpoint) cfg.id = makeApiId();
+  const selectedIdx = findSavedApiIndex(selectedId, apis);
+  const existIdx = selectedIdx >= 0 ? selectedIdx : apis.findIndex(a => a.name === cfg.name);
+  if (existIdx >= 0) {
+    cfg.id = apis[existIdx].id;
+    apis[existIdx] = cfg;
+  }
   else apis.push(cfg);
   saveAllApis(apis);
   saveConfig(cfg);
   renderSavedApis();
-  dom.savedApis.value = String(selectedIdx);
+  dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
   showStatus(`已保存: ${cfg.name} ✅`, "success");
   keepApiConfigVisible();
   updateApiQuickState();
 });
 
+dom.setDefaultApi?.addEventListener("click", () => {
+  let apis = loadAllApis();
+  let cfg = apis[findSavedApiIndex(dom.savedApis.value, apis)];
+  if (!cfg) {
+    cfg = currentApiConfig(readableEndpoint(dom.apiEndpoint.value.trim()) || apiProviderLabel(dom.apiProvider?.value || "custom"));
+    const active = loadConfig();
+    if (active.id && active.endpoint !== cfg.endpoint) cfg.id = makeApiId();
+    if (!cfg.endpoint) {
+      showStatus("请先填写 API 地址，再设为默认", "error");
+      return;
+    }
+    const existingIdx = apis.findIndex(api => api.endpoint === cfg.endpoint && api.apiKey === cfg.apiKey);
+    if (existingIdx >= 0) {
+      cfg.id = apis[existingIdx].id;
+      apis[existingIdx] = cfg;
+    } else {
+      apis.push(cfg);
+    }
+    saveAllApis(apis);
+  }
+  saveDefaultApiId(cfg.id);
+  saveConfig(cfg);
+  applyConfig(cfg);
+  renderSavedApis();
+  dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  showStatus(`已设为默认 API: ${cfg.name}`, "success");
+  keepApiConfigVisible();
+});
+
 dom.deleteSavedApi.addEventListener("click", () => {
-  const idx = parseInt(dom.savedApis.value);
-  if (isNaN(idx)) return;
+  const selectedId = dom.savedApis.value;
+  if (!selectedId) return;
   const apis = loadAllApis();
+  const idx = findSavedApiIndex(selectedId, apis);
+  if (idx < 0) return;
   const deleted = apis[idx];
   const name = deleted?.name;
   if (!confirm(`删除配置「${name}」?`)) return;
   apis.splice(idx, 1);
   saveAllApis(apis);
+  if (loadDefaultApiId() === deleted?.id) saveDefaultApiId("");
   dom.savedApis.value = "";
   renderSavedApis();
   const active = loadConfig();
   const deletingActive = deleted && (
+    active.id === deleted.id ||
     active.name === deleted.name ||
     (active.endpoint && active.endpoint === deleted.endpoint && active.apiKey === deleted.apiKey)
   );
   if (deletingActive) {
     clearConfig();
+    applyApiProvider("custom", { forceEndpoint: true });
     dom.apiEndpoint.value = "";
     dom.apiKey.value = "";
     dom.model.value = "";
@@ -913,8 +1111,27 @@ dom.deleteSavedApi.addEventListener("click", () => {
 const config = loadConfig();
 applyConfig(config);
 renderSavedApis();
+if (config?.id) {
+  const idx = findSavedApiIndex(config.id, loadAllApis());
+  if (idx >= 0) dom.savedApis.value = String(idx);
+}
 dom.configSection.open = false;
 updateApiQuickState();
+
+dom.apiProvider?.addEventListener("change", () => {
+  const provider = dom.apiProvider.value;
+  applyApiProvider(provider, { forceEndpoint: true });
+  if (provider === "grsai") {
+    loadGrsaiModels();
+    dom.model.placeholder = "点击输入或检测选择模型";
+  } else if (provider === "official") {
+    dom.model.placeholder = "gpt-image-2";
+  }
+  if (dom.apiEndpoint.value.trim() || dom.apiKey.value.trim()) {
+    saveConfig(currentApiConfig());
+  }
+  updateApiQuickState();
+});
 
 dom.openApiConfig?.addEventListener("click", () => {
   keepApiConfigVisible();
@@ -1088,14 +1305,15 @@ function loadGrsaiModels() {
 dom.model.addEventListener("change", () => {
   const m = dom.model.value.trim();
   if (KNOWN_PRICES[m]) showStatus(`已选: ${m} · ${KNOWN_PRICES[m]}`, "info");
-  const idx = parseInt(dom.savedApis.value);
-  if (!isNaN(idx)) {
+  const selectedId = dom.savedApis.value;
+  if (selectedId) {
     const apis = loadAllApis();
-    if (apis[idx]) {
-      apis[idx].model = m;
+    const api = apis[findSavedApiIndex(selectedId, apis)];
+    if (api) {
+      api.model = m;
       saveAllApis(apis);
       renderSavedApis();
-      dom.savedApis.value = idx;
+      dom.savedApis.value = selectedId;
     }
   }
   if (dom.apiEndpoint.value.trim() || dom.apiKey.value.trim()) {
@@ -1115,12 +1333,16 @@ dom.toggleKey.addEventListener("click", () => {
 });
 
 // ─── 默认值 ────────────────────────────────────────────────
-if (!config.endpoint) dom.apiEndpoint.placeholder = "https://grsai.dakka.com.cn";
+if (!config.endpoint) dom.apiEndpoint.placeholder = GRSAI_API_ENDPOINT;
 if (!config.model)   dom.model.placeholder = "gpt-image-2";
 
 // 端点变化时自动检测平台并加载对应模型
 dom.apiEndpoint.addEventListener("change", () => {
   const ep = dom.apiEndpoint.value.trim();
+  const inferred = inferApiProvider(ep);
+  if (dom.apiProvider?.value !== "custom" || isPresetEndpoint(ep)) {
+    applyApiProvider(inferred, { forceEndpoint: false });
+  }
   if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) {
     loadGrsaiModels();
     dom.model.placeholder = "点击输入或检测选择模型";
@@ -1168,7 +1390,13 @@ $("#exportBtn")?.addEventListener("click", () => void handleExportAction());
 
 // GrsAI 推荐地址一键填入
 $("#useGrsaiEndpoint")?.addEventListener("click", () => {
-  if (dom.apiEndpoint) { dom.apiEndpoint.value = "https://grsai.dakka.com.cn"; dom.apiEndpoint.focus(); }
+  if (dom.apiEndpoint) {
+    applyApiProvider("grsai", { forceEndpoint: true });
+    dom.apiEndpoint.value = GRSAI_API_ENDPOINT;
+    dom.apiEndpoint.focus();
+    saveConfig(currentApiConfig());
+    updateApiQuickState();
+  }
 });
 
 function getExportableHistoryCount() {
@@ -1470,6 +1698,103 @@ function getSelectedSize() {
   const h = parseInt(dom.customHeight.value) || 1024;
   return `${w}x${h}`;
 }
+
+const SAVED_SIZES_KEY = "ai_image_gen_saved_sizes";
+
+function parseSizeValue(size) {
+  const match = String(size || "").match(/^(\d{2,5})x(\d{2,5})$/i);
+  if (!match) return null;
+  const width = Math.min(4096, Math.max(64, Number(match[1]) || 1024));
+  const height = Math.min(4096, Math.max(64, Number(match[2]) || 1024));
+  return { width, height, value: `${width}x${height}` };
+}
+
+function loadSavedSizes() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVED_SIZES_KEY) || "[]");
+    return Array.isArray(raw)
+      ? raw.map(item => {
+          const parsed = parseSizeValue(item.value);
+          return parsed ? { name: item.name || parsed.value.replace("x", "×"), value: parsed.value } : null;
+        }).filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSavedSizes(list) {
+  localStorage.setItem(SAVED_SIZES_KEY, JSON.stringify(list));
+}
+
+function renderSavedSizes() {
+  if (!dom.savedSizes) return;
+  const selected = dom.savedSizes.value;
+  dom.savedSizes.innerHTML = `<option value="">${cleanText("savedSizes")}</option>`;
+  loadSavedSizes().forEach(size => {
+    const opt = document.createElement("option");
+    opt.value = size.value;
+    opt.textContent = `${size.name} · ${size.value.replace("x", "×")}`;
+    dom.savedSizes.appendChild(opt);
+  });
+  if (selected && dom.savedSizes.querySelector(`option[value="${selected}"]`)) {
+    dom.savedSizes.value = selected;
+  }
+}
+
+function applySizeValue(size) {
+  const parsed = parseSizeValue(size);
+  if (!parsed) return false;
+  const builtin = document.querySelector(`input[name="size"][value="${parsed.value}"]`);
+  if (builtin) {
+    builtin.checked = true;
+  } else {
+    const custom = document.querySelector('input[name="size"][value="custom"]');
+    if (custom) custom.checked = true;
+    dom.customWidth.value = String(parsed.width);
+    dom.customHeight.value = String(parsed.height);
+  }
+  return true;
+}
+
+dom.saveSizePreset?.addEventListener("click", () => {
+  const parsed = parseSizeValue(getSelectedSize());
+  if (!parsed) {
+    showStatus("当前尺寸无效，宽高需要在 64 到 4096 之间", "error");
+    return;
+  }
+  const defaultName = parsed.value.replace("x", "×");
+  const name = prompt("给这个常用尺寸起个名字：", defaultName);
+  if (name === null) return;
+  const sizes = loadSavedSizes();
+  const item = { name: (name || defaultName).trim() || defaultName, value: parsed.value };
+  const idx = sizes.findIndex(size => size.value === item.value);
+  if (idx >= 0) sizes[idx] = item;
+  else sizes.push(item);
+  saveSavedSizes(sizes.slice(0, 24));
+  renderSavedSizes();
+  dom.savedSizes.value = item.value;
+  showStatus(`已保存常用尺寸: ${item.name}`, "success");
+});
+
+dom.savedSizes?.addEventListener("change", () => {
+  if (!dom.savedSizes.value) return;
+  if (applySizeValue(dom.savedSizes.value)) {
+    showStatus(`已应用尺寸: ${dom.savedSizes.value.replace("x", "×")}`, "info");
+  }
+});
+
+dom.deleteSizePreset?.addEventListener("click", () => {
+  const selected = dom.savedSizes?.value;
+  if (!selected) return;
+  const sizes = loadSavedSizes();
+  const next = sizes.filter(size => size.value !== selected);
+  saveSavedSizes(next);
+  renderSavedSizes();
+  showStatus(`已删除常用尺寸: ${selected.replace("x", "×")}`, "info");
+});
+
+renderSavedSizes();
 
 // ═══════════════════════════════════════════════════════════
 //  分镜表格 CRUD
@@ -3524,6 +3849,9 @@ const nativeDownload = (() => {
     nativeFetchBlob(url) {
       return request("nativeFetch", { url, method: "GET", responseType: "base64" });
     },
+    openExternal(url) {
+      return request("openExternal", { url });
+    },
     saveFile(kind, fileName, mimeType, base64) {
       return request("saveFile", { kind, fileName, mimeType, base64 });
     },
@@ -3859,8 +4187,23 @@ async function downloadImage(imageUrl, index) {
   } catch (err) {
     hideDownloadProgress();
     showStatus(`下载失败: ${err.message || err}`, "error");
-    window.open(imageUrl, "_blank");
+    await openExternalUrl(imageUrl);
   }
+}
+
+async function openExternalUrl(url) {
+  const target = String(url || "").trim();
+  if (!/^https?:\/\//i.test(target)) return false;
+  if (nativeDownload.available() && typeof nativeDownload.openExternal === "function") {
+    try {
+      await nativeDownload.openExternal(target);
+      return true;
+    } catch (err) {
+      console.warn("openExternal failed, falling back to window.open", err);
+    }
+  }
+  const popup = window.open(target, "_blank", "noopener,noreferrer");
+  return !!popup;
 }
 
 async function saveOrDownloadBlob(blob, filename, mimeType, kind, knownBase64 = "") {

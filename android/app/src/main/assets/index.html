@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260630-grsai">
+  <link rel="stylesheet" href="style.css?v=20260630-1-0-0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
           <option value="ko">한국어</option>
         </select>
         <button type="button" id="historyBtn" class="icon-btn" title="查看生图记录"><span class="ui-icon ui-icon-history"></span></button>
-        <button type="button" id="exportBtn" class="icon-btn" title="导出 ZIP"><span class="ui-icon ui-icon-zip"></span></button>
+        <button type="button" id="exportBtn" class="icon-btn hidden" title="导出 ZIP"><span class="ui-icon ui-icon-zip"></span></button>
         <button type="button" id="settingsBtn" class="icon-btn" title="设置"><span class="ui-icon ui-icon-settings"></span></button>
         <button type="button" id="themeToggle" class="icon-btn" title="切换主题"><span class="ui-icon ui-icon-moon"></span></button>
       </div>
@@ -37,57 +37,6 @@
     <div class="main-layout">
       <!-- 左侧：输入区 -->
       <aside class="input-panel">
-
-        <!-- API 配置 -->
-        <details class="config-section" id="configSection">
-          <summary class="config-toggle"><span class="ui-icon ui-icon-settings"></span> API 配置</summary>
-          <div class="config-body">
-            <label class="field">
-              <span>已保存的 API</span>
-              <div class="saved-api-row">
-                <select id="savedApis"><option value="">— 手动填写 —</option></select>
-                <button type="button" id="deleteSavedApi" class="btn btn-xs btn-danger" title="删除当前配置"><span class="ui-icon ui-icon-trash"></span></button>
-              </div>
-            </label>
-            <label class="field">
-              <span>API 地址</span>
-              <input type="url" id="apiEndpoint" placeholder="https://grsai.dakka.com.cn">
-              <small class="field-hint grsai-tip">
-                <span>推荐使用 GrsAI 第三方 API</span>
-                <a href="https://grsai.com/zh/dashboard/announcements" target="_blank" rel="noopener">grsai.com</a>
-                <button type="button" id="useGrsaiEndpoint" class="btn btn-xs">填入推荐地址</button>
-              </small>
-            </label>
-            <label class="field">
-              <span>API Key</span>
-              <div class="password-wrap">
-                <input type="password" id="apiKey" placeholder="sk-...">
-                <button type="button" id="toggleKey" title="显示/隐藏"><span class="ui-icon ui-icon-eye"></span></button>
-              </div>
-            </label>
-            <label class="field">
-              <span>模型</span>
-              <div class="model-input-row">
-                <input type="text" id="model" placeholder="gpt-image-2 / dall-e-3" list="modelList">
-                <datalist id="modelList">
-                  <option value="gpt-image-2">
-                  <option value="dall-e-3">
-                  <option value="dall-e-2">
-                  <option value="flux-1.1-pro">
-                  <option value="flux-dev">
-                  <option value="stable-diffusion-3.5-large">
-                  <option value="midjourney-v7">
-                </datalist>
-                <button type="button" id="detectModels" class="btn btn-xs" title="从 API 检测可用模型"><span class="ui-icon ui-icon-search"></span> 检测</button>
-              </div>
-            </label>
-            <label class="field">
-              <span>电脑端代理地址 <em class="optional">(可选，用于解决浏览器 CORS)</em></span>
-              <input type="url" id="proxyEndpoint" placeholder="http://127.0.0.1:8787/proxy">
-            </label>
-            <button type="button" id="saveConfig" class="btn btn-sm"><span class="ui-icon ui-icon-save"></span> 保存配置</button>
-          </div>
-        </details>
 
         <section class="api-quick-card" id="apiQuickCard">
           <div class="api-quick-main">
@@ -109,11 +58,88 @@
           </div>
         </section>
 
+        <!-- API 配置 -->
+        <details class="config-section" id="configSection">
+          <summary class="config-toggle"><span class="ui-icon ui-icon-settings"></span> API 配置</summary>
+          <div class="config-body">
+            <label class="field" id="apiProviderField">
+              <span>API 类型</span>
+              <select id="apiProvider">
+                <option value="official">官方 API</option>
+                <option value="grsai" selected>GrsAI 生图 API</option>
+                <option value="custom">自定义 API</option>
+              </select>
+              <small class="field-hint" id="apiProviderHint">推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。</small>
+            </label>
+            <label class="field" id="savedApiField">
+              <span>已保存的 API</span>
+              <div class="saved-api-row">
+                <select id="savedApis"><option value="">— 手动填写 —</option></select>
+                <button type="button" id="setDefaultApi" class="btn btn-xs" title="设为默认 API"><span class="ui-icon ui-icon-save"></span> 默认</button>
+                <button type="button" id="deleteSavedApi" class="btn btn-xs btn-danger" title="删除当前配置"><span class="ui-icon ui-icon-trash"></span></button>
+              </div>
+            </label>
+            <label class="field" id="apiEndpointField">
+              <span>API 地址</span>
+              <input type="url" id="apiEndpoint" placeholder="https://grsai.dakka.com.cn/v1/api/generate">
+              <small class="field-hint grsai-tip">
+                <span>推荐生图中转网站：https://grsai.com/zh</span>
+                <button type="button" id="useGrsaiEndpoint" class="btn btn-xs">填入 GrsAI 地址</button>
+              </small>
+            </label>
+            <label class="field">
+              <span>API Key</span>
+              <div class="password-wrap">
+                <input type="password" id="apiKey" placeholder="sk-...">
+                <button type="button" id="toggleKey" title="显示/隐藏"><span class="ui-icon ui-icon-eye"></span></button>
+              </div>
+            </label>
+            <label class="field" id="modelField">
+              <span>模型</span>
+              <div class="model-input-row">
+                <input type="text" id="model" placeholder="gpt-image-2 / dall-e-3" list="modelList">
+                <datalist id="modelList">
+                  <option value="gpt-image-2">
+                  <option value="dall-e-3">
+                  <option value="dall-e-2">
+                  <option value="flux-1.1-pro">
+                  <option value="flux-dev">
+                  <option value="stable-diffusion-3.5-large">
+                  <option value="midjourney-v7">
+                </datalist>
+                <button type="button" id="detectModels" class="btn btn-xs" title="从 API 检测可用模型"><span class="ui-icon ui-icon-search"></span> 检测</button>
+              </div>
+            </label>
+            <label class="field" id="proxyEndpointField">
+              <span>电脑端代理地址 <em class="optional">(可选，用于解决浏览器 CORS)</em></span>
+              <input type="url" id="proxyEndpoint" placeholder="http://127.0.0.1:8787/proxy">
+            </label>
+            <button type="button" id="saveConfig" class="btn btn-sm"><span class="ui-icon ui-icon-save"></span> 保存配置</button>
+          </div>
+        </details>
+
         <!-- ========== 模式切换 ========== -->
         <div class="mode-tabs" id="modeTabs">
           <button type="button" class="mode-tab active" data-mode="single"><span class="ui-icon ui-icon-image"></span> 单图模式</button>
           <button type="button" class="mode-tab" data-mode="comic"><span class="ui-icon ui-icon-comic"></span> 漫画分镜</button>
         </div>
+
+        <!-- ========== 单图模式专属：生成数量 ========== -->
+        <label class="field single-only" id="nImagesField">
+          <span>生成数量</span>
+          <div class="n-images-row">
+            <select id="nImages">
+              <option value="1">1 张</option>
+              <option value="2">2 张</option>
+              <option value="3">3 张</option>
+              <option value="4">4 张</option>
+            </select>
+            <label class="checkbox-inline" id="sequentialToggle">
+              <input type="checkbox" id="sequentialMode">
+              <span>依次生成</span>
+            </label>
+          </div>
+        </label>
 
         <!-- ========== 全局配置（两种模式共用） ========== -->
         <!-- 全局提示词 -->
@@ -127,6 +153,11 @@
           <div class="badge-list hidden" id="txtFileBadges"></div>
           <span class="field-hint" id="promptHint"></span>
         </label>
+
+        <!-- 生成按钮 -->
+        <button type="button" id="generateBtn" class="btn btn-primary">
+          <span class="ui-icon ui-icon-spark"></span> 生成图片
+        </button>
 
         <!-- 全局参考图片 -->
         <div class="field compact-reference-field" id="referenceField">
@@ -163,24 +194,12 @@
               </span>
             </label>
           </div>
-        </fieldset>
-
-        <!-- ========== 单图模式专属：生成数量 ========== -->
-        <label class="field single-only" id="nImagesField">
-          <span>生成数量</span>
-          <div class="n-images-row">
-            <select id="nImages">
-              <option value="1">1 张</option>
-              <option value="2">2 张</option>
-              <option value="3">3 张</option>
-              <option value="4">4 张</option>
-            </select>
-            <label class="checkbox-inline" id="sequentialToggle">
-              <input type="checkbox" id="sequentialMode">
-              <span>依次生成</span>
-            </label>
+          <div class="saved-size-row">
+            <select id="savedSizes"><option value="">常用尺寸</option></select>
+            <button type="button" id="saveSizePreset" class="btn btn-xs"><span class="ui-icon ui-icon-save"></span> 保存尺寸</button>
+            <button type="button" id="deleteSizePreset" class="btn btn-xs btn-danger" title="删除常用尺寸"><span class="ui-icon ui-icon-trash"></span></button>
           </div>
-        </label>
+        </fieldset>
 
         <!-- ========== 漫画分镜模式专属：分镜表格 ========== -->
         <div class="comic-only hidden" id="comicPanelSection">
@@ -236,11 +255,6 @@
           </div>
           <span class="progress-text" id="progressText">0 / 0</span>
         </div>
-
-        <!-- 生成按钮 -->
-        <button type="button" id="generateBtn" class="btn btn-primary">
-          <span class="ui-icon ui-icon-spark"></span> 生成图片
-        </button>
 
         <!-- 状态提示 -->
         <div class="status hidden" id="status"></div>
@@ -378,6 +392,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260630-grsai"></script>
+  <script src="app.js?v=20260630-1-0-0"></script>
 </body>
 </html>

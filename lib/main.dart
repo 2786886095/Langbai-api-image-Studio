@@ -151,6 +151,17 @@ Future<Map<String, Object?>> _nativeFetch(
   }
 }
 
+bool _isExternalHttpUrl(String url) {
+  final uri = Uri.tryParse(url.trim());
+  return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
+}
+
+Future<bool> _openWindowsExternalUrl(String url) async {
+  if (!_isExternalHttpUrl(url)) return false;
+  await Process.start('rundll32.exe', ['url.dll,FileProtocolHandler', url]);
+  return true;
+}
+
 class MobileWebShell extends StatefulWidget {
   const MobileWebShell({super.key});
 
@@ -260,6 +271,18 @@ class _MobileWebShellState extends State<MobileWebShell>
           break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
+          break;
+        case 'openExternal':
+          final url = payload['url']?.toString() ?? '';
+          if (!_isExternalHttpUrl(url)) {
+            throw PlatformException(
+              code: 'invalid_url',
+              message: 'Only http/https URLs can be opened externally.',
+            );
+          }
+          result = await _downloads.invokeMethod<bool>('openExternalUrl', {
+            'url': url,
+          });
           break;
         default:
           throw PlatformException(
@@ -417,6 +440,11 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
           break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
+          break;
+        case 'openExternal':
+          result = await _openWindowsExternalUrl(
+            payload['url']?.toString() ?? '',
+          );
           break;
         default:
           throw PlatformException(

@@ -42,6 +42,10 @@ class MainActivity : FlutterActivity() {
                         val base64 = call.argument<String>("base64") ?: ""
                         saveFile(kind, fileName, mimeType, base64, result)
                     }
+                    "openExternalUrl" -> {
+                        val url = call.argument<String>("url") ?: ""
+                        openExternalUrl(url, result)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -217,6 +221,23 @@ class MainActivity : FlutterActivity() {
             "images" to (prefs.getString("images", "") ?: ""),
             "zips" to (prefs.getString("zips", "") ?: "")
         )
+    }
+
+    private fun openExternalUrl(url: String, result: MethodChannel.Result) {
+        try {
+            val uri = Uri.parse(url)
+            if (uri.scheme != "http" && uri.scheme != "https") {
+                result.error("invalid_url", "Only http/https URLs can be opened.", null)
+                return
+            }
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("open_failed", e.message, null)
+        }
     }
 
     private fun prefs() = getSharedPreferences(prefsName, MODE_PRIVATE)

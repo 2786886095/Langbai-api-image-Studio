@@ -4,6 +4,14 @@
 
 「api生图」是一个零构建、纯前端的 AI 图片生成器：用你自己的图片生成 API（GrsAI / OpenAI 兼容 / SiliconFlow / Gemini 等）出图，并通过 Flutter WebView 壳打包成安卓 App。
 
+## 推荐 API 配置
+
+- 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)
+- GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
+- 软件内可选三种 API：`官方 API`、`GrsAI 生图 API`、`自定义 API`
+- 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
+- 账号、套餐、网站侧配置请用浏览器打开网站处理，软件内不跳转网站
+
 ## ✨ 功能
 
 - **双模式**：单图生成 + 漫画分镜批量生成

@@ -326,6 +326,11 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-glow), var(--inset-shadow);
 }
+input[readonly] {
+  color: var(--text2);
+  background: color-mix(in srgb, var(--surface2) 82%, var(--primary-bg));
+  cursor: default;
+}
 input:focus-visible, textarea:focus-visible, select:focus-visible,
 button:focus-visible, details:focus-visible, summary:focus-visible {
   outline: 2px solid var(--primary);
@@ -345,9 +350,10 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 
 /* ===== Row Layouts ===== */
 .saved-api-row, .model-input-row {
-  display: flex; gap: 6px;
+  display: flex; gap: 6px; align-items: center;
 }
 .saved-api-row select, .model-input-row input { flex: 1; }
+.saved-api-row select { min-width: 0; }
 
 .n-images-row {
   display: flex; align-items: center; gap: 10px;
@@ -510,6 +516,15 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   text-align: center;
 }
 .custom-size-x { color: var(--text2); font-size: 0.85rem; font-weight: 500; }
+.saved-size-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+.saved-size-row select { min-width: 0; }
+.saved-size-row .btn-xs { min-height: 32px; }
 
 /* ===== Section Header ===== */
 .section-header {
@@ -1000,6 +1015,9 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   .mode-tab { min-height: 42px; border-radius: 10px; }
   .saved-api-row, .model-input-row, .n-images-row, .section-header, .section-actions {
     flex-direction: column; align-items: stretch;
+  }
+  .saved-size-row {
+    grid-template-columns: 1fr;
   }
   .panel-tools { padding: 10px; }
   .tool-group,
@@ -2296,5 +2314,367 @@ main.result-panel .result-actions .btn {
 
   .config-section:not([open]) .config-toggle {
     min-height: 36px;
+  }
+}
+
+/* Desktop viewport fit pass: keep the core workflow visible in the default
+   Windows window size and stop modal controls from overflowing their rows. */
+@media (min-width: 981px) {
+  .app {
+    min-height: 100vh;
+    padding: 12px 16px 16px;
+  }
+
+  .header {
+    min-height: 82px;
+    margin-bottom: 10px;
+    align-items: start;
+  }
+
+  .brand-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .header h1 {
+    font-size: 1.42rem;
+    gap: 9px;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .header-actions {
+    padding-top: 16px;
+  }
+
+  .language-select,
+  .icon-btn {
+    height: 38px;
+  }
+
+  .icon-btn {
+    width: 38px;
+  }
+
+  .main-layout {
+    grid-template-columns: minmax(400px, 430px) minmax(0, 1fr);
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .input-panel {
+    top: 12px;
+    max-height: calc(100vh - 108px);
+    padding: 12px;
+    gap: 8px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  main.result-panel {
+    height: calc(100vh - 108px);
+    max-height: calc(100vh - 108px);
+  }
+
+  .api-quick-card {
+    min-height: 44px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .api-quick-copy strong {
+    font-size: 0.78rem;
+  }
+
+  .api-quick-copy span {
+    font-size: 0.68rem;
+  }
+
+  .api-quick-actions {
+    gap: 5px;
+  }
+
+  .api-quick-actions .btn-xs {
+    min-height: 30px;
+    padding-inline: 9px;
+  }
+
+  .config-section:not([open]) .config-toggle {
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+
+  .mode-tabs {
+    padding: 3px;
+  }
+
+  .mode-tab {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 0.8rem;
+  }
+
+  .input-panel > .field,
+  .input-panel > fieldset.field,
+  .input-panel > .comic-only,
+  .panel-tools {
+    padding: 9px 10px;
+  }
+
+  .field {
+    gap: 6px;
+  }
+
+  .field > span,
+  .field > legend,
+  .field-label-text {
+    font-size: 0.78rem;
+  }
+
+  #globalPromptField textarea {
+    min-height: 72px;
+    height: 72px;
+  }
+
+  .compact-reference-field {
+    gap: 6px;
+  }
+
+  .compact-reference-field .upload-zone {
+    min-height: 54px;
+    height: 54px;
+    padding: 8px 10px;
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .compact-reference-field .thumb-grid {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    max-height: 96px;
+  }
+
+  .checkbox-field,
+  .checkbox-inline {
+    gap: 7px;
+    font-size: 0.78rem;
+  }
+
+  .size-presets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .size-option {
+    min-height: 48px;
+    padding: 7px 8px;
+  }
+
+  .size-option span {
+    font-size: 0.76rem;
+  }
+
+  .size-option small {
+    font-size: 0.65rem;
+  }
+
+  .size-custom {
+    grid-column: 1 / -1;
+    min-height: 34px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .custom-size-row {
+    min-width: 0;
+  }
+
+  .custom-size-num {
+    width: 64px !important;
+    min-width: 0;
+  }
+
+  .saved-size-row {
+    margin-top: 6px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .saved-size-row select,
+  .saved-size-row .btn-xs {
+    min-height: 30px;
+    height: 30px;
+    padding-block: 4px;
+  }
+
+  #nImagesField {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding-block: 5px;
+  }
+
+  .n-images-row {
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .n-images-row select {
+    height: 32px;
+    flex: 0 0 78px;
+  }
+
+  #generateBtn {
+    min-height: 48px;
+    margin-top: 2px;
+    box-shadow: 0 14px 34px var(--primary-glow);
+  }
+
+  .status {
+    font-size: 0.76rem;
+    padding: 7px 10px;
+  }
+}
+
+@media (min-width: 981px) and (max-height: 740px) {
+  .app {
+    padding-top: 10px;
+  }
+
+  .header {
+    min-height: 76px;
+    margin-bottom: 8px;
+  }
+
+  .brand-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .header h1 {
+    font-size: 1.32rem;
+  }
+
+  .header-actions {
+    padding-top: 14px;
+  }
+
+  .input-panel {
+    max-height: calc(100vh - 94px);
+    padding: 10px;
+    gap: 7px;
+  }
+
+  main.result-panel {
+    height: calc(100vh - 94px);
+    max-height: calc(100vh - 94px);
+  }
+
+  .api-quick-card {
+    min-height: 40px;
+    padding: 7px 9px;
+  }
+
+  .api-state-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .config-section:not([open]) .config-toggle,
+  .mode-tab {
+    min-height: 32px;
+  }
+
+  .input-panel > .field,
+  .input-panel > fieldset.field,
+  .input-panel > .comic-only {
+    padding: 8px 9px;
+  }
+
+  #globalPromptField textarea {
+    min-height: 64px;
+    height: 64px;
+  }
+
+  .compact-reference-field .upload-zone {
+    min-height: 48px;
+    height: 48px;
+  }
+
+  .size-option {
+    min-height: 44px;
+  }
+
+  .size-custom {
+    min-height: 32px;
+  }
+
+  #generateBtn {
+    min-height: 44px;
+  }
+}
+
+.btn,
+.btn-sm,
+.btn-xs,
+.icon-btn,
+.mode-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  text-align: center;
+}
+
+.btn,
+.btn-sm,
+.btn-xs {
+  white-space: nowrap;
+}
+
+.settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.settings-section {
+  min-width: 0;
+}
+
+.setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.setting-row > div {
+  min-width: 0;
+}
+
+.setting-row .btn {
+  min-width: 92px;
+  padding-inline: 10px;
+}
+
+.path-label {
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .setting-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .setting-row .btn {
+    width: 100%;
   }
 }
