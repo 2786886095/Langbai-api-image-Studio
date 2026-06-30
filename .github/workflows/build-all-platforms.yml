@@ -1,0 +1,88 @@
+name: Build all platforms
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  windows:
+    name: Windows ZIP
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          cache: true
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          Copy-Item windows/README-Windows.md build/windows/x64/runner/Release/README-Windows.md -Force
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath AI-Image-Generator-windows.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: AI-Image-Generator-windows.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          cache: true
+      - run: flutter config --enable-macos-desktop
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Package macOS app
+        run: ditto -c -k --sequesterRsrc --keepParent "build/macos/Build/Products/Release/AI Image Generator.app" AI-Image-Generator-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: AI-Image-Generator-macos.zip
+          if-no-files-found: error
+
+  ios:
+    name: iOS app unsigned
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - name: Package unsigned iOS app
+        run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app AI-Image-Generator-ios-unsigned.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-unsigned
+          path: AI-Image-Generator-ios-unsigned.zip
+          if-no-files-found: error
+

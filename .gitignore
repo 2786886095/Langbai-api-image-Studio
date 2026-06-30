@@ -46,6 +46,7 @@ app.*.map.json
 *.apk
 *.aab
 android/output/
+windows/output/
 android/.gradle/
 android/app/build/
 backup_20260106_000000/

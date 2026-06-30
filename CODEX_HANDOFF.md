@@ -6,8 +6,8 @@
 ---
 
 ## 0. 一句话现状
-本轮完成了 **UI 整体重设计（蓝白/黑紫 高级感）+ 布局重构 + 结果卡精简 + 移动端修复 + GrsAI 推荐入口**，同步并**重打了安卓 APK**，**上传了 GitHub**。回归全绿。
-**待办**：Windows / iOS / macOS 三端打包。
+本轮完成了 **UI 整体重设计（蓝白/黑紫 高级感）+ 布局重构 + 结果卡精简 + 移动端修复 + GrsAI 推荐入口 + Windows 原生包 + iOS/macOS 工程骨架 + 跨端 CI**，同步并**重打了安卓 APK**，**上传了 GitHub**。回归全绿。
+**待办**：Apple 签名证书接入、GitHub Actions 在远端实际跑一轮并下载 iOS/macOS artifacts。
 
 ---
 
@@ -25,7 +25,10 @@
 4. **移动端回归修复**：原 `@media max-width:560px` 里 `.header-actions #historyBtn,#settingsBtn{display:none}`（旧设计靠侧栏提供，侧栏删了就丢了历史/设置入口）——**已删除该规则**，4 图标在窄屏都显示（诊断脚本 check.js 确认坐标无溢出）。
 5. **缓存版本**升级：`index.html` 两处 `?v=20260630-grsai`、`sw.js` `CACHE_NAME="ai-image-generator-grsai-20260630"`、`<meta theme-color>` 改 `#0c0a12`。
 6. **GrsAI 推荐入口已落地**：API 地址 placeholder / 一键填入按钮均使用 `https://grsai.dakka.com.cn`，推荐链接指向 `https://grsai.com/zh/dashboard/announcements`，已加 5 语言 i18n。
-7. **同步 android assets + 重打 APK**（见 §3）。**GitHub 上传**（见 §4）。
+7. **Windows 原生壳已落地**：`webview_windows` + WebView2，复用 `FlutterDownload` JS 桥，Windows 端原生处理 `nativeFetch` / 导出保存，默认保存到用户 Downloads。
+8. **iOS/macOS 平台骨架已生成**：`ios/`、`macos/` 已加入，图标已替换为吉祥物；macOS entitlement 已补网络客户端和用户文件读写权限。
+9. **跨端 CI 已加入**：`.github/workflows/build-all-platforms.yml` 覆盖 Android APK、Windows ZIP、macOS app、iOS unsigned app。
+10. **同步 android assets + 重打 APK**（见 §3）。**GitHub 上传**（见 §4）。
 
 ---
 
@@ -35,6 +38,11 @@
   - 流程：`robocopy 源 目标 /E /XD build .dart_tool .idea qa_screenshots backup_20260106_000000 .gradle /XF *.apk` → `flutter clean` → `flutter build apk --release` → 把 `目标\build\app\outputs\flutter-apk\app-release.apk` 复制回 `源\android\output\AI-Image-Generator-flutter.apk`。
   - 那一堆 `e: ...kotlin_module...metadata 1.8.0 expected 1.6.0` 是**既有依赖警告**，退出码 0、APK 正常生成，别被吓到。
 - **改 web 资源后必须同步**到 `android/app/src/main/assets/`（5 文件：app.js / index.html / style.css / manifest.webmanifest / sw.js），否则壳里还是旧代码。可用 SHA256 逐一比对确认。
+- **Windows 本地构建 gotcha**：当前 Flutter 3.24 工具对 VS2026 识别不完整，会硬用 `Visual Studio 16 2019` generator。已验证可行做法：先让 Flutter 生成 ephemeral，然后手动跑 VS2026 CMake：
+  - `cmake -S windows -B build/windows/x64 -G "Visual Studio 18 2026" -A x64 -DFLUTTER_TARGET_PLATFORM=windows-x64`
+  - `cmake --build build/windows/x64 --config Release --target INSTALL`
+  - GitHub `windows-latest` 通常是 VS2022，预计 `flutter build windows --release` 可直接跑。
+- **Windows 运行包不是单 exe**：必须保留 `data/`、`flutter_windows.dll`、`webview_windows_plugin.dll`、`WebView2Loader.dll`。项目输出 zip 已包含完整运行目录。
 - **i18n 有两套机制**：
   1. `I18N` 词典 + `translateElement()`（app.js）——**主力**。按**中文文本节点**翻译，且翻译 `title/placeholder/aria-label` 属性。加可翻译文本就**写中文 + 在 `I18N` 加 5 语言条目**（zh-Hant/en/ja/ko）。`data-no-i18n` 跳过。
   2. `CLEAN_LOCALES` + `applyCleanLanguage()`——**硬编码逐个 `setText(selector,key)`**，**不**通用遍历 `[data-clean]`。光加 `data-clean` 不会自动翻译，必须在 applyCleanLanguage 里手写 setText。**优先用机制 1**。
@@ -44,15 +52,19 @@
 
 ---
 
-## 3. APK 当前状态
+## 3. 本地产物当前状态
 - 路径：`F:\AI\agent\图像生成\android\output\AI-Image-Generator-flutter.apk`
-- 大小：`43392088` bytes　SHA256：`08D68A5FA941B96A5A68746EA17713B3630937A7098F2431AB11320B85CFA3CB`　时间：2026-06-30 19:18
-- 仅 `android` 平台；依赖 `webview_flutter ^4.8.0` + `webview_flutter_android ^3.16.7`。
+- 大小：`43392159` bytes　SHA256：`D357392EFA6027CFA2940482DB6F3909FB04A6F00B38DABDD6EAF4C6C8C3B77A`　时间：2026-06-30 19:46
+- Windows ZIP：`F:\AI\agent\图像生成\windows\output\AI-Image-Generator-windows.zip`
+- Windows ZIP SHA256：`49DB1A2C23A471DDDE962AD63D802D4958B2FDD3BBCC9902B0EF08F66EED0D8C`
+- Windows exe SHA256：`6A29F2429512EDCA4FE15D8D2C77E6D2F8561225DAE6FAF3E9EA19D46D3B849B`
+- Windows 启动冒烟：运行 6 秒未崩溃。
+- 当前平台：Android 本地 APK、Windows 本地 ZIP；iOS/macOS 已有工程和 CI，但本机 Windows 无法实际构建 Apple 产物。
 
 ## 4. GitHub
 - 仓库：`Langbai-api-image-Studio`（公开），remote `origin`，分支 `main`，首提交 `c921531`。
 - git 身份（本地）：`user.name=Langbai`，`user.email=lb2710137168@gmail.com`。gh 已登录账号 `2786886095`（token 有 repo/workflow）。
-- `.gitignore` 已排除 APK/build/.dart_tool/.gradle/backup_/qa_screenshots/qa-smoke.png。**无密钥泄露**（已扫）。
+- `.gitignore` 已排除 APK/build/.dart_tool/.gradle/backup_/qa_screenshots/qa-smoke.png/windows output。**无密钥泄露**（已扫）。
 - 注：`CLAUDE_HANDOFF.md`（旧）和 `qa/` 已随首提交进库；`CODEX_HANDOFF.md` 本轮更新后应提交；APK 未进库。
 
 ---
@@ -81,13 +93,25 @@
 
 ---
 
-## 6. 🔜 待办：多端打包（用户已拍板方向）
-- **Windows = 原生 .exe（WebView2）**：`webview_flutter` 不支持 Windows。需 `flutter create --platforms=windows .` + 加 `webview_windows` 包 + `lib/main.dart` 做**平台条件分支**（Windows 用 webview_windows，安卓/iOS 用 webview_flutter）。原生桥（下载/SAF/native-fetch，`MainActivity.kt`）是**安卓 Kotlin 专属**，Windows 上 `nativeDownload.available()` 会是 false，web 自动回退（blob 下载 + 桌面 proxy 处理 CORS）。**本机可构建**（注意仍可能踩中文路径坑→ ASCII 目录）。
-- **iOS / macOS = 云端 Mac CI（GitHub Actions macos runner）**：本机（Windows）无法构建。
-  - iOS：`webview_flutter` 已支持；出 `.ipa` 需**用户的 Apple 开发者签名证书**（待用户提供）。
-  - macOS：`webview_flutter` **不支持**，需换 webview 包（候选 `flutter_inappwebview` 或 `desktop_webview_window`）。
-  - 做法：`flutter create --platforms=ios,macos .` → 写 `.github/workflows/build.yml` 用 `macos-latest` runner `flutter build ios/macos`。
-- **架构提醒**：`webview_flutter` 官方仅 Android+iOS。若想四端统一，可整体换 **`flutter_inappwebview`**（支持 Android/iOS/macOS/Windows），但要**重写 `lib/main.dart` + 原生桥**，风险高，**别轻易动已工作的安卓链路**——建议增量加平台、保留安卓现状。
+## 6. ✅ 多端打包状态
+- **Windows 原生 .exe（WebView2）已完成**：
+  - 已生成 `windows/` 平台；
+  - 已加 `webview_windows ^0.4.0`；
+  - `lib/main.dart` 按平台分支：Windows 用 `webview_windows`，其他平台用 `webview_flutter`；
+  - Windows 注入 `FlutterDownload.postMessage` shim，让现有前端继续使用同一套原生桥；
+  - Windows 原生实现 `nativeFetch` / `saveFile` / `chooseDir`，导出保存到 `%USERPROFILE%\Downloads\AI Image Generator\...`；
+  - 已生成并验证 `windows/output/AI-Image-Generator-windows.zip`。
+- **iOS / macOS 工程已生成**：
+  - 已生成 `ios/` 与 `macos/`；
+  - `webview_flutter_wkwebview 3.22.0` 的 pubspec 明确支持 `ios` 和 `macos`，无需换 `flutter_inappwebview`；
+  - iOS/macOS 图标已替换为吉祥物；
+  - macOS Release entitlement 已加网络客户端和用户文件读写权限。
+- **CI 已加入**：
+  - `.github/workflows/build-all-platforms.yml` 包含 Android / Windows / macOS / iOS unsigned 四个 job。
+- **仍未完成 / 需要外部条件**：
+  - iOS 可在 GitHub macOS runner 生成 unsigned app，但安装/上架仍需 Apple Developer Team、证书、provisioning profile；
+  - macOS 可在 GitHub macOS runner 构建 unsigned app，分发给普通用户仍建议签名/notarize；
+  - 需要推送后到 GitHub Actions 手动或 push 触发跑一轮，确认远端 macOS/iOS artifact。
 
 ---
 
