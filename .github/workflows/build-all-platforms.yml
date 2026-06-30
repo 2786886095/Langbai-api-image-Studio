@@ -35,6 +35,20 @@ jobs:
           cache: true
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
+      - name: Generate Windows Flutter config
+        shell: pwsh
+        run: |
+          flutter build windows --release
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Flutter 3.24 can fail here by selecting an unavailable Visual Studio generator. Continuing after generating Flutter config."
+            $global:LASTEXITCODE = 0
+          }
+          if (-not (Test-Path "windows/flutter/ephemeral/generated_config.cmake")) {
+            throw "Flutter did not generate windows/flutter/ephemeral/generated_config.cmake."
+          }
+          if (Test-Path "build/windows/x64") {
+            Remove-Item "build/windows/x64" -Recurse -Force
+          }
       - name: Build Windows app with installed Visual Studio
         shell: pwsh
         run: |
