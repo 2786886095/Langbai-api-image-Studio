@@ -35,7 +35,25 @@ jobs:
           cache: true
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
-      - run: flutter build windows --release
+      - name: Build Windows app with installed Visual Studio
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $version = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationVersion
+          if (-not $version) {
+            throw "Visual Studio was not found on this runner."
+          }
+
+          if ($version.StartsWith("18.")) {
+            $generator = "Visual Studio 18 2026"
+          } elseif ($version.StartsWith("17.")) {
+            $generator = "Visual Studio 17 2022"
+          } else {
+            throw "Unsupported Visual Studio version: $version"
+          }
+
+          cmake -S windows -B build/windows/x64 -G "$generator" -A x64 -DFLUTTER_TARGET_PLATFORM=windows-x64
+          cmake --build build/windows/x64 --config Release --target INSTALL
       - name: Package Windows app
         shell: pwsh
         run: |
@@ -85,4 +103,3 @@ jobs:
           name: ios-release-unsigned
           path: AI-Image-Generator-ios-unsigned.zip
           if-no-files-found: error
-
