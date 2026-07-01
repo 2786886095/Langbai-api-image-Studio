@@ -658,17 +658,17 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .panel-table tbody tr:last-child td { border-bottom: none; }
 .panel-table tbody tr:hover { background: var(--primary-bg); }
 
-.col-num { width: 42px; text-align: center; }
-.col-act { width: 42px; text-align: center; }
-.col-size { width: 132px; }
-.col-retry { width: 78px; text-align: center; }
-.col-img { width: 166px; }
+.col-num { width: 40px; text-align: center; }
+.col-act { width: 34px; text-align: center; }
+.col-size { width: 100px; }
+.col-retry { width: 52px; text-align: center; }
+.col-img { width: 56px; }
 .col-prompt { /* fluid */ }
 
 .panel-num {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 50%;
-  background: var(--primary); color: #fff; font-size: 0.75rem; font-weight: 800;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary); color: #fff; font-size: 0.7rem; font-weight: 800;
   font-family: "Nunito", sans-serif;
   box-shadow: 0 2px 8px var(--primary-glow);
 }
@@ -677,13 +677,13 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   margin: 0;
 }
 .panel-retry-count {
-  width: 58px !important;
-  padding: 6px 6px !important;
+  width: 40px !important;
+  padding: 6px 4px !important;
   text-align: center;
   font-size: 0.74rem !important;
 }
 .panel-size-w, .panel-size-h {
-  width: 50px !important; padding: 4px 3px !important; font-size: 0.72rem !important;
+  width: 38px !important; padding: 4px 2px !important; font-size: 0.72rem !important;
   text-align: center;
 }
 .panel-size-x { color: var(--text2); font-size: 0.7rem; margin: 0 2px; }
@@ -693,7 +693,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   display: inline-block; background-size: cover; background-position: center;
   vertical-align: middle; margin-left: 4px;
 }
-.panel-img-name { font-size: 0.65rem; color: var(--text2); max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+.panel-img-name { font-size: 0.65rem; color: var(--text2); max-width: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
 .panel-img-clear {
   position: static !important; display: inline-flex !important;
   align-items: center; justify-content: center;
@@ -1647,7 +1647,7 @@ textarea {
 }
 
 .panel-table {
-  min-width: 800px;
+  min-width: 460px;
 }
 
 .panel-table thead,
@@ -1660,8 +1660,8 @@ textarea {
 }
 
 .panel-num {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   background: var(--surface3);
   color: var(--primary-hover);
   box-shadow: inset 0 0 0 1px var(--primary-border);
