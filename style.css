@@ -2750,6 +2750,7 @@ main.result-panel .result-actions .btn {
 
 .update-settings {
   gap: 10px;
+  grid-column: 1 / -1;
 }
 
 .update-version-row {
@@ -2771,12 +2772,13 @@ main.result-panel .result-actions .btn {
 }
 
 .update-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .update-actions .btn {
+  flex: 1 1 116px;
   min-width: 0;
   min-height: 34px;
   padding-inline: 8px;
@@ -2800,8 +2802,8 @@ main.result-panel .result-actions .btn {
     width: 100%;
   }
 
-  .update-actions {
-    grid-template-columns: 1fr;
+  .update-actions .btn {
+    flex-basis: 100%;
   }
 }
 
