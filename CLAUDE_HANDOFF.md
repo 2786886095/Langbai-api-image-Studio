@@ -1,10 +1,12 @@
 # Claude 交接文档：AI 图片生成器
 
-> ⚠️ **本文档已过期，2026-07-01 追加更新**：下面第 6 节"创建 v1.0.2 Release"的指令**不要执行**。
-> 用户反馈"很多功能都没有完善，按键点了都没反应"，Claude 复核后确认：**这份文档描述的
-> CI run `28451118759` 和本地 APK/Windows ZIP 产物全部构建于 bug 修复之前，是坏的。**
-> 根因、修复内容、验证结果见文末新增的「2026-07-01 补充：confirm/prompt 全局无响应 bug」章节。
-> 在按新章节完成重新构建 + 验证之前，**不要创建任何 GitHub Release**。
+> ✅ **2026-07-01 最终更新：v1.0.2 已重新构建并正式发布，替代了本文档下面第 6 节里引用的坏产物。**
+> 下面第 1–8 节描述的 CI run `28451118759` 和本地 APK/Windows ZIP **已作废**（构建于 confirm/prompt
+> 无响应 bug 修复之前）。真正发布的是 commit `779eacb` 之后的四端产物：
+> **https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v1.0.2**
+> 根因、修复内容、验证过程见文末「2026-07-01 补充：confirm/prompt 全局无响应 bug」章节。
+> 唯一遗留项：**没有真实 Android 设备验证**（构建环境无 adb/模拟器），建议接手后装机实测一遍
+> "清空分镜/删除配置/编辑重试/清空历史"。
 
 更新时间：2026-07-01  
 项目路径：`F:\AI\agent\图像生成`  
@@ -321,10 +323,17 @@ gh release list --repo 2786886095/Langbai-api-image-Studio --limit 5
 - 上述"真实打包 Windows exe + WebView2 CDP"场景复测通过（154ms 出弹窗，309ms 完成清空，取消路径正确）。
 - 已同步 `app.js`/`style.css` 到 `android/app/src/main/assets/`（SHA256 校验一致）。
 
-### 尚未做（这是接手后第一优先级）
+### 后续处理（已全部完成）
 
-1. **本地 Android/Windows 产物还没有用这个修复重新打包**——`android/output/AI-Image-Generator-flutter.apk` 和 `windows/output/AI-Image-Generator-windows.zip` 都是修复前的旧文件，不能用来发布。
-2. **CI run `28451118759` 的四端 artifacts 全部是修复前的**，第 6 节的 Release 创建命令引用的产物已作废。
-3. 这个改动**还没有 git commit**，只在工作区。
-4. 建议顺序：`git add`+commit → push 触发 CI 重新构建四端 → 本地也重新走一遍"复制到 ASCII 路径构建"流程验证 Android/Windows → 确认新产物里含有 `.ask-dialog-overlay`（例如 `grep -c "ask-dialog-overlay" app.js` 应为非零）→ 再创建 Release，版本号建议 `v1.0.3`（而不是 v1.0.2，因为 v1.0.2 这个号已经和"有 bug 的构建"关联在用户认知里了；如果坚持用 v1.0.2 也可以，但要在 Release notes 里说明这是修过 confirm/prompt 阻塞 bug 后的版本）。
-5. **没有验证过 Android 真机**（这台机器没有 adb/设备/模拟器）。Android 的失败模式是"静默无反应"而不是"卡住"，理论上修复后就是正常的页面内弹窗，但强烈建议装上新 APK 后手动点一遍"清空分镜""删除配置""编辑重试""清空历史"这四个功能确认。
+1. `git commit 779eacb`（app.js/style.css/qa/regression-runner.js/CLAUDE_HANDOFF.md/android assets）+ `git push origin main`。
+2. 本地重打 Android APK：复制到 `C:\Users\Public\aigen_v102_build`（ASCII 路径）构建，`grep -c "ask-dialog-overlay"` 提取出的 `assets/flutter_assets/app.js` = 1，确认修复已打入。已复制回 `android/output/AI-Image-Generator-flutter.apk`（SHA256 `66EFE837E54D24F6DABBDE5F27BA75B7494D48E37B803DCCD08418305B812894`）。
+3. 本地重打 Windows：复制到 `C:\Users\Public\aigen_v102_win_build`，走既定的 `flutter build windows` + VS2026 手动 CMake（`cmake -S windows -B build\windows\x64 -G "Visual Studio 18 2026" ...`）路线，退出码 0。打包为 `windows/output/AI-Image-Generator-windows.zip`（SHA256 `7A7ACE1C813197BF544DCED9FB17403FA5700ABFE9BB8FFB39A5E12314E9B1C3`），同样验证含 `ask-dialog-overlay`。
+4. Push 后 CI run `28489094928` 四端全部 success（Android/Windows/macOS/iOS）。**下载 CI 产物逐一解包验证**（不是想当然认为绿了就行），macOS 的 `app.js` 在 `AI Image Generator.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/app.js`、iOS 在 `Runner.app/Frameworks/App.framework/flutter_assets/app.js`，两者 `ask-dialog-overlay` 均为 1。
+5. 用 CI 产物（不是本地产物——CI 更权威，四端来自同一次真实构建）创建了正式 Release：
+   **https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v1.0.2**
+   （target = `main` 分支，即 commit `779eacb`）。5 个资产：`AI-Image-Generator-android.apk` / `-windows.zip` / `-macos.zip` / `-ios-unsigned.zip` / `SHA256SUMS.txt`。
+6. `flutter analyze` → `No issues found!`；清理了所有 `C:\Users\Public\aigen_v102_*` 临时构建目录。
+
+### 仍未做（唯一遗留项）
+
+**没有真实 Android 设备验证**（这台机器没有 adb/模拟器）。Android 的原生失败模式是"静默无反应"（不是卡住），修复后应该表现为正常的页面内弹窗，但没有装机实测过。如果用户反馈 v1.0.2 在安卓上仍有问题，优先怀疑：APK 是否真的更新到了 v1.0.2（而不是覆盖安装失败还在跑旧版本）、WebView 版本是否过旧不支持某些 CSS（`.ask-dialog-overlay` 用了基础 flex/fixed 定位，理论上兼容性没问题）。
