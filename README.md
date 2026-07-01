@@ -6,7 +6,7 @@
 
 ## 推荐 API 配置
 
-- 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)
+- 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)（不是广告，纯粹自己感觉好用）
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
 - 软件内可选三种 API：`官方 API`、`GrsAI 生图 API`、`自定义 API`
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
