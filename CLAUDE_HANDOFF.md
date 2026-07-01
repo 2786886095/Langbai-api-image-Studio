@@ -1,9 +1,20 @@
 # Claude 交接文档：AI 图片生成器
 
-> ✅ **2026-07-01 最终更新：v1.0.2 已重新构建并正式发布，替代了本文档下面第 6 节里引用的坏产物。**
+> ⚠️⚠️ **2026-07-01 晚间最重要更新：Android 正式签名密钥已建立，任何人接手前必读第 9 节。**
+> 之前所有 Android 构建（包括已发布的 v1.0.2）都是用 Flutter 自动生成的 **debug 签名**打包的——这
+> 是个结构性 bug：debug keystore 每台机器/每次 CI 运行都不一样，导致"软件内更新覆盖安装"根本不可能
+> 成立（安卓拒绝安装签名不匹配的"更新"，表现为"应用未安装"/"已存在冲突的包"）。已在 commit
+> `03bb1ad` 修复：生成了持久签名密钥，本地构建和 GitHub Actions CI 现在用同一把签名，已双向验证
+> 指纹一致（`SHA1: C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`）。
+> **这把密钥的存放位置、恢复方式、GitHub Secrets 配置，见文末第 9 节——不要重新生成新的一把，
+> 否则又会破坏更新链。**
+>
+> ✅ 2026-07-01 早些时候：v1.0.2 已重新构建并正式发布，替代了本文档下面第 6 节里引用的坏产物。
 > 下面第 1–8 节描述的 CI run `28451118759` 和本地 APK/Windows ZIP **已作废**（构建于 confirm/prompt
-> 无响应 bug 修复之前）。真正发布的是 commit `779eacb` 之后的四端产物：
+> 无响应 bug 修复之前）。第 6 节提到的 Release 本身仍然是最新的公开发布版：
 > **https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v1.0.2**
+> ——但**这个 v1.0.2 是用旧的、不稳定的 debug 签名打的**，装了它的用户以后升级到任何用新密钥签名
+> 的版本时，都需要手动卸载重装一次（唯一一次，之后就正常了）。
 > 根因、修复内容、验证过程见文末「2026-07-01 补充：confirm/prompt 全局无响应 bug」章节。
 > 唯一遗留项：**没有真实 Android 设备验证**（构建环境无 adb/模拟器），建议接手后装机实测一遍
 > "清空分镜/删除配置/编辑重试/清空历史"。
@@ -337,3 +348,59 @@ gh release list --repo 2786886095/Langbai-api-image-Studio --limit 5
 ### 仍未做（唯一遗留项）
 
 **没有真实 Android 设备验证**（这台机器没有 adb/模拟器）。Android 的原生失败模式是"静默无反应"（不是卡住），修复后应该表现为正常的页面内弹窗，但没有装机实测过。如果用户反馈 v1.0.2 在安卓上仍有问题，优先怀疑：APK 是否真的更新到了 v1.0.2（而不是覆盖安装失败还在跑旧版本）、WebView 版本是否过旧不支持某些 CSS（`.ask-dialog-overlay` 用了基础 flex/fixed 定位，理论上兼容性没问题）。
+
+---
+
+## 2026-07-01 补充：Android 正式签名密钥（commit `03bb1ad`）—— 极其重要，不要重新生成
+
+### 用户反馈
+
+"我的要求是在软件内更新安装包可以直接覆盖现有软件包更新"，随后补充"安卓手机更新可能会显示已经存在软件"。
+
+### 根因
+
+`android/app/build.gradle` 里 release 构建一直写着 `signingConfig = signingConfigs.debug`（模板自带的 `// TODO: Add your own signing config`，从来没人填过）。Flutter 的 debug keystore 是**每台构建机器/每次 CI runner 各自随机生成**的，不随仓库走。后果：
+
+- 我在这台 Windows 机器上的历次本地构建、和 GitHub Actions 云端构建（生成 v1.0.2 那次），彼此签名很可能就不一样。
+- Android 系统要求新旧 APK 签名完全一致才允许"覆盖安装升级"，不一致会直接拒绝，表现为"应用未安装"或感觉上"已经存在冲突的包"——这正是用户反馈的现象。
+- 这不是一次性问题：只要没有固定签名，**以后每次 GitHub Actions 重新构建都会用新的随机 debug key**，导致所有未来版本之间永远无法互相覆盖更新。
+
+### 修复：生成持久签名密钥，本地+CI 统一使用
+
+1. **密钥文件位置**（不在 git 仓库里，也不在任何多用户共享目录）：
+   ```
+   C:\aigen-signing\ai-image-generator-release.jks
+   C:\aigen-signing\CREDENTIALS-DO-NOT-LOSE.txt   ← 含 storePassword（keyPassword 与其相同，PKCS12 格式不支持二者不同）
+   ```
+   这个目录用 `icacls` 显式锁定了权限，只有当前 Windows 用户账号 + SYSTEM + Administrators 可读。**必须由用户手动把这整个文件夹备份到密码管理器或加密云存储**——这台机器一旦重装/丢失，密钥就永久丢失，届时所有已装用户都无法再收到可覆盖安装的更新，只能重新手动安装。
+   - 路径最初生成在 `C:\Users\浪白\android-signing\`（含中文用户名），因为 Gradle/JVM 在这台机器上对含中文的路径解析有编码问题（跟本项目其他地方"中文路径导致构建崩溃"是同一类坑），后来搬到了纯 ASCII 的 `C:\aigen-signing\`。**以后任何跟这把密钥相关的操作都不要再用含"浪白"的路径。**
+2. **`android/key.properties`**（本地专用，被 `android/.gitignore` 排除，不进仓库）：
+   ```properties
+   storePassword=...
+   keyPassword=...
+   keyAlias=aigen_release
+   storeFile=C:\\aigen-signing\\ai-image-generator-release.jks
+   ```
+   写这个文件时**踩过一个坑**：PowerShell `Set-Content -Encoding UTF8`（Windows PowerShell 5.1）会在文件开头加 UTF-8 BOM，Java 的 `Properties.load()` 不会自动跳过 BOM，导致第一个键名（`storePassword`）被污染、读出来是 `null`——`gradlew signingReport` 当时能识别出 storeFile/alias 但死活不显示 SHA 指纹，就是这个原因。用 `[System.Text.UTF8Encoding]::new($false)`（不写 BOM）重写后才正常。**以后如果 `key.properties`/类似 properties 文件在 Windows 上莫名其妙读不到值，先查 BOM。**
+3. **`android/app/build.gradle`**：新增读取 `key.properties` 的逻辑，`release` 签名优先用它，文件不存在时回退 debug 签名（保证没有这把密钥的人本地 `flutter build apk --release` 不会报错，只是签名不稳定）。
+4. **GitHub Secrets**（已通过 `gh secret set NAME < file`，从文件读取、密码从未出现在任何命令行参数或对话输出里）：
+   ```
+   ANDROID_KEYSTORE_BASE64    ← keystore 文件的 base64
+   ANDROID_KEYSTORE_PASSWORD
+   ANDROID_KEY_PASSWORD
+   ANDROID_KEY_ALIAS          ← "aigen_release"
+   ```
+   `gh secret list --repo 2786886095/Langbai-api-image-Studio` 可以看到这 4 个名字（看不到值）。
+5. **`.github/workflows/build-all-platforms.yml`** 的 `android` job 新增了一步 "Restore release signing keystore"：构建前从上述 4 个 secrets 还原出 `android/app/release-keystore.jks` + `android/key.properties`（相对路径 `storeFile=release-keystore.jks`，因为 `file()` 在 `android/app/build.gradle` 里是相对 `android/app/` 解析的，跟本地用绝对路径是两种写法，都对）。secret 未配置时会打印提示并回退 debug 签名，不会让构建失败。
+
+### 已验证（双向指纹比对，不是只看"构建成功"）
+
+- 本地：`gradlew signingReport` 显示 release 变体 `SHA1: C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`（debug 变体是完全不同的 `6D:53:1A:79:...`）。
+- 本地：在锁权限的 ASCII 目录 `C:\aigen-release-build` 里跑了一次真实的 `flutter build apk --release`（验证完已删除该目录，只是当时被工具拦下没删成功，`C:\aigen-release-build` 可能还留着，可手动清理），`keytool -printcert -jarfile <apk>` 读出的证书指纹跟 signingReport 完全一致。
+- CI：推送后触发 run `28491578220`，Android job success；下载该 artifact 用 `keytool -printcert -jarfile` 验证，指纹**同样是** `C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`——跟本地构建完全一致，证明本地和云端现在用的是同一把签名。
+
+### 尚未做
+
+1. **还没有创建新 Release**。v1.0.2（已发布）用的是旧签名，这次修复本身不改变已发布产物。下次发布新版本时（无论叫 v1.0.3 还是别的号），会自动用新签名——这将是第一个用户能"覆盖更新"的起点，但**用户现有的 v1.0.2 装机需要手动卸载重装一次**才能吃到它，之后的版本间就会正常了，这点在 Release notes 里应该写清楚。
+2. **没有真机验证覆盖安装本身**（这台机器没有 adb/设备）。指纹比对证明了签名一致性在密码学上是对的，但完整的"用户点下载并安装 → 系统弹出更新确认 → 装完自动打开新版本"这条 UI 交互链路，仍然建议装机实测一次。
+3. **Windows 端的"下载并安装覆盖"逻辑**也做了一次代码审查（`lib/main.dart` 的 `_writeWindowsUpdateScript`）：等旧进程退出→解压→`Copy-Item -Recurse -Force` 覆盖安装目录→重启，逻辑合理；且确认了 CI 产出的 zip 是"文件直接在根目录"的扁平结构（`Compress-Archive -Path .../Release/*`），跟脚本的 `Expand-Archive` + `Copy-Item (Join-Path $extract '*')` 预期结构一致，**没有发现结构性问题**，但同样没有做过一次真实"从旧版本升级到新版本、覆盖安装并重启"的端到端实测。
