@@ -1151,8 +1151,8 @@ dom.savedApis.addEventListener("change", () => {
   }
 });
 
-dom.saveConfig.addEventListener("click", () => {
-  const name = prompt("给这个配置起个名字（如：huanapi / GrsAI）：", "");
+dom.saveConfig.addEventListener("click", async () => {
+  const name = await askPrompt("给这个配置起个名字（如：huanapi / GrsAI）：", "");
   if (name === null) return;
   const cfg = currentApiConfig(name || "未命名");
   const apis = loadAllApis();
@@ -1204,7 +1204,7 @@ dom.setDefaultApi?.addEventListener("click", () => {
   keepApiConfigVisible();
 });
 
-dom.deleteSavedApi.addEventListener("click", () => {
+dom.deleteSavedApi.addEventListener("click", async () => {
   const selectedId = dom.savedApis.value;
   if (!selectedId) return;
   const apis = loadAllApis();
@@ -1212,7 +1212,7 @@ dom.deleteSavedApi.addEventListener("click", () => {
   if (idx < 0) return;
   const deleted = apis[idx];
   const name = deleted?.name;
-  if (!confirm(`删除配置「${name}」?`)) return;
+  if (!(await askConfirm(`删除配置「${name}」?`))) return;
   apis.splice(idx, 1);
   saveAllApis(apis);
   if (loadDefaultApiId() === deleted?.id) saveDefaultApiId("");
@@ -1351,6 +1351,59 @@ function closeModal(modal) {
   modal?.classList.add("hidden");
   if (!dom.settingsModal?.classList.contains("hidden") || !dom.historyModal?.classList.contains("hidden")) return;
   document.body.style.overflow = "";
+}
+
+// ─── 自定义确认/输入弹窗 ─────────────────────────────────────
+// 部分 WebView 环境（安卓 WebView 未接管 onJsConfirm/onJsPrompt 时默认静默返回 false/null，
+// Windows WebView2 则可能弹出脱离页面样式的原生对话框并阻塞渲染进程）不能可靠支持原生
+// confirm()/prompt()，因此用页面内弹窗统一替代，保证全端行为一致。
+function openAskDialog({ message, kind = "confirm", defaultValue = "" }) {
+  return new Promise(resolve => {
+    const isPrompt = kind === "prompt";
+    const overlay = document.createElement("div");
+    overlay.className = "modal ask-dialog-overlay";
+    overlay.innerHTML = `
+      <div class="modal-card ask-dialog-card" role="alertdialog" aria-modal="true">
+        <p class="ask-dialog-message"></p>
+        ${isPrompt ? '<input type="text" class="ask-dialog-input">' : ""}
+        <div class="ask-dialog-actions">
+          <button type="button" class="btn btn-sm ask-dialog-cancel">取消</button>
+          <button type="button" class="btn btn-sm btn-primary ask-dialog-ok">确定</button>
+        </div>
+      </div>`;
+    overlay.querySelector(".ask-dialog-message").textContent = message;
+    const input = overlay.querySelector(".ask-dialog-input");
+    if (input) input.value = defaultValue || "";
+
+    let settled = false;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKeydown, true);
+      overlay.remove();
+      resolve(value);
+    };
+    const onKeydown = e => {
+      if (e.key === "Escape") { e.preventDefault(); finish(isPrompt ? null : false); }
+      else if (e.key === "Enter") { e.preventDefault(); finish(isPrompt ? input.value : true); }
+    };
+    overlay.querySelector(".ask-dialog-cancel").addEventListener("click", () => finish(isPrompt ? null : false));
+    overlay.querySelector(".ask-dialog-ok").addEventListener("click", () => finish(isPrompt ? input.value : true));
+    overlay.addEventListener("click", e => { if (e.target === overlay) finish(isPrompt ? null : false); });
+    document.addEventListener("keydown", onKeydown, true);
+
+    document.body.appendChild(overlay);
+    (input || overlay.querySelector(".ask-dialog-ok"))?.focus();
+    input?.select();
+  });
+}
+
+function askConfirm(message) {
+  return openAskDialog({ message, kind: "confirm" });
+}
+
+function askPrompt(message, defaultValue = "") {
+  return openAskDialog({ message, kind: "prompt", defaultValue });
 }
 
 dom.settingsBtn?.addEventListener("click", () => openModal(dom.settingsModal));
@@ -2042,14 +2095,14 @@ function applySizeValue(size) {
   return true;
 }
 
-dom.saveSizePreset?.addEventListener("click", () => {
+dom.saveSizePreset?.addEventListener("click", async () => {
   const parsed = parseSizeValue(getSelectedSize());
   if (!parsed) {
     showStatus("当前尺寸无效，宽高需要在 64 到 4096 之间", "error");
     return;
   }
   const defaultName = parsed.value.replace("x", "×");
-  const name = prompt("给这个常用尺寸起个名字：", defaultName);
+  const name = await askPrompt("给这个常用尺寸起个名字：", defaultName);
   if (name === null) return;
   const sizes = loadSavedSizes();
   const item = { name: (name || defaultName).trim() || defaultName, value: parsed.value };
@@ -2197,7 +2250,7 @@ function getRequestedPanelCount() {
   return Math.min(100, Math.max(1, Math.floor(raw)));
 }
 
-function setPanelCount(targetCount) {
+async function setPanelCount(targetCount) {
   const target = Math.min(100, Math.max(1, Math.floor(Number(targetCount) || 1)));
   const rows = $$(".panel-row", dom.panelTbody);
   const current = rows.length;
@@ -2216,7 +2269,7 @@ function setPanelCount(targetCount) {
 
   const rowsToRemove = rows.slice(target);
   const hasContent = rowsToRemove.some(rowHasPanelContent);
-  if (hasContent && !confirm(`将删除后面的 ${current - target} 个分镜及其内容，确定继续吗？`)) {
+  if (hasContent && !(await askConfirm(`将删除后面的 ${current - target} 个分镜及其内容，确定继续吗？`))) {
     syncPanelCountInput();
     return;
   }
@@ -2226,10 +2279,10 @@ function setPanelCount(targetCount) {
   showStatus(`已调整为 ${target} 个分镜`, "success");
 }
 
-dom.createPanels?.addEventListener("click", () => {
+dom.createPanels?.addEventListener("click", async () => {
   const target = getRequestedPanelCount();
   if (dom.panelCount) dom.panelCount.value = String(target);
-  setPanelCount(target);
+  await setPanelCount(target);
 });
 dom.panelCount?.addEventListener("keydown", e => {
   if (e.key === "Enter") {
@@ -2239,9 +2292,9 @@ dom.panelCount?.addEventListener("keydown", e => {
 });
 
 dom.addPanel.addEventListener("click", addPanelRow);
-dom.clearPanels.addEventListener("click", () => {
+dom.clearPanels.addEventListener("click", async () => {
   if (dom.panelTbody.children.length === 0 && !abortController) return;
-  if (confirm("确定清空所有分镜？")) {
+  if (await askConfirm("确定清空所有分镜？")) {
     const wasGenerating = !!abortController;
     stopCurrentGeneration("已取消当前生成并清空分镜");
     dom.panelTbody.innerHTML = "";
@@ -2290,15 +2343,15 @@ function getAutoFillPrompt(row, customTemplate = "") {
   return renderAutoFillTemplate("输出分镜{n}的图片", vars);
 }
 
-dom.autoFillPanels.addEventListener("click", () => {
+dom.autoFillPanels.addEventListener("click", async () => {
   const templateType = dom.autoFillTemplate?.value || "panel-output";
   const shouldMatchReferenceCount = /^ref-/.test(templateType) && referenceImages.length > 0;
 
   if (shouldMatchReferenceCount && dom.panelTbody.children.length < referenceImages.length) {
     const rows = $$(".panel-row", dom.panelTbody);
     const hasContent = rows.some(rowHasPanelContent);
-    if (!hasContent || confirm(`当前有 ${referenceImages.length} 张参考图，是否扩展为 ${referenceImages.length} 个分镜？`)) {
-      setPanelCount(referenceImages.length);
+    if (!hasContent || (await askConfirm(`当前有 ${referenceImages.length} 张参考图，是否扩展为 ${referenceImages.length} 个分镜？`))) {
+      await setPanelCount(referenceImages.length);
     }
   } else if (dom.panelTbody.children.length === 0 && referenceImages.length > 0) {
     referenceImages.forEach(() => addPanelRow());
@@ -2310,11 +2363,11 @@ dom.autoFillPanels.addEventListener("click", () => {
   }
 
   const hasContent = rows.some(row => row.querySelector("textarea").value.trim());
-  if (hasContent && !confirm("已有分镜提示词，确定用当前模板覆盖吗？")) return;
+  if (hasContent && !(await askConfirm("已有分镜提示词，确定用当前模板覆盖吗？"))) return;
 
   let customTemplate = "";
   if (dom.autoFillTemplate?.value === "custom") {
-    customTemplate = prompt("输入模板：可用 {n} 表示分镜编号，{ref} 表示参考图编号，{caption} 表示字幕内容", "给参考图{ref}加入{caption}的气泡字幕") || "";
+    customTemplate = (await askPrompt("输入模板：可用 {n} 表示分镜编号，{ref} 表示参考图编号，{caption} 表示字幕内容", "给参考图{ref}加入{caption}的气泡字幕")) || "";
     if (!customTemplate.trim()) return;
   }
 
@@ -3493,17 +3546,17 @@ function composeRetryPrompt(context) {
   return context.prompt || "";
 }
 
-function editRetryContext(context) {
+async function editRetryContext(context) {
   const next = { ...context };
   if (next.mode === "comic") {
-    const panel = prompt("修改该分镜提示词（全局提示词会自动引用当前页面里的内容）", next.panelPrompt || next.prompt || "");
+    const panel = await askPrompt("修改该分镜提示词（全局提示词会自动引用当前页面里的内容）", next.panelPrompt || next.prompt || "");
     if (panel === null) return null;
     next.globalPrompt = getEffectivePrompt();
     next.panelPrompt = panel.trim();
     next.prompt = composeRetryPrompt(next);
     return next;
   }
-  const edited = prompt("修改提示词后重试", next.prompt || "");
+  const edited = await askPrompt("修改提示词后重试", next.prompt || "");
   if (edited === null) return null;
   next.prompt = edited.trim();
   return next;
@@ -3533,7 +3586,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   const currentContext = card._retryContext || {};
   let context = { ...currentContext };
   if (editBeforeRetry) {
-    context = editRetryContext(context);
+    context = await editRetryContext(context);
     if (!context) return false;
   }
   const promptText = composeRetryPrompt(context);
@@ -4069,8 +4122,8 @@ dom.closeHistory?.addEventListener("click", () => closeModal(dom.historyModal));
 dom.historyModal?.addEventListener("click", e => { if (e.target === dom.historyModal) closeModal(dom.historyModal); });
 dom.refreshHistory?.addEventListener("click", renderHistory);
 dom.historySearch?.addEventListener("input", renderHistory);
-dom.clearHistory?.addEventListener("click", () => {
-  if (!confirm("确定清空全部生图记录？")) return;
+dom.clearHistory?.addEventListener("click", async () => {
+  if (!(await askConfirm("确定清空全部生图记录？"))) return;
   saveHistory([]);
   renderHistory();
   showStatus("历史记录已清空", "info");

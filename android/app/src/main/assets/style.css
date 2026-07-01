@@ -2804,3 +2804,39 @@ main.result-panel .result-actions .btn {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Ask dialog (custom confirm/prompt replacement) ===== */
+.ask-dialog-overlay {
+  z-index: 1200;
+}
+
+.ask-dialog-card {
+  width: min(420px, 100%);
+  max-height: none;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ask-dialog-message {
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ask-dialog-input {
+  width: 100%;
+}
+
+.ask-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ask-dialog-actions .btn {
+  min-width: 84px;
+}

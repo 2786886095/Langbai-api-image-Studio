@@ -213,8 +213,20 @@ async function testApiConfig(cdp) {
 
   const saveResult = await cdp.eval(`(async () => {
     localStorage.clear();
-    window.prompt = () => "qa-api";
-    window.confirm = () => true;
+    const answerAskDialog = async (value) => {
+      const start = Date.now();
+      let overlay = null;
+      while (Date.now() - start < 2000) {
+        overlay = document.querySelector(".ask-dialog-overlay");
+        if (overlay) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      if (!overlay) return false;
+      const input = overlay.querySelector(".ask-dialog-input");
+      if (input && value !== false) input.value = value === true ? "" : value;
+      overlay.querySelector(value === false ? ".ask-dialog-cancel" : ".ask-dialog-ok").click();
+      return true;
+    };
     document.getElementById("openApiConfig").click();
     await new Promise(r => setTimeout(r, 50));
     const set = (id, value) => {
@@ -228,6 +240,7 @@ async function testApiConfig(cdp) {
     set("model", "gpt-image-2");
     set("proxyEndpoint", "http://127.0.0.1:8787/proxy");
     document.getElementById("saveConfig").click();
+    await answerAskDialog("qa-api");
     await new Promise(r => setTimeout(r, 80));
     return {
       configOpen: document.getElementById("configSection").open,
@@ -252,11 +265,23 @@ async function testApiConfig(cdp) {
       proxy: document.getElementById("proxyEndpoint").value,
       configOpen: document.getElementById("configSection").open,
     };
+    const answerAskDialog = async (value) => {
+      const start = Date.now();
+      let overlay = null;
+      while (Date.now() - start < 2000) {
+        overlay = document.querySelector(".ask-dialog-overlay");
+        if (overlay) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      if (!overlay) return false;
+      overlay.querySelector(value === false ? ".ask-dialog-cancel" : ".ask-dialog-ok").click();
+      return true;
+    };
     document.getElementById("openApiConfig").click();
     await new Promise(r => setTimeout(r, 50));
-    window.confirm = () => true;
     document.getElementById("savedApis").value = "0";
     document.getElementById("deleteSavedApi").click();
+    await answerAskDialog(true);
     await new Promise(r => setTimeout(r, 50));
     return {
       before,
