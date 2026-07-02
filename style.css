@@ -1326,60 +1326,6 @@ body {
   align-items: stretch;
 }
 
-.side-rail {
-  position: sticky;
-  top: 16px;
-  min-height: 0;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--clay-shadow);
-}
-
-.rail-item {
-  position: relative;
-  width: 100%;
-  min-height: 58px;
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  padding: 7px 4px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text2);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.rail-item .ui-icon {
-  width: 1.35em;
-  height: 1.35em;
-}
-
-.rail-item:hover {
-  color: var(--text);
-  background: var(--surface2);
-  border-color: var(--border);
-  transform: translateY(-1px);
-}
-
-.rail-item.active {
-  color: var(--primary-hover);
-  background: var(--primary-bg);
-  border-color: var(--primary-border);
-  box-shadow: inset 3px 0 0 var(--primary);
-}
-
-.rail-bottom { margin-top: auto; }
-
 .input-panel,
 .result-panel,
 .modal-card {
@@ -2008,7 +1954,6 @@ textarea {
     min-height: 0;
   }
 
-  .side-rail,
   .input-panel,
   .result-panel {
     position: static;
@@ -2034,23 +1979,6 @@ textarea {
   }
   .app { padding: 14px 14px 22px; }
   .main-layout { grid-template-columns: 1fr; }
-  .side-rail {
-    position: sticky;
-    top: 10px;
-    z-index: 30;
-    min-height: 0;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .side-rail::-webkit-scrollbar { display: none; }
-  .rail-item {
-    min-width: 74px;
-    min-height: 48px;
-  }
-  .rail-bottom { margin-top: 0; margin-left: auto; }
   .input-panel {
     position: static;
     max-height: none;
@@ -2099,14 +2027,6 @@ textarea {
   .brand-mark {
     width: 36px;
     height: 36px;
-  }
-  .side-rail {
-    top: 6px;
-    padding: 6px;
-  }
-  .rail-item {
-    min-width: 66px;
-    font-size: 0.68rem;
   }
   .input-panel,
   .result-panel {

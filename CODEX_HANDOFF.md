@@ -47,7 +47,7 @@ GitHub：`https://github.com/2786886095/Langbai-api-image-Studio`
 ## 关键改动文件
 
 - `index.html`
-  - 资源 query 升到 `20260702-1-0-6`
+  - 资源 query 升到 `20260702-1-0-6-audit2`
   - 新增 `#desktopProxyMode`、`#desktopProxyCustomUrl`、`#testDesktopProxy`、`#desktopProxyStatus`
   - 当前版本显示升到 `v1.0.6`
 - `app.js`
@@ -58,6 +58,8 @@ GitHub：`https://github.com/2786886095/Langbai-api-image-Studio`
   - `fetchLatestReleaseInfo()` 改走 `smartFetch()`，桌面更新检测也能走代理
   - `retryTransient()` 新增 `onRetry` 回调，并只对 HTTP 400 重试
   - 修复 `clearAllReferenceImages()` 的错误函数引用
+  - GrsAI 官方文档适配：`/v1/api/generate`、`/v1/api/result?id=...`、官方模型清单、nano-banana `aspectRatio/imageSize`
+  - GrsAI 专用协议只在 API 类型选择 `GrsAI 生图 API` 时启用；`官方 API` / `自定义 API` 保持 OpenAI 兼容通用路由
 - `lib/proxy_config.dart`
   - 新增桌面代理解析纯函数
 - `lib/main.dart`
@@ -69,8 +71,11 @@ GitHub：`https://github.com/2786886095/Langbai-api-image-Studio`
   - 扩展控件和代理回归
   - 捕获 runtime exception / console error
   - 覆盖重试轮次和语言菜单可点击性
+  - 覆盖远程图片预览失败后用本地 blob 重新加载
+  - 覆盖主题切换、头部导出、快捷模型检测、默认 API、分镜创建等关键按钮矩阵
+  - 覆盖 GrsAI 官方同步/异步轮询、400 失败原因、自定义 GrsAI 域名仍走通用协议
 - `sw.js`
-  - `CACHE_NAME = "ai-image-generator-1-0-6-20260702"`
+  - `CACHE_NAME = "ai-image-generator-1-0-6-20260702-audit2"`
 - `pubspec.yaml`
   - `version: 1.0.6+7`
 - `android/app/src/main/assets/`
@@ -94,11 +99,12 @@ node qa\regression-runner.js
 [qa] Comic generation history as project, restore, and ZIP export
 [qa] 400-only retry, clear while generating, reload failed image, and i18n layout
 [qa] Desktop proxy settings and native payload propagation
+[qa] GrsAI official generate/result adapter behavior
 [qa] Settings update controls and platform package selection
 [qa] All regression checks passed.
 ```
 
-## 仍需发布验证
+## 发布验证状态
 
 - Android release/debug 已在 ASCII 路径 `F:\AI\agent\aigen_build_106` 构建通过。
 - Android release APK 已复制到：
@@ -113,14 +119,15 @@ node qa\regression-runner.js
   `CMake Error: Visual Studio 16 2019 could not find any instance of Visual Studio.`
 - GitHub Actions 四端 artifacts 下载后确认：
   - `app.js` 为 `APP_VERSION = "1.0.6"`
-  - `index.html` query 为 `20260702-1-0-6`
+  - `index.html` query 当前开发态为 `20260702-1-0-6-audit2`
   - Android assets 与根目录资源一致
-- 创建 GitHub Release `v1.0.6` 并上传四端包和 `SHA256SUMS.txt`
+- GitHub Release `v1.0.6` 已创建：
+  `https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v1.0.6`
 
 ## 发布说明建议
 
 ```text
-v1.0.6 增加桌面端网络代理设置（HTTP 7890、SOCKS5 10808、直连、自定义），桌面软件的生图、模型检测、GitHub 更新检测、更新包下载和远程图片加载会统一走该代理；保留浏览器 CORS 转发地址作为纯 HTML 方案。修复历史项目还原按钮无反应问题。重试逻辑调整为仅 HTTP 400 自动重试，成功返回图片立即停止，非 400 直接失败，并显示第 N/M 轮重试状态。回归测试新增运行时异常捕获、语言菜单、代理 payload、重试轮次等硬性功能检查。
+v1.0.6 增加桌面端网络代理设置（HTTP 7890、SOCKS5 10808、直连、自定义），桌面软件的生图、模型检测、GitHub 更新检测、更新包下载和远程图片加载会统一走该代理；保留浏览器 CORS 转发地址作为纯 HTML 方案。修复历史项目还原按钮无反应问题。重试逻辑调整为仅 HTTP 400 自动重试，成功返回图片立即停止，非 400 直接失败，并显示第 N/M 轮重试状态。后续 audit1 修正头部导出入口可见性、移除旧侧栏残留，并让图片“重新加载”复用下载字节链路切换到本地 blob 预览。audit2 按 GrsAI 官方文档适配 generate/result 协议，并限制只有选择 GrsAI API 类型才启用该协议。回归测试新增运行时异常捕获、语言菜单、代理 payload、重试轮次、图片 blob 重新加载、GrsAI 官方适配等硬性功能检查。
 ```
 
 ## 注意

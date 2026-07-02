@@ -253,6 +253,7 @@ async function testApiConfig(cdp) {
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
+    set("apiProvider", "custom");
     set("apiEndpoint", "https://www.huanapi.com/v1/images/edits");
     set("apiKey", "sk-qa-1234567890");
     set("model", "gpt-image-2");
@@ -260,17 +261,21 @@ async function testApiConfig(cdp) {
     document.getElementById("saveConfig").click();
     await answerAskDialog("qa-api");
     await new Promise(r => setTimeout(r, 80));
+    document.getElementById("setDefaultApi").click();
+    await new Promise(r => setTimeout(r, 50));
     return {
       configOpen: document.getElementById("configSection").open,
       selected: document.getElementById("savedApis").value,
       apis: JSON.parse(localStorage.getItem("ai_image_gen_apis") || "[]"),
       active: JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}"),
+      defaultId: localStorage.getItem("ai_image_gen_default_api_id"),
       quick: document.getElementById("apiQuickTitle").textContent,
     };
   })()`, true);
   assertQa(saveResult.configOpen, "API config should remain open after saving.", saveResult);
   assertQa(saveResult.apis.length === 1, "Saved API list should contain one record.", saveResult);
   assertQa(saveResult.active.endpoint.includes("huanapi"), "Active API config should be persisted.", saveResult);
+  assertQa(saveResult.defaultId && saveResult.defaultId === saveResult.active.id, "Set-default API button should persist the active API id.", saveResult);
   assertQa(saveResult.quick.includes("已接入"), "API quick card should show connected state.", saveResult);
 
   await cdp.eval("location.reload()");
@@ -335,7 +340,7 @@ async function testApiConfig(cdp) {
     set("apiProvider", "grsai");
     set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
     set("apiKey", "sk-qa-models");
-    document.getElementById("detectModels").click();
+    document.getElementById("quickDetectModels").click();
     await new Promise(r => setTimeout(r, 80));
     const choices = [...document.querySelectorAll("#modelChoices .model-choice")];
     const first = choices[0];
@@ -346,7 +351,7 @@ async function testApiConfig(cdp) {
       selected: document.getElementById("model").value,
     };
   })()`, true);
-  assertQa(modelChoice.visible && modelChoice.count > 3, "Fallback model detection should render clickable in-app model choices.", modelChoice);
+  assertQa(modelChoice.visible && modelChoice.count > 3, "Quick model detection should render clickable in-app model choices.", modelChoice);
   assertQa(modelChoice.selected.length > 0, "Clicking a model choice should fill the model input.", modelChoice);
 
   await loadFresh(cdp, "api-mobile", { width: 430, height: 560, mobile: true });
@@ -506,6 +511,7 @@ async function testHistoryRestoreAndExport(cdp) {
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
+    set("apiProvider", "custom");
     set("apiEndpoint", "http://mock.local");
     set("apiKey", "sk-test");
     set("model", "gpt-image-2");
@@ -560,15 +566,15 @@ async function testHistoryRestoreAndExport(cdp) {
     let zipText = "";
     if (blobRec) zipText = new TextDecoder().decode(await blobRec.blob.arrayBuffer());
     const zipEntries = blobRec ? await listZipEntries(blobRec.blob) : [];
-    document.getElementById("zipFileName").value = "qa-side-rail-export";
+    document.getElementById("zipFileName").value = "qa-header-export";
     document.getElementById("exportBtn").click();
-    const sideExportStart = Date.now();
-    while (Date.now() - sideExportStart < 5000) {
+    const headerExportStart = Date.now();
+    while (Date.now() - headerExportStart < 5000) {
       if (window.__downloadBlobs.length >= 2 && !document.getElementById("downloadZip").disabled) break;
       await new Promise(r => setTimeout(r, 80));
     }
-    const sideCurrentBlob = window.__downloadBlobs[1];
-    const sideCurrentEntries = sideCurrentBlob ? await listZipEntries(sideCurrentBlob.blob) : [];
+    const headerCurrentBlob = window.__downloadBlobs[1];
+    const headerCurrentEntries = headerCurrentBlob ? await listZipEntries(headerCurrentBlob.blob) : [];
     document.getElementById("resultGrid").innerHTML = "";
     document.getElementById("resultGrid").classList.add("hidden");
     document.getElementById("emptyState").classList.remove("hidden");
@@ -626,12 +632,12 @@ async function testHistoryRestoreAndExport(cdp) {
         zipHasPanelOnly: zipText.includes("panel 1 only"),
         zipHasCombinedPromptInPanel: zipText.includes("GLOBAL STYLE\\\\n\\\\npanel 1 only"),
       },
-      sideRailCurrent: {
-        download: window.__downloads.find(item => item.download === "qa-side-rail-export.zip") || null,
-        blob: sideCurrentBlob ? { size: sideCurrentBlob.size, type: sideCurrentBlob.type } : null,
-        entries: sideCurrentEntries,
+      headerExportCurrent: {
+        download: window.__downloads.find(item => item.download === "qa-header-export.zip") || null,
+        blob: headerCurrentBlob ? { size: headerCurrentBlob.size, type: headerCurrentBlob.type } : null,
+        entries: headerCurrentEntries,
       },
-      sideRailHistory: {
+      headerExportHistory: {
         opened: historyOpenedFromExport,
         projectCards: document.querySelectorAll(".history-project-card").length,
         projectButtons: historyProjectButtons,
@@ -655,11 +661,11 @@ async function testHistoryRestoreAndExport(cdp) {
   assertQa(result.export.zipHasPrompts && result.export.zipHasProject && result.export.zipHasPanel1, "ZIP should contain images, prompts, and project JSON.", result);
   assertQa(result.export.entries.includes("comic-project/panel-1.png") && result.export.entries.includes("comic-project/project.json"), "ZIP should expose valid central-directory entries.", result);
   assertQa(result.export.zipHasGlobal && result.export.zipHasPanelOnly && !result.export.zipHasCombinedPromptInPanel, "ZIP prompt export should separate global and panel prompts.", result);
-  assertQa(result.sideRailCurrent.download?.download === "qa-side-rail-export.zip", "Side rail export should download current result images.", result);
-  assertQa(result.sideRailCurrent.blob?.type === "application/zip" && result.sideRailCurrent.entries.includes("comic-project/prompts.txt"), "Side rail current export should produce a valid ZIP.", result);
-  assertQa(result.sideRailHistory.opened && result.sideRailHistory.projectCards === 1, "Side rail export should open history when current results are empty.", result);
-  assertQa(result.sideRailHistory.projectButtons.some(text => text.includes("导出") || text.includes("Export")), "History project cards should expose project export after side rail export.", result);
-  assertQa(result.sideRailHistory.projectExport?.type === "application/zip" && result.sideRailHistory.projectExport.entries.some(name => name.endsWith("/project.json")), "History project export button should create a valid project ZIP.", result);
+  assertQa(result.headerExportCurrent.download?.download === "qa-header-export.zip", "Header export should download current result images.", result);
+  assertQa(result.headerExportCurrent.blob?.type === "application/zip" && result.headerExportCurrent.entries.includes("comic-project/prompts.txt"), "Header export should produce a valid ZIP for current results.", result);
+  assertQa(result.headerExportHistory.opened && result.headerExportHistory.projectCards === 1, "Header export should open history when current results are empty.", result);
+  assertQa(result.headerExportHistory.projectButtons.some(text => text.includes("导出") || text.includes("Export")), "History project cards should expose project export after header export.", result);
+  assertQa(result.headerExportHistory.projectExport?.type === "application/zip" && result.headerExportHistory.projectExport.entries.some(name => name.endsWith("/project.json")), "History project export button should create a valid project ZIP.", result);
   assertQa(result.directDownload.clicked && result.directDownload.immediateRevokes === 0, "Browser download should not revoke its object URL immediately.", result);
   assertQa(result.buttonDisabled === false, "Generate button should reset after generation.", result);
 }
@@ -707,6 +713,7 @@ async function testRetryClearReloadAndI18n(cdp) {
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
+    set("apiProvider", "custom");
     set("apiEndpoint", "http://mock.local");
     set("apiKey", "sk-test");
     set("model", "gpt-image-2");
@@ -765,6 +772,7 @@ async function testRetryClearReloadAndI18n(cdp) {
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
+    set("apiProvider", "custom");
     set("apiEndpoint", "http://mock.local");
     set("apiKey", "sk-test");
     set("prompt", "slow image");
@@ -793,22 +801,51 @@ async function testRetryClearReloadAndI18n(cdp) {
     document.getElementById("resultGrid").classList.remove("hidden");
     document.getElementById("emptyState").classList.add("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
+    const originalFetch = window.fetch.bind(window);
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    let fetchCalls = 0;
+    window.fetch = async (url, opts = {}) => {
+      if (String(url).includes("mock-preview-image.png")) {
+        fetchCalls++;
+        if (fetchCalls === 1) throw new TypeError("initial preview cache failed");
+        const bytes = Uint8Array.from(atob(png), c => c.charCodeAt(0));
+        return new Response(bytes, { status: 200, headers: { "Content-Type": "image/png" } });
+      }
+      return originalFetch(url, opts);
+    };
     const card = document.createElement("div");
     card.className = "result-item";
     document.getElementById("resultGrid").appendChild(card);
-    replacePlaceholder(card, 1, { data: [{ url: "http://127.0.0.1:8765/missing-preview.png" }] }, "panel only", {
+    replacePlaceholder(card, 1, { data: [{ url: "https://example.test/mock-preview-image.png" }] }, "panel only", {
       skipHistory: true,
       retryContext: { mode: "comic", globalPrompt: "global", panelPrompt: "panel only", prompt: "global\\n\\npanel only" },
     });
     const img = card.querySelector("img");
     const button = card.querySelector(".result-media-reload");
+    await new Promise(r => setTimeout(r, 80));
     img.dispatchEvent(new Event("error"));
     const before = img.src;
     button.click();
-    await new Promise(r => setTimeout(r, 60));
-    return { before, after: img.src, cacheBust: /_reload=/.test(img.src) };
+    const start = Date.now();
+    while (Date.now() - start < 3000) {
+      if (img.src.startsWith("blob:") && card._zipBlob?.size > 0) break;
+      await new Promise(r => setTimeout(r, 60));
+    }
+    const media = card.querySelector(".result-media");
+    const result = {
+      before,
+      after: img.src,
+      fetchCalls,
+      blobPreview: img.src.startsWith("blob:"),
+      zipBlobSize: card._zipBlob?.size || 0,
+      errorState: media.classList.contains("is-error"),
+      loadingState: media.classList.contains("is-loading"),
+    };
+    window.fetch = originalFetch;
+    return result;
   })()`, true);
-  assertQa(reload.before !== reload.after && reload.cacheBust, "Failed image reload should re-request the image with a cache-busting URL.", reload);
+  assertQa(reload.before !== reload.after && reload.blobPreview && reload.zipBlobSize > 0, "Failed image reload should fetch image bytes and switch preview to a local blob URL.", reload);
+  assertQa(reload.fetchCalls >= 2 && !reload.errorState, "Reload should recover from direct preview failure using the same byte-fetch path as download.", reload);
 
   const resultGrid = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -819,6 +856,7 @@ async function testRetryClearReloadAndI18n(cdp) {
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
+    set("apiProvider", "custom");
     set("apiEndpoint", "http://mock.local");
     set("apiKey", "sk-test");
     set("model", "gpt-image-2");
@@ -954,7 +992,7 @@ async function testRetryClearReloadAndI18n(cdp) {
         select.dispatchEvent(new Event("change", { bubbles: true }));
         await new Promise(r => setTimeout(r, 80));
         const text = document.body.innerText;
-        const nodes = [...document.querySelectorAll("button,.btn,.btn-sm,.btn-xs,.mode-tab,.rail-item,.language-select")]
+        const nodes = [...document.querySelectorAll("button,.btn,.btn-sm,.btn-xs,.mode-tab,.language-select")]
           .filter(el => {
             const rect = el.getBoundingClientRect();
             const style = getComputedStyle(el);
@@ -968,33 +1006,42 @@ async function testRetryClearReloadAndI18n(cdp) {
           overflowY: el.scrollHeight - el.clientHeight,
         })).filter(row => row.overflowX > 3 || row.overflowY > 8);
         const langStyle = getComputedStyle(select);
+        const exportButton = document.getElementById("exportBtn");
+        const exportRect = exportButton.getBoundingClientRect();
+        const exportStyle = getComputedStyle(exportButton);
         results.push({
           lang,
           header: document.querySelector(".header h1")?.innerText,
-          rail: [...document.querySelectorAll(".rail-item")].map(el => el.innerText.trim()),
           badWords: ["undefined", "null", "NaN", "????"].filter(word => text.includes(word)),
           hasJaChinesePanel: lang === "ja" && text.includes("分镜"),
           overflows,
           languageCenter: langStyle.textAlign === "center" && langStyle.textAlignLast === "center",
+          exportVisible: exportStyle.display !== "none" && exportStyle.visibility !== "hidden" && exportRect.width > 0 && exportRect.height > 0,
         });
       }
       const menuButton = document.getElementById("languageMenuButton");
       const menu = document.getElementById("languageMenu");
+      const themeBefore = document.documentElement.getAttribute("data-theme");
+      document.getElementById("themeToggle").click();
+      await new Promise(r => setTimeout(r, 50));
+      const themeAfter = document.documentElement.getAttribute("data-theme");
       menuButton.click();
       await new Promise(r => setTimeout(r, 80));
       const opened = !menu.classList.contains("hidden") && menuButton.getAttribute("aria-expanded") === "true";
       menu.querySelector('[data-lang="en"]').click();
       await new Promise(r => setTimeout(r, 80));
       const changed = document.documentElement.lang === "en" && document.getElementById("languageCurrent").textContent.includes("EN");
-      return { results, menu: { opened, changed } };
+      return { results, menu: { opened, changed }, theme: { before: themeBefore, after: themeAfter } };
     })()`, true);
-    i18n.push({ viewport: viewport.name, item: item.results, menu: item.menu });
+    i18n.push({ viewport: viewport.name, item: item.results, menu: item.menu, theme: item.theme });
   }
   const flat = i18n.flatMap(group => group.item.map(item => ({ viewport: group.viewport, ...item })));
-  const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.overflows.length || !item.languageCenter);
+  const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.overflows.length || !item.languageCenter || !item.exportVisible);
   assertQa(bad.length === 0, "All supported languages should render without bad tokens, Japanese Chinese residue, or control overflow.", bad);
   const menuBad = i18n.filter(group => !group.menu.opened || !group.menu.changed);
   assertQa(menuBad.length === 0, "Language menu button should open and apply a selected language.", menuBad);
+  const themeBad = i18n.filter(group => group.theme.before === group.theme.after);
+  assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
 }
 
 async function testUpdateControls(cdp) {
@@ -1080,6 +1127,66 @@ async function testUpdateControls(cdp) {
   assertQa(result.sameVersionResult?.skipped === true && result.openedUrls.length === 0, "Downloading the current version should be blocked and should not open an update URL.", result);
 }
 
+async function testAndroidUpdateRedirect(cdp) {
+  logStep("Android update check should redirect to GitHub release page, not install in-app");
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "android-update");
+    const result = await cdp.eval(`(async () => {
+      const originalOpen = window.open;
+      const releaseHtmlUrl = "https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v9.9.9";
+      const releaseJson = JSON.stringify({
+        tag_name: "v9.9.9",
+        html_url: releaseHtmlUrl,
+        body: "## Test release",
+        assets: [
+          { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
+          { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+        ]
+      });
+      const calls = [];
+      let openedUrls = [];
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          calls.push(payload);
+          const result = payload.action === "nativeFetch"
+            ? { status: 200, headers: { "content-type": "application/json" }, body: releaseJson }
+            : { ok: true };
+          setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, result), 0);
+        }
+      };
+      window.open = (url) => { openedUrls.push(String(url)); return { closed: false }; };
+      document.getElementById("settingsBtn").click();
+      await new Promise(r => setTimeout(r, 80));
+      document.getElementById("checkUpdates").click();
+      const start = Date.now();
+      while (Date.now() - start < 3000) {
+        if (/9\\.9\\.9/.test(document.getElementById("latestVersionLabel")?.textContent || "")) break;
+        await new Promise(r => setTimeout(r, 50));
+      }
+      const installResult = await window.AiGenUpdate.downloadLatestUpdate(true);
+      window.open = originalOpen;
+      return {
+        platform: window.AiGenUpdate.getRuntimePlatform ? window.AiGenUpdate.getRuntimePlatform() : "unknown",
+        installResult,
+        openExternalCalls: calls.filter(c => c.action === "openExternal"),
+        downloadUpdateCalls: calls.filter(c => c.action === "downloadUpdate"),
+        openedUrls,
+        status: document.getElementById("updateStatus")?.textContent || "",
+      };
+    })()`, true);
+    assertQa(result.downloadUpdateCalls.length === 0, "Android should never invoke the native downloadUpdate/install bridge action.", result);
+    assertQa(result.installResult?.opened === true && result.installResult?.url === "https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v9.9.9", "Android install click should resolve with the GitHub release page URL instead of downloading a package.", result);
+    assertQa(result.openExternalCalls.length === 1 && result.openExternalCalls[0].url.includes("github.com/2786886095/Langbai-api-image-Studio/releases/tag/v9.9.9"), "Android should open the GitHub release page via the native openExternal bridge.", result);
+    assertQa(/GitHub/.test(result.status), "Update status text should tell Android users to use the GitHub release page.", result);
+  } finally {
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+}
+
 async function testDesktopProxyControls(cdp) {
   logStep("Desktop proxy settings and native payload propagation");
   await loadFresh(cdp, "desktop-proxy");
@@ -1162,6 +1269,139 @@ async function testDesktopProxyControls(cdp) {
   assertQa(result.customDisabledAfterInvalid === false, "Custom proxy input should remain editable in custom mode.", result);
 }
 
+async function testGrsaiOfficialAdapter(cdp) {
+  logStep("GrsAI official generate/result adapter behavior");
+  await loadFresh(cdp, "grsai-official");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const originalFetch = window.fetch.bind(window);
+    const originalSleep = sleep;
+    const calls = [];
+    const genericCalls = [];
+    const resultCalls = [];
+    let asyncPolls = 0;
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const headerValue = headers => headers?.Authorization || headers?.authorization || "";
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    try {
+      sleep = async () => {};
+      set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
+      set("apiKey", "sk-grsai");
+      set("proxyEndpoint", "");
+      loadGrsaiModels();
+      const modelOptions = [...document.querySelectorAll("#modelChoices .model-choice")].map(item => item.textContent.trim());
+
+      window.fetch = async (url, opts = {}) => {
+        const urlText = String(url);
+        if (urlText.includes("/v1/api/generate")) {
+          const body = JSON.parse(opts.body || "{}");
+          calls.push({ url: urlText, body, auth: headerValue(opts.headers) });
+          if (body.prompt === "async prompt") {
+            return new Response(JSON.stringify({ id: "task-ok", status: "running", progress: 10 }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            });
+          }
+          if (body.prompt === "poll400 prompt") {
+            return new Response(JSON.stringify({ id: "task-400", status: "running", progress: 1 }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            });
+          }
+          return new Response(JSON.stringify({ status: "succeeded", results: [{ url: "https://img.test/" + body.model + ".png" }] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+        if (urlText.includes("/v1/images/generations")) {
+          const body = JSON.parse(opts.body || "{}");
+          genericCalls.push({ url: urlText, body, auth: headerValue(opts.headers) });
+          return new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+        if (urlText.includes("/v1/api/result")) {
+          resultCalls.push({ url: urlText, auth: headerValue(opts.headers) });
+          if (urlText.includes("task-400")) {
+            return new Response(JSON.stringify({ id: "task-400", status: "failed", error: "quota exhausted" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" }
+            });
+          }
+          asyncPolls++;
+          const body = asyncPolls === 1
+            ? { id: "task-ok", status: "running", progress: 55 }
+            : { id: "task-ok", status: "succeeded", progress: 100, results: [{ url: "https://img.test/final.png" }] };
+          return new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+        return originalFetch(url, opts);
+      };
+
+      set("model", "nano-banana-2-4k-cl");
+      const nano = await callImageAPI("nano prompt", "1024x1536", 1, "GrsAI nano", {
+        references: [{ dataUrl: "data:image/png;base64," + png, fileName: "ref.png" }],
+        maxRetries: 0
+      });
+      set("model", "gpt-image-2-vip");
+      const gpt = await callImageAPI("gpt prompt", "2048x2048", 1, "GrsAI gpt", { maxRetries: 0 });
+      set("model", "nano-banana-2");
+      const asyncResult = await callImageAPI("async prompt", "1536x1024", 1, "GrsAI async", { maxRetries: 0 });
+      set("model", "nano-banana");
+      let poll400Error = "";
+      try {
+        await callImageAPI("poll400 prompt", "1024x1024", 1, "GrsAI 400", { maxRetries: 0 });
+      } catch (err) {
+        poll400Error = err.message || String(err);
+      }
+      set("apiProvider", "custom");
+      set("apiEndpoint", "https://grsai.dakka.com.cn/v1/images/generations");
+      set("model", "gpt-image-2");
+      const customGeneric = await callImageAPI("custom grsai domain prompt", "1024x1024", 1, "Custom GrsAI domain", { maxRetries: 0 });
+
+      return {
+        modelOptions,
+        calls,
+        genericCalls,
+        resultCalls,
+        nanoUrl: nano?.data?.[0]?.url || "",
+        gptUrl: gpt?.data?.[0]?.url || "",
+        asyncUrl: asyncResult?.data?.[0]?.url || "",
+        poll400Error,
+        customProvider: document.getElementById("apiProvider").value,
+        customGenericOk: !!customGeneric?.data?.[0]?.b64_json,
+        statusText: document.getElementById("status")?.textContent || "",
+      };
+    } finally {
+      window.fetch = originalFetch;
+      sleep = originalSleep;
+    }
+  })()`, true);
+  const nanoCall = result.calls.find(call => call.body.prompt === "nano prompt");
+  const gptCall = result.calls.find(call => call.body.prompt === "gpt prompt");
+  const asyncCall = result.calls.find(call => call.body.prompt === "async prompt");
+  assertQa(result.modelOptions.some(text => text.includes("nano-banana-2-2k-cl")) && result.modelOptions.some(text => text.includes("gpt-image-2-vip")), "GrsAI model picker should expose the official model set.", result);
+  assertQa(nanoCall?.url === "https://grsai.dakka.com.cn/v1/api/generate", "GrsAI should normalize the configured endpoint to /v1/api/generate.", result);
+  assertQa(nanoCall?.auth === "Bearer sk-grsai", "GrsAI requests should send Bearer authorization.", result);
+  assertQa(nanoCall?.body.aspectRatio === "2:3" && nanoCall?.body.imageSize === "4K", "GrsAI nano-banana payload should map pixel size to official aspectRatio/imageSize.", result);
+  assertQa(Array.isArray(nanoCall?.body.images) && nanoCall.body.images[0] && !/^data:/i.test(nanoCall.body.images[0]), "GrsAI reference images should be sent as base64/URL values, not data URLs.", result);
+  assertQa(gptCall?.body.aspectRatio === "2048x2048" && !("imageSize" in gptCall.body), "GrsAI gpt-image payload should send pixel aspectRatio and omit nano imageSize.", result);
+  assertQa(result.nanoUrl.includes("nano-banana-2-4k-cl") && result.gptUrl.includes("gpt-image-2-vip"), "GrsAI synchronous success responses should return image URLs.", result);
+  assertQa(asyncCall && result.asyncUrl === "https://img.test/final.png" && result.resultCalls.some(call => call.url.includes("/v1/api/result?id=task-ok")), "GrsAI running responses should poll /v1/api/result until succeeded.", result);
+  assertQa(/HTTP 400/.test(result.poll400Error) && /quota exhausted/.test(result.poll400Error), "GrsAI polling HTTP 400 should preserve the official error reason.", result);
+  assertQa(result.customProvider === "custom" && result.customGenericOk, "Custom API selection should remain custom even on a GrsAI domain.", result);
+  assertQa(result.genericCalls.length === 1 && result.genericCalls[0].url.includes("/v1/images/generations"), "Custom API selection should use the generic OpenAI-compatible route, not the GrsAI /v1/api/generate route.", result);
+}
+
 async function main() {
   const server = createStaticServer();
   await new Promise(resolve => server.listen(appPort, host, resolve));
@@ -1187,7 +1427,9 @@ async function main() {
     await testHistoryRestoreAndExport(cdp);
     await testRetryClearReloadAndI18n(cdp);
     await testDesktopProxyControls(cdp);
+    await testGrsaiOfficialAdapter(cdp);
     await testUpdateControls(cdp);
+    await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
   } finally {

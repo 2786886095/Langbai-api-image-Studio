@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.0.6";
+const APP_VERSION = "1.0.7";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -53,7 +53,7 @@ const I18N = {
   "从 API 检测可用模型": { "zh-Hant": "從 API 偵測可用模型", en: "Detect available models from API", ja: "API から利用可能なモデルを検出", ko: "API에서 사용 가능한 모델 감지" },
   "检测": { "zh-Hant": "偵測", en: "Detect", ja: "検出", ko: "감지" },
   "检测中": { "zh-Hant": "偵測中", en: "Detecting", ja: "検出中", ko: "감지 중" },
-  "电脑端代理地址": { "zh-Hant": "電腦端代理位址", en: "Desktop proxy URL", ja: "PC 用プロキシ URL", ko: "PC 프록시 주소" },
+  "浏览器 CORS 转发地址": { "zh-Hant": "瀏覽器 CORS 轉發位址", en: "Browser CORS proxy URL", ja: "ブラウザー CORS 転送 URL", ko: "브라우저 CORS 프록시 URL" },
   "(可选，用于解决浏览器 CORS)": { "zh-Hant": "（可選，用於解決瀏覽器 CORS）", en: "(optional, for browser CORS)", ja: "（任意、ブラウザー CORS 対策）", ko: "(선택, 브라우저 CORS 해결용)" },
   "保存配置": { "zh-Hant": "儲存設定", en: "Save config", ja: "設定を保存", ko: "설정 저장" },
   "单图模式": { "zh-Hant": "單圖模式", en: "Single Image", ja: "単体画像", ko: "단일 이미지" },
@@ -219,7 +219,8 @@ const CLEAN_LOCALES = {
     updateCheckFailed: "检查更新失败", noUpdateAsset: "没有找到适合当前平台的更新包",
     downloadingUpdate: "正在下载更新包…", updateDownloaded: "更新包已下载: {path}",
     updateInstallStarted: "更新安装已启动。Windows 会关闭当前程序后覆盖安装目录；安卓请在系统安装器中确认。",
-    updateOpenRelease: "当前环境不能直接覆盖安装，已打开更新包下载链接。"
+    updateOpenRelease: "当前环境不能直接覆盖安装，已打开更新包下载链接。",
+    updateOpenGithubMobile: "安卓版请在 GitHub 发布页下载安装包，已为你打开该页面。"
   },
   "zh-Hant": {
     langZh: "簡體", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -270,7 +271,8 @@ const CLEAN_LOCALES = {
     updateCheckFailed: "檢查更新失敗", noUpdateAsset: "沒有找到適合目前平台的更新包",
     downloadingUpdate: "正在下載更新包…", updateDownloaded: "更新包已下載: {path}",
     updateInstallStarted: "更新安裝已啟動。Windows 會關閉目前程式後覆蓋安裝目錄；Android 請在系統安裝器中確認。",
-    updateOpenRelease: "目前環境不能直接覆蓋安裝，已開啟更新包下載連結。"
+    updateOpenRelease: "目前環境不能直接覆蓋安裝，已開啟更新包下載連結。",
+    updateOpenGithubMobile: "Android 版請在 GitHub 發布頁下載安裝包，已為你開啟該頁面。"
   },
   en: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -321,7 +323,8 @@ const CLEAN_LOCALES = {
     updateCheckFailed: "Update check failed", noUpdateAsset: "No update package was found for this platform",
     downloadingUpdate: "Downloading update package...", updateDownloaded: "Update package downloaded: {path}",
     updateInstallStarted: "Update install started. Windows will close this app and overwrite the install folder; confirm in the Android installer on Android.",
-    updateOpenRelease: "This environment cannot overwrite the app directly, so the update package link was opened."
+    updateOpenRelease: "This environment cannot overwrite the app directly, so the update package link was opened.",
+    updateOpenGithubMobile: "On Android, please download and install from the GitHub release page. It has been opened for you."
   },
   ja: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -372,7 +375,8 @@ const CLEAN_LOCALES = {
     updateCheckFailed: "更新確認に失敗しました", noUpdateAsset: "このプラットフォーム用の更新パッケージが見つかりません",
     downloadingUpdate: "更新パッケージをダウンロード中...", updateDownloaded: "更新パッケージを保存しました: {path}",
     updateInstallStarted: "更新インストールを開始しました。Windows はアプリを閉じてインストール先を上書きします。Android ではインストーラで確認してください。",
-    updateOpenRelease: "この環境では直接上書きできないため、更新パッケージのリンクを開きました。"
+    updateOpenRelease: "この環境では直接上書きできないため、更新パッケージのリンクを開きました。",
+    updateOpenGithubMobile: "Android 版は GitHub のリリースページからダウンロード・インストールしてください。ページを開きました。"
   },
   ko: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -423,7 +427,8 @@ const CLEAN_LOCALES = {
     updateCheckFailed: "업데이트 확인 실패", noUpdateAsset: "현재 플랫폼용 업데이트 패키지를 찾지 못했습니다",
     downloadingUpdate: "업데이트 패키지 다운로드 중...", updateDownloaded: "업데이트 패키지 다운로드됨: {path}",
     updateInstallStarted: "업데이트 설치가 시작되었습니다. Windows는 앱을 닫고 설치 폴더를 덮어씁니다. Android에서는 설치 관리자에서 확인하세요.",
-    updateOpenRelease: "현재 환경에서는 직접 덮어쓸 수 없어 업데이트 패키지 링크를 열었습니다."
+    updateOpenRelease: "현재 환경에서는 직접 덮어쓸 수 없어 업데이트 패키지 링크를 열었습니다.",
+    updateOpenGithubMobile: "Android 버전은 GitHub 릴리스 페이지에서 다운로드 및 설치해주세요. 페이지를 열었습니다."
   }
 };
 
@@ -840,7 +845,6 @@ const dom = {
   // 模式
   inputPanel:    $(".input-panel"),
   modeTabs:      $("#modeTabs"),
-  sideRail:      $("#sideRail"),
   // 全局输入
   prompt:        $("#prompt"),
   importTxt:     $("#importTxt"),
@@ -1083,12 +1087,13 @@ function applyApiProvider(provider = "custom", options = {}) {
 
 function applyConfig(cfg) {
   const endpoint = cfg.endpoint || API_PROVIDER_PRESETS[cfg.apiProvider || "grsai"]?.endpoint || "";
-  applyApiProvider(cfg.apiProvider || cfg.provider || inferApiProvider(endpoint), { forceEndpoint: false });
+  const provider = cfg.apiProvider || cfg.provider || inferApiProvider(endpoint);
+  applyApiProvider(provider, { forceEndpoint: false });
   if (endpoint) dom.apiEndpoint.value = endpoint;
   if (cfg.apiKey)   dom.apiKey.value = cfg.apiKey;
   if (cfg.model)    dom.model.value = cfg.model;
   if (cfg.proxyEndpoint) dom.proxyEndpoint.value = cfg.proxyEndpoint;
-  if (!cfg.model && inferApiProvider(endpoint) === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
+  if (!cfg.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
   updateApiQuickState();
 }
 
@@ -1104,7 +1109,7 @@ function currentApiConfig(name = loadConfig().name || "") {
     apiKey: dom.apiKey.value.trim(),
     model: dom.model.value.trim(),
     proxyEndpoint: dom.proxyEndpoint.value.trim(),
-    platform: (findAdapter(endpoint) || {}).name || "未知",
+    platform: (findAdapter(endpoint, provider) || {}).name || "未知",
   };
 }
 
@@ -1137,12 +1142,13 @@ function updateApiQuickState() {
   if (dom.apiQuickMeta) {
     if (connected) {
       let adapter = null;
+      const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
       try {
-        adapter = findAdapter(endpoint);
+        adapter = findAdapter(endpoint, provider);
       } catch {
         adapter = null;
       }
-      const platform = apiProviderLabel(dom.apiProvider?.value || inferApiProvider(endpoint)) || adapter?.name || readableEndpoint(endpoint);
+      const platform = apiProviderLabel(provider) || adapter?.name || readableEndpoint(endpoint);
       dom.apiQuickMeta.textContent = `${platform} · ${model} · ${maskApiKey(apiKey)}`;
     } else {
       const provider = apiProviderLabel(dom.apiProvider?.value || inferApiProvider(endpoint));
@@ -1749,6 +1755,17 @@ async function downloadLatestUpdate(install = false) {
       showStatus(cleanText("noUpdate"), "info");
       return { skipped: true, reason: "up-to-date", latest: info.latest };
     }
+
+    // 手机端（安卓）不做应用内下载/覆盖安装：只跳转到 GitHub 发布页，用户在浏览器/系统里自行下载安装。
+    // 桌面端（Windows/macOS）继续走原生下载 + 覆盖安装。
+    if (getRuntimePlatform() === "android") {
+      const releaseUrl = info.release?.html_url || `https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v${info.latest}`;
+      await openExternalUrl(releaseUrl);
+      setUpdateStatus(cleanText("updateOpenGithubMobile"), "info");
+      showStatus(cleanText("updateOpenGithubMobile"), "info");
+      return { opened: true, url: releaseUrl };
+    }
+
     const asset = selectUpdateAsset(info.release);
     if (!asset) throw new Error(cleanText("noUpdateAsset"));
     const url = asset.browser_download_url;
@@ -1787,20 +1804,43 @@ if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = cleanText("notC
 dom.checkUpdates?.addEventListener("click", () => void checkForUpdates());
 dom.downloadUpdate?.addEventListener("click", () => void downloadLatestUpdate(false));
 dom.installUpdate?.addEventListener("click", () => void downloadLatestUpdate(true));
-window.AiGenUpdate = { APP_VERSION, checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset };
+window.AiGenUpdate = { APP_VERSION, checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset, getRuntimePlatform };
 window.AiGenProxy = { resolveDesktopProxyConfig, getDesktopProxyPayload, withDesktopProxyPayload, parseDesktopProxyUrl };
 
 // ─── 已知模型价格（跨平台通用） ─────────────────────────────
+const GRSAI_GPT_IMAGE_MODELS = Object.freeze([
+  "gpt-image-2",
+  "gpt-image-2-vip",
+]);
+const GRSAI_NANO_BANANA_MODELS = Object.freeze([
+  "nano-banana",
+  "nano-banana-fast",
+  "nano-banana-2",
+  "nano-banana-2-cl",
+  "nano-banana-2-2k-cl",
+  "nano-banana-2-4k-cl",
+  "nano-banana-pro",
+  "nano-banana-pro-vt",
+  "nano-banana-pro-cl",
+  "nano-banana-pro-vip",
+  "nano-banana-pro-4k-vip",
+]);
+const GRSAI_OFFICIAL_MODELS = Object.freeze([
+  ...GRSAI_GPT_IMAGE_MODELS,
+  ...GRSAI_NANO_BANANA_MODELS,
+]);
+const GRSAI_POLL_INTERVAL_MS = 2000;
+const GRSAI_MAX_POLL_COUNT = 180;
+
 const KNOWN_PRICES = {
-  "gpt-image-2-vip": "¥0.065~0.13/次", "gpt-image-2": "¥0.03~0.06/次",
+  "gpt-image-2": "¥0.03/张", "gpt-image-2-vip": "¥0.065/张",
   "nano-banana-fast": "¥0.022~0.044/次", "nano-banana": "¥0.07~0.14/次",
   "nano-banana-2": "¥0.06~0.12/次", "nano-banana-2-cl": "¥0.08~0.16/次",
   "nano-banana-2-4k-cl": "¥0.15~0.3/次",
   "nano-banana-pro": "¥0.09~0.18/次", "nano-banana-pro-vt": "¥0.09~0.18/次",
   "nano-banana-pro-cl": "¥0.3~0.6/次", "nano-banana-pro-vip": "¥0.5~1/次",
   "nano-banana-pro-4k-vip": "¥0.8~1.6/次",
-  "gpt-image-2": "¥0.03/张", "gpt-image-1": "¥0.02/张",
-  "gpt-image-2-vip": "¥0.065/张",
+  "gpt-image-1": "¥0.02/张",
   "dall-e-3": "¥0.04/张", "dall-e-2": "¥0.02/张",
   "gemini-2.5-flash-image": "¥0.022/张", "gemini-3.1-flash-image": "¥0.06/张",
   "gemini-3-pro-image-preview": "¥0.09/张",
@@ -1872,7 +1912,7 @@ function loadFallbackModels() {
 }
 
 function loadGrsaiModels() {
-  const ids = Object.keys(KNOWN_PRICES).filter(k => /gpt-image-2|nano-banana/.test(k));
+  const ids = GRSAI_OFFICIAL_MODELS;
   setModelChoices(ids);
   dom.model.value = "";
   dom.model.placeholder = `已加载 ${ids.length} 个 GrsAI 模型，点击选择`;
@@ -1917,11 +1957,11 @@ if (!config.model)   dom.model.placeholder = "gpt-image-2";
 // 端点变化时自动检测平台并加载对应模型
 dom.apiEndpoint.addEventListener("change", () => {
   const ep = dom.apiEndpoint.value.trim();
-  const inferred = inferApiProvider(ep);
-  if (dom.apiProvider?.value !== "custom" || isPresetEndpoint(ep)) {
-    applyApiProvider(inferred, { forceEndpoint: false });
+  const provider = dom.apiProvider?.value || inferApiProvider(ep);
+  if (provider !== "custom") {
+    applyApiProvider(provider, { forceEndpoint: false });
   }
-  if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) {
+  if (provider === "grsai") {
     loadGrsaiModels();
     dom.model.placeholder = "点击输入或检测选择模型";
   } else if (/jeniya\.top/.test(ep)) {
@@ -1943,27 +1983,7 @@ dom.modeTabs.addEventListener("click", (e) => {
   switchMode(mode);
 });
 
-dom.sideRail?.addEventListener("click", (e) => {
-  const item = e.target.closest(".rail-item");
-  if (!item) return;
-
-  const mode = item.dataset.railMode;
-  if (mode) {
-    switchMode(mode);
-    return;
-  }
-
-  const action = item.dataset.railAction;
-  if (action === "history") {
-    dom.historyBtn?.click();
-  } else if (action === "settings") {
-    dom.settingsBtn?.click();
-  } else if (action === "export") {
-    void handleExportAction();
-  }
-});
-
-// 头部导出按钮（侧栏移除后的导出入口，保留 data-rail-action 以兼容回归用例）
+// 头部导出按钮
 $("#exportBtn")?.addEventListener("click", () => void handleExportAction());
 
 // GrsAI 推荐地址一键填入
@@ -2002,20 +2022,12 @@ async function handleExportAction() {
   showStatus(cleanText("noImagesToExport"), "error");
 }
 
-function updateRailMode(mode) {
-  if (!dom.sideRail) return;
-  $$("[data-rail-mode]", dom.sideRail).forEach(item => {
-    item.classList.toggle("active", item.dataset.railMode === mode);
-  });
-}
-
 function switchMode(mode) {
   currentMode = mode;
   if (abortController) stopCurrentGeneration();
   $$(".mode-tab", dom.modeTabs).forEach(t => {
     t.classList.toggle("active", t.dataset.mode === mode);
   });
-  updateRailMode(mode);
 
   const isComic = mode === "comic";
   dom.comicSection.classList.toggle("hidden", !isComic);
@@ -2703,9 +2715,16 @@ function stopCurrentGeneration(message = "") {
 const adapters = [];
 
 function registerAdapter(adapter) { adapters.push(adapter); }
-function findAdapter(endpoint) {
-  const url = endpoint.toLowerCase();
-  for (const a of adapters) { if (a.detect(url)) return a; }
+function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProvider(endpoint)) {
+  const url = String(endpoint || "").toLowerCase();
+  const selectedProvider = API_PROVIDER_PRESETS[provider] ? provider : "custom";
+  if (selectedProvider === "grsai") {
+    return adapters.find(a => a.provider === "grsai") || null;
+  }
+  for (const a of adapters) {
+    if (a.provider === "grsai") continue;
+    if (a.detect(url)) return a;
+  }
   return null;
 }
 
@@ -2729,12 +2748,77 @@ function pixelSizeToRatio(size) {
   return candidates[0].label;
 }
 
+function parsePixelSize(size) {
+  const match = String(size || "").toLowerCase().replace("×", "x").match(/^\s*(\d+)\s*x\s*(\d+)\s*$/);
+  if (!match) return { width: 1024, height: 1024, maxSide: 1024, minSide: 1024 };
+  const width = Number(match[1]) || 1024;
+  const height = Number(match[2]) || 1024;
+  return { width, height, maxSide: Math.max(width, height), minSide: Math.min(width, height) };
+}
+
+function grsaiEndpointBase(endpoint) {
+  const raw = String(endpoint || GRSAI_API_ENDPOINT).trim() || GRSAI_API_ENDPOINT;
+  try {
+    const url = new URL(raw);
+    url.pathname = url.pathname.replace(/\/+$/, "").replace(/\/v1\/.*$/i, "");
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return raw.replace(/\/+$/, "").replace(/\/v1\/.*$/i, "").replace(/\/$/, "");
+  }
+}
+
+function grsaiImageSize(size, model) {
+  const normalizedModel = String(model || "").toLowerCase();
+  if (/4k/.test(normalizedModel)) return "4K";
+  if (/2k/.test(normalizedModel)) return "2K";
+  const { maxSide } = parsePixelSize(size);
+  if (maxSide >= 2048) return "4K";
+  if (maxSide >= 1536) return "2K";
+  return "1K";
+}
+
+function grsaiResultUrls(data) {
+  const urls = [];
+  const buckets = [data?.results, data?.data, data?.images].filter(Array.isArray);
+  buckets.forEach(items => {
+    items.forEach(item => {
+      const url = typeof item === "string" ? item : (item?.url || item?.image_url);
+      if (url && !urls.includes(url)) urls.push(url);
+    });
+  });
+  if (typeof data?.url === "string" && !urls.includes(data.url)) urls.push(data.url);
+  return urls;
+}
+
+function grsaiStatusError(data, fallback = "未知") {
+  const value = data?.error || data?.message || data?.status || fallback;
+  if (typeof value === "string") return value;
+  try { return JSON.stringify(value); }
+  catch { return String(value); }
+}
+
+function grsaiReferenceValue(ref) {
+  const value = String(ref?.url || ref?.dataUrl || ref || "");
+  if (/^data:/i.test(value)) return value.split(",")[1] || value;
+  return value;
+}
+
+async function grsaiReadJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try { return JSON.parse(text); }
+  catch { return { error: text.slice(0, 300) }; }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  GrsAI 适配器
 // ═══════════════════════════════════════════════════════════
 
 registerAdapter({
   name: "GrsAI",
+  provider: "grsai",
   detect(url) { return /grsai|dakka\.com\.cn|grsaiapi/.test(url); },
   sizeFormat: "pixel",
   supportsReference: true,
@@ -2747,7 +2831,7 @@ registerAdapter({
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
     const signal = options.signal;
     throwIfAborted(signal);
-    const base = endpoint.replace(/\/+$/, "").replace(/\/v1\/.*$/, "").replace(/\/$/, "");
+    const base = grsaiEndpointBase(endpoint);
     const isNano = /nano-banana/i.test(model);
 
     const body = {
@@ -2755,10 +2839,10 @@ registerAdapter({
       aspectRatio: isNano ? pixelSizeToRatio(size) : size,
     };
     if (isNano) {
-      body.imageSize = parseInt(size.split("x")[0]) >= 2048 ? "4K" : parseInt(size.split("x")[0]) >= 1536 ? "2K" : "1K";
+      body.imageSize = grsaiImageSize(size, model);
     }
     if (hasRef && refs.length > 0) {
-      body.images = refs.map(r => r.dataUrl);
+      body.images = refs.map(grsaiReferenceValue).filter(Boolean);
     }
     console.log(`GrsAI 请求: model=${model} size=${size} hasRef=${hasRef} refs=${refs.length}`);
 
@@ -2767,35 +2851,45 @@ registerAdapter({
     let data = res;
     console.log(`GrsAI /api/generate 响应 (${Date.now() - t0}ms):`, data.status);
 
+    const directUrls = grsaiResultUrls(data);
+    if (directUrls.length > 0) {
+      return { data: directUrls.map(url => ({ url })) };
+    }
+
     if (data.status === "running") {
       const taskId = data.id;
       if (!taskId) throw new Error("GrsAI 未返回任务 ID");
-      for (let i = 0; ; i++) {
-        await sleep(2000, signal);
+      for (let i = 0; i < GRSAI_MAX_POLL_COUNT; i++) {
+        await sleep(GRSAI_POLL_INTERVAL_MS, signal);
         const pollResp = await smartFetch(`${base}/v1/api/result?id=${taskId}`, {
           headers: { "Authorization": `Bearer ${apiKey}` },
           signal,
         });
-        if (!pollResp.ok) throw new Error(`轮询失败 HTTP ${pollResp.status}`);
-        res = await pollResp.json();
+        res = await grsaiReadJsonResponse(pollResp);
+        if (!pollResp.ok) {
+          throw new Error(`轮询失败 HTTP ${pollResp.status}: ${grsaiStatusError(res)}`);
+        }
         data = res;
         if (data.progress != null) showStatus(`GrsAI 生成中… ${data.progress}%`, "info");
         if (data.status === "succeeded") { clearStatus(); console.log(`GrsAI 完成 (${Date.now() - t0}ms)`); break; }
         if (data.status === "failed" || data.status === "violation") {
-          throw new Error(`GrsAI 生成失败: ${data.error || data.status}`);
+          throw new Error(`GrsAI 生成失败: ${grsaiStatusError(data)}`);
         }
+      }
+      if (data.status === "running") {
+        throw new Error(`GrsAI 生成超时：轮询 ${GRSAI_MAX_POLL_COUNT} 次仍未完成`);
       }
     }
 
     if (data.status === "violation") {
-      throw new Error("GrsAI 生成失败: 内容违规");
+      throw new Error(`GrsAI 生成失败: ${grsaiStatusError(data, "内容违规")}`);
     }
     if (data.status === "succeeded") {
-      const url = data.results?.[0]?.url;
-      if (url) return { data: [{ url }] };
+      const urls = grsaiResultUrls(data);
+      if (urls.length) return { data: urls.map(url => ({ url })) };
       throw new Error("GrsAI 返回成功但无图片 URL");
     }
-    throw new Error(`GrsAI 生成失败: ${data.error || data.status || "未知"}`);
+    throw new Error(`GrsAI 生成失败: ${grsaiStatusError(data)}`);
   },
 });
 
@@ -2976,9 +3070,10 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   const model    = dom.model.value.trim() || "gpt-image-2";
   const refs     = Array.isArray(options.references) ? dedupeReferences(options.references) : referenceImages;
   const hasRef   = refs.length > 0;
-  const adapter  = findAdapter(endpoint);
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const adapter  = findAdapter(endpoint, provider);
 
-  console.log(`callImageAPI: adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
+  console.log(`callImageAPI: provider=${provider} adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
 
   let finalSize = size;
   if (dom.useOrigSize.checked && hasRef) {
@@ -3040,7 +3135,8 @@ async function detectModelsForAdapter() {
     return;
   }
 
-  const adapter = findAdapter(endpoint);
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const adapter = findAdapter(endpoint, provider);
   if (!adapter) {
     loadFallbackModels();
     showStatus("未知平台，已加载通用模型列表", "info");
@@ -3122,15 +3218,6 @@ async function concurrentLimit(tasks, limit = 20) {
     if (executing.length >= limit) await Promise.race(executing);
   }
   return Promise.all(results);
-}
-
-function dataUrlToBlob(dataUrl) {
-  const [header, base64] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] || "image/png";
-  const bytes = atob(base64);
-  const arr = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  return new Blob([arr], { type: mime });
 }
 
 function normalizeApiUrl(inputUrl, path) {
@@ -3599,6 +3686,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   setButtonText(reloadBtn, "retry", "reloadImage");
   const img = document.createElement("img");
   let reloadAttempted = false;
+  let previewReloadSeq = 0;
   img.alt = `分镜 ${panelId}`;
   img.loading = "lazy";
   img.decoding = "async";
@@ -3613,19 +3701,51 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     reloadBtn.disabled = false;
     mediaStatusText.textContent = tr(reloadAttempted ? "重载失败，仍无法预览" : "图片链接暂时无法预览");
   });
-  reloadBtn.addEventListener("click", e => {
-    e.preventDefault();
-    e.stopPropagation();
+  function setPreviewFromBlob(blob) {
+    if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("图片字节为空");
+    const previousUrl = card._localImageUrl;
+    const nextUrl = URL.createObjectURL(blob);
+    card._zipBlob = blob;
+    card._localImageUrl = nextUrl;
+    if (previousUrl && previousUrl !== nextUrl) {
+      setTimeout(() => URL.revokeObjectURL(previousUrl), 1000);
+    }
+    img.removeAttribute("src");
+    img.src = nextUrl;
+  }
+
+  async function reloadPreviewFromBytes(force = false) {
+    const seq = ++previewReloadSeq;
     reloadAttempted = true;
     reloadBtn.disabled = true;
     media.classList.remove("is-error");
     media.classList.add("is-loading");
     mediaStatusText.textContent = tr("图片重新加载中…");
-    const nextUrl = imageUrl.startsWith("data:")
-      ? imageUrl
-      : `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}_reload=${Date.now()}`;
-    img.removeAttribute("src");
-    setTimeout(() => { img.src = nextUrl; }, 30);
+    try {
+      let blob = card._zipBlob;
+      if (!blob && !force && card._imageCachePromise) {
+        blob = await card._imageCachePromise;
+      }
+      if (!blob) {
+        card._imageCachePromise = imageUrlToBlob(imageUrl);
+        blob = await card._imageCachePromise;
+      }
+      if (seq !== previewReloadSeq || !img.isConnected) return;
+      await setPreviewFromBlob(blob);
+    } catch (err) {
+      if (seq !== previewReloadSeq || !img.isConnected) return;
+      console.warn(`分镜 ${panelId} 图片重新加载失败`, err);
+      media.classList.remove("is-loading");
+      media.classList.add("is-error");
+      reloadBtn.disabled = false;
+      mediaStatusText.textContent = tr("重载失败，仍无法预览");
+    }
+  }
+
+  reloadBtn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    void reloadPreviewFromBytes(true);
   });
   img.addEventListener("click", () => {
     if (!media.classList.contains("is-error")) openLightbox(card._localImageUrl || imageUrl);
@@ -3653,9 +3773,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   if (!imageUrl.startsWith("data:")) {
     card._imageCachePromise = imageUrlToBlob(imageUrl)
       .then(blob => {
-        card._zipBlob = blob;
-        card._localImageUrl = URL.createObjectURL(blob);
-        if (img.isConnected) img.src = card._localImageUrl;
+        if (img.isConnected) setPreviewFromBlob(blob);
         return blob;
       })
       .catch(err => {
@@ -5005,5 +5123,4 @@ function registerServiceWorker() {
 }
 
 initI18n();
-updateRailMode(currentMode);
 registerServiceWorker();
