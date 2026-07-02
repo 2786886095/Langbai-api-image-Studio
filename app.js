@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.0.5";
+const APP_VERSION = "1.0.6";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -179,7 +179,13 @@ const CLEAN_LOCALES = {
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
-    model: "模型", detect: "检测", proxy: "电脑端代理地址", saveConfig: "保存配置",
+    model: "模型", detect: "检测", proxy: "浏览器 CORS 转发地址", saveConfig: "保存配置",
+    desktopProxyTitle: "电脑端网络代理", desktopProxyMode: "代理模式", desktopProxyCustomUrl: "自定义代理地址",
+    desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "直连", desktopProxyCustom: "自定义",
+    testDesktopProxy: "测试代理", desktopProxyHint: "默认使用 HTTP 127.0.0.1:7890；纯浏览器端请使用系统/浏览器代理或 api-proxy.js。",
+    desktopProxyBrowserOnly: "浏览器端不能由网页切换 HTTP/SOCKS5 代理；请使用系统/浏览器代理或 api-proxy.js。",
+    desktopProxyTesting: "正在测试代理…", desktopProxyOk: "代理测试成功：{mode} {target}", desktopProxyFailed: "代理测试失败：{reason}",
+    desktopProxyInvalid: "自定义代理地址无效，仅支持 http://host:port、https://host:port、socks5://host:port",
     connectApi: "接入 API", apiDetect: "检测", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "点击接入 API 后填写地址、Key 和模型",
     singleMode: "单图模式", comicMode: "漫画分镜", prompt: "提示词", globalPrompt: "全局提示词",
@@ -224,7 +230,13 @@ const CLEAN_LOCALES = {
     savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
     apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
     apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
-    model: "模型", detect: "偵測", proxy: "桌面代理位址", saveConfig: "儲存設定",
+    model: "模型", detect: "偵測", proxy: "瀏覽器 CORS 轉發位址", saveConfig: "儲存設定",
+    desktopProxyTitle: "桌面端網路代理", desktopProxyMode: "代理模式", desktopProxyCustomUrl: "自訂代理位址",
+    desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "直連", desktopProxyCustom: "自訂",
+    testDesktopProxy: "測試代理", desktopProxyHint: "預設使用 HTTP 127.0.0.1:7890；純瀏覽器端請使用系統/瀏覽器代理或 api-proxy.js。",
+    desktopProxyBrowserOnly: "瀏覽器端不能由網頁切換 HTTP/SOCKS5 代理；請使用系統/瀏覽器代理或 api-proxy.js。",
+    desktopProxyTesting: "正在測試代理…", desktopProxyOk: "代理測試成功：{mode} {target}", desktopProxyFailed: "代理測試失敗：{reason}",
+    desktopProxyInvalid: "自訂代理位址無效，僅支援 http://host:port、https://host:port、socks5://host:port",
     connectApi: "接入 API", apiDetect: "偵測", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "點擊接入 API 後填寫位址、Key 和模型",
     singleMode: "單圖模式", comicMode: "漫畫分鏡", prompt: "提示詞", globalPrompt: "全域提示詞",
@@ -269,7 +281,13 @@ const CLEAN_LOCALES = {
     savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
     apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
-    model: "Model", detect: "Detect", proxy: "Desktop proxy URL", saveConfig: "Save config",
+    model: "Model", detect: "Detect", proxy: "Browser CORS proxy URL", saveConfig: "Save config",
+    desktopProxyTitle: "Desktop Network Proxy", desktopProxyMode: "Proxy mode", desktopProxyCustomUrl: "Custom proxy URL",
+    desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "Direct", desktopProxyCustom: "Custom",
+    testDesktopProxy: "Test proxy", desktopProxyHint: "Default: HTTP 127.0.0.1:7890. In the browser, use the system/browser proxy or api-proxy.js.",
+    desktopProxyBrowserOnly: "Browser pages cannot switch HTTP/SOCKS5 proxy directly. Use the system/browser proxy or api-proxy.js.",
+    desktopProxyTesting: "Testing proxy...", desktopProxyOk: "Proxy test succeeded: {mode} {target}", desktopProxyFailed: "Proxy test failed: {reason}",
+    desktopProxyInvalid: "Invalid custom proxy URL. Use http://host:port, https://host:port, or socks5://host:port.",
     connectApi: "Connect API", apiDetect: "Detect", apiConnected: "API connected", apiDisconnected: "API not connected",
     apiConnectHint: "Connect an API, then enter URL, key, and model",
     singleMode: "Single Image", comicMode: "Comic Panels", prompt: "Prompt", globalPrompt: "Global Prompt",
@@ -314,7 +332,13 @@ const CLEAN_LOCALES = {
     savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
     apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
-    model: "モデル", detect: "検出", proxy: "デスクトッププロキシ URL", saveConfig: "設定を保存",
+    model: "モデル", detect: "検出", proxy: "ブラウザ CORS 転送 URL", saveConfig: "設定を保存",
+    desktopProxyTitle: "デスクトップネットワークプロキシ", desktopProxyMode: "プロキシモード", desktopProxyCustomUrl: "カスタムプロキシ URL",
+    desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "直結", desktopProxyCustom: "カスタム",
+    testDesktopProxy: "プロキシをテスト", desktopProxyHint: "既定は HTTP 127.0.0.1:7890 です。ブラウザではシステム/ブラウザのプロキシまたは api-proxy.js を使用してください。",
+    desktopProxyBrowserOnly: "ブラウザページから HTTP/SOCKS5 プロキシは切り替えられません。システム/ブラウザのプロキシまたは api-proxy.js を使用してください。",
+    desktopProxyTesting: "プロキシをテスト中...", desktopProxyOk: "プロキシテスト成功：{mode} {target}", desktopProxyFailed: "プロキシテスト失敗：{reason}",
+    desktopProxyInvalid: "カスタムプロキシ URL が無効です。http://host:port、https://host:port、socks5://host:port のみ対応しています。",
     connectApi: "API 接続", apiDetect: "検出", apiConnected: "API 接続済み", apiDisconnected: "API 未接続",
     apiConnectHint: "API 接続後、URL、Key、モデルを入力してください",
     singleMode: "単体画像", comicMode: "漫画コマ", prompt: "プロンプト", globalPrompt: "全体プロンプト",
@@ -359,7 +383,13 @@ const CLEAN_LOCALES = {
     savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
     apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
-    model: "모델", detect: "감지", proxy: "데스크톱 프록시 URL", saveConfig: "설정 저장",
+    model: "모델", detect: "감지", proxy: "브라우저 CORS 프록시 URL", saveConfig: "설정 저장",
+    desktopProxyTitle: "데스크톱 네트워크 프록시", desktopProxyMode: "프록시 모드", desktopProxyCustomUrl: "사용자 프록시 URL",
+    desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "직접 연결", desktopProxyCustom: "사용자 지정",
+    testDesktopProxy: "프록시 테스트", desktopProxyHint: "기본값은 HTTP 127.0.0.1:7890입니다. 브라우저에서는 시스템/브라우저 프록시 또는 api-proxy.js를 사용하세요.",
+    desktopProxyBrowserOnly: "브라우저 페이지에서는 HTTP/SOCKS5 프록시를 직접 전환할 수 없습니다. 시스템/브라우저 프록시 또는 api-proxy.js를 사용하세요.",
+    desktopProxyTesting: "프록시 테스트 중...", desktopProxyOk: "프록시 테스트 성공: {mode} {target}", desktopProxyFailed: "프록시 테스트 실패: {reason}",
+    desktopProxyInvalid: "사용자 프록시 URL이 잘못되었습니다. http://host:port, https://host:port, socks5://host:port만 지원합니다.",
     connectApi: "API 연결", apiDetect: "감지", apiConnected: "API 연결됨", apiDisconnected: "API 미연결",
     apiConnectHint: "API를 연결한 뒤 URL, Key, 모델을 입력하세요",
     singleMode: "단일 이미지", comicMode: "만화 콘티", prompt: "프롬프트", globalPrompt: "전체 프롬프트",
@@ -671,6 +701,23 @@ function applyCleanLanguage() {
   setText(".settings-section:nth-child(3) h3", "autoRetry");
   setText(".settings-section:nth-child(3) .field span", "globalRetries");
   setText(".settings-section:nth-child(3) .field-hint", "retryHint");
+  setText(".proxy-settings h3", "desktopProxyTitle");
+  setText(".proxy-settings .field:nth-of-type(1) span", "desktopProxyMode");
+  setText(".proxy-settings .field:nth-of-type(2) span", "desktopProxyCustomUrl");
+  const proxyLabels = {
+    http7890: "desktopProxyHttp",
+    socks10808: "desktopProxySocks",
+    direct: "desktopProxyDirect",
+    custom: "desktopProxyCustom",
+  };
+  Object.entries(proxyLabels).forEach(([value, key]) => {
+    const option = dom.desktopProxyMode?.querySelector(`option[value="${value}"]`);
+    if (option) option.textContent = cleanText(key);
+  });
+  setButtonText(dom.testDesktopProxy, "search", "testDesktopProxy");
+  if (dom.desktopProxyStatus && !dom.desktopProxyStatus.dataset.customStatus) {
+    dom.desktopProxyStatus.textContent = cleanText("desktopProxyHint");
+  }
   setText(".update-settings h3", "softwareUpdate");
   setText(".update-settings .update-version-row:nth-of-type(1) span", "currentVersion");
   setText(".update-settings .update-version-row:nth-of-type(2) span", "latestVersion");
@@ -867,6 +914,10 @@ const dom = {
   historyEnabled: $("#historyEnabled"),
   historyLimit:   $("#historyLimit"),
   retryCount:     $("#retryCount"),
+  desktopProxyMode: $("#desktopProxyMode"),
+  desktopProxyCustomUrl: $("#desktopProxyCustomUrl"),
+  testDesktopProxy: $("#testDesktopProxy"),
+  desktopProxyStatus: $("#desktopProxyStatus"),
   clearHistory:   $("#clearHistory"),
   currentVersionLabel: $("#currentVersionLabel"),
   latestVersionLabel:  $("#latestVersionLabel"),
@@ -1306,6 +1357,12 @@ dom.themeToggle.addEventListener("click", () => {
 
 // ─── 应用设置 / 弹层 ─────────────────────────────────────────
 const SETTINGS_KEY = "ai_image_gen_settings";
+const DESKTOP_PROXY_DEFAULT_MODE = "http7890";
+const DESKTOP_PROXY_PRESETS = {
+  http7890: "http://127.0.0.1:7890",
+  socks10808: "socks5://127.0.0.1:10808",
+  direct: "",
+};
 
 function loadSettings() {
   try {
@@ -1313,10 +1370,12 @@ function loadSettings() {
       historyEnabled: true,
       historyLimit: 100,
       retryCount: 3,
+      desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE,
+      desktopProxyCustomUrl: "",
       ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")
     };
   } catch {
-    return { historyEnabled: true, historyLimit: 100, retryCount: 3 };
+    return { historyEnabled: true, historyLimit: 100, retryCount: 3, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
   }
 }
 
@@ -1325,6 +1384,8 @@ function saveSettings(next = {}) {
   const merged = { ...current, ...next };
   merged.historyLimit = Math.min(500, Math.max(20, Number(merged.historyLimit) || 100));
   merged.retryCount = clampRetryCount(merged.retryCount);
+  merged.desktopProxyMode = normalizeDesktopProxyMode(merged.desktopProxyMode);
+  merged.desktopProxyCustomUrl = String(merged.desktopProxyCustomUrl || "").trim();
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
   applySettings(merged);
   return merged;
@@ -1334,8 +1395,123 @@ function applySettings(settings = loadSettings()) {
   if (dom.historyEnabled) dom.historyEnabled.checked = settings.historyEnabled !== false;
   if (dom.historyLimit) dom.historyLimit.value = String(settings.historyLimit || 100);
   if (dom.retryCount) dom.retryCount.value = String(clampRetryCount(settings.retryCount));
+  if (dom.desktopProxyMode) dom.desktopProxyMode.value = normalizeDesktopProxyMode(settings.desktopProxyMode);
+  if (dom.desktopProxyCustomUrl) dom.desktopProxyCustomUrl.value = String(settings.desktopProxyCustomUrl || "");
+  updateDesktopProxyUi(settings);
   if (dom.failedRetryCount && !dom.failedRetryCount.dataset.edited) {
     dom.failedRetryCount.value = String(clampRetryCount(settings.retryCount));
+  }
+}
+
+function normalizeDesktopProxyMode(mode) {
+  return ["http7890", "socks10808", "direct", "custom"].includes(mode)
+    ? mode
+    : DESKTOP_PROXY_DEFAULT_MODE;
+}
+
+function parseDesktopProxyUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return { valid: false, error: cleanText("desktopProxyInvalid") };
+  try {
+    const url = new URL(raw);
+    const protocol = url.protocol.replace(":", "").toLowerCase();
+    if (!["http", "https", "socks5"].includes(protocol)) {
+      return { valid: false, error: cleanText("desktopProxyInvalid") };
+    }
+    if (!url.hostname || !url.port || url.username || url.password || !["", "/"].includes(url.pathname)) {
+      return { valid: false, error: cleanText("desktopProxyInvalid") };
+    }
+    return { valid: true, url: `${protocol}://${url.hostname}:${url.port}` };
+  } catch {
+    return { valid: false, error: cleanText("desktopProxyInvalid") };
+  }
+}
+
+function resolveDesktopProxyConfig(settings = loadSettings()) {
+  const mode = normalizeDesktopProxyMode(settings.desktopProxyMode);
+  if (mode === "direct") {
+    return { valid: true, mode, proxyMode: "direct", proxyUrl: "", label: cleanText("desktopProxyDirect"), target: "DIRECT" };
+  }
+  if (mode === "custom") {
+    const parsed = parseDesktopProxyUrl(settings.desktopProxyCustomUrl);
+    if (!parsed.valid) return { valid: false, mode, proxyMode: "custom", proxyUrl: "", error: parsed.error };
+    return { valid: true, mode, proxyMode: "custom", proxyUrl: parsed.url, label: cleanText("desktopProxyCustom"), target: parsed.url };
+  }
+  const proxyUrl = DESKTOP_PROXY_PRESETS[mode] || DESKTOP_PROXY_PRESETS[DESKTOP_PROXY_DEFAULT_MODE];
+  return {
+    valid: true,
+    mode,
+    proxyMode: mode,
+    proxyUrl,
+    label: cleanText(mode === "socks10808" ? "desktopProxySocks" : "desktopProxyHttp"),
+    target: proxyUrl,
+  };
+}
+
+function getDesktopProxyPayload(options = {}) {
+  const config = resolveDesktopProxyConfig(loadSettings());
+  if (!config.valid && options.validate) {
+    setDesktopProxyStatus(config.error, "error");
+    throw new Error(config.error);
+  }
+  return {
+    proxyMode: config.proxyMode,
+    proxyUrl: config.proxyUrl,
+  };
+}
+
+function withDesktopProxyPayload(payload = {}, options = {}) {
+  return { ...payload, ...getDesktopProxyPayload({ validate: options.validate !== false }) };
+}
+
+function setDesktopProxyStatus(message, type = "info", custom = true) {
+  if (!dom.desktopProxyStatus) return;
+  dom.desktopProxyStatus.textContent = message;
+  dom.desktopProxyStatus.dataset.state = type;
+  dom.desktopProxyStatus.dataset.customStatus = custom ? "true" : "";
+}
+
+function updateDesktopProxyUi(settings = loadSettings()) {
+  const mode = normalizeDesktopProxyMode(settings.desktopProxyMode);
+  if (dom.desktopProxyCustomUrl) {
+    dom.desktopProxyCustomUrl.disabled = mode !== "custom";
+    dom.desktopProxyCustomUrl.placeholder = mode === "custom"
+      ? "http://127.0.0.1:7890 或 socks5://127.0.0.1:10808"
+      : DESKTOP_PROXY_PRESETS[mode] || "";
+  }
+  if (dom.desktopProxyStatus && !dom.desktopProxyStatus.dataset.customStatus) {
+    dom.desktopProxyStatus.textContent = cleanText("desktopProxyHint");
+  }
+}
+
+async function testDesktopProxy() {
+  if (!nativeDownload.available()) {
+    setDesktopProxyStatus(cleanText("desktopProxyBrowserOnly"), "info");
+    showStatus(cleanText("desktopProxyBrowserOnly"), "info");
+    return;
+  }
+  const config = resolveDesktopProxyConfig(loadSettings());
+  if (!config.valid) {
+    setDesktopProxyStatus(config.error, "error");
+    showStatus(config.error, "error");
+    return;
+  }
+  setDesktopProxyStatus(cleanText("desktopProxyTesting"), "info");
+  try {
+    const result = await nativeDownload.nativeFetchPayload({
+      url: RELEASE_API_URL,
+      method: "GET",
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    const status = Number(result?.status || 0);
+    if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
+    const message = interpolate(cleanText("desktopProxyOk"), { mode: config.label, target: config.target });
+    setDesktopProxyStatus(message, "success");
+    showStatus(message, "success");
+  } catch (err) {
+    const message = interpolate(cleanText("desktopProxyFailed"), { reason: err.message || err });
+    setDesktopProxyStatus(message, "error");
+    showStatus(message, "error");
   }
 }
 
@@ -1419,6 +1595,15 @@ dom.settingsModal?.addEventListener("click", e => { if (e.target === dom.setting
 dom.historyEnabled?.addEventListener("change", () => saveSettings({ historyEnabled: dom.historyEnabled.checked }));
 dom.historyLimit?.addEventListener("change", () => saveSettings({ historyLimit: dom.historyLimit.value }));
 dom.retryCount?.addEventListener("change", () => saveSettings({ retryCount: dom.retryCount.value }));
+dom.desktopProxyMode?.addEventListener("change", () => {
+  dom.desktopProxyStatus && (dom.desktopProxyStatus.dataset.customStatus = "");
+  saveSettings({ desktopProxyMode: dom.desktopProxyMode.value });
+});
+dom.desktopProxyCustomUrl?.addEventListener("change", () => {
+  dom.desktopProxyStatus && (dom.desktopProxyStatus.dataset.customStatus = "");
+  saveSettings({ desktopProxyCustomUrl: dom.desktopProxyCustomUrl.value });
+});
+dom.testDesktopProxy?.addEventListener("click", () => void testDesktopProxy());
 dom.failedRetryCount?.addEventListener("input", () => { dom.failedRetryCount.dataset.edited = "true"; });
 dom.failedRetryCount?.addEventListener("change", getFailedRetryCount);
 dom.retryFailedAll?.addEventListener("click", retryAllFailedResults);
@@ -1514,24 +1699,12 @@ function setLatestUpdateInfo(info) {
 }
 
 async function fetchLatestReleaseInfo() {
-  try {
-    const response = await fetch(RELEASE_API_URL, {
-      cache: "no-store",
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
-  } catch (fetchError) {
-    if (!nativeDownload.available()) throw fetchError;
-    const result = await nativeDownload.nativeFetchPayload({
-      url: RELEASE_API_URL,
-      method: "GET",
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    const status = Number(result?.status || 0);
-    if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
-    return JSON.parse(result?.body || "{}");
-  }
+  const response = await smartFetch(RELEASE_API_URL, {
+    cache: "no-store",
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
 }
 
 async function checkForUpdates(options = {}) {
@@ -1615,6 +1788,7 @@ dom.checkUpdates?.addEventListener("click", () => void checkForUpdates());
 dom.downloadUpdate?.addEventListener("click", () => void downloadLatestUpdate(false));
 dom.installUpdate?.addEventListener("click", () => void downloadLatestUpdate(true));
 window.AiGenUpdate = { APP_VERSION, checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset };
+window.AiGenProxy = { resolveDesktopProxyConfig, getDesktopProxyPayload, withDesktopProxyPayload, parseDesktopProxyUrl };
 
 // ─── 已知模型价格（跨平台通用） ─────────────────────────────
 const KNOWN_PRICES = {
@@ -2814,16 +2988,19 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
 
   return retryTransient(async attempt => {
     throwIfAborted(signal);
-    if (attempt > 1) {
-      showStatus(`${contextLabel} 服务繁忙，正在自动重试第 ${attempt - 1} 次…`, "info");
-    }
     if (!adapter) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       if (hasRef) console.warn("⚠ 无适配器匹配 + 有参考图：参考图将被忽略，仅走 generations 端点");
       return apiFetch(url, apiKey, { model, prompt, n, size: finalSize, response_format: "b64_json" }, { signal });
     }
     return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, { signal });
-  }, { signal, maxRetries });
+  }, {
+    signal,
+    maxRetries,
+    onRetry: ({ retryIndex, maxRetries }) => {
+      showStatus(`${contextLabel} 返回 HTTP 400，正在进行第 ${retryIndex}/${maxRetries} 轮自动重试…`, "info");
+    },
+  });
 }
 
 function isTransientApiError(err) {
@@ -2835,6 +3012,7 @@ async function retryTransient(fn, options = {}) {
   const maxRetries = clampRetryCount(options.maxRetries, 3);
   const baseDelay = options.baseDelay ?? 1500;
   const signal = options.signal || null;
+  const onRetry = typeof options.onRetry === "function" ? options.onRetry : null;
   let lastErr;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     throwIfAborted(signal);
@@ -2845,7 +3023,8 @@ async function retryTransient(fn, options = {}) {
       if (err?.name === "AbortError") throw err;
       if (attempt > maxRetries || !isTransientApiError(err)) throw err;
       const delay = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 600);
-      console.warn(`临时错误，${delay}ms 后重试 ${attempt}/${maxRetries}:`, err);
+      onRetry?.({ retryIndex: attempt, maxRetries, nextAttempt: attempt + 1, delay, error: err });
+      console.warn(`HTTP 400 transient error, retry round ${attempt}/${maxRetries} after ${delay}ms:`, err);
       await sleep(delay, signal);
     }
   }
@@ -2989,6 +3168,7 @@ async function formDataToProxyFields(formData, signal = null) {
 }
 
 async function createProxyPayload(url, method, headers, body, signal = null) {
+  const desktopProxy = getDesktopProxyPayload({ validate: false });
   if (body instanceof FormData) {
     return {
       url,
@@ -2996,9 +3176,10 @@ async function createProxyPayload(url, method, headers, body, signal = null) {
       headers,
       bodyType: "formData",
       fields: await formDataToProxyFields(body, signal),
+      ...desktopProxy,
     };
   }
-  return { url, method, headers, body: body || "" };
+  return { url, method, headers, body: body || "", ...desktopProxy };
 }
 
 async function smartFetch(url, options = {}) {
@@ -3063,7 +3244,7 @@ async function apiFetch(url, apiKey, body, options = {}) {
   } catch (err) {
     if (err.message === "Failed to fetch") {
       console.error("请求 URL:", url);
-      throw new Error("网络请求失败。安卓端会自动尝试原生网络；电脑浏览器请在 API 配置里填写代理地址，或运行项目内 api-proxy.js 后使用 http://127.0.0.1:8787/proxy");
+      throw new Error("网络请求失败。桌面软件请检查设置里的电脑端网络代理；纯浏览器 HTML 请使用系统/浏览器代理，或运行项目内 api-proxy.js 后在 API 配置里填写 http://127.0.0.1:8787/proxy");
     }
     throw err;
   }
@@ -3781,7 +3962,7 @@ function getHistoryThumbnail(item) {
 
 function clearAllReferenceImages() {
   referenceImages = [];
-  renderThumbs();
+  renderThumbGrid();
 }
 
 function compactHistoryItem(item) {
@@ -4283,13 +4464,13 @@ const nativeDownload = (() => {
     dirs,
     chooseDir(kind) { return request("chooseDir", { kind }); },
     nativeFetch(url, method, headers, body) {
-      return request("nativeFetch", { url, method, headers, body });
+      return request("nativeFetch", withDesktopProxyPayload({ url, method, headers, body }));
     },
     nativeFetchPayload(payload) {
-      return request("nativeFetch", payload);
+      return request("nativeFetch", withDesktopProxyPayload(payload));
     },
     nativeFetchBlob(url) {
-      return request("nativeFetch", { url, method: "GET", responseType: "base64" });
+      return request("nativeFetch", withDesktopProxyPayload({ url, method: "GET", responseType: "base64" }));
     },
     openExternal(url) {
       return request("openExternal", { url });
@@ -4298,7 +4479,7 @@ const nativeDownload = (() => {
       return request("saveFile", { kind, fileName, mimeType, base64 });
     },
     downloadUpdate(url, fileName, install, platform) {
-      return request("downloadUpdate", { url, fileName, install: !!install, platform }, 15 * 60 * 1000);
+      return request("downloadUpdate", withDesktopProxyPayload({ url, fileName, install: !!install, platform }), 15 * 60 * 1000);
     },
   };
 })();

@@ -112,6 +112,7 @@ class CdpClient {
     this.ws = ws;
     this.seq = 1;
     this.pending = new Map();
+    this.runtimeIssues = [];
     ws.addEventListener("message", event => {
       const msg = JSON.parse(event.data);
       if (msg.id && this.pending.has(msg.id)) {
@@ -119,6 +120,19 @@ class CdpClient {
         this.pending.delete(msg.id);
         if (msg.error) item.reject(new Error(JSON.stringify(msg.error)));
         else item.resolve(msg.result);
+        return;
+      }
+      if (msg.method === "Runtime.exceptionThrown") {
+        this.runtimeIssues.push({
+          type: "exception",
+          text: msg.params?.exceptionDetails?.text || "",
+          description: msg.params?.exceptionDetails?.exception?.description || "",
+        });
+      } else if (msg.method === "Runtime.consoleAPICalled" && msg.params?.type === "error") {
+        this.runtimeIssues.push({
+          type: "console.error",
+          text: (msg.params.args || []).map(arg => arg.value || arg.description || "").join(" "),
+        });
       }
     });
   }
@@ -155,6 +169,10 @@ class CdpClient {
 
   close() {
     this.ws.close();
+  }
+
+  assertNoRuntimeIssues() {
+    assertQa(this.runtimeIssues.length === 0, "The app should not emit unhandled runtime exceptions or console.error entries.", this.runtimeIssues);
   }
 }
 
@@ -651,11 +669,25 @@ async function testRetryClearReloadAndI18n(cdp) {
   await loadFresh(cdp, "misc");
   const retry = await cdp.eval(`(async () => {
     let attempts400 = 0;
+    const retryRounds = [];
     const ok400 = await retryTransient(async () => {
       attempts400++;
       if (attempts400 < 3) throw new Error("HTTP 400: busy");
       return "ok";
-    }, { maxRetries: 3, baseDelay: 1 });
+    }, {
+      maxRetries: 3,
+      baseDelay: 1,
+      onRetry: info => retryRounds.push({ retryIndex: info.retryIndex, maxRetries: info.maxRetries })
+    });
+    let attempts400SuccessImmediately = 0;
+    const okImmediate = await retryTransient(async () => {
+      attempts400SuccessImmediately++;
+      return "image";
+    }, {
+      maxRetries: 3,
+      baseDelay: 1,
+      onRetry: info => retryRounds.push({ unexpected: true, retryIndex: info.retryIndex })
+    });
     let attempts500 = 0;
     let threw500 = false;
     try {
@@ -666,10 +698,55 @@ async function testRetryClearReloadAndI18n(cdp) {
     } catch {
       threw500 = true;
     }
-    return { attempts400, ok400, attempts500, threw500 };
+    const originalFetch = window.fetch.bind(window);
+    let callAttempts = 0;
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    window.fetch = async (url, opts = {}) => {
+      if (String(url).includes("/v1/images/generations")) {
+        callAttempts++;
+        if (callAttempts < 3) {
+          return new Response(JSON.stringify({ error: "busy" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      return originalFetch(url, opts);
+    };
+    const data = await callImageAPI("retry status prompt", "1024x1024", 1, "图片 1", { maxRetries: 3 });
+    window.fetch = originalFetch;
+    return {
+      attempts400,
+      ok400,
+      retryRounds,
+      attempts400SuccessImmediately,
+      okImmediate,
+      attempts500,
+      threw500,
+      callAttempts,
+      callImageReturned: !!data?.data?.[0]?.b64_json,
+      statusText: document.getElementById("status")?.textContent || "",
+    };
   })()`, true);
   assertQa(retry.attempts400 === 3 && retry.ok400 === "ok", "HTTP 400 should retry until success.", retry);
+  assertQa(JSON.stringify(retry.retryRounds) === JSON.stringify([{ retryIndex: 1, maxRetries: 3 }, { retryIndex: 2, maxRetries: 3 }]), "HTTP 400 retry status should report the current retry round and total rounds.", retry);
+  assertQa(retry.attempts400SuccessImmediately === 1 && retry.okImmediate === "image", "Successful image responses should stop retry immediately.", retry);
   assertQa(retry.attempts500 === 1 && retry.threw500, "Non-400 errors should not be retried.", retry);
+  assertQa(retry.callAttempts === 3 && retry.callImageReturned, "Image API should stop retrying as soon as a successful image payload returns.", retry);
+  assertQa(/1\/3|2\/3/.test(retry.statusText), "Retry status should show the current retry round and total retry rounds.", retry);
 
   const clear = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -901,13 +978,23 @@ async function testRetryClearReloadAndI18n(cdp) {
           languageCenter: langStyle.textAlign === "center" && langStyle.textAlignLast === "center",
         });
       }
-      return results;
+      const menuButton = document.getElementById("languageMenuButton");
+      const menu = document.getElementById("languageMenu");
+      menuButton.click();
+      await new Promise(r => setTimeout(r, 80));
+      const opened = !menu.classList.contains("hidden") && menuButton.getAttribute("aria-expanded") === "true";
+      menu.querySelector('[data-lang="en"]').click();
+      await new Promise(r => setTimeout(r, 80));
+      const changed = document.documentElement.lang === "en" && document.getElementById("languageCurrent").textContent.includes("EN");
+      return { results, menu: { opened, changed } };
     })()`, true);
-    i18n.push({ viewport: viewport.name, item });
+    i18n.push({ viewport: viewport.name, item: item.results, menu: item.menu });
   }
   const flat = i18n.flatMap(group => group.item.map(item => ({ viewport: group.viewport, ...item })));
   const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.overflows.length || !item.languageCenter);
   assertQa(bad.length === 0, "All supported languages should render without bad tokens, Japanese Chinese residue, or control overflow.", bad);
+  const menuBad = i18n.filter(group => !group.menu.opened || !group.menu.changed);
+  assertQa(menuBad.length === 0, "Language menu button should open and apply a selected language.", menuBad);
 }
 
 async function testUpdateControls(cdp) {
@@ -993,6 +1080,88 @@ async function testUpdateControls(cdp) {
   assertQa(result.sameVersionResult?.skipped === true && result.openedUrls.length === 0, "Downloading the current version should be blocked and should not open an update URL.", result);
 }
 
+async function testDesktopProxyControls(cdp) {
+  logStep("Desktop proxy settings and native payload propagation");
+  await loadFresh(cdp, "desktop-proxy");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const calls = [];
+    window.FlutterDownload = {
+      postMessage(raw) {
+        const payload = JSON.parse(raw);
+        calls.push(payload);
+        const body = payload.action === "nativeFetch"
+          ? { status: 200, headers: { "content-type": "application/json" }, body: "{}" }
+          : { path: "C:/Temp/update.zip", installerStarted: false };
+        setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, body), 0);
+      }
+    };
+    const waitForCall = async (count) => {
+      const start = Date.now();
+      while (Date.now() - start < 2000) {
+        if (calls.length >= count) return;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      throw new Error("Timed out waiting for native bridge call");
+    };
+    const setMode = async (mode, custom = "") => {
+      const modeEl = document.getElementById("desktopProxyMode");
+      const customEl = document.getElementById("desktopProxyCustomUrl");
+      modeEl.value = mode;
+      modeEl.dispatchEvent(new Event("change", { bubbles: true }));
+      customEl.value = custom;
+      customEl.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(r => setTimeout(r, 30));
+    };
+    document.getElementById("settingsBtn").click();
+    await new Promise(r => setTimeout(r, 80));
+
+    document.getElementById("testDesktopProxy").click();
+    await waitForCall(1);
+    await setMode("socks10808");
+    document.getElementById("testDesktopProxy").click();
+    await waitForCall(2);
+    await setMode("direct");
+    document.getElementById("testDesktopProxy").click();
+    await waitForCall(3);
+    await setMode("custom", "http://127.0.0.1:7890");
+    document.getElementById("testDesktopProxy").click();
+    await waitForCall(4);
+    await nativeDownload.downloadUpdate("https://example.test/update.zip", "update.zip", false, "windows");
+    await waitForCall(5);
+
+    const payload = window.AiGenProxy.withDesktopProxyPayload({ url: "https://example.test", method: "GET" });
+    await setMode("custom", "127.0.0.1:7890");
+    const beforeInvalid = calls.length;
+    document.getElementById("testDesktopProxy").click();
+    await new Promise(r => setTimeout(r, 120));
+
+    return {
+      modalOpen: !document.getElementById("settingsModal").classList.contains("hidden"),
+      defaults: calls[0],
+      socks: calls[1],
+      direct: calls[2],
+      custom: calls[3],
+      updateDownload: calls[4],
+      helperPayload: payload,
+      invalidDidNotCall: calls.length === beforeInvalid,
+      invalidStatus: document.getElementById("desktopProxyStatus").textContent,
+      stored: JSON.parse(localStorage.getItem("ai_image_gen_settings") || "{}"),
+      customDisabledAfterInvalid: document.getElementById("desktopProxyCustomUrl").disabled,
+    };
+  })()`, true);
+  assertQa(result.modalOpen, "Settings modal should open before testing proxy controls.", result);
+  assertQa(result.defaults.proxyMode === "http7890" && result.defaults.proxyUrl === "http://127.0.0.1:7890", "Default desktop proxy should be HTTP 127.0.0.1:7890.", result);
+  assertQa(result.socks.proxyMode === "socks10808" && result.socks.proxyUrl === "socks5://127.0.0.1:10808", "SOCKS5 preset should be sent to native bridge.", result);
+  assertQa(result.direct.proxyMode === "direct" && result.direct.proxyUrl === "", "Direct mode should be sent to native bridge.", result);
+  assertQa(result.custom.proxyMode === "custom" && result.custom.proxyUrl === "http://127.0.0.1:7890", "Custom proxy URL should be sent to native bridge.", result);
+  assertQa(result.updateDownload.action === "downloadUpdate" && result.updateDownload.proxyMode === "custom" && result.updateDownload.proxyUrl === "http://127.0.0.1:7890", "Update package downloads should use the desktop proxy payload too.", result);
+  assertQa(result.helperPayload.proxyMode === "custom" && result.helperPayload.proxyUrl === "http://127.0.0.1:7890", "Proxy helper should append proxy fields to native payloads.", result);
+  assertQa(result.invalidDidNotCall && /代理|proxy|URL/i.test(result.invalidStatus), "Invalid custom proxy should show an error and avoid native requests.", result);
+  assertQa(result.stored.desktopProxyMode === "custom" && result.stored.desktopProxyCustomUrl === "127.0.0.1:7890", "Desktop proxy settings should persist globally.", result);
+  assertQa(result.customDisabledAfterInvalid === false, "Custom proxy input should remain editable in custom mode.", result);
+}
+
 async function main() {
   const server = createStaticServer();
   await new Promise(resolve => server.listen(appPort, host, resolve));
@@ -1017,7 +1186,9 @@ async function main() {
     await testReferencesAndAutoFill(cdp);
     await testHistoryRestoreAndExport(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testDesktopProxyControls(cdp);
     await testUpdateControls(cdp);
+    cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
   } finally {
     try { cdp?.close(); } catch {}

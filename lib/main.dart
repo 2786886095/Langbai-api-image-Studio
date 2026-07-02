@@ -10,6 +10,8 @@ import 'package:webview_flutter_android/webview_flutter_android.dart'
     as android_webview;
 import 'package:webview_windows/webview_windows.dart' as windows_webview;
 
+import 'proxy_config.dart';
+
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF101310);
 
@@ -96,6 +98,27 @@ void _addMultipartBody(
   _addUtf8(request, '--$boundary--\r\n');
 }
 
+bool _isDesktopPlatform() =>
+    Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+
+HttpClient _createNetworkClient(Map<String, dynamic> payload) {
+  final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+  final proxy = resolveDesktopProxyFindProxy(
+    desktopPlatform: _isDesktopPlatform(),
+    mode: payload['proxyMode']?.toString(),
+    proxyUrl: payload['proxyUrl']?.toString(),
+  );
+  if (!proxy.valid) {
+    client.close(force: true);
+    throw PlatformException(
+      code: 'invalid_proxy',
+      message: proxy.error ?? 'Invalid proxy configuration.',
+    );
+  }
+  client.findProxy = (_) => proxy.findProxy;
+  return client;
+}
+
 Future<Map<String, Object?>> _nativeFetch(
   Map<String, dynamic> payload,
 ) async {
@@ -108,7 +131,7 @@ Future<Map<String, Object?>> _nativeFetch(
       <String, String>{};
   final body = payload['body']?.toString();
 
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+  final client = _createNetworkClient(payload);
   try {
     final request = await client.openUrl(method, Uri.parse(url));
     _setForwardHeaders(request, headers, multipart: isMultipart);
@@ -152,7 +175,11 @@ Future<Map<String, Object?>> _nativeFetch(
   }
 }
 
-Future<File> _downloadUrlToFile(String url, File target) async {
+Future<File> _downloadUrlToFile(
+  String url,
+  File target, {
+  Map<String, dynamic> proxyPayload = const <String, dynamic>{},
+}) async {
   if (!_isExternalHttpUrl(url)) {
     throw PlatformException(
       code: 'invalid_url',
@@ -160,7 +187,7 @@ Future<File> _downloadUrlToFile(String url, File target) async {
     );
   }
 
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+  final client = _createNetworkClient(proxyPayload);
   try {
     final request = await client.getUrl(Uri.parse(url));
     final response = await request.close();
@@ -487,6 +514,7 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
             payload['url']?.toString() ?? '',
             payload['fileName']?.toString() ?? 'update.zip',
             payload['install'] == true,
+            payload,
           );
           break;
         case 'nativeFetch':
@@ -651,11 +679,12 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
     String url,
     String fileName,
     bool install,
+    Map<String, dynamic> payload,
   ) async {
     final dir = Directory(_windowsDownloadDir('updates'));
     final safeName = _sanitizeWindowsFileName(fileName);
     final file = File([dir.path, safeName].join(Platform.pathSeparator));
-    await _downloadUrlToFile(url, file);
+    await _downloadUrlToFile(url, file, proxyPayload: payload);
 
     var installerStarted = false;
     String? scriptPath;

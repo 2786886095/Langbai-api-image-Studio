@@ -2813,6 +2813,19 @@ main.result-panel .result-actions .btn {
   gap: 8px;
 }
 
+.proxy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proxy-actions .btn {
+  flex: 1 1 140px;
+  min-width: 0;
+  min-height: 34px;
+  padding-inline: 8px;
+}
+
 .update-actions .btn {
   flex: 1 1 116px;
   min-width: 0;
@@ -2833,6 +2846,8 @@ main.result-panel .result-actions .btn {
 
 #updateStatus[data-state="error"] { color: var(--error); }
 #updateStatus[data-state="success"] { color: var(--success); }
+#desktopProxyStatus[data-state="error"] { color: var(--error); }
+#desktopProxyStatus[data-state="success"] { color: var(--success); }
 
 .path-label {
   max-width: 100%;
@@ -2850,6 +2865,10 @@ main.result-panel .result-actions .btn {
   }
 
   .update-actions .btn {
+    flex-basis: 100%;
+  }
+
+  .proxy-actions .btn {
     flex-basis: 100%;
   }
 }

@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260702-1-0-5">
+  <link rel="stylesheet" href="style.css?v=20260702-1-0-6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -124,7 +124,7 @@
               <div id="modelChoices" class="model-choices hidden" role="listbox" aria-label="模型列表"></div>
             </label>
             <label class="field" id="proxyEndpointField">
-              <span>电脑端代理地址 <em class="optional">(可选，用于解决浏览器 CORS)</em></span>
+              <span>浏览器 CORS 转发地址 <em class="optional">(可选，仅用于 HTML 浏览器端)</em></span>
               <input type="url" id="proxyEndpoint" placeholder="http://127.0.0.1:8787/proxy">
             </label>
             <button type="button" id="saveConfig" class="btn btn-sm"><span class="ui-icon ui-icon-save"></span> 保存配置</button>
@@ -360,11 +360,32 @@
           <p class="field-hint">只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。</p>
         </section>
 
+        <section class="settings-section proxy-settings">
+          <h3>电脑端网络代理</h3>
+          <label class="field">
+            <span>代理模式</span>
+            <select id="desktopProxyMode">
+              <option value="http7890">HTTP 127.0.0.1:7890</option>
+              <option value="socks10808">SOCKS5 127.0.0.1:10808</option>
+              <option value="direct">直连</option>
+              <option value="custom">自定义</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>自定义代理地址</span>
+            <input type="url" id="desktopProxyCustomUrl" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:10808">
+          </label>
+          <div class="proxy-actions">
+            <button type="button" id="testDesktopProxy" class="btn btn-sm"><span class="ui-icon ui-icon-search"></span> 测试代理</button>
+          </div>
+          <p class="field-hint" id="desktopProxyStatus">默认使用 HTTP 127.0.0.1:7890；纯浏览器端请使用系统/浏览器代理或 api-proxy.js。</p>
+        </section>
+
         <section class="settings-section update-settings">
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.0.5</strong>
+            <strong id="currentVersionLabel">v1.0.6</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -428,6 +449,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260702-1-0-5"></script>
+  <script src="app.js?v=20260702-1-0-6"></script>
 </body>
 </html>
