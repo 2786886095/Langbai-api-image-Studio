@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.0.7";
+const APP_VERSION = "1.0.8";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -732,7 +732,6 @@ function applyCleanLanguage() {
   if (dom.updateAssetLabel && !latestUpdateRelease) dom.updateAssetLabel.textContent = cleanText("notChecked");
   if (dom.updateNotes && !dom.updateNotes.value) dom.updateNotes.placeholder = cleanText("releaseNotesPlaceholder");
   setButtonText(dom.checkUpdates, "search", "checkUpdates");
-  setButtonText(dom.downloadUpdate, "download", "downloadUpdate");
   setButtonText(dom.installUpdate, "spark", "installUpdate");
   if (dom.updateStatus && !dom.updateStatus.dataset.customStatus) dom.updateStatus.textContent = cleanText("updateInitialHint");
   setText("#historyTitle", "historyTitle");
@@ -929,7 +928,6 @@ const dom = {
   updateNotes:         $("#updateNotes"),
   updateStatus:        $("#updateStatus"),
   checkUpdates:        $("#checkUpdates"),
-  downloadUpdate:      $("#downloadUpdate"),
   installUpdate:       $("#installUpdate"),
   // 历史
   historyBtn:    $("#historyBtn"),
@@ -1676,9 +1674,7 @@ function setUpdateStatus(message, type = "info", custom = true) {
 function updateInstallButtonState(busy = false) {
   if (dom.checkUpdates) dom.checkUpdates.disabled = !!busy;
   const knownNoUpdate = latestUpdateInfo && latestUpdateInfo.isNewer === false;
-  [dom.downloadUpdate, dom.installUpdate].forEach(button => {
-    if (button) button.disabled = !!busy || knownNoUpdate;
-  });
+  if (dom.installUpdate) dom.installUpdate.disabled = !!busy || knownNoUpdate;
 }
 
 function setUpdateButtonsBusy(busy) {
@@ -1802,7 +1798,6 @@ async function downloadLatestUpdate(install = false) {
 if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSION}`;
 if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = cleanText("notChecked");
 dom.checkUpdates?.addEventListener("click", () => void checkForUpdates());
-dom.downloadUpdate?.addEventListener("click", () => void downloadLatestUpdate(false));
 dom.installUpdate?.addEventListener("click", () => void downloadLatestUpdate(true));
 window.AiGenUpdate = { APP_VERSION, checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset, getRuntimePlatform };
 window.AiGenProxy = { resolveDesktopProxyConfig, getDesktopProxyPayload, withDesktopProxyPayload, parseDesktopProxyUrl };

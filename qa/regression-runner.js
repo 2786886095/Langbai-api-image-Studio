@@ -1111,7 +1111,6 @@ async function testUpdateControls(cdp) {
       newerState,
       selectedName: selected?.name || "",
       checkDisabled: document.getElementById("checkUpdates").disabled,
-      downloadDisabled: document.getElementById("downloadUpdate").disabled,
       installDisabled: document.getElementById("installUpdate").disabled,
       sameVersionResult,
       openedUrls,
@@ -1123,7 +1122,7 @@ async function testUpdateControls(cdp) {
   assertQa(result.selectedName.includes("windows"), "Windows update selection should prefer the Windows ZIP asset.", result);
   assertQa(result.asset.includes("windows") && result.notes.includes("Test release"), "Update panel should show the selected package name and release notes.", result);
   assertQa(!result.checkDisabled, "Update check button should be re-enabled after checking.", result);
-  assertQa(result.downloadDisabled && result.installDisabled, "Download/install buttons should be disabled after a same-version update check.", result);
+  assertQa(result.installDisabled, "Install button should be disabled after a same-version update check.", result);
   assertQa(result.sameVersionResult?.skipped === true && result.openedUrls.length === 0, "Downloading the current version should be blocked and should not open an update URL.", result);
 }
 

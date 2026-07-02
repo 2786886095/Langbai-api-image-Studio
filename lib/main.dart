@@ -697,6 +697,7 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
           '-NoProfile',
           '-ExecutionPolicy',
           'Bypass',
+          '-STA',
           '-File',
           script.path,
         ],
@@ -716,6 +717,10 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
     };
   }
 
+  // 生成一个带可见进度窗口（WinForms）+ 出错弹窗提示的自更新脚本：
+  // 等旧进程退出 -> 解压覆盖安装目录 -> 删除已下载的安装包 -> 刷新桌面快捷方式 -> 重新启动。
+  // 注意：脚本文件必须写入 UTF-8 BOM，Windows PowerShell 5.1 在没有 BOM 时会按系统 ANSI
+  // 代码页解析脚本，导致中文字符把字符串截断（曾实测复现：报 "missing the terminator" 解析错误）。
   Future<File> _writeWindowsUpdateScript(File zipFile) async {
     final updatesDir = zipFile.parent.path;
     final script = File(
@@ -724,22 +729,94 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
     );
     final exePath = Platform.resolvedExecutable;
     final installDir = File(exePath).parent.path;
+    const releaseUrl =
+        'https://github.com/2786886095/Langbai-api-image-Studio/releases/latest';
     final lines = <String>[
       r"$ErrorActionPreference = 'Stop'",
       '\$pidToWait = $pid',
       '\$zip = ${_psQuote(zipFile.path)}',
       '\$target = ${_psQuote(installDir)}',
       '\$exe = ${_psQuote(exePath)}',
-      r'Wait-Process -Id $pidToWait -ErrorAction SilentlyContinue',
-      r'Start-Sleep -Milliseconds 500',
-      r"$extract = Join-Path $env:TEMP ('aigen-update-' + [guid]::NewGuid().ToString())",
-      r'New-Item -ItemType Directory -Path $extract -Force | Out-Null',
-      r'Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force',
-      r"Copy-Item -Path (Join-Path $extract '*') -Destination $target -Recurse -Force",
-      r'Remove-Item -LiteralPath $extract -Recurse -Force',
-      r'Start-Process -FilePath $exe',
+      '\$appName = ${_psQuote(_appTitle)}',
+      r'Add-Type -AssemblyName System.Windows.Forms',
+      r'Add-Type -AssemblyName System.Drawing',
+      r'$form = New-Object System.Windows.Forms.Form',
+      r'$form.Text = "$appName - 正在更新"',
+      r'$form.Width = 420',
+      r'$form.Height = 150',
+      r'$form.StartPosition = "CenterScreen"',
+      r'$form.FormBorderStyle = "FixedDialog"',
+      r'$form.MaximizeBox = $false',
+      r'$form.MinimizeBox = $false',
+      r'$form.TopMost = $true',
+      r'$label = New-Object System.Windows.Forms.Label',
+      r'$label.Text = "正在准备更新..."',
+      r'$label.AutoSize = $false',
+      r'$label.Width = 380',
+      r'$label.Height = 30',
+      r'$label.Left = 20',
+      r'$label.Top = 20',
+      r'$form.Controls.Add($label)',
+      r'$progress = New-Object System.Windows.Forms.ProgressBar',
+      r'$progress.Style = "Marquee"',
+      r'$progress.MarqueeAnimationSpeed = 30',
+      r'$progress.Width = 380',
+      r'$progress.Height = 24',
+      r'$progress.Left = 20',
+      r'$progress.Top = 55',
+      r'$form.Controls.Add($progress)',
+      r'function Set-Status([string]$text) {',
+      r'  $label.Text = $text',
+      r'  $form.Refresh()',
+      r'  [System.Windows.Forms.Application]::DoEvents()',
+      r'}',
+      r'$form.Show()',
+      r'$form.Refresh()',
+      r'try {',
+      r'  Set-Status "等待旧版本退出..."',
+      r'  Wait-Process -Id $pidToWait -ErrorAction SilentlyContinue',
+      r'  Start-Sleep -Milliseconds 400',
+      r'  Set-Status "正在解压更新包..."',
+      r"  $extract = Join-Path $env:TEMP ('aigen-update-' + [guid]::NewGuid().ToString())",
+      r'  New-Item -ItemType Directory -Path $extract -Force | Out-Null',
+      r'  Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force',
+      r'  Set-Status "正在安装到程序目录..."',
+      r"  Copy-Item -Path (Join-Path $extract '*') -Destination $target -Recurse -Force",
+      r'  Remove-Item -LiteralPath $extract -Recurse -Force',
+      r'  Set-Status "正在清理安装包..."',
+      r'  Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue',
+      r'  Set-Status "正在更新桌面快捷方式..."',
+      r'  try {',
+      r"    $desktop = [Environment]::GetFolderPath('Desktop')",
+      r'    $shellCom = New-Object -ComObject WScript.Shell',
+      r'    $shortcut = $shellCom.CreateShortcut((Join-Path $desktop "$appName.lnk"))',
+      r'    $shortcut.TargetPath = $exe',
+      r'    $shortcut.WorkingDirectory = $target',
+      r'    $shortcut.IconLocation = $exe',
+      r'    $shortcut.Save()',
+      r'  } catch {}',
+      r'  Set-Status "更新完成，正在重新启动..."',
+      r'  Start-Sleep -Milliseconds 800',
+      r'  Start-Process -FilePath $exe -WorkingDirectory $target | Out-Null',
+      r'  Start-Sleep -Milliseconds 600',
+      r'  $form.Close()',
+      r'}',
+      r'catch {',
+      r'  $form.TopMost = $true',
+      '  \$releaseUrl = ${_psQuote(releaseUrl)}',
+      r'  [System.Windows.Forms.MessageBox]::Show(',
+      r'    "自动更新失败：$($_.Exception.Message)`n`n请手动前往以下地址下载安装：`n$releaseUrl",',
+      r'    "$appName - 更新失败",',
+      r'    [System.Windows.Forms.MessageBoxButtons]::OK,',
+      r'    [System.Windows.Forms.MessageBoxIcon]::Error',
+      r'  ) | Out-Null',
+      r'  $form.Close()',
+      r'  exit 1',
+      r'}',
     ];
-    await script.writeAsString(lines.join('\r\n'), flush: true);
+    final content = lines.join('\r\n');
+    final bytes = <int>[0xEF, 0xBB, 0xBF, ...utf8.encode(content)];
+    await script.writeAsBytes(bytes, flush: true);
     return script;
   }
 
