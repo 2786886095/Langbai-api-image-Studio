@@ -305,6 +305,32 @@ async function testApiConfig(cdp) {
   assertQa(reloadDelete.after.endpoint === "" && reloadDelete.after.key === "", "Deleting active API should clear fields.", reloadDelete);
   assertQa(reloadDelete.after.apis.length === 0 && reloadDelete.after.active === null, "Deleting active API should clear storage.", reloadDelete);
 
+  const modelChoice = await cdp.eval(`(async () => {
+    document.getElementById("configSection").open = true;
+    await new Promise(r => setTimeout(r, 50));
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "grsai");
+    set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
+    set("apiKey", "sk-qa-models");
+    document.getElementById("detectModels").click();
+    await new Promise(r => setTimeout(r, 80));
+    const choices = [...document.querySelectorAll("#modelChoices .model-choice")];
+    const first = choices[0];
+    first?.click();
+    return {
+      count: choices.length,
+      visible: !document.getElementById("modelChoices").classList.contains("hidden"),
+      selected: document.getElementById("model").value,
+    };
+  })()`, true);
+  assertQa(modelChoice.visible && modelChoice.count > 3, "Fallback model detection should render clickable in-app model choices.", modelChoice);
+  assertQa(modelChoice.selected.length > 0, "Clicking a model choice should fill the model input.", modelChoice);
+
   await loadFresh(cdp, "api-mobile", { width: 430, height: 560, mobile: true });
   const mobile = await cdp.eval(`(async () => {
     document.getElementById("openApiConfig").click();
@@ -886,16 +912,26 @@ async function testRetryClearReloadAndI18n(cdp) {
 
 async function testUpdateControls(cdp) {
   logStep("Settings update controls and platform package selection");
+  await loadFresh(cdp, "updates");
   const result = await cdp.eval(`(async () => {
     const originalFetch = window.fetch;
+    const originalOpen = window.open;
+    let releaseTag = "v9.9.9";
+    let openedUrls = [];
+    const releaseAssets = [
+      { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
+      { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+    ];
+    window.open = (url) => {
+      openedUrls.push(String(url));
+      return { closed: false };
+    };
     window.fetch = async (url, options) => {
       if (String(url).includes("/releases/latest")) {
         return new Response(JSON.stringify({
-          tag_name: "v9.9.9",
-          assets: [
-            { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
-            { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
-          ]
+          tag_name: releaseTag,
+          body: "## Test release\\n- Update panel renders notes",
+          assets: releaseAssets
         }), {
           status: 200,
           headers: { "content-type": "application/json" }
@@ -917,18 +953,44 @@ async function testUpdateControls(cdp) {
         { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
       ]
     }, "windows");
+    const newerState = {
+      latest: document.getElementById("latestVersionLabel")?.textContent || "",
+      status: document.getElementById("updateStatus")?.textContent || "",
+    };
+    releaseTag = "v" + window.AiGenUpdate.APP_VERSION;
+    document.getElementById("checkUpdates").click();
+    const sameStart = Date.now();
+    while (Date.now() - sameStart < 3000) {
+      if (/最新版|up to date|最新です|최신/.test(document.getElementById("updateStatus")?.textContent || "")) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    const sameVersionResult = await window.AiGenUpdate.downloadLatestUpdate(true);
+    window.fetch = originalFetch;
+    window.open = originalOpen;
     return {
       modalOpen: !document.getElementById("settingsModal").classList.contains("hidden"),
       latest: document.getElementById("latestVersionLabel")?.textContent || "",
       status: document.getElementById("updateStatus")?.textContent || "",
+      asset: document.getElementById("updateAssetLabel")?.textContent || "",
+      notes: document.getElementById("updateNotes")?.value || "",
+      appVersion: window.AiGenUpdate.APP_VERSION,
+      newerState,
       selectedName: selected?.name || "",
       checkDisabled: document.getElementById("checkUpdates").disabled,
+      downloadDisabled: document.getElementById("downloadUpdate").disabled,
+      installDisabled: document.getElementById("installUpdate").disabled,
+      sameVersionResult,
+      openedUrls,
     };
   })()`, true);
   assertQa(result.modalOpen, "Settings modal should open from the header button.", result);
-  assertQa(result.latest.includes("9.9.9") && /9\.9\.9/.test(result.status), "Check update button should update latest version and status.", result);
+  assertQa(result.newerState.latest.includes("9.9.9") && /9\.9\.9/.test(result.newerState.status), "Check update button should update latest version and status.", result);
+  assertQa(result.latest.includes(result.appVersion) && /最新版|up to date|最新です|최신/.test(result.status), "Same-version update check should show the app is current.", result);
   assertQa(result.selectedName.includes("windows"), "Windows update selection should prefer the Windows ZIP asset.", result);
+  assertQa(result.asset.includes("windows") && result.notes.includes("Test release"), "Update panel should show the selected package name and release notes.", result);
   assertQa(!result.checkDisabled, "Update check button should be re-enabled after checking.", result);
+  assertQa(result.downloadDisabled && result.installDisabled, "Download/install buttons should be disabled after a same-version update check.", result);
+  assertQa(result.sameVersionResult?.skipped === true && result.openedUrls.length === 0, "Downloading the current version should be blocked and should not open an update URL.", result);
 }
 
 async function main() {

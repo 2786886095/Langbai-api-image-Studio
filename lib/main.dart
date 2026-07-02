@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:webview_flutter/webview_flutter.dart' as mobile_webview;
 import 'package:webview_flutter_android/webview_flutter_android.dart'
     as android_webview;
@@ -466,7 +467,7 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
       Object? result;
       switch (action) {
         case 'chooseDir':
-          result = await _ensureWindowsDownloadDir(
+          result = await _chooseWindowsDownloadDir(
             payload['kind']?.toString() ?? 'images',
           );
           await _syncWindowsDownloadDirs();
@@ -536,7 +537,59 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
     };
   }
 
-  String _windowsDownloadDir(String kind) {
+  File _windowsSettingsFile() {
+    final appData = Platform.environment['APPDATA'];
+    final root =
+        (appData == null || appData.isEmpty) ? Directory.current.path : appData;
+    return File([
+      root,
+      'AI Image Generator',
+      'settings.json',
+    ].join(Platform.pathSeparator));
+  }
+
+  Map<String, String> _windowsSavedDownloadDirs() {
+    try {
+      final file = _windowsSettingsFile();
+      if (!file.existsSync()) return <String, String>{};
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is! Map) return <String, String>{};
+      final dirs = decoded['downloadDirs'];
+      if (dirs is! Map) return <String, String>{};
+      return dirs
+          .map((key, value) => MapEntry(key.toString(), value.toString()));
+    } catch (_) {
+      return <String, String>{};
+    }
+  }
+
+  Future<void> _saveWindowsDownloadDir(String kind, String path) async {
+    final file = _windowsSettingsFile();
+    await file.parent.create(recursive: true);
+    var data = <String, Object?>{};
+    try {
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map) {
+          data = decoded.map((key, value) => MapEntry(key.toString(), value));
+        }
+      }
+    } catch (_) {
+      data = <String, Object?>{};
+    }
+    final dirs = (data['downloadDirs'] is Map)
+        ? Map<String, String>.from(
+            (data['downloadDirs'] as Map).map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            ),
+          )
+        : <String, String>{};
+    dirs[kind] = path;
+    data['downloadDirs'] = dirs;
+    await file.writeAsString(jsonEncode(data), flush: true);
+  }
+
+  String _windowsDefaultDownloadDir(String kind) {
     final profile = Platform.environment['USERPROFILE'];
     final root = (profile == null || profile.isEmpty)
         ? Directory.current.path
@@ -553,6 +606,27 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
               ? 'updates'
               : 'images',
     ].join(Platform.pathSeparator);
+  }
+
+  String _windowsDownloadDir(String kind) {
+    return _windowsSavedDownloadDirs()[kind] ??
+        _windowsDefaultDownloadDir(kind);
+  }
+
+  Future<String> _chooseWindowsDownloadDir(String kind) async {
+    final current = Directory(_windowsDownloadDir(kind));
+    await current.create(recursive: true);
+    final selected = await file_selector.getDirectoryPath(
+      initialDirectory: current.path,
+      confirmButtonText: '选择目录',
+    );
+    if (selected == null || selected.trim().isEmpty) {
+      return current.path;
+    }
+    final dir = Directory(selected);
+    await dir.create(recursive: true);
+    await _saveWindowsDownloadDir(kind, dir.path);
+    return dir.path;
   }
 
   Future<String> _ensureWindowsDownloadDir(String kind) async {

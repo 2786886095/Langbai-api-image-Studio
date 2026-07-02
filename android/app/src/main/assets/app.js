@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.0.4";
+const APP_VERSION = "1.0.5";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -206,7 +206,7 @@ const CLEAN_LOCALES = {
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
     download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片",
     failReason: "失败原因", retryFailedAll: "全部失败重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜",
-    softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", notChecked: "未检测",
+    softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
     checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装",
     updateInitialHint: "可从 GitHub Releases 检测新版。Windows 会在下载后退出并覆盖安装目录；安卓会打开系统安装器。",
     checkingUpdates: "正在检查更新…", noUpdate: "已是最新版", updateAvailable: "发现新版本 {version}",
@@ -251,7 +251,7 @@ const CLEAN_LOCALES = {
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
     download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片",
     failReason: "失敗原因", retryFailedAll: "全部失敗重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡",
-    softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", notChecked: "未檢測",
+    softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
     checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝",
     updateInitialHint: "可從 GitHub Releases 檢測新版。Windows 會在下載後退出並覆蓋安裝目錄；Android 會開啟系統安裝器。",
     checkingUpdates: "正在檢查更新…", noUpdate: "已是最新版本", updateAvailable: "發現新版本 {version}",
@@ -296,7 +296,7 @@ const CLEAN_LOCALES = {
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
     download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image",
     failReason: "Failure reason", retryFailedAll: "Retry all failed", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry",
-    softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", notChecked: "Not checked",
+    softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
     checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install",
     updateInitialHint: "Checks GitHub Releases for a new version. Windows exits after download and overwrites the app folder; Android opens the system installer.",
     checkingUpdates: "Checking for updates...", noUpdate: "Already up to date", updateAvailable: "New version available: {version}",
@@ -341,7 +341,7 @@ const CLEAN_LOCALES = {
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
     download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み",
     failReason: "失敗理由", retryFailedAll: "失敗分を再試行", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません",
-    softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", notChecked: "未確認",
+    softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
     checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール",
     updateInitialHint: "GitHub Releases から新しいバージョンを確認します。Windows はダウンロード後に終了してインストール先を上書きし、Android はシステムインストーラを開きます。",
     checkingUpdates: "更新を確認中...", noUpdate: "最新です", updateAvailable: "新しいバージョンがあります: {version}",
@@ -386,7 +386,7 @@ const CLEAN_LOCALES = {
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
     download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기",
     failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
-    softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", notChecked: "확인 안 됨",
+    softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
     checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치",
     updateInitialHint: "GitHub Releases에서 새 버전을 확인합니다. Windows는 다운로드 후 종료하고 설치 폴더를 덮어쓰며, Android는 시스템 설치 관리자를 엽니다.",
     checkingUpdates: "업데이트 확인 중...", noUpdate: "최신 버전입니다", updateAvailable: "새 버전 발견: {version}",
@@ -674,8 +674,11 @@ function applyCleanLanguage() {
   setText(".update-settings h3", "softwareUpdate");
   setText(".update-settings .update-version-row:nth-of-type(1) span", "currentVersion");
   setText(".update-settings .update-version-row:nth-of-type(2) span", "latestVersion");
+  setText(".update-settings .update-version-row:nth-of-type(3) span", "updateAsset");
   if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSION}`;
   if (dom.latestVersionLabel && !latestUpdateRelease) dom.latestVersionLabel.textContent = cleanText("notChecked");
+  if (dom.updateAssetLabel && !latestUpdateRelease) dom.updateAssetLabel.textContent = cleanText("notChecked");
+  if (dom.updateNotes && !dom.updateNotes.value) dom.updateNotes.placeholder = cleanText("releaseNotesPlaceholder");
   setButtonText(dom.checkUpdates, "search", "checkUpdates");
   setButtonText(dom.downloadUpdate, "download", "downloadUpdate");
   setButtonText(dom.installUpdate, "spark", "installUpdate");
@@ -773,6 +776,7 @@ const dom = {
   model:         $("#model"),
   proxyEndpoint: $("#proxyEndpoint"),
   modelList:     $("#modelList"),
+  modelChoices:  $("#modelChoices"),
   detectModels:  $("#detectModels"),
   saveConfig:    $("#saveConfig"),
   savedApis:     $("#savedApis"),
@@ -866,6 +870,8 @@ const dom = {
   clearHistory:   $("#clearHistory"),
   currentVersionLabel: $("#currentVersionLabel"),
   latestVersionLabel:  $("#latestVersionLabel"),
+  updateAssetLabel:    $("#updateAssetLabel"),
+  updateNotes:         $("#updateNotes"),
   updateStatus:        $("#updateStatus"),
   checkUpdates:        $("#checkUpdates"),
   downloadUpdate:      $("#downloadUpdate"),
@@ -890,6 +896,7 @@ let generatedImageUrls = [];
 let appWasBackgrounded = false;
 let retryAllFailedInProgress = false;
 let latestUpdateRelease = null;
+let latestUpdateInfo = null;
 
 function getScrollableAncestor(node) {
   let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
@@ -1475,10 +1482,35 @@ function setUpdateStatus(message, type = "info", custom = true) {
   dom.updateStatus.dataset.state = type;
 }
 
-function setUpdateButtonsBusy(busy) {
-  [dom.checkUpdates, dom.downloadUpdate, dom.installUpdate].forEach(button => {
-    if (button) button.disabled = !!busy;
+function updateInstallButtonState(busy = false) {
+  if (dom.checkUpdates) dom.checkUpdates.disabled = !!busy;
+  const knownNoUpdate = latestUpdateInfo && latestUpdateInfo.isNewer === false;
+  [dom.downloadUpdate, dom.installUpdate].forEach(button => {
+    if (button) button.disabled = !!busy || knownNoUpdate;
   });
+}
+
+function setUpdateButtonsBusy(busy) {
+  updateInstallButtonState(!!busy);
+}
+
+function updateReleaseDetails(info) {
+  if (dom.updateAssetLabel) {
+    const asset = info?.release ? selectUpdateAsset(info.release) : null;
+    dom.updateAssetLabel.textContent = asset?.name || cleanText("notChecked");
+  }
+  if (dom.updateNotes) {
+    const notes = String(info?.release?.body || "").trim();
+    dom.updateNotes.value = notes;
+    dom.updateNotes.placeholder = cleanText("releaseNotesPlaceholder");
+  }
+}
+
+function setLatestUpdateInfo(info) {
+  latestUpdateInfo = info || null;
+  latestUpdateRelease = latestUpdateInfo?.release || null;
+  updateReleaseDetails(latestUpdateInfo);
+  updateInstallButtonState(false);
 }
 
 async function fetchLatestReleaseInfo() {
@@ -1510,17 +1542,18 @@ async function checkForUpdates(options = {}) {
   }
   try {
     const release = await fetchLatestReleaseInfo();
-    latestUpdateRelease = release;
     const latest = normalizeVersion(release.tag_name || release.name || "");
     if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSION}`;
     if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = latest ? `v${latest}` : cleanText("notChecked");
     const isNewer = compareVersions(latest, APP_VERSION) > 0;
+    const info = { release, latest, isNewer };
+    setLatestUpdateInfo(info);
     const message = isNewer
       ? interpolate(cleanText("updateAvailable"), { version: `v${latest}` })
       : cleanText("noUpdate");
     setUpdateStatus(message, isNewer ? "success" : "info");
     if (!silent) showStatus(message, isNewer ? "success" : "info");
-    return { release, latest, isNewer };
+    return info;
   } catch (err) {
     const message = `${cleanText("updateCheckFailed")}: ${err.message || err}`;
     setUpdateStatus(message, "error");
@@ -1536,8 +1569,13 @@ async function downloadLatestUpdate(install = false) {
   setUpdateStatus(cleanText("downloadingUpdate"));
   try {
     const info = latestUpdateRelease
-      ? { release: latestUpdateRelease, latest: normalizeVersion(latestUpdateRelease.tag_name || latestUpdateRelease.name || ""), isNewer: compareVersions(latestUpdateRelease.tag_name || latestUpdateRelease.name || "", APP_VERSION) > 0 }
+      ? (latestUpdateInfo || { release: latestUpdateRelease, latest: normalizeVersion(latestUpdateRelease.tag_name || latestUpdateRelease.name || ""), isNewer: compareVersions(latestUpdateRelease.tag_name || latestUpdateRelease.name || "", APP_VERSION) > 0 })
       : await checkForUpdates({ silent: true });
+    if (!info.isNewer) {
+      setUpdateStatus(cleanText("noUpdate"), "info");
+      showStatus(cleanText("noUpdate"), "info");
+      return { skipped: true, reason: "up-to-date", latest: info.latest };
+    }
     const asset = selectUpdateAsset(info.release);
     if (!asset) throw new Error(cleanText("noUpdateAsset"));
     const url = asset.browser_download_url;
@@ -1576,7 +1614,7 @@ if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = cleanText("notC
 dom.checkUpdates?.addEventListener("click", () => void checkForUpdates());
 dom.downloadUpdate?.addEventListener("click", () => void downloadLatestUpdate(false));
 dom.installUpdate?.addEventListener("click", () => void downloadLatestUpdate(true));
-window.AiGenUpdate = { checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset };
+window.AiGenUpdate = { APP_VERSION, checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset };
 
 // ─── 已知模型价格（跨平台通用） ─────────────────────────────
 const KNOWN_PRICES = {
@@ -1610,16 +1648,50 @@ function priceLabel(modelId) {
   return p ? ` · ${p}` : "";
 }
 
+function setModelChoices(models = [], options = {}) {
+  const ids = [...new Set(models.map(item => {
+    if (typeof item === "string") return item.trim();
+    return String(item?.id || item?.value || "").trim();
+  }).filter(Boolean))];
+  if (dom.modelList) {
+    dom.modelList.innerHTML = "";
+    ids.forEach(id => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = id + priceLabel(id);
+      dom.modelList.appendChild(opt);
+    });
+  }
+  if (!dom.modelChoices) return ids;
+  dom.modelChoices.innerHTML = "";
+  if (!ids.length) {
+    dom.modelChoices.classList.add("hidden");
+    return ids;
+  }
+  ids.slice(0, options.limit || 80).forEach(id => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "model-choice";
+    button.setAttribute("role", "option");
+    button.textContent = id + priceLabel(id);
+    button.addEventListener("click", () => {
+      dom.model.value = id;
+      dom.model.dispatchEvent(new Event("change", { bubbles: true }));
+      dom.modelChoices.querySelectorAll(".model-choice").forEach(item => {
+        item.setAttribute("aria-selected", item === button ? "true" : "false");
+      });
+      updateApiQuickState();
+    });
+    dom.modelChoices.appendChild(button);
+  });
+  dom.modelChoices.classList.remove("hidden");
+  return ids;
+}
+
 // ─── 内置模型列表（兜底用）─────────────────────────────────
 function loadFallbackModels() {
   const ids = Object.keys(KNOWN_PRICES).filter(k => !/nano-banana|gpt-image-2-vip/.test(k));
-  dom.modelList.innerHTML = "";
-  ids.forEach(id => {
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = id + priceLabel(id);
-    dom.modelList.appendChild(opt);
-  });
+  setModelChoices(ids);
   dom.model.value = "";
   dom.model.placeholder = `已加载 ${ids.length} 个模型，点击选择`;
   updateApiQuickState();
@@ -1627,13 +1699,7 @@ function loadFallbackModels() {
 
 function loadGrsaiModels() {
   const ids = Object.keys(KNOWN_PRICES).filter(k => /gpt-image-2|nano-banana/.test(k));
-  dom.modelList.innerHTML = "";
-  ids.forEach(id => {
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = `${id}  ·  ${KNOWN_PRICES[id]}`;
-    dom.modelList.appendChild(opt);
-  });
+  setModelChoices(ids);
   dom.model.value = "";
   dom.model.placeholder = `已加载 ${ids.length} 个 GrsAI 模型，点击选择`;
   updateApiQuickState();
@@ -2592,13 +2658,7 @@ registerAdapter({
       const imgModels = models.filter(m => imgRe.test(m.id));
       if (imgModels.length > 0) models = imgModels;
 
-      dom.modelList.innerHTML = "";
-      models.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = m.id + priceLabel(m.id);
-        dom.modelList.appendChild(opt);
-      });
+      setModelChoices(models.map(m => m.id));
       dom.model.value = "";
       dom.model.placeholder = `已加载 ${models.length} 个生图模型，点击选择`;
       showStatus(`已加载 ${models.length} 个生图模型`, "success");
@@ -2684,13 +2744,7 @@ registerAdapter({
         const imgModels = models.filter(m => imgRe.test(m.id));
         if (imgModels.length > 0) models = imgModels;
 
-        dom.modelList.innerHTML = "";
-        models.forEach(m => {
-          const opt = document.createElement("option");
-          opt.value = m.id;
-          opt.textContent = m.id + priceLabel(m.id);
-          dom.modelList.appendChild(opt);
-        });
+        setModelChoices(models.map(m => m.id));
         dom.model.value = "";
         dom.model.placeholder = `已加载 ${models.length} 个生图模型，点击选择`;
         showStatus(`已加载 ${models.length} 个生图模型`, "success");
@@ -2816,6 +2870,7 @@ async function detectModelsForAdapter() {
 
   dom.detectModels.disabled = true;
   setIconText(dom.detectModels, "spark", currentLanguage === "en" ? "Detecting" : currentLanguage === "ja" ? "検出中" : currentLanguage === "ko" ? "감지 중" : currentLanguage === "zh-Hant" ? "偵測中" : "检测中");
+  showStatus("正在检测模型列表…", "info");
 
   try {
     if (adapter.fetchModels) {
@@ -4270,6 +4325,7 @@ async function chooseDownloadDir(kind) {
       showStatus("当前不是 Flutter 安卓壳环境，浏览器会使用默认下载目录", "info");
       return;
     }
+    showStatus(kind === "images" ? "正在打开图片目录选择器…" : "正在打开 ZIP 目录选择器…", "info");
     await nativeDownload.chooseDir(kind);
     showStatus(kind === "images" ? "图片下载目录已更新" : "ZIP 下载目录已更新", "success");
   } catch (err) {

@@ -100,7 +100,12 @@ class MainActivity : FlutterActivity() {
                     Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
             )
         }
-        startActivityForResult(intent, requestChooseFiles)
+        try {
+            startActivityForResult(intent, requestChooseFiles)
+        } catch (e: Exception) {
+            pendingFileResult = null
+            result.error("picker_unavailable", e.message ?: "File picker is unavailable.", null)
+        }
     }
 
     private fun chooseDirectory(kind: String, result: MethodChannel.Result) {
@@ -119,7 +124,13 @@ class MainActivity : FlutterActivity() {
                     Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
             )
         }
-        startActivityForResult(intent, requestChooseDir)
+        try {
+            startActivityForResult(intent, requestChooseDir)
+        } catch (e: Exception) {
+            pendingResult = null
+            pendingKind = null
+            result.error("picker_unavailable", e.message ?: "Directory picker is unavailable.", null)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -144,7 +155,11 @@ class MainActivity : FlutterActivity() {
         val flags = data.flags and (
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
-        contentResolver.takePersistableUriPermission(uri, flags)
+        try {
+            if (flags != 0) contentResolver.takePersistableUriPermission(uri, flags)
+        } catch (_: Exception) {
+            // Some document providers return a usable tree URI without persistable grants.
+        }
         prefs().edit().putString(kind, uri.toString()).apply()
         result?.success(uri.toString())
     }
