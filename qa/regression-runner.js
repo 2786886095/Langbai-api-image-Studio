@@ -256,7 +256,15 @@ async function testApiConfig(cdp) {
   assertQa(saveResult.quick.includes("已接入"), "API quick card should show connected state.", saveResult);
 
   await cdp.eval("location.reload()");
-  await sleep(700);
+  // Fixed sleeps flake here: with the CDP cache disabled, re-parsing app.js can take
+  // longer than any constant we pick. Poll until init has restored the saved endpoint.
+  for (let i = 0; i < 60; i++) {
+    const restored = await cdp.eval(
+      `document.readyState === "complete" && !!document.getElementById("generateBtn") && document.getElementById("apiEndpoint").value !== ""`
+    ).catch(() => false);
+    if (restored) break;
+    await sleep(100);
+  }
   const reloadDelete = await cdp.eval(`(async () => {
     const before = {
       endpoint: document.getElementById("apiEndpoint").value,
@@ -803,7 +811,12 @@ async function testRetryClearReloadAndI18n(cdp) {
     document.getElementById("retryFailedAll").click();
     const start = Date.now();
     while (Date.now() - start < 5000) {
-      if (document.querySelectorAll(".result-item.is-failed").length === 0 && window.__batchRetryCalls.length === 4) break;
+      // Retries now run concurrently: all four cards clear .is-failed and fire their
+      // API calls almost simultaneously, well before their DOM is re-rendered. Wait
+      // for the replacement <img> nodes too, or we snapshot mid-flight.
+      if (document.querySelectorAll(".result-item.is-failed").length === 0
+        && window.__batchRetryCalls.length === 4
+        && document.querySelectorAll(".result-item img").length === 24) break;
       await new Promise(r => setTimeout(r, 80));
     }
     const after = {

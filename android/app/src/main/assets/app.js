@@ -3392,7 +3392,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     setTimeout(() => { img.src = nextUrl; }, 30);
   });
   img.addEventListener("click", () => {
-    if (!media.classList.contains("is-error")) openLightbox(imageUrl);
+    if (!media.classList.contains("is-error")) openLightbox(card._localImageUrl || imageUrl);
   });
   mediaStatus.append(mediaStatusText, reloadBtn);
   media.append(img, mediaStatus);
@@ -3410,10 +3410,28 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     fullPrompt,
   };
 
+  // 中转站的生图 URL 存活期很短（实测约 2 小时后服务端删图），页面上 <img> 靠浏览器
+  // 缓存还能显示，但导出/下载时重新请求远程 URL 会 404。趁 URL 刚生成还活着，立刻把
+  // 字节抓到本地；之后 ZIP 打包、单图下载、灯箱都优先用本地副本。
+  releaseCardImageCache(card);
+  if (!imageUrl.startsWith("data:")) {
+    card._imageCachePromise = imageUrlToBlob(imageUrl)
+      .then(blob => {
+        card._zipBlob = blob;
+        card._localImageUrl = URL.createObjectURL(blob);
+        if (img.isConnected) img.src = card._localImageUrl;
+        return blob;
+      })
+      .catch(err => {
+        console.warn(`分镜 ${panelId} 图片本地缓存失败，导出时将回退远程下载`, err);
+        return null;
+      });
+  }
+
   const actions = document.createElement("div");
   actions.className = "result-actions";
   actions.append(
-    makeCardActionBtn("download", "download", () => downloadImage(imageUrl, panelId)),
+    makeCardActionBtn("download", "download", () => downloadImage(card._zipBlob || card._localImageUrl || imageUrl, panelId)),
     makeCardActionBtn("copy", "copyLink", () => copyImageUrl(imageUrl, item.url)),
     makeCardActionBtn("retry", "retry", () => retryResultCard(card, false)),
     makeCardActionBtn("edit", "editRetry", () => retryResultCard(card, true))
@@ -3441,6 +3459,13 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   return record;
 }
 
+function releaseCardImageCache(card) {
+  if (card._localImageUrl) URL.revokeObjectURL(card._localImageUrl);
+  card._localImageUrl = "";
+  card._zipBlob = null;
+  card._imageCachePromise = null;
+}
+
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   const message = String(errMsg || "生成失败");
   setRetryContext(card, panelId, { ...(card._retryContext || {}), ...(retryContext || {}) });
@@ -3449,6 +3474,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   card.dataset.status = "failed";
   card.dataset.errorMessage = message;
   delete card._zipImage;
+  releaseCardImageCache(card);
   card.innerHTML = `
     <div class="panel-label">分镜 ${panelId}</div>
     <div class="result-media result-media-failed">
@@ -3513,11 +3539,21 @@ async function retryAllFailedResults() {
   let ok = 0;
   let failed = 0;
   try {
-    for (const card of cards) {
-      if (!card.isConnected || !card.classList.contains("is-failed")) continue;
-      const success = await retryResultCard(card, false, { retryCountOverride: retryCount, quiet: true });
-      if (success) ok++;
-      else failed++;
+    // 与批量生成保持同样的并发度；串行会让后面的卡片等前一张生完才开始，
+    // 看起来像"只重试了一个"。
+    const tasks = cards.map(card => () => {
+      if (!card.isConnected || !card.classList.contains("is-failed")) return Promise.resolve(null);
+      return retryResultCard(card, false, { retryCountOverride: retryCount, quiet: true });
+    });
+    const settled = await concurrentLimitSettled(tasks, 20);
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        if (result.value === null) continue;
+        if (result.value) ok++;
+        else failed++;
+      } else {
+        failed++;
+      }
     }
     showStatus(failed > 0 ? `重试完成：${ok} 成功 / ${failed} 失败` : `已重试成功 ${ok} 个失败分镜`, failed > 0 ? "error" : "success");
   } finally {
@@ -3567,6 +3603,7 @@ function renderRetryLoading(card, panelId, promptText) {
   delete card.dataset.failed;
   delete card.dataset.errorMessage;
   delete card._zipImage;
+  releaseCardImageCache(card);
   card.dataset.status = "loading";
   card.style.borderColor = "";
   card.title = "";
@@ -3766,9 +3803,9 @@ async function saveGenerationProject(project) {
 async function makeHistoryImageUrl(imageUrl) {
   if (!imageUrl || imageUrl.startsWith("data:")) return imageUrl;
   try {
-    const resp = await fetch(imageUrl);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    return await blobToDataUrl(await resp.blob());
+    // imageUrlToBlob 在安卓/Windows 壳里走原生请求（裸 fetch 会被 WebView CORS 拦截），
+    // 浏览器端才退回 fetch。远程生图 URL 约 2 小时被中转站删除，历史记录必须存本地字节。
+    return await blobToDataUrl(await imageUrlToBlob(imageUrl));
   } catch (err) {
     console.warn("历史图片本地缓存失败，保留远程 URL", err);
     return imageUrl;
@@ -4489,7 +4526,14 @@ async function buildImagesZip(images, meta = {}) {
     const image = images[i];
     try {
       setDownloadProgress(8 + Math.round((i / Math.max(images.length, 1)) * 52), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
-      const blob = await imageUrlToBlob(image.url || image.imageUrl, pct => {
+      // 优先用生成时抓下来的本地字节：远程生图 URL 可能已被中转站删除（约 2 小时），
+      // 只有本地缓存能保证"页面上显示什么，ZIP 里就有什么"。
+      let blob = image.blob instanceof Blob ? image.blob : null;
+      if (!blob && image.cachePromise) {
+        blob = await Promise.resolve(image.cachePromise).catch(() => null);
+        if (!(blob instanceof Blob)) blob = null;
+      }
+      if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl, pct => {
         const base = 8 + Math.round((i / Math.max(images.length, 1)) * 52);
         setDownloadProgress(Math.min(60, base + Math.round((pct || 0) * 0.2)), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
       });
@@ -4527,20 +4571,26 @@ async function buildImagesZip(images, meta = {}) {
   return makeZipBlob(entries);
 }
 
-async function downloadImage(imageUrl, index) {
+async function downloadImage(imageSource, index) {
   try {
     setDownloadProgress(3, "准备下载图片…");
     const filename = `panel-${index}.png`;
-    const blob = await imageUrlToBlob(imageUrl, pct => {
-      setDownloadProgress(Math.max(5, Math.min(85, pct * 0.85)), `图片下载中 ${pct}%`);
-    });
-    const knownBase64 = imageUrl.startsWith("data:") ? imageUrl.split(",")[1] : "";
+    // imageSource 可以是生成时缓存的 Blob（远程生图 URL 约 2 小时被删，本地字节才可靠），
+    // 也可以是 data:/blob:/https: 字符串。
+    const blob = imageSource instanceof Blob
+      ? imageSource
+      : await imageUrlToBlob(imageSource, pct => {
+          setDownloadProgress(Math.max(5, Math.min(85, pct * 0.85)), `图片下载中 ${pct}%`);
+        });
+    const knownBase64 = typeof imageSource === "string" && imageSource.startsWith("data:")
+      ? imageSource.split(",")[1]
+      : "";
     await saveOrDownloadBlob(blob, filename, blob.type || "image/png", "images", knownBase64);
     setDownloadProgress(100, `下载成功：panel-${index}.png`, true);
   } catch (err) {
     hideDownloadProgress();
     showStatus(`下载失败: ${err.message || err}`, "error");
-    await openExternalUrl(imageUrl);
+    if (typeof imageSource === "string") await openExternalUrl(imageSource);
   }
 }
 
@@ -4608,7 +4658,13 @@ function getCurrentResultImages() {
   if (!dom.resultGrid) return [];
   return Array.from(dom.resultGrid.querySelectorAll(".result-item"))
     .map((card, index) => {
-      if (card._zipImage?.url) return card._zipImage;
+      if (card._zipImage?.url) {
+        return {
+          ...card._zipImage,
+          blob: card._zipBlob || null,
+          cachePromise: card._imageCachePromise || null,
+        };
+      }
       const img = card.querySelector("img");
       if (!img?.src) return null;
       return {
