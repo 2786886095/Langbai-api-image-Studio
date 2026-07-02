@@ -46,3 +46,8 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "启动 {#MyAppName}"; Flags: nowait postinstall
+
+[UninstallRun]
+; CloseApplications 只覆盖安装/升级场景；卸载时如果程序还在跑（比如刚装完自动启动、
+; 用户没关就点了卸载）文件会被占用删不干净，卸载前先强制结束进程兜底。
+Filename: "{cmd}"; Parameters: "/C taskkill /F /IM ""{#MyAppExeName}"""; Flags: runhidden; RunOnceId: "KillAppBeforeUninstall"
