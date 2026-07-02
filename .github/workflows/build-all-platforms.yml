@@ -42,7 +42,7 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Windows ZIP
+    name: Windows Installer
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,11 +89,20 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item windows/README-Windows.md build/windows/x64/runner/Release/README-Windows.md -Force
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath AI-Image-Generator-windows.zip -Force
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value.Split('+')[0]
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "windows\installer\setup.iss" "/DMyAppVersion=$version"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed with exit code $LASTEXITCODE" }
+          Copy-Item "windows\installer\Output\AI-Image-Generator-Setup.exe" "AI-Image-Generator-Setup.exe"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: AI-Image-Generator-windows.zip
+          path: AI-Image-Generator-Setup.exe
           if-no-files-found: error
 
   macos:

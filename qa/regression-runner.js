@@ -1054,7 +1054,7 @@ async function testUpdateControls(cdp) {
     let openedUrls = [];
     const releaseAssets = [
       { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
-      { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+      { name: "AI-Image-Generator-Setup.exe", browser_download_url: "https://example.test/Setup.exe" }
     ];
     window.open = (url) => {
       openedUrls.push(String(url));
@@ -1084,7 +1084,7 @@ async function testUpdateControls(cdp) {
     const selected = window.AiGenUpdate.selectUpdateAsset({
       assets: [
         { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
-        { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+        { name: "AI-Image-Generator-Setup.exe", browser_download_url: "https://example.test/Setup.exe" }
       ]
     }, "windows");
     const newerState = {
@@ -1119,8 +1119,8 @@ async function testUpdateControls(cdp) {
   assertQa(result.modalOpen, "Settings modal should open from the header button.", result);
   assertQa(result.newerState.latest.includes("9.9.9") && /9\.9\.9/.test(result.newerState.status), "Check update button should update latest version and status.", result);
   assertQa(result.latest.includes(result.appVersion) && /最新版|up to date|最新です|최신/.test(result.status), "Same-version update check should show the app is current.", result);
-  assertQa(result.selectedName.includes("windows"), "Windows update selection should prefer the Windows ZIP asset.", result);
-  assertQa(result.asset.includes("windows") && result.notes.includes("Test release"), "Update panel should show the selected package name and release notes.", result);
+  assertQa(result.selectedName.includes("Setup.exe"), "Windows update selection should prefer the installer exe asset.", result);
+  assertQa(result.asset.includes("Setup.exe") && result.notes.includes("Test release"), "Update panel should show the selected package name and release notes.", result);
   assertQa(!result.checkDisabled, "Update check button should be re-enabled after checking.", result);
   assertQa(result.installDisabled, "Install button should be disabled after a same-version update check.", result);
   assertQa(result.sameVersionResult?.skipped === true && result.openedUrls.length === 0, "Downloading the current version should be blocked and should not open an update URL.", result);
@@ -1142,7 +1142,7 @@ async function testAndroidUpdateRedirect(cdp) {
         body: "## Test release",
         assets: [
           { name: "AI-Image-Generator-android.apk", browser_download_url: "https://example.test/android.apk" },
-          { name: "AI-Image-Generator-windows.zip", browser_download_url: "https://example.test/windows.zip" }
+          { name: "AI-Image-Generator-Setup.exe", browser_download_url: "https://example.test/Setup.exe" }
         ]
       });
       const calls = [];
@@ -1233,7 +1233,7 @@ async function testDesktopProxyControls(cdp) {
     await setMode("custom", "http://127.0.0.1:7890");
     document.getElementById("testDesktopProxy").click();
     await waitForCall(4);
-    await nativeDownload.downloadUpdate("https://example.test/update.zip", "update.zip", false, "windows");
+    await nativeDownload.downloadUpdate("https://example.test/Setup.exe", "Setup.exe", false, "windows");
     await waitForCall(5);
 
     const payload = window.AiGenProxy.withDesktopProxyPayload({ url: "https://example.test", method: "GET" });

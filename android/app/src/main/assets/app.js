@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.0.8";
+const APP_VERSION = "1.0.9";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -1653,10 +1653,10 @@ function selectUpdateAsset(release, platform = getRuntimePlatform()) {
   const byName = matcher => assets.find(asset => matcher.test(String(asset.name || "")));
   const candidates = {
     android: [/android.*\.apk$/i, /\.apk$/i],
-    windows: [/windows.*\.zip$/i, /win.*\.zip$/i],
+    windows: [/windows.*\.exe$/i, /setup.*\.exe$/i, /\.exe$/i],
     macos: [/macos.*\.zip$/i, /darwin.*\.zip$/i],
     ios: [/ios.*\.zip$/i],
-  }[platform] || [/windows.*\.zip$/i, /\.apk$/i, /\.zip$/i];
+  }[platform] || [/setup.*\.exe$/i, /\.apk$/i, /\.zip$/i];
   for (const matcher of candidates) {
     const asset = byName(matcher);
     if (asset?.browser_download_url) return asset;

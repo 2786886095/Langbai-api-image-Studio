@@ -20,7 +20,7 @@
 - 参考图上传 / TXT 导入 / 自定义分辨率 / 有限并发控制
 - **生图历史**（漫画按「项目」保存）、失败一键重试、可调重试次数
 - **ZIP 打包导出**（桌面浏览器 + 安卓 SAF 目录授权）
-- **软件内更新**：设置里可检查 GitHub Releases；Windows 可下载 ZIP 后退出并覆盖安装目录，Android 可下载 APK 并打开系统安装器
+- **软件内更新**：设置里可检查 GitHub Releases；Windows 会静默下载并运行安装器自动覆盖升级（弹出安装进度、装完自动重启），Android 会跳转到 GitHub 发布页由系统浏览器下载安装
 - **国际化**：简体 / 繁體 / English / 日本語 / 한국어
 - **深色（黑紫）/ 浅色（蓝白）双主题**，全端响应式
 
@@ -30,6 +30,7 @@
 |---|---|
 | `index.html` / `app.js` / `style.css` | 纯前端 SPA 核心 |
 | `lib/main.dart` | Flutter WebView 壳（Windows / 安卓，CI 同步构建 macOS / iOS 包） |
+| `windows/installer/setup.iss` | Inno Setup 安装脚本，CI 用它编译出 `AI-Image-Generator-Setup.exe` |
 | `android/app/src/main/kotlin/.../MainActivity.kt` | 原生桥：下载 / SAF 目录 / native fetch |
 | `api-proxy.js` | 桌面浏览器本地 CORS 代理 |
 | `sw.js` / `manifest.webmanifest` | PWA 支持 |
@@ -40,6 +41,7 @@
 - **浏览器**：先 `node api-proxy.js`，再用任意 HTTP 服务打开 `index.html`，在「浏览器 CORS 转发地址」填 `http://127.0.0.1:8787/proxy`。
 - **桌面软件**：设置里的「电脑端网络代理」默认使用 `http://127.0.0.1:7890`，也可切到 SOCKS5、直连或自定义。
 - **安卓**：`flutter build apk --release`。⚠️ 中文路径会导致 Dart AOT/着色器编译失败，请复制到纯 ASCII 路径再构建。
+- **Windows 安装包**：`flutter build windows --release` 之后用 [Inno Setup](https://jrsoftware.org/isinfo.php) 编译 `windows/installer/setup.iss`（`ISCC.exe windows\installer\setup.iss /DMyAppVersion=x.x.x`），产出 `AI-Image-Generator-Setup.exe`。安装到 `%LOCALAPPDATA%\AI Image Generator`，无需管理员权限；再次运行同一个安装器会自动关闭正在运行的旧版本并覆盖升级。
 - **回归测试**：`node qa/regression-runner.js`（需本机 Edge/Chrome）。
 
 ## 🔑 关于密钥
