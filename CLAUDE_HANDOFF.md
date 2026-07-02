@@ -1,6 +1,16 @@
 # Claude 交接文档：AI 图片生成器
 
-> ✅ **2026-07-01 深夜最新：v1.0.3 已发布，是当前 Latest release。**
+> ✅ **2026-07-02 最新：v1.0.4 已发布，是当前 Latest release。**
+> https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v1.0.4
+> 打包自 commit `b16e3be`（CI run `28577494039`）。核心内容是 commit `3e96b32` 的两个严重 bug 修复：
+> ① **中转站约 2 小时删除生图** → 生成成功当刻本地缓存图片字节（卡片 `_zipBlob`+objectURL），
+> ZIP/单图下载/灯箱/历史全部优先本地副本（用户报"打包缺少页面上显示的图"的根因，由用户实测
+> 发现删图周期）；② **"全部失败重试"串行 → 并发 20**（串行时体感"只重试一个、再点无效"）。
+> 四端产物已解包验证 `APP_VERSION="1.0.4"` + `releaseCardImageCache` ×4；Android 签名指纹仍为
+> `C0:CE:3C:D4:...`（持久密钥）→ **v1.0.3→v1.0.4 是第一个可直接软件内覆盖升级的版本对**。
+> 回归含新增的死链 ZIP/并发重试等待条件加固，连跑 3 次全绿；同样未做真机人工实测。
+>
+> （2026-07-01 深夜：v1.0.3 发布记录，下述内容保留供追溯。）
 > https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v1.0.3
 > 打包自 commit `bc3e071`。四端产物已下载解包验证：`APP_VERSION="1.0.3"`、confirm/prompt 弹窗修复、
 > 设置按钮 flex-wrap 修复、分镜表格压缩修复全部确认在内；**Android APK 签名指纹核对为
