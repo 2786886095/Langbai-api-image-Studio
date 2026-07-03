@@ -1465,6 +1465,30 @@ async function testStartupUpdatePrompt(cdp) {
   assertQa(!sameVersionCase.dialogPresent, "Already being on the latest version should never show a startup update prompt.", sameVersionCase);
 }
 
+async function testDragDropHintReflectsPlatform(cdp) {
+  logStep("Drag-and-drop hint text must not promise drag support inside the packaged Windows exe (webview_windows off-screen mode never delivers HTML5 drag events into the page — upstream flutter-webview-windows#9 is still open/unresolved), but should still promise it for the browser/PWA build where real Chromium drag-and-drop works");
+
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `window.FlutterDownload = { postMessage() {} };`,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "dragdrop-native-windows");
+    const nativeWindowsText = await cdp.eval(`document.querySelector(".image-upload .upload-zone span:last-child")?.textContent || ""`, false);
+    assertQa(!/拖/.test(nativeWindowsText), "Packaged Windows exe should not tell users they can drag-and-drop reference images onto the upload zone.", { nativeWindowsText });
+    assertQa(/点击/.test(nativeWindowsText), "The click-to-upload affordance (the working fallback) should still be advertised.", { nativeWindowsText });
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+
+  await loadFresh(cdp, "dragdrop-browser");
+  const browserText = await cdp.eval(`document.querySelector(".image-upload .upload-zone span:last-child")?.textContent || ""`, false);
+  assertQa(/拖/.test(browserText), "Browser/PWA build (real Chromium, real drag-and-drop support) should still advertise drag-and-drop.", { browserText });
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -1772,6 +1796,7 @@ async function main() {
     await testGrsaiOfficialAdapter(cdp);
     await testUpdateControls(cdp);
     await testStartupUpdatePrompt(cdp);
+    await testDragDropHintReflectsPlatform(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");

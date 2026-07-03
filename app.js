@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.3";
+const APP_VERSION = "1.2.4";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -192,6 +192,7 @@ const CLEAN_LOCALES = {
     globalPromptComic: "全局提示词（注入所有分镜）", importTxt: "导入 txt",
     promptPlaceholder: "描述你想生成的图片，越详细越好……\n\n例如：一只橘猫坐在窗台上，阳光透过纱帘洒在它身上，油画风格，暖色调",
     globalRefs: "全局参考图片（可选，支持多选）", uploadRefs: "点击或拖拽上传参考图（可多选）",
+    uploadRefsClickOnly: "点击上传参考图（可多选）",
     matchSize: "输出尺寸与参考图一致", resolution: "全局分辨率", landscape: "横版 3:2", portrait: "竖版 2:3",
     custom: "自定义", width: "宽", height: "高", savedSizes: "常用尺寸", saveSizePreset: "保存尺寸", deleteSizePreset: "删除常用尺寸", imageCount: "生成数量", sequential: "依次生成",
     sequentialHint: "不勾选：并发批量生成（最多同时 20 个请求）；勾选：逐张依次生成",
@@ -246,6 +247,7 @@ const CLEAN_LOCALES = {
     globalPromptComic: "全域提示詞（套用到所有分鏡）", importTxt: "匯入 txt",
     promptPlaceholder: "描述你想生成的圖片，越詳細越好……\n\n例如：一隻橘貓坐在窗台上，陽光透過紗簾灑在牠身上，油畫風格，暖色調",
     globalRefs: "全域參考圖片（可選，支援多選）", uploadRefs: "點擊或拖曳上傳參考圖（可多選）",
+    uploadRefsClickOnly: "點擊上傳參考圖（可多選）",
     matchSize: "輸出尺寸與參考圖一致", resolution: "全域解析度", landscape: "橫版 3:2", portrait: "直版 2:3",
     custom: "自訂", width: "寬", height: "高", savedSizes: "常用尺寸", saveSizePreset: "儲存尺寸", deleteSizePreset: "刪除常用尺寸", imageCount: "生成數量", sequential: "依序生成",
     sequentialHint: "不勾選：並發批次生成（最多同時 20 個請求）；勾選：逐張依序生成",
@@ -300,6 +302,7 @@ const CLEAN_LOCALES = {
     globalPromptComic: "Global Prompt (applied to all panels)", importTxt: "Import txt",
     promptPlaceholder: "Describe the image you want to generate. More detail is better...\n\nExample: an orange cat on a windowsill, sunlight through sheer curtains, oil painting style, warm tones",
     globalRefs: "Global reference images (optional, multiple)", uploadRefs: "Click or drag to upload reference images",
+    uploadRefsClickOnly: "Click to upload reference images",
     matchSize: "Match output size to reference", resolution: "Global Resolution", landscape: "Landscape 3:2", portrait: "Portrait 2:3",
     custom: "Custom", width: "W", height: "H", savedSizes: "Saved sizes", saveSizePreset: "Save size", deleteSizePreset: "Delete saved size", imageCount: "Image Count", sequential: "Generate sequentially",
     sequentialHint: "Unchecked: concurrent batch generation (up to 20 requests at once). Checked: generate one image at a time.",
@@ -354,6 +357,7 @@ const CLEAN_LOCALES = {
     globalPromptComic: "全体プロンプト（全コマに適用）", importTxt: "txt を読み込む",
     promptPlaceholder: "生成したい画像を詳しく説明してください...\n\n例：窓辺のオレンジ色の猫、薄いカーテン越しの光、油絵風、暖色",
     globalRefs: "全体参考画像（任意・複数可）", uploadRefs: "クリックまたはドラッグで参考画像をアップロード",
+    uploadRefsClickOnly: "クリックで参考画像をアップロード",
     matchSize: "出力サイズを参考画像に合わせる", resolution: "全体解像度", landscape: "横 3:2", portrait: "縦 2:3",
     custom: "カスタム", width: "幅", height: "高", savedSizes: "保存サイズ", saveSizePreset: "サイズ保存", deleteSizePreset: "保存サイズ削除", imageCount: "生成数", sequential: "順番に生成",
     sequentialHint: "オフ：並列一括生成（最大同時 20 リクエスト）。オン：1 枚ずつ順番に生成。",
@@ -408,6 +412,7 @@ const CLEAN_LOCALES = {
     globalPromptComic: "전체 프롬프트(모든 콘티에 적용)", importTxt: "txt 가져오기",
     promptPlaceholder: "생성할 이미지를 자세히 설명하세요...\n\n예: 창가에 앉은 주황색 고양이, 커튼 사이로 비치는 햇빛, 유화 스타일, 따뜻한 톤",
     globalRefs: "전체 참고 이미지(선택, 다중)", uploadRefs: "클릭하거나 드래그해 참고 이미지 업로드",
+    uploadRefsClickOnly: "클릭하여 참고 이미지 업로드",
     matchSize: "출력 크기를 참고 이미지와 맞춤", resolution: "전체 해상도", landscape: "가로 3:2", portrait: "세로 2:3",
     custom: "사용자 지정", width: "너비", height: "높이", savedSizes: "저장 크기", saveSizePreset: "크기 저장", deleteSizePreset: "저장 크기 삭제", imageCount: "생성 수", sequential: "순차 생성",
     sequentialHint: "선택 해제: 동시 일괄 생성(최대 동시 20개 요청). 선택: 한 장씩 순차 생성.",
@@ -666,7 +671,7 @@ function applyCleanLanguage() {
   setText("#globalPromptField .field-label-text", isComic ? "globalPromptComic" : "prompt");
   setButtonText(dom.importTxt, "file", "importTxt");
   if (dom.prompt) dom.prompt.placeholder = cleanText("promptPlaceholder");
-  setText(".image-upload .upload-zone span:last-child", "uploadRefs");
+  setText(".image-upload .upload-zone span:last-child", isDragDropUnsupported() ? "uploadRefsClickOnly" : "uploadRefs");
   setIconLabel("#useOrigSizeToggle > span", "size", "matchSize");
   setText("fieldset.field > legend", "resolution");
   setText(".size-option:nth-child(2) small", "landscape");
@@ -1741,6 +1746,13 @@ function getRuntimePlatform() {
   if (/iphone|ipad|ipod/i.test(ua)) return "ios";
   if (/macintosh|mac os x/i.test(ua)) return "macos";
   return "web";
+}
+
+// webview_windows 用离屏渲染（Windows.Graphics.Capture）承载页面内容，HTML5 拖放依赖的 OS 级
+// drop target 注册在这种模式下不生效（上游 flutter-webview-windows#9，长期未修）；纯浏览器/PWA
+// 端是真实浏览器，拖放完全正常，所以只在"原生 bridge 存在 + Windows"这个组合下才判定为失效。
+function isDragDropUnsupported() {
+  return nativeDownload.available() && getRuntimePlatform() === "windows";
 }
 
 function selectUpdateAsset(release, platform = getRuntimePlatform()) {
