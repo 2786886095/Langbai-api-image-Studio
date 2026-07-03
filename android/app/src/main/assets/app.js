@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.3.2";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -3548,7 +3548,9 @@ async function smartFetch(url, options = {}) {
 
   if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
     const payload = await createProxyPayload(url, method, headers, body, signal);
-    const result = await nativeDownload.nativeFetchPayload(payload);
+    // 生图请求经常比普通网络请求慢得多（复杂模型、排队、GrsAI 异步轮询等都可能超过 2 分钟），
+    // 用比默认更长的超时，避免明明还在正常生成、只是慢一点，就被判定为"调用超时"。
+    const result = await nativeDownload.nativeFetchPayload(payload, 5 * 60 * 1000);
     throwIfAborted(signal);
     return new Response(result.body || "", {
       status: result.status || 200,
@@ -3573,7 +3575,7 @@ async function smartFetch(url, options = {}) {
   } catch (err) {
     if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
       const payload = await createProxyPayload(url, method, headers, body, signal);
-      const result = await nativeDownload.nativeFetchPayload(payload);
+      const result = await nativeDownload.nativeFetchPayload(payload, 5 * 60 * 1000);
       throwIfAborted(signal);
       return new Response(result.body || "", {
         status: result.status || 200,
@@ -4907,8 +4909,8 @@ const nativeDownload = (() => {
     nativeFetch(url, method, headers, body) {
       return request("nativeFetch", withDesktopProxyPayload({ url, method, headers, body }));
     },
-    nativeFetchPayload(payload) {
-      return request("nativeFetch", withDesktopProxyPayload(payload));
+    nativeFetchPayload(payload, timeoutMs) {
+      return request("nativeFetch", withDesktopProxyPayload(payload), timeoutMs);
     },
     nativeFetchBlob(url) {
       return request("nativeFetch", withDesktopProxyPayload({ url, method: "GET", responseType: "base64" }));

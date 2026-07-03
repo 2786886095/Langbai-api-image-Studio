@@ -409,18 +409,47 @@ class WindowsWebShell extends StatefulWidget {
   State<WindowsWebShell> createState() => _WindowsWebShellState();
 }
 
-class _WindowsWebShellState extends State<WindowsWebShell> {
+/// True when [size] is small enough that handing it to the Windows Webview
+/// widget as a layout constraint would risk triggering the upstream
+/// off-screen-rendering bug (jnschulze/flutter-webview-windows#262, #207)
+/// where a zero-sized Webview leaves a stuck transparent overlay behind.
+/// Exposed at top level (rather than inlined in State.didChangeMetrics) so
+/// it can be unit-tested without needing a real WebviewController.
+bool isDegenerateWindowSize(Size size) => size.width < 2 || size.height < 2;
+
+class _WindowsWebShellState extends State<WindowsWebShell>
+    with WidgetsBindingObserver {
   final _controller = windows_webview.WebviewController();
   final _subscriptions = <StreamSubscription<dynamic>>[];
 
   bool _isReady = false;
+  bool _isWindowSizeDegenerate = false;
   String? _errorTitle;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_initializeWebView());
+  }
+
+  // webview_windows 有个已知上游问题（jnschulze/flutter-webview-windows#262、#207）：
+  // 如果承载它的 widget 在挂载状态下收到一次尺寸为 0 的布局约束，插件底层的离屏渲染合成会
+  // 留下一个清理不掉的透明覆盖层——即使窗口后来恢复正常大小，这个覆盖层依然会挡住桌面上其他
+  // 窗口/图标的点击（多名用户反馈过完全一样的"贴一层透明遮罩，左边图标点不了"症状）。Windows
+  // 上最小化窗口时，Flutter 引擎汇报给整个组件树的窗口物理尺寸通常会变成 0，如果这时候
+  // Webview 还照常挂在树里，就会踩中这个坑。这里监听窗口尺寸变化，一旦探测到尺寸退化为 0（或
+  // 极小），在下一帧真正布局之前就把 Webview 换成占位符——控制器本身不销毁、不重新加载页面，
+  // 只是暂时不把 Webview 摆进树里，窗口恢复正常大小后立刻换回来，页面状态都还在。
+  @override
+  void didChangeMetrics() {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    final size = views.isNotEmpty ? views.first.physicalSize : Size.zero;
+    final degenerate = isDegenerateWindowSize(size);
+    if (degenerate != _isWindowSizeDegenerate && mounted) {
+      setState(() => _isWindowSizeDegenerate = degenerate);
+    }
   }
 
   Future<void> _initializeWebView() async {
@@ -748,6 +777,7 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
@@ -806,6 +836,10 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF8B7CF6)),
       );
+    }
+
+    if (_isWindowSizeDegenerate) {
+      return const SizedBox.shrink();
     }
 
     return windows_webview.Webview(_controller);
