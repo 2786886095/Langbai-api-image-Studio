@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.6";
+const APP_VERSION = "1.2.7";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -1080,6 +1080,22 @@ function getWheelDeltaY(event, target = null) {
   return raw;
 }
 
+// webview_windows 转发滚轮事件时不带光标坐标（上游 #313），实测中 event.target 有时会落在
+// 光标视觉位置之外的元素上（比如鼠标明明在 #modelChoices 列表里，target 却是 .input-panel 或更
+// 外层的容器），导致沿 target 网上找可滚祖先时根本找不到光标真正悬停的那个嵌套滚动区域。
+// event.clientX/clientY 是坐标值，不依赖 target 的命中测试，用 elementFromPoint 重新在真实坐标
+// 上做一次 hit-test，比信任 target 更可靠——只要坐标本身没错（同一个滚轮事件的 x/y 是 WebView2
+// 用来定位注入点的必需参数，比 target 更基础，出错概率更低）。
+function resolveWheelEventStartElement(event) {
+  const x = event?.clientX;
+  const y = event?.clientY;
+  if (Number.isFinite(x) && Number.isFinite(y) && (x !== 0 || y !== 0)) {
+    const atPoint = document.elementFromPoint(x, y);
+    if (atPoint) return atPoint;
+  }
+  return event?.target || null;
+}
+
 function isOverlayVisible(overlay) {
   return !!overlay && overlay.isConnected && !overlay.classList.contains("hidden");
 }
@@ -1130,7 +1146,7 @@ function installGlobalWheelScrollBridge() {
     if (event.defaultPrevented) return;
     if (event.ctrlKey || event.metaKey || event.shiftKey) return;
     if (getTopVisibleOverlay()) return;
-    const activeScroller = getScrollableAncestor(event.target);
+    const activeScroller = getScrollableAncestor(resolveWheelEventStartElement(event));
     if (activeScroller) return;
     const panel = dom.inputPanel;
     if (scrollElementByWheelDelta(panel, getWheelDeltaY(event, panel))) event.preventDefault();
@@ -1712,7 +1728,7 @@ function findScrollableAncestor(el) {
 
 function resolveManualWheelScrollTarget(event) {
   const overlay = getTopVisibleOverlay();
-  const targetScroller = findScrollableAncestor(event.target);
+  const targetScroller = findScrollableAncestor(resolveWheelEventStartElement(event));
   if (!overlay) return targetScroller;
   if (targetScroller && overlay.contains(targetScroller)) return targetScroller;
   const overlayScroller = getOverlayPrimaryScroller(overlay);

@@ -1604,6 +1604,65 @@ async function testManualWheelScrollFallback(cdp) {
   assertQa(browserResult.after === browserResult.before, "The JS wheel fallback should not be installed in the browser/PWA build — a synthetic (untrusted) wheel event shouldn't move scrollTop there since real Chromium ignores untrusted wheel events for its own native scroll and our fallback should be gated off.", browserResult);
 }
 
+async function testModelChoicesWheelScroll(cdp) {
+  logStep("Scrolling over the detected-models list (#modelChoices, a nested overflow:auto region outside any modal) should scroll that list, not the outer .input-panel");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `window.FlutterDownload = { postMessage() {} };`,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "model-choices-wheel");
+    const result = await cdp.eval(`(async () => {
+      document.getElementById("configSection").open = true;
+      setModelChoices(Array.from({ length: 40 }, (_, i) => "model-" + i));
+      await new Promise(r => setTimeout(r, 50));
+      const list = document.getElementById("modelChoices");
+      list.scrollIntoView({ block: "center" });
+      await new Promise(r => setTimeout(r, 50));
+      const inputPanel = document.querySelector(".input-panel");
+      const hasOverflow = list.scrollHeight > list.clientHeight;
+      list.scrollTop = 0;
+      inputPanel.scrollTop = 0;
+      const before = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
+      const firstChoice = list.querySelector(".model-choice");
+      firstChoice.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 50));
+      const afterCorrectTarget = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
+
+      // webview_windows forwards wheel events without reliable cursor->target hit-testing
+      // (upstream #313): the event's clientX/clientY can be right while event.target is
+      // wrong. Simulate that by dispatching on .input-panel itself but with coordinates
+      // that visually sit inside #modelChoices, and verify elementFromPoint-based recovery
+      // still finds and scrolls the list instead of trusting the misrouted target.
+      list.scrollTop = 0;
+      inputPanel.scrollTop = 0;
+      const rect = firstChoice.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      inputPanel.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
+      await new Promise(r => setTimeout(r, 50));
+      const afterMisroutedTarget = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
+
+      return {
+        hasOverflow,
+        before,
+        afterCorrectTarget,
+        afterMisroutedTarget,
+      };
+    })()`, true);
+    assertQa(result.hasOverflow, "Test setup sanity check: 40 detected models should overflow the 132px-tall model list so this test actually exercises nested scrolling.", result);
+    assertQa(result.afterCorrectTarget.list > result.before.list, "A wheel event over the detected-models list should scroll the list itself.", result);
+    assertQa(result.afterCorrectTarget.inputPanel === result.before.inputPanel, "A wheel event over the detected-models list should NOT scroll the outer .input-panel — this is the 'hovering over model selection moves the global scrollbar instead' bug.", result);
+    assertQa(result.afterMisroutedTarget.list > 0, "Even if webview_windows reports a wrong event.target (e.g. .input-panel) while the cursor's clientX/clientY are actually over #modelChoices, elementFromPoint-based recovery should still scroll the list.", result);
+    assertQa(result.afterMisroutedTarget.inputPanel === 0, "The misrouted-target case should still not move the outer .input-panel once coordinate-based recovery kicks in.", result);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -1913,6 +1972,7 @@ async function main() {
     await testStartupUpdatePrompt(cdp);
     await testDragDropHintReflectsPlatform(cdp);
     await testManualWheelScrollFallback(cdp);
+    await testModelChoicesWheelScroll(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
