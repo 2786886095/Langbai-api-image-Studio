@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -4862,7 +4862,10 @@ const nativeDownload = (() => {
       setTimeout(() => {
         if (!pending.has(id)) return;
         pending.delete(id);
-        reject(new Error("Android 保存通道超时"));
+        // 这条消息以前写死"Android"，但这个桥接函数在 Windows/Android 上是同一份代码、同一个
+        // 调用路径，Windows 端超时也会走到这里——之前的措辞会让 Windows 用户误以为是安卓端才有
+        // 的问题。改成不带平台名、带上具体 action，方便定位到底是哪个操作卡住了。
+        reject(new Error(`原生功能调用超时（${action}），请重试`));
       }, timeoutMs);
     });
   }
@@ -4900,7 +4903,7 @@ const nativeDownload = (() => {
   return {
     available,
     dirs,
-    chooseDir(kind) { return request("chooseDir", { kind }); },
+    chooseDir(kind) { return request("chooseDir", { kind }, 15 * 60 * 1000); },
     nativeFetch(url, method, headers, body) {
       return request("nativeFetch", withDesktopProxyPayload({ url, method, headers, body }));
     },
