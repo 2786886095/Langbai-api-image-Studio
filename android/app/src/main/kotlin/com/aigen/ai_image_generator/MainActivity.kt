@@ -43,7 +43,8 @@ class MainActivity : FlutterActivity() {
                         val fileName = call.argument<String>("fileName") ?: "download.bin"
                         val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
                         val base64 = call.argument<String>("base64") ?: ""
-                        saveFile(kind, fileName, mimeType, base64, result)
+                        val folder = call.argument<String>("folder") ?: ""
+                        saveFile(kind, fileName, mimeType, base64, folder, result)
                     }
                     "openExternalUrl" -> {
                         val url = call.argument<String>("url") ?: ""
@@ -202,6 +203,7 @@ class MainActivity : FlutterActivity() {
         fileName: String,
         mimeType: String,
         encoded: String,
+        folder: String,
         result: MethodChannel.Result
     ) {
         try {
@@ -217,9 +219,24 @@ class MainActivity : FlutterActivity() {
                 return
             }
 
+            var targetDir: DocumentFile = tree
+            val trimmedFolder = folder.trim()
+            if (trimmedFolder.isNotEmpty()) {
+                val safeFolder = sanitizeFileName(trimmedFolder)
+                if (safeFolder.isNotEmpty() && safeFolder != "." && safeFolder != "..") {
+                    val existing = tree.findFile(safeFolder)
+                    val folderDir = if (existing != null && existing.isDirectory) existing else tree.createDirectory(safeFolder)
+                    if (folderDir == null) {
+                        result.error("create_failed", "Cannot create folder $safeFolder.", null)
+                        return
+                    }
+                    targetDir = folderDir
+                }
+            }
+
             val safeName = sanitizeFileName(fileName)
-            tree.findFile(safeName)?.delete()
-            val file = tree.createFile(mimeType, safeName)
+            targetDir.findFile(safeName)?.delete()
+            val file = targetDir.createFile(mimeType, safeName)
             if (file == null) {
                 result.error("create_failed", "Cannot create $safeName.", null)
                 return

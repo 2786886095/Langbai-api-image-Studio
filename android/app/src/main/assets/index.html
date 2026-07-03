@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260703-1-2-2">
+  <link rel="stylesheet" href="style.css?v=20260703-1-2-3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -159,10 +159,6 @@
               <option value="3">3 张</option>
               <option value="4">4 张</option>
             </select>
-            <label class="checkbox-inline" id="sequentialToggle">
-              <input type="checkbox" id="sequentialMode">
-              <span>依次生成</span>
-            </label>
           </div>
         </label>
 
@@ -229,6 +225,15 @@
             <button type="button" id="deleteSizePreset" class="btn btn-xs btn-danger" title="删除常用尺寸"><span class="ui-icon ui-icon-trash"></span></button>
           </div>
         </fieldset>
+
+        <!-- 生成调度模式（两种模式共用：并发批量 / 依次生成） -->
+        <div class="field" id="generationModeField">
+          <label class="checkbox-field" id="sequentialToggle">
+            <input type="checkbox" id="sequentialMode">
+            <span id="sequentialModeLabel">依次生成</span>
+          </label>
+          <span class="field-hint" id="sequentialModeHint">不勾选：并发批量生成（最多同时 20 个请求）；勾选：逐张依次生成</span>
+        </div>
 
         <!-- ========== 漫画分镜模式专属：分镜表格 ========== -->
         <div class="comic-only hidden" id="comicPanelSection">
@@ -304,6 +309,7 @@
           </div>
           <input type="text" id="zipFileName" placeholder="压缩包名称（可选）…" class="zip-name-input">
           <button type="button" id="downloadZip" class="btn btn-sm"><span class="ui-icon ui-icon-zip"></span> 打包下载 ZIP</button>
+          <button type="button" id="saveComicFolder" class="btn btn-sm hidden"><span class="ui-icon ui-icon-folder"></span> 保存到文件夹</button>
           <button type="button" id="clearResults" class="btn btn-sm btn-danger">清空结果</button>
           <div class="retry-failed-tools hidden" id="retryFailedTools">
             <label class="retry-failed-count">
@@ -409,7 +415,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.2.2</strong>
+            <strong id="currentVersionLabel">v1.2.3</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -472,6 +478,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260703-1-2-2"></script>
+  <script src="app.js?v=20260703-1-2-3"></script>
 </body>
 </html>

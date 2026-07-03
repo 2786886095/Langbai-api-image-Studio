@@ -326,6 +326,7 @@ class _MobileWebShellState extends State<MobileWebShell>
             'fileName': payload['fileName'] ?? 'download.bin',
             'mimeType': payload['mimeType'] ?? 'application/octet-stream',
             'base64': payload['base64'] ?? '',
+            'folder': payload['folder'] ?? '',
           });
           break;
         case 'downloadUpdate':
@@ -505,6 +506,7 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
             payload['kind']?.toString() ?? 'images',
             payload['fileName']?.toString() ?? 'download.bin',
             payload['base64']?.toString() ?? '',
+            payload['folder']?.toString() ?? '',
           );
           break;
         case 'downloadUpdate':
@@ -664,9 +666,19 @@ class _WindowsWebShellState extends State<WindowsWebShell> {
   Future<String> _saveWindowsFile(
     String kind,
     String fileName,
-    String encoded,
-  ) async {
-    final dir = await _ensureWindowsDownloadDir(kind);
+    String encoded, [
+    String folder = '',
+  ]) async {
+    final baseDir = await _ensureWindowsDownloadDir(kind);
+    var dir = baseDir;
+    final trimmedFolder = folder.trim();
+    if (trimmedFolder.isNotEmpty) {
+      final safeFolder = _sanitizeWindowsFileName(trimmedFolder);
+      if (safeFolder.isNotEmpty && safeFolder != '.' && safeFolder != '..') {
+        dir = [baseDir, safeFolder].join(Platform.pathSeparator);
+        await Directory(dir).create(recursive: true);
+      }
+    }
     final safeName = _sanitizeWindowsFileName(fileName);
     final file = File([dir, safeName].join(Platform.pathSeparator));
     await file.writeAsBytes(base64Decode(encoded), flush: true);

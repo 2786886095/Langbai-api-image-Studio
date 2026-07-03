@@ -734,6 +734,226 @@ async function testHistoryRestoreAndExport(cdp) {
   assertQa(result.buttonDisabled === false, "Generate button should reset after generation.", result);
 }
 
+async function testRetryReplacesHistoryEntry(cdp) {
+  logStep("Retrying a generated image updates its history entry in place instead of leaving a stale duplicate");
+  await loadFresh(cdp, "retry-history");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    window.__calls = [];
+    window.fetch = async (url, opts = {}) => {
+      if (String(url).includes("/v1/images/generations")) {
+        let body = {};
+        try { body = JSON.parse(opts.body || "{}"); } catch {}
+        window.__calls.push(body.prompt);
+        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return originalFetch(url, opts);
+    };
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "custom");
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+
+    // --- 单图模式：生成一张，重试它，历史记录数量应该还是 1（不是 2） ---
+    document.querySelector('[data-mode="single"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    set("prompt", "single retry test");
+    document.getElementById("generateBtn").click();
+    let start = Date.now();
+    while (Date.now() - start < 4000) {
+      if (JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]").length === 1) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    const historyAfterFirstGen = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+    const firstRecordId = historyAfterFirstGen[0]?.id;
+    [...document.querySelectorAll(".result-item .card-action")].find(b => b.querySelector(".ui-icon-retry"))?.click();
+    start = Date.now();
+    while (Date.now() - start < 4000) {
+      const h = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+      if (h.length && h[0]?.id !== firstRecordId) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    const historyAfterSingleRetry = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+
+    // --- 漫画模式：生成 2 个分镜，重试第一个，项目历史记录应该还是 1 条、还是 2 张图 ---
+    document.querySelector('[data-mode="comic"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    localStorage.setItem("ai_image_gen_history_v1", JSON.stringify(historyAfterSingleRetry));
+    set("prompt", "GLOBAL");
+    set("panelCount", "2");
+    document.getElementById("createPanels").click();
+    await new Promise(r => setTimeout(r, 80));
+    [...document.querySelectorAll("#panelTbody tr")].forEach((row, index) => {
+      const input = row.querySelector("textarea");
+      input.value = "comic panel " + (index + 1);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    document.getElementById("generateBtn").click();
+    start = Date.now();
+    while (Date.now() - start < 5000) {
+      const h = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+      if (h.length === 2 && document.querySelectorAll(".result-item img").length === 2) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    const historyAfterComicGen = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+    const comicProject = historyAfterComicGen.find(item => item.type === "comic-project");
+    const panel1ImageIdBefore = comicProject?.images?.find(img => String(img.panelId) === "1")?.prompt;
+
+    const firstCard = document.querySelectorAll(".result-item")[0];
+    [...firstCard.querySelectorAll(".card-action")].find(b => b.querySelector(".ui-icon-retry"))?.click();
+    start = Date.now();
+    while (Date.now() - start < 4000) {
+      const h = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+      const proj = h.find(item => item.type === "comic-project");
+      if (proj && proj.images?.length === 2 && window.__calls.length >= 3) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    const historyAfterComicRetry = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+    const comicProjectAfterRetry = historyAfterComicRetry.find(item => item.type === "comic-project");
+
+    return {
+      historyCountAfterFirstGen: historyAfterFirstGen.length,
+      firstRecordId,
+      historyCountAfterSingleRetry: historyAfterSingleRetry.length,
+      secondRecordId: historyAfterSingleRetry[0]?.id,
+      historyProjectCountAfterComicGen: historyAfterComicGen.filter(i => i.type === "comic-project").length,
+      comicImageCountAfterGen: comicProject?.images?.length,
+      historyProjectCountAfterComicRetry: historyAfterComicRetry.filter(i => i.type === "comic-project").length,
+      comicImageCountAfterRetry: comicProjectAfterRetry?.images?.length,
+      comicProjectIdUnchanged: comicProject?.id === comicProjectAfterRetry?.id,
+      totalApiCalls: window.__calls.length,
+    };
+  })()`, true);
+  assertQa(result.historyCountAfterFirstGen === 1, "A fresh single-image generation should create exactly one history entry.", result);
+  assertQa(result.historyCountAfterSingleRetry === 1, "Retrying a single-image result should not add a second history entry.", result);
+  assertQa(result.secondRecordId && result.secondRecordId !== result.firstRecordId, "Retrying should replace the history entry with a fresh one (new id), not silently keep the stale one.", result);
+  assertQa(result.historyProjectCountAfterComicGen === 1 && result.comicImageCountAfterGen === 2, "A fresh 2-panel comic generation should save one project with 2 images.", result);
+  assertQa(result.historyProjectCountAfterComicRetry === 1 && result.comicImageCountAfterRetry === 2, "Retrying one comic panel should not duplicate the project or add a 3rd image — the old panel image must be replaced in place.", result);
+  assertQa(result.comicProjectIdUnchanged, "Retrying a comic panel should update the same project record, not create a new one.", result);
+}
+
+async function testSequentialToggleSharedAcrossModes(cdp) {
+  logStep("Concurrent/sequential generation toggle must be visible and usable in both single-image and comic mode");
+  await loadFresh(cdp, "sequential-toggle");
+  const result = await cdp.eval(`(async () => {
+    const isHidden = id => document.getElementById(id).classList.contains("hidden");
+    document.querySelector('[data-mode="single"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    const singleHidden = isHidden("sequentialToggle");
+    const nestedInNImagesField = document.getElementById("nImagesField").contains(document.getElementById("sequentialToggle"));
+
+    document.querySelector('[data-mode="comic"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    const comicHidden = isHidden("sequentialToggle");
+
+    const checkbox = document.getElementById("sequentialMode");
+    checkbox.checked = false;
+    checkbox.click();
+    const checkedAfterClick = checkbox.checked;
+
+    return { singleHidden, comicHidden, nestedInNImagesField, checkedAfterClick };
+  })()`, true);
+  assertQa(result.singleHidden === false, "Sequential/concurrent toggle should be visible in single-image mode.", result);
+  assertQa(result.comicHidden === false, "Sequential/concurrent toggle should also be visible in comic mode (it used to be trapped inside the single-image-only field, so comic batches had no visible way to control it).", result);
+  assertQa(result.nestedInNImagesField === false, "The toggle should live in the shared config area, not nested inside the single-image-only image-count field.", result);
+  assertQa(result.checkedAfterClick === true, "Clicking the toggle should still work after being relocated.", result);
+}
+
+async function testSaveComicFolder(cdp) {
+  logStep("Comic-mode 'save to folder' button is mode-gated and saves every panel through the native bridge into one shared auto-created folder");
+  await loadFresh(cdp, "save-folder");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const calls = [];
+    window.FlutterDownload = {
+      postMessage(raw) {
+        const payload = JSON.parse(raw);
+        calls.push(payload);
+        let body;
+        if (payload.action === "nativeFetch") {
+          body = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ data: [{ b64_json: png }] }) };
+        } else if (payload.action === "chooseDir") {
+          body = "content://tree/mock-images";
+        } else if (payload.action === "saveFile") {
+          body = "content://tree/mock-images/" + (payload.folder || "") + "/" + payload.fileName;
+        } else {
+          body = { ok: true };
+        }
+        setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, body), 0);
+      }
+    };
+
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "custom");
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+
+    const singleHidden = document.getElementById("saveComicFolder").classList.contains("hidden");
+
+    document.querySelector('[data-mode="comic"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    const comicHidden = document.getElementById("saveComicFolder").classList.contains("hidden");
+
+    set("prompt", "GLOBAL");
+    set("panelCount", "2");
+    document.getElementById("createPanels").click();
+    await new Promise(r => setTimeout(r, 80));
+    [...document.querySelectorAll("#panelTbody tr")].forEach((row, index) => {
+      const input = row.querySelector("textarea");
+      input.value = "comic panel " + (index + 1);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    document.getElementById("generateBtn").click();
+    let start = Date.now();
+    while (Date.now() - start < 5000) {
+      if (document.querySelectorAll(".result-item img").length === 2) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    document.getElementById("saveComicFolder").click();
+    start = Date.now();
+    while (Date.now() - start < 4000) {
+      if (calls.filter(c => c.action === "saveFile").length >= 2) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    await new Promise(r => setTimeout(r, 50));
+
+    const saveCalls = calls.filter(c => c.action === "saveFile");
+    return {
+      singleHidden,
+      comicHidden,
+      saveCallCount: saveCalls.length,
+      folders: [...new Set(saveCalls.map(c => c.folder))],
+      fileNames: [...new Set(saveCalls.map(c => c.fileName))],
+      kinds: [...new Set(saveCalls.map(c => c.kind))],
+      allHaveBase64: saveCalls.every(c => typeof c.base64 === "string" && c.base64.length > 0),
+    };
+  })()`, true);
+
+  assertQa(result.singleHidden === true, "Save-to-folder button should stay hidden in single-image mode.", result);
+  assertQa(result.comicHidden === false, "Save-to-folder button should become visible when switching to comic mode.", result);
+  assertQa(result.saveCallCount === 2, "Saving a 2-panel comic result to a folder should call the native saveFile bridge once per panel.", result);
+  assertQa(result.folders.length === 1 && !!result.folders[0], "All panels from one save-to-folder action should share the same auto-created folder name.", result);
+  assertQa(result.kinds.length === 1 && result.kinds[0] === "images", "Folder save should use the 'images' download-directory kind, matching the existing image-dir picker.", result);
+  assertQa(result.allHaveBase64, "Every saveFile call should carry the actual image bytes as base64.", result);
+  assertQa(result.fileNames.length === 2, "Each panel should get a distinct filename within the shared folder.", result);
+}
+
 async function testRetryClearReloadAndI18n(cdp) {
   logStep("400-only retry, clear while generating, reload failed image, and i18n layout");
   await loadFresh(cdp, "misc");
@@ -1544,6 +1764,9 @@ async function main() {
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
     await testHistoryRestoreAndExport(cdp);
+    await testRetryReplacesHistoryEntry(cdp);
+    await testSequentialToggleSharedAcrossModes(cdp);
+    await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);

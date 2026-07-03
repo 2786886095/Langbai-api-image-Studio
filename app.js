@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.2";
+const APP_VERSION = "1.2.3";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -194,11 +194,12 @@ const CLEAN_LOCALES = {
     globalRefs: "全局参考图片（可选，支持多选）", uploadRefs: "点击或拖拽上传参考图（可多选）",
     matchSize: "输出尺寸与参考图一致", resolution: "全局分辨率", landscape: "横版 3:2", portrait: "竖版 2:3",
     custom: "自定义", width: "宽", height: "高", savedSizes: "常用尺寸", saveSizePreset: "保存尺寸", deleteSizePreset: "删除常用尺寸", imageCount: "生成数量", sequential: "依次生成",
+    sequentialHint: "不勾选：并发批量生成（最多同时 20 个请求）；勾选：逐张依次生成",
     panelList: "分镜列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜",
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…",
-    downloadZip: "打包下载 ZIP", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
+    downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
     imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录",
     historyTitle: "生图记录", historyHint: "漫画会按项目保存，默认折叠提示词，数据保存在本机 localStorage。",
@@ -247,11 +248,12 @@ const CLEAN_LOCALES = {
     globalRefs: "全域參考圖片（可選，支援多選）", uploadRefs: "點擊或拖曳上傳參考圖（可多選）",
     matchSize: "輸出尺寸與參考圖一致", resolution: "全域解析度", landscape: "橫版 3:2", portrait: "直版 2:3",
     custom: "自訂", width: "寬", height: "高", savedSizes: "常用尺寸", saveSizePreset: "儲存尺寸", deleteSizePreset: "刪除常用尺寸", imageCount: "生成數量", sequential: "依序生成",
+    sequentialHint: "不勾選：並發批次生成（最多同時 20 個請求）；勾選：逐張依序生成",
     panelList: "分鏡列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡",
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…",
-    downloadZip: "打包下載 ZIP", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
+    downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
     imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄",
     historyTitle: "生圖記錄", historyHint: "漫畫會按專案保存，預設摺疊提示詞，資料保存在本機 localStorage。",
@@ -300,11 +302,12 @@ const CLEAN_LOCALES = {
     globalRefs: "Global reference images (optional, multiple)", uploadRefs: "Click or drag to upload reference images",
     matchSize: "Match output size to reference", resolution: "Global Resolution", landscape: "Landscape 3:2", portrait: "Portrait 2:3",
     custom: "Custom", width: "W", height: "H", savedSizes: "Saved sizes", saveSizePreset: "Save size", deleteSizePreset: "Delete saved size", imageCount: "Image Count", sequential: "Generate sequentially",
+    sequentialHint: "Unchecked: concurrent batch generation (up to 20 requests at once). Checked: generate one image at a time.",
     panelList: "Panel List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels",
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...",
-    downloadZip: "Download ZIP", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
+    downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
     imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder",
     historyTitle: "Generation History", historyHint: "Comics are saved as projects. Prompts stay collapsed by default and data is stored in localStorage.",
@@ -353,11 +356,12 @@ const CLEAN_LOCALES = {
     globalRefs: "全体参考画像（任意・複数可）", uploadRefs: "クリックまたはドラッグで参考画像をアップロード",
     matchSize: "出力サイズを参考画像に合わせる", resolution: "全体解像度", landscape: "横 3:2", portrait: "縦 2:3",
     custom: "カスタム", width: "幅", height: "高", savedSizes: "保存サイズ", saveSizePreset: "サイズ保存", deleteSizePreset: "保存サイズ削除", imageCount: "生成数", sequential: "順番に生成",
+    sequentialHint: "オフ：並列一括生成（最大同時 20 リクエスト）。オン：1 枚ずつ順番に生成。",
     panelList: "コマ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成",
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...",
-    downloadZip: "ZIP ダウンロード", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
+    downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
     imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択",
     historyTitle: "生成履歴", historyHint: "漫画はプロジェクトとして保存され、プロンプトは初期状態で折りたたまれます。",
@@ -406,11 +410,12 @@ const CLEAN_LOCALES = {
     globalRefs: "전체 참고 이미지(선택, 다중)", uploadRefs: "클릭하거나 드래그해 참고 이미지 업로드",
     matchSize: "출력 크기를 참고 이미지와 맞춤", resolution: "전체 해상도", landscape: "가로 3:2", portrait: "세로 2:3",
     custom: "사용자 지정", width: "너비", height: "높이", savedSizes: "저장 크기", saveSizePreset: "크기 저장", deleteSizePreset: "저장 크기 삭제", imageCount: "생성 수", sequential: "순차 생성",
+    sequentialHint: "선택 해제: 동시 일괄 생성(최대 동시 20개 요청). 선택: 한 장씩 순차 생성.",
     panelList: "콘티 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성",
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...",
-    downloadZip: "ZIP 다운로드", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
+    downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
     imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택",
     historyTitle: "생성 기록", historyHint: "만화는 프로젝트로 저장되며 프롬프트는 기본적으로 접혀 있습니다.",
@@ -676,6 +681,7 @@ function applyCleanLanguage() {
   if (dom.deleteSizePreset) dom.deleteSizePreset.title = cleanText("deleteSizePreset");
   setText("#nImagesField > span", "imageCount");
   setText("#sequentialToggle > span", "sequential");
+  setText("#sequentialModeHint", "sequentialHint");
 
   setIconLabel("#comicPanelSection .section-header > span", "comic", "panelList");
   setButtonText(dom.addPanel, "plus", "addPanel");
@@ -694,6 +700,7 @@ function applyCleanLanguage() {
   setButtonText(dom.chooseImageDir, "image", "imageFolder");
   setButtonText(dom.chooseZipDir, "zip", "zipFolder");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
+  setButtonText(dom.saveComicFolder, "folder", "saveToFolder");
   if (dom.clearResults) dom.clearResults.textContent = cleanText("clearResults");
   setText(".retry-failed-count span", "failedRetryCount");
   setRetryFailedButtonText();
@@ -891,6 +898,7 @@ const dom = {
   resultGrid:    $("#resultGrid"),
   resultToolbar: $("#resultToolbar"),
   downloadZip:   $("#downloadZip"),
+  saveComicFolder: $("#saveComicFolder"),
   clearResults:  $("#clearResults"),
   retryFailedTools: $("#retryFailedTools"),
   retryFailedAll: $("#retryFailedAll"),
@@ -1033,6 +1041,8 @@ let referenceImages = [];       // { file, dataUrl, width, height } —— 多�
 let generatedImageUrls = [];
 let appWasBackgrounded = false;
 let retryAllFailedInProgress = false;
+let currentComicHistoryId = null; // 当前结果网格对应的漫画项目历史记录 id（新生成/恢复历史时更新），
+                                    // 重试某个分镜时用它定位到要更新的那条历史记录，而不是留着旧图不管
 let latestUpdateRelease = null;
 let latestUpdateInfo = null;
 
@@ -2113,6 +2123,7 @@ function switchMode(mode) {
   const isComic = mode === "comic";
   dom.comicSection.classList.toggle("hidden", !isComic);
   dom.nImagesField.classList.toggle("hidden", isComic);
+  dom.saveComicFolder.classList.toggle("hidden", !isComic);
   dom.progressWrap.classList.toggle("hidden", true);
 
   const label = $("#globalPromptField .field-label-text");
@@ -2139,6 +2150,7 @@ function refreshLocalizedUiState() {
   setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : "generateImage");
   setButtonText(dom.detectModels, "search", "detect");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
+  setButtonText(dom.saveComicFolder, "folder", "saveToFolder");
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3494,9 +3506,10 @@ async function generateSingle() {
       try {
         const data = await callImageAPI(prompt, size, 1, `图片 ${i + 1}`, { references, signal: run.signal, maxRetries: retryCount });
         if (!isGenerationCurrent(run)) return;
-        replacePlaceholder(placeholder, i + 1, data, prompt, {
+        const record = replacePlaceholder(placeholder, i + 1, data, prompt, {
           retryContext: { mode: "single", prompt, size, references, retryCount },
         });
+        if (record) placeholder._historyRecordId = record.id;
         ok++;
       } catch (err) {
         if (err?.name === "AbortError" || !isGenerationCurrent(run)) return;
@@ -3640,8 +3653,9 @@ async function generateComic() {
     updateProgress(completed + failed, total, "✅");
 
     if (completed > 0) {
+      const newProjectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       await saveGenerationProject({
-        id: `project_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        id: newProjectId,
         type: "comic-project",
         mode: "comic",
         title: `漫画项目 ${new Date().toLocaleString("zh-CN")}`,
@@ -3662,6 +3676,7 @@ async function generateComic() {
         })),
         images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
       });
+      currentComicHistoryId = newProjectId;
     }
 
     if (failed > 0) {
@@ -4075,11 +4090,20 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   try {
     const references = Array.isArray(context.references) ? context.references : undefined;
     const data = await callImageAPI(promptText, size, 1, `分镜 ${panelId}`, { references, maxRetries: retryCount });
-    replacePlaceholder(card, panelId, data, promptText, {
+    const record = replacePlaceholder(card, panelId, data, promptText, {
+      skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
       recordPrompt: context.mode === "comic" ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
       fullPrompt: promptText,
       retryContext: { ...context, prompt: promptText, fullPrompt: promptText, size, retryCount },
     });
+    if (record) {
+      if (context.mode === "comic") {
+        await updateComicHistoryPanel(currentComicHistoryId, panelId, record);
+      } else {
+        await replaceSingleHistoryRecord(card._historyRecordId, record);
+        card._historyRecordId = record.id;
+      }
+    }
     if (!options.quiet) showStatus(`分镜 ${panelId} 重试成功`, "success");
     return true;
   } catch (err) {
@@ -4233,6 +4257,44 @@ async function saveGenerationProject(project) {
   };
   const list = loadHistory();
   list.unshift(record);
+  saveHistory(list);
+}
+
+// 重试单图模式的某张图片成功后：删掉它原来那条历史记录，用新结果重新入一条
+// （而不是留着旧记录不管、平白多出一条重复记录）。
+async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
+  if (loadSettings().historyEnabled === false) return;
+  const record = { ...newRecord, imageUrl: await makeHistoryImageUrl(newRecord.imageUrl) };
+  const list = loadHistory();
+  const filtered = oldRecordId ? list.filter(item => item.id !== oldRecordId) : list;
+  filtered.unshift(record);
+  saveHistory(filtered);
+}
+
+// 重试漫画分镜里的某一张成功后：原地替换该项目历史记录里对应分镜的图片，
+// 不新增记录、不改变项目在历史列表里的位置，旧图彻底不留痕迹。
+async function updateComicHistoryPanel(projectId, panelId, record) {
+  if (!projectId || loadSettings().historyEnabled === false) return;
+  const list = loadHistory();
+  const project = list.find(item => item.id === projectId && isHistoryProject(item));
+  if (!project || !Array.isArray(project.images)) return;
+  const idx = project.images.findIndex(img => String(img.panelId || "") === String(panelId));
+  if (idx === -1) return;
+  const panelPrompt = getPanelOnlyPrompt(record, project.globalPrompt || "");
+  project.images[idx] = {
+    ...project.images[idx],
+    prompt: panelPrompt,
+    panelPrompt,
+    fullPrompt: record.fullPrompt || project.images[idx].fullPrompt,
+    imageUrl: await makeHistoryImageUrl(record.imageUrl),
+    originalUrl: record.originalUrl || record.imageUrl,
+    retryCount: record.retryCount ?? project.images[idx].retryCount,
+    size: record.size || project.images[idx].size,
+  };
+  if (idx === 0) {
+    project.imageUrl = project.images[0].imageUrl;
+    project.originalUrl = project.images[0].originalUrl;
+  }
   saveHistory(list);
 }
 
@@ -4537,6 +4599,7 @@ function restoreHistoryItem(item) {
     restoreHistoryProjectEditor(item, images);
     dom.resultGrid.innerHTML = "";
     generatedImageUrls = [];
+    currentComicHistoryId = item.id || null; // 恢复后重试某个分镜时，原地更新这条历史记录
     updateFailedRetryTools();
     images.forEach((image, index) => {
       const card = document.createElement("div");
@@ -4581,6 +4644,7 @@ function restoreHistoryItem(item) {
       retryCount: item.retryCount ?? getGlobalRetryCount(),
     },
   });
+  card._historyRecordId = item.id || null; // 恢复后重试时，原地替换这条历史记录而不是新增一条
   dom.resultGrid.prepend(card);
   updateFailedRetryTools();
   closeModal(dom.historyModal);
@@ -4675,8 +4739,8 @@ const nativeDownload = (() => {
     openExternal(url) {
       return request("openExternal", { url });
     },
-    saveFile(kind, fileName, mimeType, base64) {
-      return request("saveFile", { kind, fileName, mimeType, base64 });
+    saveFile(kind, fileName, mimeType, base64, folder = "") {
+      return request("saveFile", { kind, fileName, mimeType, base64, folder });
     },
     downloadUpdate(url, fileName, install, platform) {
       return request("downloadUpdate", withDesktopProxyPayload({ url, fileName, install: !!install, platform }), 15 * 60 * 1000);
@@ -5161,6 +5225,63 @@ async function downloadAllAsZip() {
   } finally {
     dom.downloadZip.disabled = false;
     setButtonText(dom.downloadZip, "zip", "downloadZip");
+  }
+}
+
+dom.saveComicFolder.addEventListener("click", saveComicResultsToFolder);
+
+async function saveComicResultsToFolder() {
+  if (!nativeDownload.available()) return;
+  const images = getCurrentResultImages();
+  if (images.length === 0) {
+    showStatus(cleanText("noImagesToExport"), "error"); return;
+  }
+
+  dom.saveComicFolder.disabled = true;
+  setButtonText(dom.saveComicFolder, "spark", "savingToFolder");
+  setDownloadProgress(2, cleanText("savingToFolder"));
+
+  try {
+    if (!nativeDownload.dirs.images) {
+      await nativeDownload.chooseDir("images");
+    }
+    const folder = sanitizeFilePart(`漫画_${new Date().toLocaleString("zh-CN")}`, "comic");
+    const failures = [];
+    let saved = 0;
+
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
+      try {
+        setDownloadProgress(4 + Math.round((i / Math.max(images.length, 1)) * 90), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
+        // 与 buildImagesZip 相同的容错取字节顺序：生成时缓存的字节最可靠，远程 URL 可能已过期。
+        let blob = image.blob instanceof Blob ? image.blob : null;
+        if (!blob && image.cachePromise) {
+          blob = await Promise.resolve(image.cachePromise).catch(() => null);
+          if (!(blob instanceof Blob)) blob = null;
+        }
+        if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl);
+        const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
+        const base64 = await blobToBase64(blob);
+        await nativeDownload.saveFile("images", `panel-${panelId}.${ext}`, blob.type || "image/png", base64, folder);
+        saved++;
+      } catch (err) {
+        failures.push(`${image.panelId || i + 1}: ${err.message || err}`);
+      }
+    }
+
+    if (saved === 0) throw new Error(failures.join("; ") || cleanText("exportFailed"));
+    setDownloadProgress(100, `${cleanText("folderSaved")}: ${folder}`, true);
+    showStatus(
+      failures.length ? `${cleanText("folderSaved")}: ${saved}/${images.length}` : `${cleanText("folderSaved")}: ${folder}`,
+      failures.length ? "error" : "success"
+    );
+  } catch (err) {
+    hideDownloadProgress();
+    showStatus(`${cleanText("exportFailed")}: ${err.message || err}`, "error");
+  } finally {
+    dom.saveComicFolder.disabled = false;
+    setButtonText(dom.saveComicFolder, "folder", "saveToFolder");
   }
 }
 
