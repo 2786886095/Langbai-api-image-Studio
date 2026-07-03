@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -220,7 +220,8 @@ const CLEAN_LOCALES = {
     downloadingUpdate: "正在下载更新包…", updateDownloaded: "更新包已下载: {path}",
     updateInstallStarted: "更新安装已启动。Windows 会关闭当前程序后覆盖安装目录；安卓请在系统安装器中确认。",
     updateOpenRelease: "当前环境不能直接覆盖安装，已打开更新包下载链接。",
-    updateOpenGithubMobile: "安卓版请在 GitHub 发布页下载安装包，已为你打开该页面。"
+    updateOpenGithubMobile: "安卓版请在 GitHub 发布页下载安装包，已为你打开该页面。",
+    updateNowPrompt: "是否立即更新？"
   },
   "zh-Hant": {
     langZh: "簡體", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -272,7 +273,8 @@ const CLEAN_LOCALES = {
     downloadingUpdate: "正在下載更新包…", updateDownloaded: "更新包已下載: {path}",
     updateInstallStarted: "更新安裝已啟動。Windows 會關閉目前程式後覆蓋安裝目錄；Android 請在系統安裝器中確認。",
     updateOpenRelease: "目前環境不能直接覆蓋安裝，已開啟更新包下載連結。",
-    updateOpenGithubMobile: "Android 版請在 GitHub 發布頁下載安裝包，已為你開啟該頁面。"
+    updateOpenGithubMobile: "Android 版請在 GitHub 發布頁下載安裝包，已為你開啟該頁面。",
+    updateNowPrompt: "是否立即更新？"
   },
   en: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -324,7 +326,8 @@ const CLEAN_LOCALES = {
     downloadingUpdate: "Downloading update package...", updateDownloaded: "Update package downloaded: {path}",
     updateInstallStarted: "Update install started. Windows will close this app and overwrite the install folder; confirm in the Android installer on Android.",
     updateOpenRelease: "This environment cannot overwrite the app directly, so the update package link was opened.",
-    updateOpenGithubMobile: "On Android, please download and install from the GitHub release page. It has been opened for you."
+    updateOpenGithubMobile: "On Android, please download and install from the GitHub release page. It has been opened for you.",
+    updateNowPrompt: "Update now?"
   },
   ja: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -376,7 +379,8 @@ const CLEAN_LOCALES = {
     downloadingUpdate: "更新パッケージをダウンロード中...", updateDownloaded: "更新パッケージを保存しました: {path}",
     updateInstallStarted: "更新インストールを開始しました。Windows はアプリを閉じてインストール先を上書きします。Android ではインストーラで確認してください。",
     updateOpenRelease: "この環境では直接上書きできないため、更新パッケージのリンクを開きました。",
-    updateOpenGithubMobile: "Android 版は GitHub のリリースページからダウンロード・インストールしてください。ページを開きました。"
+    updateOpenGithubMobile: "Android 版は GitHub のリリースページからダウンロード・インストールしてください。ページを開きました。",
+    updateNowPrompt: "今すぐ更新しますか？"
   },
   ko: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -428,7 +432,8 @@ const CLEAN_LOCALES = {
     downloadingUpdate: "업데이트 패키지 다운로드 중...", updateDownloaded: "업데이트 패키지 다운로드됨: {path}",
     updateInstallStarted: "업데이트 설치가 시작되었습니다. Windows는 앱을 닫고 설치 폴더를 덮어씁니다. Android에서는 설치 관리자에서 확인하세요.",
     updateOpenRelease: "현재 환경에서는 직접 덮어쓸 수 없어 업데이트 패키지 링크를 열었습니다.",
-    updateOpenGithubMobile: "Android 버전은 GitHub 릴리스 페이지에서 다운로드 및 설치해주세요. 페이지를 열었습니다."
+    updateOpenGithubMobile: "Android 버전은 GitHub 릴리스 페이지에서 다운로드 및 설치해주세요. 페이지를 열었습니다.",
+    updateNowPrompt: "지금 업데이트하시겠습니까?"
   }
 };
 
@@ -5117,5 +5122,19 @@ function registerServiceWorker() {
   });
 }
 
+// 启动时静默检测一次更新；如果有新版本，弹窗询问是否立即更新（不打扰用户的话直接取消即可）。
+async function checkForUpdatesOnLaunch() {
+  try {
+    const info = await checkForUpdates({ silent: true });
+    if (!info?.isNewer) return;
+    const message = `${interpolate(cleanText("updateAvailable"), { version: `v${info.latest}` })}\n${cleanText("updateNowPrompt")}`;
+    const shouldUpdate = await askConfirm(message);
+    if (shouldUpdate) await downloadLatestUpdate(true);
+  } catch (err) {
+    console.warn("Startup update check failed:", err);
+  }
+}
+
 initI18n();
 registerServiceWorker();
+setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);

@@ -1123,6 +1123,61 @@ async function testUpdateControls(cdp) {
   assertQa(result.sameVersionResult?.skipped === true && result.openedUrls.length === 0, "Downloading the current version should be blocked and should not open an update URL.", result);
 }
 
+function startupUpdateMockScript(tagName) {
+  return `
+    window.__openExternalCalls = [];
+    window.__origFetch = window.fetch;
+    window.fetch = function(url, options) {
+      if (String(url).includes("/releases/latest")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          tag_name: ${JSON.stringify(tagName)},
+          html_url: "https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/${tagName}",
+          body: "## Mock release for testing",
+          assets: [{ name: "AI-Image-Generator-Setup.exe", browser_download_url: "https://example.test/Setup.exe" }]
+        }), { status: 200, headers: { "content-type": "application/json" } }));
+      }
+      return window.__origFetch(url, options);
+    };
+    window.open = function(url) { window.__openExternalCalls.push(String(url)); return { closed: false }; };
+  `;
+}
+
+async function testStartupUpdatePrompt(cdp) {
+  logStep("Startup update check should prompt once and respect the user's choice");
+
+  // Case 1: newer version available -> dialog should appear, confirming it should trigger the update flow.
+  const newerScript = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: startupUpdateMockScript("v9.9.9") });
+  await loadFresh(cdp, "startup-update-newer");
+  await sleep(1800);
+  const newerCase = await cdp.eval(`(async () => {
+    const overlay = document.querySelector(".ask-dialog-overlay");
+    const message = overlay?.querySelector(".ask-dialog-message")?.textContent || "";
+    const dialogPresent = !!overlay;
+    document.querySelector(".ask-dialog-ok")?.click();
+    await new Promise(r => setTimeout(r, 300));
+    return {
+      dialogPresent,
+      message,
+      dialogGoneAfterConfirm: !document.querySelector(".ask-dialog-overlay"),
+      openedUrls: window.__openExternalCalls,
+    };
+  })()`, true);
+  await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: newerScript.identifier });
+  assertQa(newerCase.dialogPresent, "A newer version should trigger an update prompt shortly after launch.", newerCase);
+  assertQa(newerCase.message.includes("9.9.9"), "The startup update prompt should mention the new version number.", newerCase);
+  assertQa(newerCase.dialogGoneAfterConfirm, "Confirming the startup update prompt should close it.", newerCase);
+  assertQa(newerCase.openedUrls.some(u => u.includes("Setup.exe")), "Confirming the startup update prompt should proceed with the update/download flow.", newerCase);
+
+  // Case 2: already on the latest version -> no prompt should ever appear.
+  const currentVersion = await cdp.eval(`window.AiGenUpdate.APP_VERSION`, false);
+  const sameScript = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: startupUpdateMockScript(`v${currentVersion}`) });
+  await loadFresh(cdp, "startup-update-current");
+  await sleep(1800);
+  const sameVersionCase = await cdp.eval(`({ dialogPresent: !!document.querySelector(".ask-dialog-overlay") })`, false);
+  await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: sameScript.identifier });
+  assertQa(!sameVersionCase.dialogPresent, "Already being on the latest version should never show a startup update prompt.", sameVersionCase);
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -1425,6 +1480,7 @@ async function main() {
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testUpdateControls(cdp);
+    await testStartupUpdatePrompt(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
