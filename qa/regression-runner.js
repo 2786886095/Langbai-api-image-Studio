@@ -1661,6 +1661,25 @@ async function testModelChoicesWheelScroll(cdp) {
       await new Promise(r => setTimeout(r, 50));
       const afterMisroutedTarget = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
 
+      // Worse case: webview_windows' wheel event carries NEITHER a correct target NOR correct
+      // clientX/clientY (both are unreliable, not just one). Two independent layers can each
+      // recover from this: (1) the open dropdown is tracked as a "blocking overlay", so even a
+      // wrongly-resolved scroll target outside it falls back to the overlay's own primary
+      // scroller, and (2) a prior real mousemove over the dropdown is tracked independently of
+      // the wheel event and used as a coordinate source of last resort. Either one alone already
+      // fixes this scenario; this asserts the combination still does.
+      list.scrollTop = 0;
+      inputPanel.scrollTop = 0;
+      const inputPanelRect = inputPanel.getBoundingClientRect();
+      firstOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: cx, clientY: cy }));
+      await new Promise(r => setTimeout(r, 20));
+      inputPanel.dispatchEvent(new WheelEvent("wheel", {
+        deltaY: 240, bubbles: true, cancelable: true,
+        clientX: inputPanelRect.left + 5, clientY: inputPanelRect.top + 5,
+      }));
+      await new Promise(r => setTimeout(r, 50));
+      const afterBothWrong = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
+
       // Regression guard: when a flex column (.custom-select-list) has more items than fit in
       // its max-height, flexbox will shrink every item below its own content size unless each
       // item has flex-shrink:0 — the container ends up scrolling a list of squished, overlapping
@@ -1674,6 +1693,7 @@ async function testModelChoicesWheelScroll(cdp) {
         before,
         afterCorrectTarget,
         afterMisroutedTarget,
+        afterBothWrong,
         optionCount: allOptions.length,
         squished,
       };
@@ -1683,6 +1703,8 @@ async function testModelChoicesWheelScroll(cdp) {
     assertQa(result.afterCorrectTarget.inputPanel === result.before.inputPanel, "A wheel event over the open model dropdown should NOT scroll the outer .input-panel — this is the 'hovering over model selection moves the global scrollbar instead' bug.", result);
     assertQa(result.afterMisroutedTarget.list > 0, "Even if webview_windows reports a wrong event.target (e.g. .input-panel) while the cursor's clientX/clientY are actually over the open dropdown, elementFromPoint-based recovery should still scroll it.", result);
     assertQa(result.afterMisroutedTarget.inputPanel === 0, "The misrouted-target case should still not move the outer .input-panel once coordinate-based recovery kicks in.", result);
+    assertQa(result.afterBothWrong.list > 0, "Even when BOTH event.target and the wheel event's own clientX/clientY are wrong, overlay-fallback and/or mousemove-tracked position recovery should still scroll the open dropdown.", result);
+    assertQa(result.afterBothWrong.inputPanel === 0, "The both-signals-wrong case should still not move the outer .input-panel once recovery kicks in.", result);
     assertQa(result.squished === 0, `${result.squished}/${result.optionCount} dropdown option rows were flex-shrunk below their own content height, causing overlapping/garbled text — every row needs flex-shrink:0.`, result);
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });

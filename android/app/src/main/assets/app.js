@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.9";
+const APP_VERSION = "1.2.10";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -1100,10 +1100,25 @@ function getWheelDeltaY(event, target = null) {
 // webview_windows 转发滚轮事件时不带光标坐标（上游 #313），实测中 event.target 有时会落在
 // 光标视觉位置之外的元素上（比如鼠标明明在 #modelChoices 列表里，target 却是 .input-panel 或更
 // 外层的容器），导致沿 target 网上找可滚祖先时根本找不到光标真正悬停的那个嵌套滚动区域。
-// event.clientX/clientY 是坐标值，不依赖 target 的命中测试，用 elementFromPoint 重新在真实坐标
-// 上做一次 hit-test，比信任 target 更可靠——只要坐标本身没错（同一个滚轮事件的 x/y 是 WebView2
-// 用来定位注入点的必需参数，比 target 更基础，出错概率更低）。
+//
+// 光靠 event.clientX/clientY 重新 hit-test 只能部分解决问题：如果这个插件转发滚轮事件时坐标
+// 本身也不准（不只是 target 不准），用同一个事件自带的坐标再做一次 hit-test 还是会落在错误
+// 位置——排查过多轮后确认这是真实存在的情况，不能只信任 wheel 事件自己携带的任何信息。
+// 用一个独立于 wheel 事件的 mousemove 监听器持续记录"最后一次已知的真实光标位置"，鼠标移动
+// 是比滚轮更基础、更不容易被插件转发链路影响的事件，优先用这个位置做 hit-test；wheel 事件自
+// 带的坐标降级为第二选择，event.target 是最后兜底。
+let _lastKnownPointerX = null;
+let _lastKnownPointerY = null;
+document.addEventListener("mousemove", e => {
+  _lastKnownPointerX = e.clientX;
+  _lastKnownPointerY = e.clientY;
+}, { passive: true, capture: true });
+
 function resolveWheelEventStartElement(event) {
+  if (Number.isFinite(_lastKnownPointerX) && Number.isFinite(_lastKnownPointerY)) {
+    const atTrackedPoint = document.elementFromPoint(_lastKnownPointerX, _lastKnownPointerY);
+    if (atTrackedPoint) return atTrackedPoint;
+  }
   const x = event?.clientX;
   const y = event?.clientY;
   if (Number.isFinite(x) && Number.isFinite(y) && (x !== 0 || y !== 0)) {
@@ -1118,7 +1133,14 @@ function isOverlayVisible(overlay) {
 }
 
 function getVisibleBlockingOverlays() {
-  return [dom.settingsModal, dom.historyModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox")]
+  // 打开的下拉列表（.custom-select-list）也算进来：就算坐标纠正最终还是没能定位到该滚动
+  // 的元素，至少能靠这里的兜底逻辑拦住事件、不让它继续冒泡去滚背后的主面板——"滚不动"比
+  // "滚错地方"体验上更能接受，且不会有更差的后果。
+  const openCustomSelectLists = _customSelectRegistry
+    .filter(inst => inst.isOpen())
+    .map(inst => inst.wrapper.querySelector(".custom-select-list"))
+    .filter(Boolean);
+  return [dom.settingsModal, dom.historyModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
     .filter(isOverlayVisible);
 }
 
