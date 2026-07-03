@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.4";
+const APP_VERSION = "1.2.5";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -1630,6 +1630,40 @@ function getGlobalRetryCount() {
   return clampRetryCount(loadSettings().retryCount);
 }
 
+// 已确认根因：Windows 端 webview_windows 0.4.0 转发鼠标滚轮事件时不带光标坐标信息
+// （上游 jnschulze/flutter-webview-windows#313 已修复，但从 2024-02 的 0.4.0 之后再没发布过
+// 新版本到 pub.dev），导致 Chromium 无法正确判断"光标下该滚动哪个嵌套容器"，滚轮事件很可能
+// 被派发到最外层 document/body——而弹窗打开时 body 被设成 overflow:hidden（见 openModal），
+// 于是表现为"整个界面完全没反应"。用一个 document 级委托监听器（在 initManualWheelScrollFix
+// 里注册，需要等 nativeDownload 初始化完才能判断平台，所以放在文件末尾启动流程里调用），在
+// 事件到达时手动找到光标下最近的可滚动祖先并直接改 scrollTop，绕开原生嵌套滚动派发；用委托
+// 而不是给每个滚动容器单独绑定，是因为像历史记录卡片里的滚动区域是运行时动态生成的，没法在
+// 启动时枚举完。只在确认受影响的原生 Windows exe 环境下启用，浏览器/PWA 端原生嵌套滚动本来
+// 就正常，不需要（也不应该）用 JS 覆盖，避免影响原生的平滑/惯性滚动手感。
+function findScrollableAncestor(el) {
+  let node = el;
+  while (node && node !== document.body && node !== document.documentElement) {
+    if (node.nodeType === 1) {
+      const style = getComputedStyle(node);
+      if ((style.overflowY === "auto" || style.overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+        return node;
+      }
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function initManualWheelScrollFix() {
+  if (!isNativeWindowsWebview()) return;
+  document.addEventListener("wheel", e => {
+    const target = findScrollableAncestor(e.target);
+    if (!target) return;
+    target.scrollTop += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+}
+
 function openModal(modal) {
   modal?.classList.remove("hidden");
   document.body.style.overflow = "hidden";
@@ -1748,11 +1782,17 @@ function getRuntimePlatform() {
   return "web";
 }
 
+// 是否运行在打包后的 Windows exe（webview_windows 离屏渲染）里，而不是纯浏览器/PWA。
+// 这个判定被多个"仅原生 Windows exe 才有"的已知插件缺陷复用（拖放、滚轮嵌套滚动等）。
+function isNativeWindowsWebview() {
+  return nativeDownload.available() && getRuntimePlatform() === "windows";
+}
+
 // webview_windows 用离屏渲染（Windows.Graphics.Capture）承载页面内容，HTML5 拖放依赖的 OS 级
 // drop target 注册在这种模式下不生效（上游 flutter-webview-windows#9，长期未修）；纯浏览器/PWA
-// 端是真实浏览器，拖放完全正常，所以只在"原生 bridge 存在 + Windows"这个组合下才判定为失效。
+// 端是真实浏览器，拖放完全正常，所以只在原生 Windows exe 里才判定为失效。
 function isDragDropUnsupported() {
-  return nativeDownload.available() && getRuntimePlatform() === "windows";
+  return isNativeWindowsWebview();
 }
 
 function selectUpdateAsset(release, platform = getRuntimePlatform()) {
@@ -5352,4 +5392,5 @@ async function checkForUpdatesOnLaunch() {
 
 initI18n();
 registerServiceWorker();
+initManualWheelScrollFix();
 setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);

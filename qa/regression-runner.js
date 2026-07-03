@@ -1489,6 +1489,51 @@ async function testDragDropHintReflectsPlatform(cdp) {
   assertQa(/拖/.test(browserText), "Browser/PWA build (real Chromium, real drag-and-drop support) should still advertise drag-and-drop.", { browserText });
 }
 
+async function testManualWheelScrollFallback(cdp) {
+  logStep("Native Windows exe must manually redirect wheel-scroll to the nested scrollable ancestor under the cursor, working around webview_windows 0.4.0 not forwarding cursor position with wheel events (upstream flutter-webview-windows#313, merged upstream but never released to pub.dev — still stuck at 0.4.0 from 2024-02)");
+
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `window.FlutterDownload = { postMessage() {} };`,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "wheel-native-windows");
+    const result = await cdp.eval(`(async () => {
+      document.getElementById("settingsBtn").click();
+      await new Promise(r => setTimeout(r, 100));
+      const card = document.querySelector("#settingsModal .modal-card");
+      card.style.maxHeight = "200px";
+      card.scrollTop = 0;
+      const before = card.scrollTop;
+      const inner = card.querySelector(".settings-section") || card;
+      inner.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 50));
+      return { before, after: card.scrollTop };
+    })()`, true);
+    assertQa(result.after > result.before, "A wheel event over a nested scroll container in the native Windows exe should move that container's scrollTop via the JS fallback.", result);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+
+  await loadFresh(cdp, "wheel-browser");
+  const browserResult = await cdp.eval(`(async () => {
+    document.getElementById("settingsBtn").click();
+    await new Promise(r => setTimeout(r, 100));
+    const card = document.querySelector("#settingsModal .modal-card");
+    card.style.maxHeight = "200px";
+    card.scrollTop = 0;
+    const before = card.scrollTop;
+    const inner = card.querySelector(".settings-section") || card;
+    inner.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 50));
+    return { before, after: card.scrollTop };
+  })()`, true);
+  assertQa(browserResult.after === browserResult.before, "The JS wheel fallback should not be installed in the browser/PWA build — a synthetic (untrusted) wheel event shouldn't move scrollTop there since real Chromium ignores untrusted wheel events for its own native scroll and our fallback should be gated off.", browserResult);
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -1797,6 +1842,7 @@ async function main() {
     await testUpdateControls(cdp);
     await testStartupUpdatePrompt(cdp);
     await testDragDropHintReflectsPlatform(cdp);
+    await testManualWheelScrollFallback(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
