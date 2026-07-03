@@ -409,16 +409,30 @@ async function testApiConfig(cdp) {
     set("apiKey", "sk-qa-models");
     document.getElementById("quickDetectModels").click();
     await new Promise(r => setTimeout(r, 80));
-    const choices = [...document.querySelectorAll("#modelChoices .model-choice")];
-    const first = choices[0];
+    const wrapper = document.getElementById("modelChoicesCustomSelect");
+    const trigger = document.getElementById("modelChoicesTrigger");
+    const list = document.getElementById("modelChoicesCustomList");
+    trigger.click();
+    await new Promise(r => setTimeout(r, 80));
+    const options = [...list.querySelectorAll(".custom-select-option")];
+    const first = options[1]; // options[0] is the "choose a model" placeholder, not a real model
+    const hit = document.elementFromPoint(
+      first.getBoundingClientRect().left + 5,
+      first.getBoundingClientRect().top + first.getBoundingClientRect().height / 2
+    );
     first?.click();
+    await new Promise(r => setTimeout(r, 30));
     return {
-      count: choices.length,
-      visible: !document.getElementById("modelChoices").classList.contains("hidden"),
+      count: options.length,
+      visible: !wrapper.classList.contains("hidden"),
+      hitIsOption: hit === first || first.contains(hit),
+      closedAfterPick: list.classList.contains("hidden"),
       selected: document.getElementById("model").value,
     };
   })()`, true);
-  assertQa(modelChoice.visible && modelChoice.count > 3, "Quick model detection should render clickable in-app model choices.", modelChoice);
+  assertQa(modelChoice.visible && modelChoice.count > 3, "Quick model detection should render a clickable in-app model dropdown, same custom-select pattern as the other lists.", modelChoice);
+  assertQa(modelChoice.hitIsOption, "The first model option should be genuinely hit-testable, not obscured or clipped.", modelChoice);
+  assertQa(modelChoice.closedAfterPick, "Picking a model should close the dropdown.", modelChoice);
   assertQa(modelChoice.selected.length > 0, "Clicking a model choice should fill the model input.", modelChoice);
 
   await loadFresh(cdp, "api-mobile", { width: 430, height: 560, mobile: true });
@@ -1605,7 +1619,7 @@ async function testManualWheelScrollFallback(cdp) {
 }
 
 async function testModelChoicesWheelScroll(cdp) {
-  logStep("Scrolling over the detected-models list (#modelChoices, a nested overflow:auto region outside any modal) should scroll that list, not the outer .input-panel");
+  logStep("Detected-models picker is now the same custom-select dropdown as the other lists; scrolling its open popup should scroll the popup, not the outer .input-panel");
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `window.FlutterDownload = { postMessage() {} };`,
   });
@@ -1618,7 +1632,9 @@ async function testModelChoicesWheelScroll(cdp) {
       document.getElementById("configSection").open = true;
       setModelChoices(Array.from({ length: 40 }, (_, i) => "model-" + i));
       await new Promise(r => setTimeout(r, 50));
-      const list = document.getElementById("modelChoices");
+      document.getElementById("modelChoicesTrigger").click();
+      await new Promise(r => setTimeout(r, 80));
+      const list = document.getElementById("modelChoicesCustomList");
       list.scrollIntoView({ block: "center" });
       await new Promise(r => setTimeout(r, 50));
       const inputPanel = document.querySelector(".input-panel");
@@ -1626,19 +1642,19 @@ async function testModelChoicesWheelScroll(cdp) {
       list.scrollTop = 0;
       inputPanel.scrollTop = 0;
       const before = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
-      const firstChoice = list.querySelector(".model-choice");
-      firstChoice.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      const firstOption = list.querySelector(".custom-select-option");
+      firstOption.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
       await new Promise(r => setTimeout(r, 50));
       const afterCorrectTarget = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
 
       // webview_windows forwards wheel events without reliable cursor->target hit-testing
       // (upstream #313): the event's clientX/clientY can be right while event.target is
       // wrong. Simulate that by dispatching on .input-panel itself but with coordinates
-      // that visually sit inside #modelChoices, and verify elementFromPoint-based recovery
-      // still finds and scrolls the list instead of trusting the misrouted target.
+      // that visually sit inside the open dropdown list, and verify elementFromPoint-based
+      // recovery still finds and scrolls the popup instead of trusting the misrouted target.
       list.scrollTop = 0;
       inputPanel.scrollTop = 0;
-      const rect = firstChoice.getBoundingClientRect();
+      const rect = firstOption.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       inputPanel.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
@@ -1652,10 +1668,10 @@ async function testModelChoicesWheelScroll(cdp) {
         afterMisroutedTarget,
       };
     })()`, true);
-    assertQa(result.hasOverflow, "Test setup sanity check: 40 detected models should overflow the 132px-tall model list so this test actually exercises nested scrolling.", result);
-    assertQa(result.afterCorrectTarget.list > result.before.list, "A wheel event over the detected-models list should scroll the list itself.", result);
-    assertQa(result.afterCorrectTarget.inputPanel === result.before.inputPanel, "A wheel event over the detected-models list should NOT scroll the outer .input-panel — this is the 'hovering over model selection moves the global scrollbar instead' bug.", result);
-    assertQa(result.afterMisroutedTarget.list > 0, "Even if webview_windows reports a wrong event.target (e.g. .input-panel) while the cursor's clientX/clientY are actually over #modelChoices, elementFromPoint-based recovery should still scroll the list.", result);
+    assertQa(result.hasOverflow, "Test setup sanity check: 40 detected models should overflow the 240px-tall dropdown popup so this test actually exercises nested scrolling.", result);
+    assertQa(result.afterCorrectTarget.list > result.before.list, "A wheel event over the open model dropdown should scroll the dropdown itself.", result);
+    assertQa(result.afterCorrectTarget.inputPanel === result.before.inputPanel, "A wheel event over the open model dropdown should NOT scroll the outer .input-panel — this is the 'hovering over model selection moves the global scrollbar instead' bug.", result);
+    assertQa(result.afterMisroutedTarget.list > 0, "Even if webview_windows reports a wrong event.target (e.g. .input-panel) while the cursor's clientX/clientY are actually over the open dropdown, elementFromPoint-based recovery should still scroll it.", result);
     assertQa(result.afterMisroutedTarget.inputPanel === 0, "The misrouted-target case should still not move the outer .input-panel once coordinate-based recovery kicks in.", result);
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
@@ -1831,7 +1847,7 @@ async function testGrsaiOfficialAdapter(cdp) {
       set("apiKey", "sk-grsai");
       set("proxyEndpoint", "");
       loadGrsaiModels();
-      const modelOptions = [...document.querySelectorAll("#modelChoices .model-choice")].map(item => item.textContent.trim());
+      const modelOptions = [...document.querySelectorAll("#modelChoices option")].filter(o => o.value).map(item => item.textContent.trim());
 
       window.fetch = async (url, opts = {}) => {
         const urlText = String(url);

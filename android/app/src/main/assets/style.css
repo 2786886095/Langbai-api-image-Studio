@@ -465,42 +465,6 @@ select.custom-select-native {
 }
 .model-input-row input { flex: 1; }
 
-.model-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  max-height: 132px;
-  overflow: auto;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.model-choice {
-  appearance: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text);
-  min-height: 30px;
-  max-width: 100%;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 0.78rem;
-  line-height: 1;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.model-choice:hover,
-.model-choice:focus-visible,
-.model-choice[aria-selected="true"] {
-  border-color: var(--primary);
-  color: var(--primary-strong);
-  box-shadow: 0 0 0 2px var(--primary-soft);
-}
-
 .n-images-row {
   display: flex; align-items: center; gap: 10px;
 }

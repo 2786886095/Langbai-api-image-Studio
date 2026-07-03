@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.7";
+const APP_VERSION = "1.2.8";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -180,6 +180,7 @@ const CLEAN_LOCALES = {
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
     model: "模型", detect: "检测", proxy: "浏览器 CORS 转发地址", saveConfig: "保存配置",
+    modelChoicesPlaceholder: "从检测到的模型中选择…",
     desktopProxyTitle: "电脑端网络代理", desktopProxyMode: "代理模式", desktopProxyCustomUrl: "自定义代理地址",
     desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "直连", desktopProxyCustom: "自定义",
     testDesktopProxy: "测试代理", desktopProxyHint: "默认使用 HTTP 127.0.0.1:7890；纯浏览器端请使用系统/浏览器代理或 api-proxy.js。",
@@ -235,6 +236,7 @@ const CLEAN_LOCALES = {
     apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
     apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
     model: "模型", detect: "偵測", proxy: "瀏覽器 CORS 轉發位址", saveConfig: "儲存設定",
+    modelChoicesPlaceholder: "從偵測到的模型中選擇…",
     desktopProxyTitle: "桌面端網路代理", desktopProxyMode: "代理模式", desktopProxyCustomUrl: "自訂代理位址",
     desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "直連", desktopProxyCustom: "自訂",
     testDesktopProxy: "測試代理", desktopProxyHint: "預設使用 HTTP 127.0.0.1:7890；純瀏覽器端請使用系統/瀏覽器代理或 api-proxy.js。",
@@ -290,6 +292,7 @@ const CLEAN_LOCALES = {
     apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
     model: "Model", detect: "Detect", proxy: "Browser CORS proxy URL", saveConfig: "Save config",
+    modelChoicesPlaceholder: "Choose from detected models...",
     desktopProxyTitle: "Desktop Network Proxy", desktopProxyMode: "Proxy mode", desktopProxyCustomUrl: "Custom proxy URL",
     desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "Direct", desktopProxyCustom: "Custom",
     testDesktopProxy: "Test proxy", desktopProxyHint: "Default: HTTP 127.0.0.1:7890. In the browser, use the system/browser proxy or api-proxy.js.",
@@ -345,6 +348,7 @@ const CLEAN_LOCALES = {
     apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
     model: "モデル", detect: "検出", proxy: "ブラウザ CORS 転送 URL", saveConfig: "設定を保存",
+    modelChoicesPlaceholder: "検出したモデルから選択…",
     desktopProxyTitle: "デスクトップネットワークプロキシ", desktopProxyMode: "プロキシモード", desktopProxyCustomUrl: "カスタムプロキシ URL",
     desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "直結", desktopProxyCustom: "カスタム",
     testDesktopProxy: "プロキシをテスト", desktopProxyHint: "既定は HTTP 127.0.0.1:7890 です。ブラウザではシステム/ブラウザのプロキシまたは api-proxy.js を使用してください。",
@@ -400,6 +404,7 @@ const CLEAN_LOCALES = {
     apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
     model: "모델", detect: "감지", proxy: "브라우저 CORS 프록시 URL", saveConfig: "설정 저장",
+    modelChoicesPlaceholder: "감지된 모델에서 선택...",
     desktopProxyTitle: "데스크톱 네트워크 프록시", desktopProxyMode: "프록시 모드", desktopProxyCustomUrl: "사용자 프록시 URL",
     desktopProxyHttp: "HTTP 127.0.0.1:7890", desktopProxySocks: "SOCKS5 127.0.0.1:10808", desktopProxyDirect: "직접 연결", desktopProxyCustom: "사용자 지정",
     testDesktopProxy: "프록시 테스트", desktopProxyHint: "기본값은 HTTP 127.0.0.1:7890입니다. 브라우저에서는 시스템/브라우저 프록시 또는 api-proxy.js를 사용하세요.",
@@ -657,6 +662,9 @@ function applyCleanLanguage() {
   setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
   setText("#modelField > span", "model");
   setButtonText(dom.detectModels, "search", "detect");
+  const modelChoicesPlaceholder = dom.modelChoices?.querySelector('option[value=""]');
+  if (modelChoicesPlaceholder) modelChoicesPlaceholder.textContent = cleanText("modelChoicesPlaceholder");
+  customSelects.modelChoices?.syncLabel();
   setText("#proxyEndpointField > span", "proxy");
   setButtonText(dom.saveConfig, "save", "saveConfig");
   setButtonText(dom.openApiConfig, "settings", "connectApi");
@@ -849,6 +857,7 @@ const dom = {
   proxyEndpoint: $("#proxyEndpoint"),
   modelList:     $("#modelList"),
   modelChoices:  $("#modelChoices"),
+  modelChoicesCustomSelect: $("#modelChoicesCustomSelect"),
   detectModels:  $("#detectModels"),
   saveConfig:    $("#saveConfig"),
   savedApis:     $("#savedApis"),
@@ -1034,7 +1043,15 @@ const customSelects = {
   savedSizes: initCustomSelect(dom.savedSizes),
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
+  modelChoices: initCustomSelect(dom.modelChoices),
 };
+
+dom.modelChoices?.addEventListener("change", () => {
+  if (!dom.modelChoices.value) return;
+  dom.model.value = dom.modelChoices.value;
+  dom.model.dispatchEvent(new Event("change", { bubbles: true }));
+  updateApiQuickState();
+});
 
 // ─── 状态 ──────────────────────────────────────────────────
 let currentMode = "single";   // "single" | "comic"
@@ -2115,26 +2132,16 @@ function setModelChoices(models = [], options = {}) {
   if (!dom.modelChoices) return ids;
   dom.modelChoices.innerHTML = "";
   if (!ids.length) {
-    dom.modelChoices.classList.add("hidden");
+    dom.modelChoicesCustomSelect?.classList.add("hidden");
     return ids;
   }
+  dom.modelChoices.appendChild(new Option(cleanText("modelChoicesPlaceholder"), ""));
   ids.slice(0, options.limit || 80).forEach(id => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "model-choice";
-    button.setAttribute("role", "option");
-    button.textContent = id + priceLabel(id);
-    button.addEventListener("click", () => {
-      dom.model.value = id;
-      dom.model.dispatchEvent(new Event("change", { bubbles: true }));
-      dom.modelChoices.querySelectorAll(".model-choice").forEach(item => {
-        item.setAttribute("aria-selected", item === button ? "true" : "false");
-      });
-      updateApiQuickState();
-    });
-    dom.modelChoices.appendChild(button);
+    dom.modelChoices.appendChild(new Option(id + priceLabel(id), id));
   });
-  dom.modelChoices.classList.remove("hidden");
+  dom.modelChoices.value = "";
+  dom.modelChoicesCustomSelect?.classList.remove("hidden");
+  customSelects.modelChoices?.syncLabel();
   return ids;
 }
 
