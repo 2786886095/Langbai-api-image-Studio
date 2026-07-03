@@ -360,15 +360,12 @@ async function testApiConfig(cdp) {
     await new Promise(r => setTimeout(r, 80));
     const body = document.querySelector("#configSection .config-body");
     const save = document.getElementById("saveConfig");
-    body.scrollTop = 9999;
+    save.scrollIntoView({ block: "end" });
     await new Promise(r => setTimeout(r, 80));
     const rect = save.getBoundingClientRect();
     const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     return {
       body: {
-        clientHeight: body.clientHeight,
-        scrollHeight: body.scrollHeight,
-        scrollTop: body.scrollTop,
         overflowY: getComputedStyle(body).overflowY,
         maxHeight: getComputedStyle(body).maxHeight,
       },
@@ -376,8 +373,8 @@ async function testApiConfig(cdp) {
       saveClickable: save === hit || save.contains(hit),
     };
   })()`, true);
-  assertQa(mobile.body.overflowY === "auto" && mobile.body.scrollHeight > mobile.body.clientHeight, "Mobile API config body should scroll internally.", mobile);
-  assertQa(mobile.saveVisible && mobile.saveClickable, "Mobile API save button should be reachable and clickable after scrolling.", mobile);
+  assertQa(mobile.body.overflowY !== "auto" && mobile.body.maxHeight === "none", "API config body must not use an inner scroll container — that clipped the save button and made it render as a sliver overlapping the content below it.", mobile);
+  assertQa(mobile.saveVisible && mobile.saveClickable, "API save button should be reachable and clickable via normal page scrolling, not hidden behind other content.", mobile);
 }
 
 async function testReferencesAndAutoFill(cdp) {

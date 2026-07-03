@@ -318,20 +318,6 @@ details[open] .config-toggle::before { content: '▼ '; }
   z-index: 5;
 }
 
-.config-section[open] .config-body {
-  max-height: min(520px, calc(100vh - 260px));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding-right: 10px;
-}
-
-.config-section[open] .config-body::-webkit-scrollbar { width: 8px; }
-.config-section[open] .config-body::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 999px;
-}
-
 /* ===== Mode Tabs ===== */
 .mode-tabs {
   display: flex; gap: 4px;
@@ -1982,13 +1968,6 @@ textarea {
   .input-panel {
     position: static;
     max-height: none;
-  }
-  .config-section[open] .config-body {
-    max-height: min(520px, 58vh);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-    padding-right: 12px;
   }
   .result-panel { min-height: 420px; }
 }
