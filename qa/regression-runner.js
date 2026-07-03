@@ -211,6 +211,73 @@ async function loadFresh(cdp, query = "qa", viewport = { width: 1365, height: 76
   throw new Error("App did not become ready.");
 }
 
+async function testCustomSelects(cdp) {
+  logStep("Custom dropdown lists (replacing native <select> popups) open, select, and close correctly");
+  await loadFresh(cdp, "custom-selects");
+
+  const apiProviderFlow = await cdp.eval(`(async () => {
+    document.getElementById("configSection").open = true;
+    await new Promise(r => setTimeout(r, 80));
+    const trigger = document.getElementById("apiProviderTrigger");
+    const list = document.getElementById("apiProviderCustomList");
+    const initiallyHidden = list.classList.contains("hidden");
+    trigger.click();
+    await new Promise(r => setTimeout(r, 80));
+    const openNow = !list.classList.contains("hidden");
+    const options = [...list.querySelectorAll(".custom-select-option")].map(o => o.textContent);
+    const officialOption = [...list.querySelectorAll(".custom-select-option")].find(o => o.textContent.includes("官方"));
+    const hit = document.elementFromPoint(
+      officialOption.getBoundingClientRect().x + 5,
+      officialOption.getBoundingClientRect().y + 5
+    );
+    const hitOk = officialOption.contains(hit) || hit === officialOption;
+    officialOption.click();
+    await new Promise(r => setTimeout(r, 80));
+    return {
+      initiallyHidden,
+      openNow,
+      options,
+      hitOk,
+      closedAfterPick: list.classList.contains("hidden"),
+      nativeValue: document.getElementById("apiProvider").value,
+      triggerLabel: trigger.querySelector(".custom-select-value").textContent,
+      endpointAutoFilled: document.getElementById("apiEndpoint").value,
+    };
+  })()`, true);
+  assertQa(apiProviderFlow.initiallyHidden, "API type dropdown list should start closed.", apiProviderFlow);
+  assertQa(apiProviderFlow.openNow, "Clicking the API type trigger should open the dropdown list.", apiProviderFlow);
+  assertQa(apiProviderFlow.options.length === 3, "API type dropdown should list all 3 provider options.", apiProviderFlow);
+  assertQa(apiProviderFlow.hitOk, "The rendered option button should be the actual real hit-test target (not obscured by anything).", apiProviderFlow);
+  assertQa(apiProviderFlow.closedAfterPick, "Picking an option should close the dropdown list.", apiProviderFlow);
+  assertQa(apiProviderFlow.nativeValue === "official", "Picking an option should update the underlying native select's value.", apiProviderFlow);
+  assertQa(apiProviderFlow.triggerLabel.includes("官方"), "The trigger button should display the newly picked option's label.", apiProviderFlow);
+  assertQa(apiProviderFlow.endpointAutoFilled.includes("openai.com"), "Switching provider via the custom dropdown should still drive downstream logic (endpoint auto-fill).", apiProviderFlow);
+
+  const outsideClickAndEscape = await cdp.eval(`(async () => {
+    const trigger = document.getElementById("desktopProxyModeTrigger");
+    // desktopProxyMode lives in the settings modal; open settings first.
+    document.getElementById("settingsBtn").click();
+    await new Promise(r => setTimeout(r, 80));
+    trigger.click();
+    await new Promise(r => setTimeout(r, 80));
+    const openAfterClick = !document.getElementById("desktopProxyModeCustomList").classList.contains("hidden");
+    document.body.click();
+    await new Promise(r => setTimeout(r, 80));
+    const closedAfterOutsideClick = document.getElementById("desktopProxyModeCustomList").classList.contains("hidden");
+    trigger.click();
+    await new Promise(r => setTimeout(r, 80));
+    const openAgain = !document.getElementById("desktopProxyModeCustomList").classList.contains("hidden");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await new Promise(r => setTimeout(r, 80));
+    const closedAfterEscape = document.getElementById("desktopProxyModeCustomList").classList.contains("hidden");
+    return { openAfterClick, closedAfterOutsideClick, openAgain, closedAfterEscape };
+  })()`, true);
+  assertQa(outsideClickAndEscape.openAfterClick, "Proxy mode dropdown in Settings should open on click.", outsideClickAndEscape);
+  assertQa(outsideClickAndEscape.closedAfterOutsideClick, "Clicking outside an open dropdown should close it.", outsideClickAndEscape);
+  assertQa(outsideClickAndEscape.openAgain, "Proxy mode dropdown should be able to reopen after closing.", outsideClickAndEscape);
+  assertQa(outsideClickAndEscape.closedAfterEscape, "Pressing Escape should close an open dropdown.", outsideClickAndEscape);
+}
+
 async function testApiConfig(cdp) {
   logStep("API config save, restore, delete, and mobile scroll");
   await loadFresh(cdp, "api-config");
@@ -1473,6 +1540,7 @@ async function main() {
   let cdp;
   try {
     cdp = await setupBrowserPage();
+    await testCustomSelects(cdp);
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
     await testHistoryRestoreAndExport(cdp);

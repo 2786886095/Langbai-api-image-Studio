@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.2.2";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -635,10 +635,12 @@ function applyCleanLanguage() {
     const option = dom.apiProvider?.querySelector(`option[value="${value}"]`);
     if (option) option.textContent = cleanText(key);
   });
+  customSelects.apiProvider?.syncLabel();
   setText("#apiProviderHint", "apiProviderHint");
   setText("#savedApiField > span", "savedApis");
   const manual = dom.savedApis?.querySelector('option[value=""]');
   if (manual) manual.textContent = cleanText("manualApi");
+  customSelects.savedApis?.syncLabel();
   setButtonText(dom.setDefaultApi, "save", "setDefaultApi");
   setText("#apiEndpointField > span", "apiUrl");
   setText(".grsai-tip span", "grsaiWebsite");
@@ -669,6 +671,7 @@ function applyCleanLanguage() {
   setAttr("#customHeight", "placeholder", "height");
   const savedSizesFirstOption = dom.savedSizes?.querySelector('option[value=""]');
   if (savedSizesFirstOption) savedSizesFirstOption.textContent = cleanText("savedSizes");
+  customSelects.savedSizes?.syncLabel();
   setButtonText(dom.saveSizePreset, "save", "saveSizePreset");
   if (dom.deleteSizePreset) dom.deleteSizePreset.title = cleanText("deleteSizePreset");
   setText("#nImagesField > span", "imageCount");
@@ -724,6 +727,7 @@ function applyCleanLanguage() {
     const option = dom.desktopProxyMode?.querySelector(`option[value="${value}"]`);
     if (option) option.textContent = cleanText(key);
   });
+  customSelects.desktopProxyMode?.syncLabel();
   setButtonText(dom.testDesktopProxy, "search", "testDesktopProxy");
   if (dom.desktopProxyStatus && !dom.desktopProxyStatus.dataset.customStatus) {
     dom.desktopProxyStatus.textContent = cleanText("desktopProxyHint");
@@ -941,6 +945,82 @@ const dom = {
   historySearch: $("#historySearch"),
   refreshHistory:$("#refreshHistory"),
   historyList:   $("#historyList"),
+};
+
+// ─── 自绘下拉列表（替代原生 <select>，Windows exe 端原生弹出层不可用）──────
+// webview_windows 在 Windows 端是离屏渲染 WebView2（截屏合成到 Flutter），原生
+// <select> 展开的选项列表是 Chromium 内部另开的 OS 弹出窗口，不在被截屏的离屏
+// 表面里，因此打包后的 exe 完全不显示/错位，还可能吃掉输入焦点导致页面卡死没
+// 反应。HTML/浏览器端因为是真实浏览器渲染原生弹出层，不受影响。所以这个问题只
+// 在 exe 端出现，浏览器端一直是正常的。
+// 这里把原生 <select> 隐藏保留作为状态源（各处已有的 .value / addEventListener
+// change 逻辑完全不用改），上面盖一层自己画的按钮 + 列表，点击自绘选项时改写
+// select.value 并派发 change 事件驱动原逻辑。
+const _customSelectRegistry = [];
+function initCustomSelect(selectEl) {
+  if (!selectEl) return null;
+  const trigger = document.getElementById(selectEl.id + "Trigger");
+  const wrapper = document.getElementById(selectEl.id + "CustomSelect");
+  const list = document.getElementById(selectEl.id + "CustomList");
+  if (!trigger || !wrapper || !list) return null;
+  const valueLabel = trigger.querySelector(".custom-select-value");
+
+  function renderOptions() {
+    list.innerHTML = "";
+    [...selectEl.options].forEach(opt => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "custom-select-option";
+      btn.setAttribute("role", "option");
+      btn.textContent = opt.textContent;
+      btn.setAttribute("aria-selected", opt.value === selectEl.value ? "true" : "false");
+      btn.addEventListener("click", () => {
+        if (selectEl.value !== opt.value) {
+          selectEl.value = opt.value;
+          selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        close();
+        trigger.focus();
+      });
+      list.appendChild(btn);
+    });
+  }
+  function syncLabel() {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (valueLabel) valueLabel.textContent = opt ? opt.textContent : "";
+  }
+  function isOpen() { return !list.classList.contains("hidden"); }
+  function open() {
+    _customSelectRegistry.forEach(inst => { if (inst.close !== close) inst.close(); });
+    renderOptions();
+    list.classList.remove("hidden");
+    trigger.setAttribute("aria-expanded", "true");
+  }
+  function close() {
+    list.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  }
+  trigger.addEventListener("click", () => { isOpen() ? close() : open(); });
+  selectEl.addEventListener("change", syncLabel);
+  syncLabel();
+  const instance = { wrapper, close, isOpen, syncLabel, renderOptions };
+  _customSelectRegistry.push(instance);
+  return instance;
+}
+document.addEventListener("click", e => {
+  _customSelectRegistry.forEach(inst => { if (inst.isOpen() && !inst.wrapper.contains(e.target)) inst.close(); });
+}, true);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") _customSelectRegistry.forEach(inst => inst.close());
+});
+
+const customSelects = {
+  apiProvider: initCustomSelect(dom.apiProvider),
+  savedApis: initCustomSelect(dom.savedApis),
+  nImages: initCustomSelect(dom.nImages),
+  savedSizes: initCustomSelect(dom.savedSizes),
+  autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
+  desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
 };
 
 // ─── 状态 ──────────────────────────────────────────────────
@@ -1182,6 +1262,7 @@ function renderSavedApis() {
     opt.textContent = `${api.id === defaultId ? "★ " : ""}${api.name || api.endpoint}`;
     dom.savedApis.appendChild(opt);
   });
+  customSelects.savedApis?.syncLabel();
 }
 
 function findSavedApiIndex(value, apis = loadAllApis()) {
@@ -2330,6 +2411,7 @@ function renderSavedSizes() {
   if (selected && dom.savedSizes.querySelector(`option[value="${selected}"]`)) {
     dom.savedSizes.value = selected;
   }
+  customSelects.savedSizes?.syncLabel();
 }
 
 function applySizeValue(size) {

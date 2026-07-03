@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260703-1-2-1">
+  <link rel="stylesheet" href="style.css?v=20260703-1-2-2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -76,7 +76,11 @@
           <div class="config-body">
             <label class="field" id="apiProviderField">
               <span>API 类型</span>
-              <select id="apiProvider">
+              <div class="custom-select" id="apiProviderCustomSelect">
+                <button type="button" class="custom-select-trigger" id="apiProviderTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+                <div class="custom-select-list hidden" id="apiProviderCustomList" role="listbox"></div>
+              </div>
+              <select id="apiProvider" class="custom-select-native" tabindex="-1" aria-hidden="true">
                 <option value="official">官方 API</option>
                 <option value="grsai" selected>GrsAI 生图 API</option>
                 <option value="custom">自定义 API</option>
@@ -86,7 +90,11 @@
             <label class="field" id="savedApiField">
               <span>已保存的 API</span>
               <div class="saved-api-row">
-                <select id="savedApis"><option value="">— 手动填写 —</option></select>
+                <div class="custom-select custom-select-flex" id="savedApisCustomSelect">
+                  <button type="button" class="custom-select-trigger" id="savedApisTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+                  <div class="custom-select-list hidden" id="savedApisCustomList" role="listbox"></div>
+                </div>
+                <select id="savedApis" class="custom-select-native" tabindex="-1" aria-hidden="true"><option value="">— 手动填写 —</option></select>
                 <button type="button" id="setDefaultApi" class="btn btn-xs" title="设为默认 API"><span class="ui-icon ui-icon-save"></span> 默认</button>
                 <button type="button" id="deleteSavedApi" class="btn btn-xs btn-danger" title="删除当前配置"><span class="ui-icon ui-icon-trash"></span></button>
               </div>
@@ -141,7 +149,11 @@
         <label class="field single-only" id="nImagesField">
           <span>生成数量</span>
           <div class="n-images-row">
-            <select id="nImages">
+            <div class="custom-select custom-select-narrow" id="nImagesCustomSelect">
+              <button type="button" class="custom-select-trigger" id="nImagesTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+              <div class="custom-select-list hidden" id="nImagesCustomList" role="listbox"></div>
+            </div>
+            <select id="nImages" class="custom-select-native" tabindex="-1" aria-hidden="true">
               <option value="1">1 张</option>
               <option value="2">2 张</option>
               <option value="3">3 张</option>
@@ -208,7 +220,11 @@
             </label>
           </div>
           <div class="saved-size-row">
-            <select id="savedSizes"><option value="">常用尺寸</option></select>
+            <div class="custom-select custom-select-flex" id="savedSizesCustomSelect">
+              <button type="button" class="custom-select-trigger" id="savedSizesTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+              <div class="custom-select-list hidden" id="savedSizesCustomList" role="listbox"></div>
+            </div>
+            <select id="savedSizes" class="custom-select-native" tabindex="-1" aria-hidden="true"><option value="">常用尺寸</option></select>
             <button type="button" id="saveSizePreset" class="btn btn-xs"><span class="ui-icon ui-icon-save"></span> 保存尺寸</button>
             <button type="button" id="deleteSizePreset" class="btn btn-xs btn-danger" title="删除常用尺寸"><span class="ui-icon ui-icon-trash"></span></button>
           </div>
@@ -234,7 +250,11 @@
             </div>
             <div class="tool-group tool-group-fill">
               <span class="tool-label">一键填写</span>
-              <select id="autoFillTemplate" class="auto-fill-select" title="一键填写模板">
+              <div class="custom-select custom-select-flex" id="autoFillTemplateCustomSelect">
+                <button type="button" class="custom-select-trigger" id="autoFillTemplateTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+                <div class="custom-select-list hidden" id="autoFillTemplateCustomList" role="listbox"></div>
+              </div>
+              <select id="autoFillTemplate" class="custom-select-native auto-fill-select" title="一键填写模板" tabindex="-1" aria-hidden="true">
                 <option value="panel-output">输出分镜 N 的图片</option>
                 <option value="ref-bubble-number">参考图 N 加编号气泡</option>
                 <option value="ref-caption-number">参考图 N 加文字编号</option>
@@ -364,7 +384,11 @@
           <h3>电脑端网络代理</h3>
           <label class="field">
             <span>代理模式</span>
-            <select id="desktopProxyMode">
+            <div class="custom-select" id="desktopProxyModeCustomSelect">
+              <button type="button" class="custom-select-trigger" id="desktopProxyModeTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+              <div class="custom-select-list hidden" id="desktopProxyModeCustomList" role="listbox"></div>
+            </div>
+            <select id="desktopProxyMode" class="custom-select-native" tabindex="-1" aria-hidden="true">
               <option value="http7890">HTTP 127.0.0.1:7890</option>
               <option value="socks10808">SOCKS5 127.0.0.1:10808</option>
               <option value="direct">直连</option>
@@ -385,7 +409,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.2.1</strong>
+            <strong id="currentVersionLabel">v1.2.2</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -448,6 +472,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260703-1-2-1"></script>
+  <script src="app.js?v=20260703-1-2-2"></script>
 </body>
 </html>

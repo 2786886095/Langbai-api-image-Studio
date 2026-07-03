@@ -406,12 +406,62 @@ input[type="number"] { -moz-appearance: textfield; }
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
+/* ===== Custom Select（自绘下拉列表，替代原生 <select>）=====
+   Windows 端用 webview_windows 离屏渲染 WebView2（Windows.Graphics.Capture 截屏合成），
+   原生 <select> 弹出的选项列表是 Chromium 内部单独开的一个 OS 弹出窗口，不属于被截屏的
+   离屏表面，所以在打包后的 exe 里完全不显示/错位，还可能卡住输入焦点导致页面失去响应。
+   浏览器/HTML 端因为是真实浏览器渲染原生弹出层，不受影响，所以只有 exe 端会复现这个问题。
+   解法：所有下拉框都不再依赖原生弹出层，改成这里的自绘列表；原来的 <select> 保留在 DOM 里
+   （加 .custom-select-native 隐藏），继续作为状态源，各处已有的 .value / change 监听逻辑不用改。 */
+.custom-select { position: relative; width: 100%; min-width: 0; }
+.custom-select-flex { flex: 1; }
+.custom-select-narrow { flex: 0 0 80px; }
+select.custom-select-native {
+  position: absolute !important;
+  width: 1px; height: 1px; padding: 0; margin: -1px; border: 0;
+  clip: rect(0 0 0 0); clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+.custom-select-trigger {
+  display: block; width: 100%; text-align: left;
+  background: var(--surface2); color: var(--text);
+  border: 2px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 30px 9px 11px; font: inherit; font-size: 0.88rem;
+  cursor: pointer; transition: var(--transition); box-shadow: var(--inset-shadow);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.custom-select-trigger:hover { border-color: var(--border-strong); }
+.custom-select-trigger:focus-visible,
+.custom-select-trigger[aria-expanded="true"] {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow), var(--inset-shadow);
+}
+.custom-select-value { display: block; overflow: hidden; text-overflow: ellipsis; }
+.custom-select-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 40;
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 240px; overflow-y: auto; padding: 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+.custom-select-option {
+  appearance: none; border: none; background: transparent; color: var(--text);
+  text-align: left; padding: 8px 10px; border-radius: var(--radius-sm);
+  font: inherit; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.custom-select-option:hover,
+.custom-select-option:focus-visible,
+.custom-select-option[aria-selected="true"] {
+  background: var(--primary-bg); color: var(--primary-strong);
+}
+
 /* ===== Row Layouts ===== */
 .saved-api-row, .model-input-row {
   display: flex; gap: 6px; align-items: center;
 }
-.saved-api-row select, .model-input-row input { flex: 1; }
-.saved-api-row select { min-width: 0; }
+.model-input-row input { flex: 1; }
 
 .model-choices {
   display: flex;
@@ -452,7 +502,6 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .n-images-row {
   display: flex; align-items: center; gap: 10px;
 }
-.n-images-row select { flex: 0 0 80px; }
 
 /* ===== Password ===== */
 .password-wrap { position: relative; }
@@ -617,7 +666,6 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   align-items: center;
   margin-top: 8px;
 }
-.saved-size-row select { min-width: 0; }
 .saved-size-row .btn-xs { min-height: 32px; }
 
 /* ===== Section Header ===== */
@@ -651,10 +699,8 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   width: 72px !important; padding: 6px 8px !important; text-align: center;
   font-size: 0.74rem !important;
 }
-.auto-fill-select {
-  width: 100%; min-width: 0; padding: 7px 9px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); background: var(--surface2); color: var(--text);
-  font-size: 0.76rem;
+.tool-group-fill .custom-select-trigger {
+  padding: 7px 30px 7px 9px; border-width: 1px; font-size: 0.76rem;
 }
 
 /* ===== Panel Table ===== */
@@ -1450,8 +1496,7 @@ input[type="password"],
 input[type="number"],
 textarea,
 select,
-.zip-name-input,
-.auto-fill-select {
+.zip-name-input {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface2);
@@ -2030,7 +2075,7 @@ textarea {
     flex-direction: row;
     align-items: center;
   }
-  .n-images-row select {
+  .n-images-row .custom-select {
     flex: 0 0 92px;
     max-width: 112px;
   }
@@ -2524,7 +2569,10 @@ main.result-panel .result-actions .btn {
     grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
-  .saved-size-row select,
+  .saved-size-row .custom-select-trigger {
+    min-height: 30px;
+    padding-block: 4px;
+  }
   .saved-size-row .btn-xs {
     min-height: 30px;
     height: 30px;
@@ -2545,9 +2593,11 @@ main.result-panel .result-actions .btn {
     gap: 8px;
   }
 
-  .n-images-row select {
-    height: 32px;
+  .n-images-row .custom-select {
     flex: 0 0 78px;
+  }
+  .n-images-row .custom-select-trigger {
+    padding-block: 5px;
   }
 
   #generateBtn {
