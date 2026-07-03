@@ -987,11 +987,13 @@ select.custom-select-native {
   background: rgba(0,0,0,0.64);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
+  overscroll-behavior: contain;
 }
 .modal-card {
   width: min(900px, 100%);
   max-height: min(760px, calc(100vh - 40px));
   overflow: auto;
+  overscroll-behavior: contain;
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: var(--radius);

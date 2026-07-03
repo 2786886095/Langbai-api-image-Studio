@@ -1504,15 +1504,85 @@ async function testManualWheelScrollFallback(cdp) {
       document.getElementById("settingsBtn").click();
       await new Promise(r => setTimeout(r, 100));
       const card = document.querySelector("#settingsModal .modal-card");
+      const inputPanel = document.querySelector(".input-panel");
       card.style.maxHeight = "200px";
+      inputPanel.scrollTop = 0;
       card.scrollTop = 0;
       const before = card.scrollTop;
       const inner = card.querySelector(".settings-section") || card;
       inner.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
       await new Promise(r => setTimeout(r, 50));
-      return { before, after: card.scrollTop };
+      const afterInner = card.scrollTop;
+      card.scrollTop = 0;
+      inputPanel.scrollTop = 0;
+      inputPanel.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 50));
+      const afterBackgroundTarget = {
+        card: card.scrollTop,
+        inputPanel: inputPanel.scrollTop,
+      };
+      card.scrollTop = 0;
+      inputPanel.scrollTop = 0;
+      document.body.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 50));
+      const afterBodyTarget = {
+        card: card.scrollTop,
+        inputPanel: inputPanel.scrollTop,
+      };
+      card.scrollTop = 0;
+      inputPanel.scrollTop = 0;
+      inner.dispatchEvent(new WheelEvent("wheel", { deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 50));
+      const afterLineDelta = card.scrollTop;
+      closeModal(document.getElementById("settingsModal"));
+      await new Promise(r => setTimeout(r, 30));
+      inputPanel.scrollTop = 0;
+      const askPromise = askConfirm("short dialog");
+      await new Promise(r => setTimeout(r, 60));
+      const askOverflowDuring = document.body.style.overflow;
+      const askDispatchResult = inputPanel.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 30));
+      const askInputScroll = inputPanel.scrollTop;
+      document.querySelector(".ask-dialog-ok")?.click();
+      await askPromise;
+      await new Promise(r => setTimeout(r, 30));
+      const askOverflowAfter = document.body.style.overflow;
+      inputPanel.scrollTop = 0;
+      openLightbox("data:image/png;base64,iVBORw0KGgo=");
+      await new Promise(r => setTimeout(r, 30));
+      const lightboxOverflowDuring = document.body.style.overflow;
+      const lightboxDispatchResult = inputPanel.dispatchEvent(new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 30));
+      const lightboxInputScroll = inputPanel.scrollTop;
+      document.querySelector(".lightbox")?.click();
+      await new Promise(r => setTimeout(r, 30));
+      const lightboxOverflowAfter = document.body.style.overflow;
+      return {
+        before,
+        after: afterInner,
+        afterBackgroundTarget,
+        afterBodyTarget,
+        afterLineDelta,
+        ask: {
+          overflowDuring: askOverflowDuring,
+          dispatchPrevented: askDispatchResult === false,
+          inputPanelScroll: askInputScroll,
+          overflowAfter: askOverflowAfter,
+        },
+        lightbox: {
+          overflowDuring: lightboxOverflowDuring,
+          dispatchPrevented: lightboxDispatchResult === false,
+          inputPanelScroll: lightboxInputScroll,
+          overflowAfter: lightboxOverflowAfter,
+        },
+      };
     })()`, true);
     assertQa(result.after > result.before, "A wheel event over a nested scroll container in the native Windows exe should move that container's scrollTop via the JS fallback.", result);
+    assertQa(result.afterBackgroundTarget.card > 0 && result.afterBackgroundTarget.inputPanel === 0, "When a modal is open, a misrouted wheel event targeting the background panel should scroll the modal card, not the main input panel.", result);
+    assertQa(result.afterBodyTarget.card > 0 && result.afterBodyTarget.inputPanel === 0, "When a modal is open, a wheel event targeting body/document should still be redirected to the modal card.", result);
+    assertQa(result.afterLineDelta > 0, "Wheel deltaMode=line should be normalized so line-based wheels can still scroll the modal.", result);
+    assertQa(result.ask.overflowDuring === "hidden" && result.ask.dispatchPrevented && result.ask.inputPanelScroll === 0 && result.ask.overflowAfter === "", "A non-scrollable ask dialog should lock body scroll and block misrouted wheel events from scrolling the main panel.", result);
+    assertQa(result.lightbox.overflowDuring === "hidden" && result.lightbox.dispatchPrevented && result.lightbox.inputPanelScroll === 0 && result.lightbox.overflowAfter === "", "The lightbox overlay should lock body scroll and block misrouted wheel events from scrolling the main panel.", result);
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
     await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });

@@ -229,6 +229,7 @@ body {
 .ui-icon-image { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 4h16v16H4V4Zm2 2v9.2l3.4-3.4 3 3 2.1-2.1L18 16.2V6H6Zm3 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z'/%3E%3C/svg%3E"); }
 .ui-icon-comic { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4h8v7H3V4Zm10 0h8v7h-8V4ZM3 13h8v7H3v-7Zm10 0h8v7h-8v-7Z'/%3E%3C/svg%3E"); }
 .ui-icon-save { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 3h12l2 2v16H5V3Zm2 2v5h9V5H7Zm0 14h10v-6H7v6Zm8-14h-2v3h2V5Z'/%3E%3C/svg%3E"); }
+.ui-icon-folder { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 6h7l2 2h9v11H3V6Z'/%3E%3C/svg%3E"); }
 .ui-icon-trash { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 3h8l1 2h4v2H3V5h4l1-2Zm1 6h2v10H9V9Zm4 0h2v10h-2V9Zm-6 0h10l-1 12H8L7 9Z'/%3E%3C/svg%3E"); }
 .ui-icon-eye { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 5c5.5 0 9 7 9 7s-3.5 7-9 7-9-7-9-7 3.5-7 9-7Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z'/%3E%3C/svg%3E"); }
 .ui-icon-eye-off { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m3.3 2 18.7 18.7-1.3 1.3-3.2-3.2A9.8 9.8 0 0 1 12 20c-5.5 0-9-8-9-8a17.6 17.6 0 0 1 4-5.2L2 3.3 3.3 2ZM12 4c5.5 0 9 8 9 8a18 18 0 0 1-2.4 3.6L15.7 13A3.8 3.8 0 0 0 11 8.3L8.8 6.1A9.5 9.5 0 0 1 12 4Z'/%3E%3C/svg%3E"); }
@@ -258,7 +259,8 @@ body {
 }
 
 .no-native-download .download-paths,
-.no-native-download .download-settings {
+.no-native-download .download-settings,
+.no-native-download #saveComicFolder {
   display: none !important;
 }
 
@@ -985,11 +987,13 @@ select.custom-select-native {
   background: rgba(0,0,0,0.64);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
+  overscroll-behavior: contain;
 }
 .modal-card {
   width: min(900px, 100%);
   max-height: min(760px, calc(100vh - 40px));
   overflow: auto;
+  overscroll-behavior: contain;
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: var(--radius);

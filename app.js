@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.2.5";
+const APP_VERSION = "1.2.6";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -1051,12 +1051,75 @@ let currentComicHistoryId = null; // 当前结果网格对应的漫画项目历�
 let latestUpdateRelease = null;
 let latestUpdateInfo = null;
 
+function canScrollVertically(el) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+  const style = getComputedStyle(el);
+  return /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2;
+}
+
+function scrollElementByWheelDelta(el, deltaY) {
+  if (!el || !Number.isFinite(deltaY)) return false;
+  const max = Math.max(0, el.scrollHeight - el.clientHeight);
+  if (max <= 0) return false;
+  const next = Math.max(0, Math.min(max, el.scrollTop + deltaY));
+  if (next === el.scrollTop) return false;
+  el.scrollTop = next;
+  return true;
+}
+
+function getWheelDeltaY(event, target = null) {
+  const raw = Number(event?.deltaY || 0);
+  if (!Number.isFinite(raw) || raw === 0) return 0;
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    const lineHeight = Number.parseFloat(getComputedStyle(target || document.body).lineHeight);
+    return raw * (Number.isFinite(lineHeight) ? lineHeight : 16);
+  }
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return raw * Math.max(1, target?.clientHeight || window.innerHeight || 800);
+  }
+  return raw;
+}
+
+function isOverlayVisible(overlay) {
+  return !!overlay && overlay.isConnected && !overlay.classList.contains("hidden");
+}
+
+function getVisibleBlockingOverlays() {
+  return [dom.settingsModal, dom.historyModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox")]
+    .filter(isOverlayVisible);
+}
+
+function getTopVisibleOverlay() {
+  const overlays = getVisibleBlockingOverlays();
+  if (!overlays.length) return null;
+  return overlays.reduce((top, overlay) => {
+    const topZ = Number.parseInt(getComputedStyle(top).zIndex, 10) || 0;
+    const z = Number.parseInt(getComputedStyle(overlay).zIndex, 10) || 0;
+    if (z > topZ) return overlay;
+    if (z === topZ && top.compareDocumentPosition(overlay) & Node.DOCUMENT_POSITION_FOLLOWING) return overlay;
+    return top;
+  }, overlays[0]);
+}
+
+function getOverlayPrimaryScroller(overlay) {
+  if (!isOverlayVisible(overlay)) return null;
+  const preferred = $(".modal-card", overlay) || overlay;
+  if (canScrollVertically(preferred)) return preferred;
+  const descendants = $$("*", overlay);
+  for (const node of descendants) {
+    if (canScrollVertically(node)) return node;
+  }
+  return null;
+}
+
+function updateBodyScrollLock() {
+  document.body.style.overflow = getTopVisibleOverlay() ? "hidden" : "";
+}
+
 function getScrollableAncestor(node) {
   let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
   while (el && el !== document.body && el !== document.documentElement) {
-    const style = getComputedStyle(el);
-    const canScroll = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2;
-    if (canScroll) return el;
+    if (canScrollVertically(el)) return el;
     el = el.parentElement;
   }
   return null;
@@ -1066,15 +1129,11 @@ function installGlobalWheelScrollBridge() {
   window.addEventListener("wheel", event => {
     if (event.defaultPrevented) return;
     if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (getTopVisibleOverlay()) return;
     const activeScroller = getScrollableAncestor(event.target);
     if (activeScroller) return;
     const panel = dom.inputPanel;
-    if (!panel || panel.scrollHeight <= panel.clientHeight + 2) return;
-    const max = panel.scrollHeight - panel.clientHeight;
-    const next = Math.max(0, Math.min(max, panel.scrollTop + event.deltaY));
-    if (next === panel.scrollTop) return;
-    panel.scrollTop = next;
-    event.preventDefault();
+    if (scrollElementByWheelDelta(panel, getWheelDeltaY(event, panel))) event.preventDefault();
   }, { passive: false });
 }
 
@@ -1644,35 +1703,51 @@ function findScrollableAncestor(el) {
   let node = el;
   while (node && node !== document.body && node !== document.documentElement) {
     if (node.nodeType === 1) {
-      const style = getComputedStyle(node);
-      if ((style.overflowY === "auto" || style.overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
-        return node;
-      }
+      if (canScrollVertically(node)) return node;
     }
     node = node.parentElement;
   }
   return null;
 }
 
+function resolveManualWheelScrollTarget(event) {
+  const overlay = getTopVisibleOverlay();
+  const targetScroller = findScrollableAncestor(event.target);
+  if (!overlay) return targetScroller;
+  if (targetScroller && overlay.contains(targetScroller)) return targetScroller;
+  const overlayScroller = getOverlayPrimaryScroller(overlay);
+  if (overlayScroller) return overlayScroller;
+  if (targetScroller && !overlay.contains(targetScroller)) return null;
+  return targetScroller;
+}
+
 function initManualWheelScrollFix() {
   if (!isNativeWindowsWebview()) return;
   document.addEventListener("wheel", e => {
-    const target = findScrollableAncestor(e.target);
-    if (!target) return;
-    target.scrollTop += e.deltaY;
+    if (e.defaultPrevented) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const overlay = getTopVisibleOverlay();
+    const target = resolveManualWheelScrollTarget(e);
+    if (!target && !overlay) return;
+    if (target && scrollElementByWheelDelta(target, getWheelDeltaY(e, target))) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!overlay) return;
     e.preventDefault();
-  }, { passive: false });
+    e.stopPropagation();
+  }, { passive: false, capture: true });
 }
 
 function openModal(modal) {
   modal?.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
+  updateBodyScrollLock();
 }
 
 function closeModal(modal) {
   modal?.classList.add("hidden");
-  if (!dom.settingsModal?.classList.contains("hidden") || !dom.historyModal?.classList.contains("hidden")) return;
-  document.body.style.overflow = "";
+  updateBodyScrollLock();
 }
 
 // ─── 自定义确认/输入弹窗 ─────────────────────────────────────
@@ -1703,6 +1778,7 @@ function openAskDialog({ message, kind = "confirm", defaultValue = "" }) {
       settled = true;
       document.removeEventListener("keydown", onKeydown, true);
       overlay.remove();
+      updateBodyScrollLock();
       resolve(value);
     };
     const onKeydown = e => {
@@ -1715,6 +1791,7 @@ function openAskDialog({ message, kind = "confirm", defaultValue = "" }) {
     document.addEventListener("keydown", onKeydown, true);
 
     document.body.appendChild(overlay);
+    updateBodyScrollLock();
     (input || overlay.querySelector(".ask-dialog-ok"))?.focus();
     input?.select();
   });
@@ -5347,9 +5424,15 @@ function openLightbox(imageUrl) {
   const img = document.createElement("img");
   img.src = imageUrl;
   overlay.appendChild(img);
-  overlay.addEventListener("click", () => overlay.remove());
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+    updateBodyScrollLock();
+  };
+  overlay.addEventListener("click", close);
   document.body.appendChild(overlay);
-  const onKey = e => { if (e.key === "Escape") { overlay.remove(); document.removeEventListener("keydown", onKey); } };
+  updateBodyScrollLock();
+  const onKey = e => { if (e.key === "Escape") close(); };
   document.addEventListener("keydown", onKey);
 }
 
