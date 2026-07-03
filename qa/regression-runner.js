@@ -1661,11 +1661,21 @@ async function testModelChoicesWheelScroll(cdp) {
       await new Promise(r => setTimeout(r, 50));
       const afterMisroutedTarget = { list: list.scrollTop, inputPanel: inputPanel.scrollTop };
 
+      // Regression guard: when a flex column (.custom-select-list) has more items than fit in
+      // its max-height, flexbox will shrink every item below its own content size unless each
+      // item has flex-shrink:0 — the container ends up scrolling a list of squished, overlapping
+      // rows instead of full-size rows. Assert every option's rendered box is tall enough to
+      // actually contain its own content (offsetHeight >= scrollHeight, i.e. nothing clipped).
+      const allOptions = [...list.querySelectorAll(".custom-select-option")];
+      const squished = allOptions.filter(o => o.offsetHeight < o.scrollHeight).length;
+
       return {
         hasOverflow,
         before,
         afterCorrectTarget,
         afterMisroutedTarget,
+        optionCount: allOptions.length,
+        squished,
       };
     })()`, true);
     assertQa(result.hasOverflow, "Test setup sanity check: 40 detected models should overflow the 240px-tall dropdown popup so this test actually exercises nested scrolling.", result);
@@ -1673,6 +1683,7 @@ async function testModelChoicesWheelScroll(cdp) {
     assertQa(result.afterCorrectTarget.inputPanel === result.before.inputPanel, "A wheel event over the open model dropdown should NOT scroll the outer .input-panel — this is the 'hovering over model selection moves the global scrollbar instead' bug.", result);
     assertQa(result.afterMisroutedTarget.list > 0, "Even if webview_windows reports a wrong event.target (e.g. .input-panel) while the cursor's clientX/clientY are actually over the open dropdown, elementFromPoint-based recovery should still scroll it.", result);
     assertQa(result.afterMisroutedTarget.inputPanel === 0, "The misrouted-target case should still not move the outer .input-panel once coordinate-based recovery kicks in.", result);
+    assertQa(result.squished === 0, `${result.squished}/${result.optionCount} dropdown option rows were flex-shrunk below their own content height, causing overlapping/garbled text — every row needs flex-shrink:0.`, result);
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
     await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });

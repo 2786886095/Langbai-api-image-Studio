@@ -452,6 +452,7 @@ select.custom-select-native {
   text-align: left; padding: 8px 10px; border-radius: var(--radius-sm);
   font: inherit; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 .custom-select-option:hover,
 .custom-select-option:focus-visible,
