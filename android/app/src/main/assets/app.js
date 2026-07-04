@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.4";
+const APP_VERSION = "1.3.5";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -189,15 +189,18 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "自定义代理地址无效，仅支持 http://host:port、https://host:port、socks5://host:port",
     connectApi: "接入 API", apiDetect: "检测", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "点击接入 API 后填写地址、Key 和模型",
-    singleMode: "单图模式", comicMode: "漫画分镜", prompt: "提示词", globalPrompt: "全局提示词",
-    globalPromptComic: "全局提示词（注入所有分镜）", importTxt: "导入 txt",
+    singleMode: "单图模式", comicMode: "漫画分镜", captionMode: "嵌字模式", prompt: "提示词", globalPrompt: "全局提示词",
+    globalPromptComic: "全局提示词（注入所有分镜）", globalPromptCaption: "全局提示词（注入所有图片）", importTxt: "导入 txt",
     promptPlaceholder: "描述你想生成的图片，越详细越好……\n\n例如：一只橘猫坐在窗台上，阳光透过纱帘洒在它身上，油画风格，暖色调",
     globalRefs: "全局参考图片（可选，支持多选）", uploadRefs: "点击或拖拽上传参考图（可多选）",
     uploadRefsClickOnly: "点击上传参考图（可多选）",
+    captionUploadHint: "点击或拖拽批量上传图片（自动按文件名顺序逐张生成，不会一次性打包发送）",
+    captionUploadHintClickOnly: "点击批量上传图片（自动按文件名顺序逐张生成，不会一次性打包发送）",
+    generateAllCaptions: "批量生成全部图片",
     matchSize: "输出尺寸与参考图一致", resolution: "全局分辨率", landscape: "横版 3:2", portrait: "竖版 2:3",
     custom: "自定义", width: "宽", height: "高", savedSizes: "常用尺寸", saveSizePreset: "保存尺寸", deleteSizePreset: "删除常用尺寸", imageCount: "生成数量", sequential: "依次生成",
     sequentialHint: "不勾选：并发批量生成（最多同时 20 个请求）；勾选：逐张依次生成",
-    panelList: "分镜列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
+    panelList: "分镜列表", captionList: "嵌字列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜",
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…",
@@ -209,7 +212,7 @@ const CLEAN_LOCALES = {
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", autoRetry: "自动重试", globalRetries: "全局重试次数",
     retryHint: "只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
     restoreProject: "恢复项目", downloadProject: "导出项目", viewPrompts: "查看提示词与分镜",
-    globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目",
+    globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
@@ -245,15 +248,18 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "自訂代理位址無效，僅支援 http://host:port、https://host:port、socks5://host:port",
     connectApi: "接入 API", apiDetect: "偵測", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "點擊接入 API 後填寫位址、Key 和模型",
-    singleMode: "單圖模式", comicMode: "漫畫分鏡", prompt: "提示詞", globalPrompt: "全域提示詞",
-    globalPromptComic: "全域提示詞（套用到所有分鏡）", importTxt: "匯入 txt",
+    singleMode: "單圖模式", comicMode: "漫畫分鏡", captionMode: "嵌字模式", prompt: "提示詞", globalPrompt: "全域提示詞",
+    globalPromptComic: "全域提示詞（套用到所有分鏡）", globalPromptCaption: "全域提示詞（套用到所有圖片）", importTxt: "匯入 txt",
     promptPlaceholder: "描述你想生成的圖片，越詳細越好……\n\n例如：一隻橘貓坐在窗台上，陽光透過紗簾灑在牠身上，油畫風格，暖色調",
     globalRefs: "全域參考圖片（可選，支援多選）", uploadRefs: "點擊或拖曳上傳參考圖（可多選）",
     uploadRefsClickOnly: "點擊上傳參考圖（可多選）",
+    captionUploadHint: "點擊或拖曳批次上傳圖片（自動依檔名順序逐張生成，不會一次性打包傳送）",
+    captionUploadHintClickOnly: "點擊批次上傳圖片（自動依檔名順序逐張生成，不會一次性打包傳送）",
+    generateAllCaptions: "批次生成全部圖片",
     matchSize: "輸出尺寸與參考圖一致", resolution: "全域解析度", landscape: "橫版 3:2", portrait: "直版 2:3",
     custom: "自訂", width: "寬", height: "高", savedSizes: "常用尺寸", saveSizePreset: "儲存尺寸", deleteSizePreset: "刪除常用尺寸", imageCount: "生成數量", sequential: "依序生成",
     sequentialHint: "不勾選：並發批次生成（最多同時 20 個請求）；勾選：逐張依序生成",
-    panelList: "分鏡列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
+    panelList: "分鏡列表", captionList: "嵌字列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡",
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…",
@@ -265,7 +271,7 @@ const CLEAN_LOCALES = {
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", autoRetry: "自動重試", globalRetries: "全域重試次數",
     retryHint: "只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
     restoreProject: "恢復專案", downloadProject: "匯出專案", viewPrompts: "查看提示詞與分鏡",
-    globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案",
+    globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
@@ -301,15 +307,18 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "Invalid custom proxy URL. Use http://host:port, https://host:port, or socks5://host:port.",
     connectApi: "Connect API", apiDetect: "Detect", apiConnected: "API connected", apiDisconnected: "API not connected",
     apiConnectHint: "Connect an API, then enter URL, key, and model",
-    singleMode: "Single Image", comicMode: "Comic Panels", prompt: "Prompt", globalPrompt: "Global Prompt",
-    globalPromptComic: "Global Prompt (applied to all panels)", importTxt: "Import txt",
+    singleMode: "Single Image", comicMode: "Comic Panels", captionMode: "Caption Mode", prompt: "Prompt", globalPrompt: "Global Prompt",
+    globalPromptComic: "Global Prompt (applied to all panels)", globalPromptCaption: "Global Prompt (applied to all images)", importTxt: "Import txt",
     promptPlaceholder: "Describe the image you want to generate. More detail is better...\n\nExample: an orange cat on a windowsill, sunlight through sheer curtains, oil painting style, warm tones",
     globalRefs: "Global reference images (optional, multiple)", uploadRefs: "Click or drag to upload reference images",
     uploadRefsClickOnly: "Click to upload reference images",
+    captionUploadHint: "Click or drag to bulk-upload images (generated one at a time in filename order, never bundled into a single request)",
+    captionUploadHintClickOnly: "Click to bulk-upload images (generated one at a time in filename order, never bundled into a single request)",
+    generateAllCaptions: "Generate All Images",
     matchSize: "Match output size to reference", resolution: "Global Resolution", landscape: "Landscape 3:2", portrait: "Portrait 2:3",
     custom: "Custom", width: "W", height: "H", savedSizes: "Saved sizes", saveSizePreset: "Save size", deleteSizePreset: "Delete saved size", imageCount: "Image Count", sequential: "Generate sequentially",
     sequentialHint: "Unchecked: concurrent batch generation (up to 20 requests at once). Checked: generate one image at a time.",
-    panelList: "Panel List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
+    panelList: "Panel List", captionList: "Caption List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels",
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...",
@@ -321,7 +330,7 @@ const CLEAN_LOCALES = {
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", autoRetry: "Auto Retry", globalRetries: "Global retries",
     retryHint: "Only HTTP 400 retries automatically. 0 disables auto retry. Per-panel retries override this.",
     restoreProject: "Restore Project", downloadProject: "Export Project", viewPrompts: "View prompts and panels",
-    globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project",
+    globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
@@ -357,15 +366,18 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "カスタムプロキシ URL が無効です。http://host:port、https://host:port、socks5://host:port のみ対応しています。",
     connectApi: "API 接続", apiDetect: "検出", apiConnected: "API 接続済み", apiDisconnected: "API 未接続",
     apiConnectHint: "API 接続後、URL、Key、モデルを入力してください",
-    singleMode: "単体画像", comicMode: "漫画コマ", prompt: "プロンプト", globalPrompt: "全体プロンプト",
-    globalPromptComic: "全体プロンプト（全コマに適用）", importTxt: "txt を読み込む",
+    singleMode: "単体画像", comicMode: "漫画コマ", captionMode: "テキスト入れモード", prompt: "プロンプト", globalPrompt: "全体プロンプト",
+    globalPromptComic: "全体プロンプト（全コマに適用）", globalPromptCaption: "全体プロンプト（全画像に適用）", importTxt: "txt を読み込む",
     promptPlaceholder: "生成したい画像を詳しく説明してください...\n\n例：窓辺のオレンジ色の猫、薄いカーテン越しの光、油絵風、暖色",
     globalRefs: "全体参考画像（任意・複数可）", uploadRefs: "クリックまたはドラッグで参考画像をアップロード",
     uploadRefsClickOnly: "クリックで参考画像をアップロード",
+    captionUploadHint: "クリックまたはドラッグで画像を一括アップロード（ファイル名順に1枚ずつ生成、まとめて送信はしません）",
+    captionUploadHintClickOnly: "クリックで画像を一括アップロード（ファイル名順に1枚ずつ生成、まとめて送信はしません）",
+    generateAllCaptions: "全画像を一括生成",
     matchSize: "出力サイズを参考画像に合わせる", resolution: "全体解像度", landscape: "横 3:2", portrait: "縦 2:3",
     custom: "カスタム", width: "幅", height: "高", savedSizes: "保存サイズ", saveSizePreset: "サイズ保存", deleteSizePreset: "保存サイズ削除", imageCount: "生成数", sequential: "順番に生成",
     sequentialHint: "オフ：並列一括生成（最大同時 20 リクエスト）。オン：1 枚ずつ順番に生成。",
-    panelList: "コマ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
+    panelList: "コマ一覧", captionList: "テキスト入れ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成",
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...",
@@ -377,7 +389,7 @@ const CLEAN_LOCALES = {
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
     retryHint: "HTTP 400 のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
     restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", viewPrompts: "プロンプトとコマを見る",
-    globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト",
+    globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
@@ -413,15 +425,18 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "사용자 프록시 URL이 잘못되었습니다. http://host:port, https://host:port, socks5://host:port만 지원합니다.",
     connectApi: "API 연결", apiDetect: "감지", apiConnected: "API 연결됨", apiDisconnected: "API 미연결",
     apiConnectHint: "API를 연결한 뒤 URL, Key, 모델을 입력하세요",
-    singleMode: "단일 이미지", comicMode: "만화 콘티", prompt: "프롬프트", globalPrompt: "전체 프롬프트",
-    globalPromptComic: "전체 프롬프트(모든 콘티에 적용)", importTxt: "txt 가져오기",
+    singleMode: "단일 이미지", comicMode: "만화 콘티", captionMode: "말풍선 모드", prompt: "프롬프트", globalPrompt: "전체 프롬프트",
+    globalPromptComic: "전체 프롬프트(모든 콘티에 적용)", globalPromptCaption: "전체 프롬프트(모든 이미지에 적용)", importTxt: "txt 가져오기",
     promptPlaceholder: "생성할 이미지를 자세히 설명하세요...\n\n예: 창가에 앉은 주황색 고양이, 커튼 사이로 비치는 햇빛, 유화 스타일, 따뜻한 톤",
     globalRefs: "전체 참고 이미지(선택, 다중)", uploadRefs: "클릭하거나 드래그해 참고 이미지 업로드",
     uploadRefsClickOnly: "클릭하여 참고 이미지 업로드",
+    captionUploadHint: "클릭하거나 드래그해 이미지를 일괄 업로드(파일명 순서대로 한 장씩 생성하며, 한 번에 묶어서 보내지 않음)",
+    captionUploadHintClickOnly: "클릭하여 이미지를 일괄 업로드(파일명 순서대로 한 장씩 생성하며, 한 번에 묶어서 보내지 않음)",
+    generateAllCaptions: "전체 이미지 일괄 생성",
     matchSize: "출력 크기를 참고 이미지와 맞춤", resolution: "전체 해상도", landscape: "가로 3:2", portrait: "세로 2:3",
     custom: "사용자 지정", width: "너비", height: "높이", savedSizes: "저장 크기", saveSizePreset: "크기 저장", deleteSizePreset: "저장 크기 삭제", imageCount: "생성 수", sequential: "순차 생성",
     sequentialHint: "선택 해제: 동시 일괄 생성(최대 동시 20개 요청). 선택: 한 장씩 순차 생성.",
-    panelList: "콘티 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
+    panelList: "콘티 목록", captionList: "말풍선 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성",
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...",
@@ -433,7 +448,7 @@ const CLEAN_LOCALES = {
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
     retryHint: "HTTP 400만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
     restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", viewPrompts: "프롬프트와 콘티 보기",
-    globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트",
+    globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
@@ -672,14 +687,18 @@ function applyCleanLanguage() {
   updateApiQuickState();
 
   $$(".mode-tab", dom.modeTabs).forEach(tab => {
-    setButtonText(tab, tab.dataset.mode === "comic" ? "comic" : "image", tab.dataset.mode === "comic" ? "comicMode" : "singleMode");
+    const iconKey = tab.dataset.mode === "comic" ? "comic" : tab.dataset.mode === "caption" ? "bubble" : "image";
+    const labelKey = tab.dataset.mode === "comic" ? "comicMode" : tab.dataset.mode === "caption" ? "captionMode" : "singleMode";
+    setButtonText(tab, iconKey, labelKey);
   });
 
   const isComic = currentMode === "comic";
-  setText("#globalPromptField .field-label-text", isComic ? "globalPromptComic" : "prompt");
+  const isCaption = currentMode === "caption";
+  setText("#globalPromptField .field-label-text", isComic ? "globalPromptComic" : isCaption ? "globalPromptCaption" : "prompt");
   setButtonText(dom.importTxt, "file", "importTxt");
   if (dom.prompt) dom.prompt.placeholder = cleanText("promptPlaceholder");
   setText(".image-upload .upload-zone span:last-child", isDragDropUnsupported() ? "uploadRefsClickOnly" : "uploadRefs");
+  setText("#captionUploadZone span:last-child", isDragDropUnsupported() ? "captionUploadHintClickOnly" : "captionUploadHint");
   setIconLabel("#useOrigSizeToggle > span", "size", "matchSize");
   setText("fieldset.field > legend", "resolution");
   setText(".size-option:nth-child(2) small", "landscape");
@@ -699,6 +718,8 @@ function applyCleanLanguage() {
   setIconLabel("#comicPanelSection .section-header > span", "comic", "panelList");
   setButtonText(dom.addPanel, "plus", "addPanel");
   if (dom.clearPanels) dom.clearPanels.textContent = cleanText("clear");
+  setIconLabel("#captionSection .section-header > span", "bubble", "captionList");
+  if (dom.clearCaptionRows) dom.clearCaptionRows.textContent = cleanText("clear");
   setText(".tool-group:nth-child(1) .tool-label", "batchCreate");
   setText(".panel-count-control > span", "panelCount");
   if (dom.createPanels) dom.createPanels.textContent = cleanText("createBtn");
@@ -709,7 +730,7 @@ function applyCleanLanguage() {
   setText(".panel-table th.col-retry", "retry");
   setText(".panel-table th.col-img", "reference");
 
-  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : "generateImage");
+  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
   setButtonText(dom.chooseImageDir, "image", "imageFolder");
   setButtonText(dom.chooseZipDir, "zip", "zipFolder");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
@@ -877,6 +898,7 @@ const dom = {
   importTxt:     $("#importTxt"),
   txtFileInput:  $("#txtFileInput"),
   promptHint:    $("#promptHint"),
+  referenceField: $("#referenceField"),
   refImage:      $("#refImage"),
   uploadZone:    $("#uploadZone"),
   thumbGrid:     $("#thumbGrid"),
@@ -898,6 +920,12 @@ const dom = {
   addPanel:      $("#addPanel"),
   clearPanels:   $("#clearPanels"),
   panelTbody:    $("#panelTbody"),
+  // 嵌字专属
+  captionSection: $("#captionSection"),
+  captionUploadZone: $("#captionUploadZone"),
+  captionBulkInput: $("#captionBulkInput"),
+  captionTbody:  $("#captionTbody"),
+  clearCaptionRows: $("#clearCaptionRows"),
   // 进度
   progressWrap:  $("#progressWrap"),
   progressFill:  $("#progressFill"),
@@ -1100,8 +1128,9 @@ dom.modelChoices?.addEventListener("change", () => {
 });
 
 // ─── 状态 ──────────────────────────────────────────────────
-let currentMode = "single";   // "single" | "comic"
+let currentMode = "single";   // "single" | "comic" | "caption"
 let panelCounter = 0;         // 分镜自增编号
+let captionRowCounter = 0;    // 嵌字行自增编号
 let abortController = null;   // 用于取消批量生成
 let activeGenerationId = 0;    // 用于丢弃已取消/过期的生成结果
 let importedTxtFiles = [];      // { name, content } —— 导入的多个 txt 文件
@@ -2331,19 +2360,24 @@ function switchMode(mode) {
   });
 
   const isComic = mode === "comic";
+  const isCaption = mode === "caption";
   dom.comicSection.classList.toggle("hidden", !isComic);
-  dom.nImagesField.classList.toggle("hidden", isComic);
-  dom.saveComicFolder.classList.toggle("hidden", !isComic);
+  dom.captionSection.classList.toggle("hidden", !isCaption);
+  dom.nImagesField.classList.toggle("hidden", isComic || isCaption);
+  dom.referenceField.classList.toggle("hidden", isCaption);
+  dom.saveComicFolder.classList.toggle("hidden", !(isComic || isCaption));
   dom.progressWrap.classList.toggle("hidden", true);
 
   const label = $("#globalPromptField .field-label-text");
-  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : "提示词");
+  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : isCaption ? "全局提示词（注入所有图片）" : "提示词");
 
-  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : "generateImage");
+  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
 
   if (isComic) {
     dom.promptHint.textContent = tr("全局提示词将拼接在每个分镜提示词前面");
     if (dom.panelTbody.children.length === 0) addPanelRow();
+  } else if (isCaption) {
+    dom.promptHint.textContent = tr("全局提示词将拼接在每张图片的气泡文字前面");
   } else {
     dom.promptHint.textContent = "";
   }
@@ -2354,10 +2388,11 @@ function switchMode(mode) {
 
 function refreshLocalizedUiState() {
   const isComic = currentMode === "comic";
+  const isCaption = currentMode === "caption";
   const label = $("#globalPromptField .field-label-text");
-  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : "提示词");
-  if (dom.promptHint) dom.promptHint.textContent = isComic ? tr("全局提示词将拼接在每个分镜提示词前面") : "";
-  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : "generateImage");
+  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : isCaption ? "全局提示词（注入所有图片）" : "提示词");
+  if (dom.promptHint) dom.promptHint.textContent = isComic ? tr("全局提示词将拼接在每个分镜提示词前面") : isCaption ? tr("全局提示词将拼接在每张图片的气泡文字前面") : "";
+  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
   setButtonText(dom.detectModels, "search", "detect");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
   setButtonText(dom.saveComicFolder, "folder", "saveToFolder");
@@ -2867,6 +2902,40 @@ dom.clearPanels.addEventListener("click", async () => {
   }
 });
 
+dom.captionUploadZone.addEventListener("click", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  openFileInputOnce(dom.captionBulkInput);
+});
+dom.captionUploadZone.addEventListener("dragover", e => { e.preventDefault(); dom.captionUploadZone.classList.add("drag-over"); });
+dom.captionUploadZone.addEventListener("dragleave", () => dom.captionUploadZone.classList.remove("drag-over"));
+dom.captionUploadZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dom.captionUploadZone.classList.remove("drag-over");
+  addCaptionRowsFromFiles(e.dataTransfer.files);
+});
+dom.captionBulkInput.addEventListener("change", () => {
+  addCaptionRowsFromFiles(dom.captionBulkInput.files);
+  dom.captionBulkInput.value = "";
+});
+dom.clearCaptionRows.addEventListener("click", async () => {
+  if (dom.captionTbody.children.length === 0 && !abortController) return;
+  if (await askConfirm("确定清空所有嵌字行？")) {
+    const wasGenerating = !!abortController;
+    stopCurrentGeneration("已取消当前生成并清空嵌字行");
+    dom.captionTbody.innerHTML = "";
+    captionRowCounter = 0;
+    if (wasGenerating) {
+      dom.resultGrid.innerHTML = "";
+      dom.resultGrid.classList.add("hidden");
+      dom.emptyState.classList.remove("hidden");
+      dom.resultToolbar.classList.add("hidden");
+      generatedImageUrls = [];
+      updateFailedRetryTools();
+    }
+  }
+});
+
 const AUTO_FILL_TEMPLATE_LABELS = {
   "panel-output": "输出分镜 N 的图片",
   "ref-bubble-number": "参考图 N 加编号气泡",
@@ -2958,6 +3027,129 @@ async function waitForPanelReferenceTasks(panels) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  嵌字表格 CRUD
+// ═══════════════════════════════════════════════════════════
+
+const captionRowTemplate = $("#captionRowTemplate");
+
+function applyCaptionRowImage(row, ref) {
+  const imgPreview = row.querySelector(".panel-img-preview");
+  const imgName = row.querySelector(".panel-img-name");
+  const imgClear = row.querySelector(".panel-img-clear");
+  row._captionReference = ref;
+  imgPreview.style.backgroundImage = `url("${ref.dataUrl}")`;
+  imgPreview.classList.remove("hidden");
+  imgName.textContent = ref.fileName;
+  imgName.title = ref.fileName;
+  imgClear.classList.remove("hidden");
+}
+
+function addCaptionRow(prefilledRef = null) {
+  captionRowCounter++;
+  const clone = captionRowTemplate.content.cloneNode(true);
+  const row = clone.querySelector(".caption-row");
+
+  row.querySelector(".panel-num").textContent = captionRowCounter;
+  row.dataset.captionId = captionRowCounter;
+
+  row.querySelector(".delete-panel").addEventListener("click", () => {
+    row.remove();
+    renumberCaptionRows();
+  });
+
+  const imgInput = row.querySelector(".panel-img-input");
+  const imgBtn = row.querySelector(".panel-img-btn");
+  const imgPreview = row.querySelector(".panel-img-preview");
+  const imgName = row.querySelector(".panel-img-name");
+  const imgClear = row.querySelector(".panel-img-clear");
+
+  imgBtn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openFileInputOnce(imgInput);
+  });
+  imgInput.addEventListener("change", async () => {
+    const file = imgInput.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const readTask = readImageReference(file);
+      row._captionReferenceTask = readTask;
+      imgBtn.disabled = true;
+      imgName.textContent = "读取中";
+      try {
+        const ref = await readTask;
+        if (imgInput.files[0] !== file) return;
+        applyCaptionRowImage(row, ref);
+        showStatus(`第 ${row.dataset.captionId} 张已绑定图片`, "success");
+      } catch (err) {
+        row._captionReference = null;
+        imgInput.value = "";
+        imgName.textContent = "";
+        imgName.title = "";
+        imgPreview.style.backgroundImage = "";
+        imgPreview.classList.add("hidden");
+        imgClear.classList.add("hidden");
+        showStatus(err.message || "图片读取失败", "error");
+      } finally {
+        if (row._captionReferenceTask === readTask) row._captionReferenceTask = null;
+        imgBtn.disabled = false;
+      }
+    }
+  });
+  imgClear.addEventListener("click", () => {
+    imgInput.value = "";
+    row._captionReference = null;
+    row._captionReferenceTask = null;
+    imgPreview.style.backgroundImage = "";
+    imgPreview.classList.add("hidden");
+    imgName.textContent = "";
+    imgName.title = "";
+    imgClear.classList.add("hidden");
+  });
+
+  if (prefilledRef) applyCaptionRowImage(row, prefilledRef);
+
+  dom.captionTbody.appendChild(row);
+  return row;
+}
+
+async function addCaptionRowsFromFiles(fileList) {
+  const imageFiles = [...fileList].filter(file => file.type?.startsWith("image/"));
+  if (imageFiles.length === 0) return;
+
+  try {
+    const refs = sortReferencesByName(await Promise.all(imageFiles.map(readImageReference)));
+    refs.forEach(ref => addCaptionRow(ref));
+    showStatus(`已添加 ${refs.length} 张图片（共 ${dom.captionTbody.children.length} 张）`, "success");
+  } catch (err) {
+    showStatus(err.message || "批量导入图片失败", "error");
+  }
+}
+
+function renumberCaptionRows() {
+  $$(".caption-row", dom.captionTbody).forEach((row, i) => {
+    row.querySelector(".panel-num").textContent = i + 1;
+    row.dataset.captionId = i + 1;
+  });
+  captionRowCounter = dom.captionTbody.children.length;
+}
+
+function collectCaptionRows() {
+  return $$(".caption-row", dom.captionTbody).map(row => ({
+    id: row.dataset.captionId,
+    captionText: row.querySelector(".caption-text").value.trim(),
+    reference: row._captionReference || null,
+    referenceTask: row._captionReferenceTask || null,
+  }));
+}
+
+async function waitForCaptionReferenceTasks(rows) {
+  const pending = rows.map(r => r.referenceTask).filter(Boolean);
+  if (pending.length === 0) return;
+  showStatus(`正在读取 ${pending.length} 张图片…`, "info");
+  await Promise.allSettled(pending);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  状态提示 & 加载
 // ═══════════════════════════════════════════════════════════
 
@@ -2981,7 +3173,7 @@ function hideLoading() {
 
 function resetGenerateButton() {
   dom.generateBtn.disabled = false;
-  setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : "generateImage");
+  setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : currentMode === "caption" ? "generateAllCaptions" : "generateImage");
 }
 
 function beginGeneration() {
@@ -3911,6 +4103,152 @@ async function generateComic() {
   }
 }
 
+async function generateCaptions() {
+  if (!validateCommon()) return;
+
+  const globalPrompt = getEffectivePrompt();
+  const globalSize   = getSelectedSize();
+  let rows           = collectCaptionRows();
+  await waitForCaptionReferenceTasks(rows);
+  rows               = collectCaptionRows();
+
+  const validRows = rows.filter(r => r.captionText && r.reference);
+  if (validRows.length === 0) {
+    showStatus("请至少给一张图片上传图片并填写气泡文字", "error"); return;
+  }
+
+  const run = beginGeneration();
+  clearStatus();
+  dom.resultGrid.innerHTML = "";
+  dom.resultGrid.classList.remove("hidden");
+  dom.resultToolbar.classList.remove("hidden");
+  dom.emptyState.classList.add("hidden");
+  updateFailedRetryTools();
+  hideLoading();
+  generatedImageUrls = [];
+  setIconText(dom.generateBtn, "spark", currentLanguage === "en" ? "Generating..." : currentLanguage === "ja" ? "生成中..." : currentLanguage === "ko" ? "생성 중..." : "生成中……");
+  dom.progressWrap.classList.remove("hidden");
+
+  const total = validRows.length;
+  let completed = 0;
+  let failed = 0;
+  const globalRetryCount = getGlobalRetryCount();
+  const projectImages = [];
+
+  updateProgress(0, total, "⏳");
+
+  const rowTasks = validRows.map(row => {
+    const fullPrompt = globalPrompt ? `${globalPrompt}\n\n${row.captionText}` : row.captionText;
+    const size = (row.reference?.width && row.reference?.height) ? `${row.reference.width}x${row.reference.height}` : globalSize;
+    const references = [row.reference];
+    const retryCount = globalRetryCount;
+    const placeholder = addResultPlaceholder(row.id, fullPrompt, {
+      mode: "caption",
+      globalPrompt,
+      panelPrompt: row.captionText,
+      prompt: fullPrompt,
+      size,
+      references,
+      retryCount,
+    });
+    return { row, fullPrompt, size, references, retryCount, placeholder, globalPrompt };
+  });
+
+  let done = 0;
+  const tasks = rowTasks.map(({ row, fullPrompt, size, references, retryCount, placeholder }) => async () => {
+    if (!isGenerationCurrent(run)) return;
+    try {
+      const data = await callImageAPI(fullPrompt, size, 1, `图片 ${row.id}`, { references, signal: run.signal, maxRetries: retryCount });
+      if (!isGenerationCurrent(run)) return;
+      const record = replacePlaceholder(placeholder, row.id, data, fullPrompt, {
+        skipHistory: true,
+        recordPrompt: row.captionText,
+        fullPrompt,
+        size,
+        retryContext: { references, size, mode: "caption", globalPrompt, panelPrompt: row.captionText, prompt: fullPrompt, fullPrompt, retryCount },
+      });
+      if (record) projectImages.push({ ...record, prompt: row.captionText, panelPrompt: row.captionText, fullPrompt, retryCount });
+      completed++;
+    } catch (err) {
+      if (err.name !== "AbortError" && isGenerationCurrent(run)) {
+        markPlaceholderFailed(placeholder, row.id, err.message, {
+          references,
+          size,
+          mode: "caption",
+          globalPrompt,
+          panelPrompt: row.captionText,
+          prompt: fullPrompt,
+          fullPrompt,
+          retryCount,
+        });
+        failed++;
+      }
+    }
+    if (!isGenerationCurrent(run)) return;
+    done++;
+    updateProgress(done, total, done >= total ? "✅" : "⏳");
+  });
+
+  try {
+    if (dom.sequentialMode.checked) {
+      for (const task of tasks) {
+        if (!isGenerationCurrent(run)) break;
+        await task();
+      }
+    } else {
+      await concurrentLimitSettled(tasks, 20, run.signal);
+    }
+
+    if (!isGenerationCurrent(run)) return;
+    updateProgress(completed + failed, total, "✅");
+
+    if (completed > 0) {
+      const newProjectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      await saveGenerationProject({
+        id: newProjectId,
+        type: "caption-project",
+        mode: "caption",
+        title: `嵌字项目 ${new Date().toLocaleString("zh-CN")}`,
+        createdAt: new Date().toISOString(),
+        globalPrompt,
+        model: dom.model.value.trim(),
+        endpoint: dom.apiEndpoint.value.trim(),
+        size: globalSize,
+        retryCount: globalRetryCount,
+        totalPanels: total,
+        panels: rowTasks.map(({ row, size, retryCount }) => ({
+          panelId: String(row.id),
+          panelPrompt: row.captionText,
+          prompt: row.captionText,
+          size,
+          retryCount,
+          status: projectImages.some(img => String(img.panelId) === String(row.id)) ? "success" : "failed",
+        })),
+        images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
+      });
+      currentComicHistoryId = newProjectId;
+    }
+
+    if (failed > 0) {
+      showStatus(`完成：${completed} 成功 / ${failed} 失败`, "error");
+    } else if (completed > 0) {
+      showStatus(`全部 ${completed} 张图片生成完成！`, "success");
+    }
+  } catch (err) {
+    if (err?.name !== "AbortError" && isGenerationCurrent(run)) {
+      showStatus(`批量生成失败: ${err.message || err}`, "error");
+    }
+  } finally {
+    if (isGenerationCurrent(run)) {
+      abortController = null;
+      resetGenerateButton();
+      setTimeout(() => {
+        if (activeGenerationId === run.id) dom.progressWrap.classList.add("hidden");
+      }, 3000);
+    }
+  }
+}
+
 function updateProgress(done, total, icon) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   dom.progressFill.style.width = `${pct}%`;
@@ -4063,15 +4401,16 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   media.append(img, mediaStatus);
   card.appendChild(media);
   img.src = imageUrl;
+  const isProjectContext = options.retryContext?.mode === "comic" || options.retryContext?.mode === "caption";
   const recordPrompt = options.recordPrompt
-    ?? (options.retryContext?.mode === "comic" ? getPanelOnlyPrompt(options.retryContext, options.retryContext?.globalPrompt || "") : prompt);
+    ?? (isProjectContext ? getPanelOnlyPrompt(options.retryContext, options.retryContext?.globalPrompt || "") : prompt);
   const fullPrompt = options.fullPrompt || options.retryContext?.fullPrompt || (recordPrompt !== prompt ? prompt : "");
 
   card._zipImage = {
     url: imageUrl,
     panelId: String(panelId),
     prompt: recordPrompt,
-    panelPrompt: options.retryContext?.panelPrompt || (options.retryContext?.mode === "comic" ? recordPrompt : ""),
+    panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
     fullPrompt,
   };
 
@@ -4107,7 +4446,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     mode: options.mode || options.retryContext?.mode || currentMode,
     panelId: String(panelId),
     prompt: recordPrompt,
-    panelPrompt: options.retryContext?.panelPrompt || (options.retryContext?.mode === "comic" ? recordPrompt : ""),
+    panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
     fullPrompt,
     model: dom.model.value.trim(),
     endpoint: dom.apiEndpoint.value.trim(),
@@ -4239,7 +4578,7 @@ function setRetryContext(card, panelId, context = {}) {
 }
 
 function composeRetryPrompt(context) {
-  if (context.mode === "comic") {
+  if (context.mode === "comic" || context.mode === "caption") {
     return context.globalPrompt ? `${context.globalPrompt}\n\n${context.panelPrompt || ""}`.trim() : (context.panelPrompt || context.prompt || "");
   }
   return context.prompt || "";
@@ -4247,8 +4586,11 @@ function composeRetryPrompt(context) {
 
 async function editRetryContext(context) {
   const next = { ...context };
-  if (next.mode === "comic") {
-    const panel = await askPrompt("修改该分镜提示词（全局提示词会自动引用当前页面里的内容）", next.panelPrompt || next.prompt || "");
+  if (next.mode === "comic" || next.mode === "caption") {
+    const label = next.mode === "caption"
+      ? "修改气泡文字内容（全局提示词会自动引用当前页面里的内容）"
+      : "修改该分镜提示词（全局提示词会自动引用当前页面里的内容）";
+    const panel = await askPrompt(label, next.panelPrompt || next.prompt || "");
     if (panel === null) return null;
     next.globalPrompt = getEffectivePrompt();
     next.panelPrompt = panel.trim();
@@ -4297,30 +4639,32 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   const panelId = context.panelId || card.dataset.panelId || "重试";
   const size = context.size || getSelectedSize();
   const retryCount = clampRetryCount(options.retryCountOverride ?? context.retryCount, getGlobalRetryCount());
+  const isProject = context.mode === "comic" || context.mode === "caption";
+  const label = context.mode === "caption" ? "图片" : "分镜";
   setRetryContext(card, panelId, { ...context, prompt: promptText, size, retryCount });
   renderRetryLoading(card, panelId, promptText);
   try {
     const references = Array.isArray(context.references) ? context.references : undefined;
-    const data = await callImageAPI(promptText, size, 1, `分镜 ${panelId}`, { references, maxRetries: retryCount });
+    const data = await callImageAPI(promptText, size, 1, `${label} ${panelId}`, { references, maxRetries: retryCount });
     const record = replacePlaceholder(card, panelId, data, promptText, {
       skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
-      recordPrompt: context.mode === "comic" ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
+      recordPrompt: isProject ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
       fullPrompt: promptText,
       retryContext: { ...context, prompt: promptText, fullPrompt: promptText, size, retryCount },
     });
     if (record) {
-      if (context.mode === "comic") {
+      if (isProject) {
         await updateComicHistoryPanel(currentComicHistoryId, panelId, record);
       } else {
         await replaceSingleHistoryRecord(card._historyRecordId, record);
         card._historyRecordId = record.id;
       }
     }
-    if (!options.quiet) showStatus(`分镜 ${panelId} 重试成功`, "success");
+    if (!options.quiet) showStatus(`${label} ${panelId} 重试成功`, "success");
     return true;
   } catch (err) {
     markPlaceholderFailed(card, panelId, err.message || String(err), { ...context, prompt: promptText, size, retryCount });
-    if (!options.quiet) showStatus(`分镜 ${panelId} 重试失败: ${err.message || err}`, "error");
+    if (!options.quiet) showStatus(`${label} ${panelId} 重试失败: ${err.message || err}`, "error");
     return false;
   }
 }
@@ -4379,7 +4723,8 @@ function loadHistory() {
 }
 
 function isHistoryProject(item) {
-  return item?.type === "comic-project" || (Array.isArray(item?.images) && item.mode === "comic");
+  return item?.type === "comic-project" || item?.type === "caption-project"
+    || (Array.isArray(item?.images) && (item.mode === "comic" || item.mode === "caption"));
 }
 
 function getHistoryImages(item) {
@@ -4460,8 +4805,8 @@ async function saveGenerationProject(project) {
   const first = images[0];
   const record = {
     ...project,
-    type: "comic-project",
-    mode: "comic",
+    type: project.type || "comic-project",
+    mode: project.mode || "comic",
     prompt: project.globalPrompt || "",
     images,
     imageUrl: first?.imageUrl || "",
@@ -4741,14 +5086,14 @@ async function downloadHistoryProject(item) {
       url: image.imageUrl || image.url,
       panelId: image.panelId || index + 1,
     })), {
-      folder: sanitizeFilePart(item.title || "comic-project", "comic-project"),
-      mode: "comic",
-      title: item.title || cleanText("comicProject"),
+      folder: sanitizeFilePart(item.title || (item.mode === "caption" ? "caption-project" : "comic-project"), item.mode === "caption" ? "caption-project" : "comic-project"),
+      mode: item.mode || "comic",
+      title: item.title || cleanText(item.mode === "caption" ? "captionProject" : "comicProject"),
       createdAt: item.createdAt,
       model: item.model || "",
       globalPrompt: item.globalPrompt || "",
     });
-    const filename = `${sanitizeFilePart(item.title || "comic-project", "comic-project")}.zip`;
+    const filename = `${sanitizeFilePart(item.title || (item.mode === "caption" ? "caption-project" : "comic-project"), item.mode === "caption" ? "caption-project" : "comic-project")}.zip`;
     await saveOrDownloadBlob(zipBlob, filename, "application/zip", "zips");
     setDownloadProgress(100, `${cleanText("zipSaved")}: ${filename}`, true);
     showStatus(`${cleanText("zipSaved")}: ${filename}`, "success");
@@ -4768,6 +5113,33 @@ function applyHistoryPanelSize(row, size) {
 }
 
 function restoreHistoryProjectEditor(item, images) {
+  if (item.mode === "caption") {
+    switchMode("caption");
+    clearAllReferenceImages();
+    dom.prompt.value = item.globalPrompt || item.prompt || "";
+    dom.captionTbody.innerHTML = "";
+    captionRowCounter = 0;
+
+    const sourceRows = Array.isArray(item.panels) && item.panels.length ? item.panels : images;
+    sourceRows.forEach((panel, index) => {
+      const matchingImage = images.find(img => String(img.panelId || "") === String(panel.panelId || index + 1)) || images[index] || {};
+      const rowData = {
+        ...matchingImage,
+        ...panel,
+        panelPrompt: panel.panelPrompt || matchingImage.panelPrompt || "",
+        prompt: panel.prompt || matchingImage.prompt || "",
+        fullPrompt: panel.fullPrompt || matchingImage.fullPrompt || "",
+      };
+      const row = addCaptionRow();
+      const captionInput = row.querySelector(".caption-text");
+      if (captionInput) captionInput.value = getPanelOnlyPrompt(rowData, item.globalPrompt || "");
+    });
+
+    if (dom.captionTbody.children.length === 0) addCaptionRow();
+    refreshLocalizedUiState();
+    return;
+  }
+
   switchMode("comic");
   clearAllReferenceImages();
   dom.prompt.value = item.globalPrompt || item.prompt || "";
@@ -4826,7 +5198,7 @@ function restoreHistoryItem(item) {
         fullPrompt,
         size: image.size || item.size,
         retryContext: {
-          mode: "comic",
+          mode: item.mode || "comic",
           globalPrompt: item.globalPrompt || "",
           panelPrompt,
           prompt: fullPrompt,
@@ -4839,7 +5211,7 @@ function restoreHistoryItem(item) {
     });
     updateFailedRetryTools();
     closeModal(dom.historyModal);
-    showStatus(`已恢复漫画项目：${images.length} 张图片`, "success");
+    showStatus(item.mode === "caption" ? `已恢复嵌字项目：${images.length} 张图片` : `已恢复漫画项目：${images.length} 张图片`, "success");
     return;
   }
 
@@ -5383,13 +5755,14 @@ function getCurrentResultImages() {
       }
       const img = card.querySelector("img");
       if (!img?.src) return null;
+      const isProjectContext = card._retryContext?.mode === "comic" || card._retryContext?.mode === "caption";
       return {
         url: img.src,
         panelId: card._retryContext?.panelId || String(index + 1),
-        prompt: card._retryContext?.mode === "comic"
+        prompt: isProjectContext
           ? getPanelOnlyPrompt(card._retryContext, card._retryContext?.globalPrompt || "")
           : (card._retryContext?.prompt || img.alt || ""),
-        panelPrompt: card._retryContext?.mode === "comic" ? getPanelOnlyPrompt(card._retryContext, card._retryContext?.globalPrompt || "") : "",
+        panelPrompt: isProjectContext ? getPanelOnlyPrompt(card._retryContext, card._retryContext?.globalPrompt || "") : "",
         fullPrompt: card._retryContext?.fullPrompt || card._retryContext?.prompt || "",
       };
     })
@@ -5422,9 +5795,9 @@ async function downloadAllAsZip() {
       panelId: image.panelId || index + 1,
       prompt: image.prompt || "",
     })), {
-      folder: currentMode === "comic" ? "comic-project" : "images",
+      folder: currentMode === "comic" ? "comic-project" : currentMode === "caption" ? "caption-project" : "images",
       mode: currentMode,
-      title: currentMode === "comic" ? cleanText("comicProject") : cleanText("appTitle"),
+      title: currentMode === "comic" ? cleanText("comicProject") : currentMode === "caption" ? cleanText("captionProject") : cleanText("appTitle"),
       globalPrompt: getEffectivePrompt(),
       model: dom.model.value.trim(),
     });
@@ -5443,14 +5816,16 @@ async function downloadAllAsZip() {
   }
 }
 
-dom.saveComicFolder.addEventListener("click", saveComicResultsToFolder);
+dom.saveComicFolder.addEventListener("click", saveProjectResultsToFolder);
 
-async function saveComicResultsToFolder() {
+async function saveProjectResultsToFolder() {
   if (!nativeDownload.available()) return;
   const images = getCurrentResultImages();
   if (images.length === 0) {
     showStatus(cleanText("noImagesToExport"), "error"); return;
   }
+
+  const isCaption = currentMode === "caption";
 
   dom.saveComicFolder.disabled = true;
   setButtonText(dom.saveComicFolder, "spark", "savingToFolder");
@@ -5460,7 +5835,7 @@ async function saveComicResultsToFolder() {
     if (!nativeDownload.dirs.images) {
       await nativeDownload.chooseDir("images");
     }
-    const folder = sanitizeFilePart(`漫画_${new Date().toLocaleString("zh-CN")}`, "comic");
+    const folder = sanitizeFilePart(`${isCaption ? "嵌字" : "漫画"}_${new Date().toLocaleString("zh-CN")}`, isCaption ? "caption" : "comic");
     const failures = [];
     let saved = 0;
 
@@ -5478,7 +5853,7 @@ async function saveComicResultsToFolder() {
         if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl);
         const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
         const base64 = await blobToBase64(blob);
-        await nativeDownload.saveFile("images", `panel-${panelId}.${ext}`, blob.type || "image/png", base64, folder);
+        await nativeDownload.saveFile("images", `${isCaption ? "image" : "panel"}-${panelId}.${ext}`, blob.type || "image/png", base64, folder);
         saved++;
       } catch (err) {
         failures.push(`${image.panelId || i + 1}: ${err.message || err}`);
@@ -5528,6 +5903,7 @@ function openLightbox(imageUrl) {
 
 dom.generateBtn.addEventListener("click", () => {
   if (currentMode === "comic") generateComic();
+  else if (currentMode === "caption") generateCaptions();
   else generateSingle();
 });
 

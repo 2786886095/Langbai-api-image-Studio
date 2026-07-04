@@ -1765,6 +1765,138 @@ async function testModelComboboxBehavior(cdp) {
   assertQa(result.openBeforeOutsideClick && result.closedAfterOutsideClick, "Clicking outside the model field should close its open dropdown, same as every other custom-select.", result);
 }
 
+async function testCaptionMode(cdp) {
+  logStep("Caption mode: bulk-add sorts by filename, each row generates its own request carrying exactly one reference image (the whole point of the feature, avoiding the HTTP 413 from bundling many references into one request), results save as a single project, and per-row retry/restore both work correctly");
+  await loadFresh(cdp, "caption-mode");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    const calls = [];
+    window.fetch = async (url, opts = {}) => {
+      if (String(url).includes("/v1/api/generate")) {
+        let body = {};
+        try { body = JSON.parse(opts.body || "{}"); } catch {}
+        calls.push({ prompt: body.prompt, imagesCount: (body.images || []).length });
+        return new Response(JSON.stringify({ status: "succeeded", data: [{ url: "data:image/png;base64," + png }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(url, opts);
+    };
+
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "grsai");
+    set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
+    set("apiKey", "sk-qa-caption");
+    set("model", "gpt-image-2");
+    document.querySelector('[data-mode="caption"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    set("prompt", "GLOBAL STYLE");
+
+    async function makeImageFile(name, color) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 4; canvas.height = 4;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      return new File([blob], name, { type: "image/png" });
+    }
+    // Deliberately out-of-order filenames with a two-digit number, to prove natural/numeric
+    // sort (1, 2, 10) rather than upload order or lexical string order (1, 10, 2).
+    const dt = new DataTransfer();
+    dt.items.add(await makeImageFile("cap-2.png", "#3f3"));
+    dt.items.add(await makeImageFile("cap-10.png", "#33f"));
+    dt.items.add(await makeImageFile("cap-1.png", "#f33"));
+    const input = document.getElementById("captionBulkInput");
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise(r => setTimeout(r, 500));
+
+    const rowsBeforeGenerate = [...document.querySelectorAll(".caption-row")];
+    const sortedFileNames = rowsBeforeGenerate.map(r => r.querySelector(".panel-img-name").textContent);
+    const noEmptyRowBeforeUpload = rowsBeforeGenerate.length === 3; // no leftover auto-created blank row ahead of the bulk-added ones
+    rowsBeforeGenerate.forEach((row, i) => {
+      const ta = row.querySelector(".caption-text");
+      ta.value = "bubble text " + (i + 1);
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    document.getElementById("generateBtn").click();
+    let start = Date.now();
+    while (Date.now() - start < 6000) {
+      const h = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+      if (h.length === 1 && document.querySelectorAll(".result-item img").length === 3) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+    const item = history[0] || {};
+    const initialGenerationCalls = calls.length; // snapshot before the retry step below adds a 4th call
+
+    // Retry a single row in isolation: only that row's request should fire again.
+    const callsBeforeRetry = calls.length;
+    const retryBtn = [...document.querySelectorAll(".result-item .card-action")].find(b => b.querySelector(".ui-icon-retry"));
+    retryBtn?.click();
+    start = Date.now();
+    while (Date.now() - start < 4000) {
+      if (calls.length > callsBeforeRetry) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    await new Promise(r => setTimeout(r, 200));
+
+    // Restore from history and confirm it repopulates caption mode with the right rows.
+    document.getElementById("resultGrid").innerHTML = "";
+    document.getElementById("resultGrid").classList.add("hidden");
+    document.getElementById("emptyState").classList.remove("hidden");
+    document.getElementById("captionTbody").innerHTML = "";
+    document.querySelector('[data-mode="single"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    document.getElementById("historyBtn").click();
+    await new Promise(r => setTimeout(r, 100));
+    const projectCardsBeforeRestore = document.querySelectorAll(".history-project-card").length;
+    document.querySelector(".history-project-card .history-actions .btn")?.click();
+    await new Promise(r => setTimeout(r, 250));
+
+    return {
+      sortedFileNames,
+      noEmptyRowBeforeUpload,
+      allRequestsHadExactlyOneImage: calls.every(c => c.imagesCount === 1),
+      totalGenerationCalls: initialGenerationCalls,
+      historyLength: history.length,
+      historyType: item.type,
+      historyMode: item.mode,
+      historyImageCount: (item.images || []).length,
+      retryFiredExactlyOneMoreCall: calls.length === callsBeforeRetry + 1,
+      projectCardsBeforeRestore,
+      restoredActiveTabMode: document.querySelector(".mode-tab.active")?.dataset.mode,
+      restoredRowCount: document.querySelectorAll(".caption-row").length,
+      restoredCaptionTexts: [...document.querySelectorAll(".caption-text")].map(el => el.value).sort(),
+    };
+  })()`, true);
+
+  assertQa(result.noEmptyRowBeforeUpload, "Switching into caption mode must not leave a stray auto-created empty row ahead of bulk-uploaded images.", result);
+  assertQa(JSON.stringify(result.sortedFileNames) === JSON.stringify(["cap-1.png", "cap-2.png", "cap-10.png"]),
+    "Bulk-adding images with out-of-order but numeric filenames should create rows sorted in natural filename order (1, 2, 10), not upload order or lexical string order.", result);
+  assertQa(result.totalGenerationCalls === 3, "Bulk-generating 3 caption rows should fire exactly 3 separate generation requests, one per row.", result);
+  assertQa(result.allRequestsHadExactlyOneImage, "Every caption-mode generation request must carry exactly one reference image — this is the entire point of the feature (avoiding the HTTP 413 from bundling many reference images into a single request).", result);
+  assertQa(result.historyLength === 1 && result.historyType === "caption-project" && result.historyMode === "caption",
+    "Caption-mode results must be saved as a single combined 'caption-project' history entry, not three separate single-image records (a prior bug in saveGenerationProject() silently forced every project's type/mode back to comic regardless of what was passed in).", result);
+  assertQa(result.historyImageCount === 3, "The saved caption project should contain all 3 generated images.", result);
+  assertQa(result.retryFiredExactlyOneMoreCall, "Retrying a single caption result card should fire exactly one more generation call, not regenerate every row.", result);
+  assertQa(result.projectCardsBeforeRestore >= 1, "The caption project should show up as a project card in the history list (isHistoryProject() must recognize mode: caption).", result);
+  assertQa(result.restoredActiveTabMode === "caption", "Restoring a caption-project history entry should switch the app into caption mode, not comic mode.", result);
+  assertQa(result.restoredRowCount === 3, "Restoring a caption-project history entry should repopulate all 3 rows.", result);
+  assertQa(JSON.stringify(result.restoredCaptionTexts) === JSON.stringify(["bubble text 1", "bubble text 2", "bubble text 3"]),
+    "Restoring a caption-project history entry should refill each row's own caption text (not the combined global+row prompt, not blank).", result);
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -2076,6 +2208,7 @@ async function main() {
     await testManualWheelScrollFallback(cdp);
     await testModelChoicesWheelScroll(cdp);
     await testModelComboboxBehavior(cdp);
+    await testCaptionMode(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
