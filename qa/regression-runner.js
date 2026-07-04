@@ -409,13 +409,13 @@ async function testApiConfig(cdp) {
     set("apiKey", "sk-qa-models");
     document.getElementById("quickDetectModels").click();
     await new Promise(r => setTimeout(r, 80));
-    const wrapper = document.getElementById("modelChoicesCustomSelect");
-    const trigger = document.getElementById("modelChoicesTrigger");
+    const modelInput = document.getElementById("model");
     const list = document.getElementById("modelChoicesCustomList");
-    trigger.click();
+    const hasAffordance = modelInput.classList.contains("has-model-choices");
+    modelInput.click();
     await new Promise(r => setTimeout(r, 80));
-    const options = [...list.querySelectorAll(".custom-select-option")];
-    const first = options[1]; // options[0] is the "choose a model" placeholder, not a real model
+    const options = [...list.querySelectorAll(".custom-select-option")]; // placeholder option is filtered out by initModelCombobox, so these are all real models
+    const first = options[0];
     const hit = document.elementFromPoint(
       first.getBoundingClientRect().left + 5,
       first.getBoundingClientRect().top + first.getBoundingClientRect().height / 2
@@ -424,13 +424,13 @@ async function testApiConfig(cdp) {
     await new Promise(r => setTimeout(r, 30));
     return {
       count: options.length,
-      visible: !wrapper.classList.contains("hidden"),
+      hasAffordance,
       hitIsOption: hit === first || first.contains(hit),
       closedAfterPick: list.classList.contains("hidden"),
       selected: document.getElementById("model").value,
     };
   })()`, true);
-  assertQa(modelChoice.visible && modelChoice.count > 3, "Quick model detection should render a clickable in-app model dropdown, same custom-select pattern as the other lists.", modelChoice);
+  assertQa(modelChoice.hasAffordance && modelChoice.count > 3, "Detected models should be clickable directly from the #model input itself (combobox pattern), not a separate dropdown control.", modelChoice);
   assertQa(modelChoice.hitIsOption, "The first model option should be genuinely hit-testable, not obscured or clipped.", modelChoice);
   assertQa(modelChoice.closedAfterPick, "Picking a model should close the dropdown.", modelChoice);
   assertQa(modelChoice.selected.length > 0, "Clicking a model choice should fill the model input.", modelChoice);
@@ -1632,7 +1632,7 @@ async function testModelChoicesWheelScroll(cdp) {
       document.getElementById("configSection").open = true;
       setModelChoices(Array.from({ length: 40 }, (_, i) => "model-" + i));
       await new Promise(r => setTimeout(r, 50));
-      document.getElementById("modelChoicesTrigger").click();
+      document.getElementById("model").click();
       await new Promise(r => setTimeout(r, 80));
       const list = document.getElementById("modelChoicesCustomList");
       list.scrollIntoView({ block: "center" });
@@ -1710,6 +1710,59 @@ async function testModelChoicesWheelScroll(cdp) {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
     await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
   }
+}
+
+async function testModelComboboxBehavior(cdp) {
+  logStep("The #model input is itself the dropdown trigger (combobox pattern): click opens the detected-models list, typing a custom name closes it, clicking outside closes it, and it must not open at all when nothing has been detected yet");
+  await loadFresh(cdp, "model-combobox");
+  const result = await cdp.eval(`(async () => {
+    const input = document.getElementById("model");
+    const list = document.getElementById("modelChoicesCustomList");
+
+    // Before any detection: clicking the plain input must not pop an empty list open.
+    input.click();
+    await new Promise(r => setTimeout(r, 30));
+    const openBeforeDetection = !list.classList.contains("hidden");
+    const affordanceBeforeDetection = input.classList.contains("has-model-choices");
+
+    setModelChoices(["model-a", "model-b", "model-c"]);
+    await new Promise(r => setTimeout(r, 30));
+    const affordanceAfterDetection = input.classList.contains("has-model-choices");
+
+    input.click();
+    await new Promise(r => setTimeout(r, 30));
+    const openAfterClick = !list.classList.contains("hidden");
+    const optionCount = list.querySelectorAll(".custom-select-option").length;
+
+    // Typing a custom model name while the list is open should close it (free text entry stays fully usable).
+    input.value = "my-custom-model";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise(r => setTimeout(r, 30));
+    const closedAfterTyping = list.classList.contains("hidden");
+    const valuePreservedAfterTyping = input.value;
+
+    // Re-open, then click elsewhere: should close via the same outside-click handling as the other dropdowns.
+    input.click();
+    await new Promise(r => setTimeout(r, 30));
+    const openBeforeOutsideClick = !list.classList.contains("hidden");
+    document.body.click();
+    await new Promise(r => setTimeout(r, 30));
+    const closedAfterOutsideClick = list.classList.contains("hidden");
+
+    return {
+      openBeforeDetection, affordanceBeforeDetection,
+      affordanceAfterDetection, openAfterClick, optionCount,
+      closedAfterTyping, valuePreservedAfterTyping,
+      openBeforeOutsideClick, closedAfterOutsideClick,
+    };
+  })()`, true);
+  assertQa(!result.openBeforeDetection, "Clicking #model before any models are detected must not open an empty dropdown.", result);
+  assertQa(!result.affordanceBeforeDetection, "The dropdown-arrow affordance on #model must not show before there is anything to pick from.", result);
+  assertQa(result.affordanceAfterDetection, "The dropdown-arrow affordance should appear on #model once models are detected.", result);
+  assertQa(result.openAfterClick && result.optionCount === 3, "Clicking #model after detection should open the list populated with the detected models, with no separate dropdown control needed.", result);
+  assertQa(result.closedAfterTyping, "Typing a custom model name should close the open dropdown instead of leaving it stuck open over the text being typed.", result);
+  assertQa(result.valuePreservedAfterTyping === "my-custom-model", "Typing a custom model name must still work normally — the combobox popup must never block manual free-text entry.", result);
+  assertQa(result.openBeforeOutsideClick && result.closedAfterOutsideClick, "Clicking outside the model field should close its open dropdown, same as every other custom-select.", result);
 }
 
 async function testAndroidUpdateRedirect(cdp) {
@@ -2022,6 +2075,7 @@ async function main() {
     await testDragDropHintReflectsPlatform(cdp);
     await testManualWheelScrollFallback(cdp);
     await testModelChoicesWheelScroll(cdp);
+    await testModelComboboxBehavior(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");

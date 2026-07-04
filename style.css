@@ -464,7 +464,15 @@ select.custom-select-native {
 .saved-api-row, .model-input-row {
   display: flex; gap: 6px; align-items: center;
 }
+.model-input-row { position: relative; }
 .model-input-row input { flex: 1; }
+/* 模型输入框本身就是下拉触发器：一旦有检测到的模型可选，加上跟其它下拉框一致的箭头提示，
+   点击输入框弹出 #modelChoicesCustomList（见 initModelCombobox），不需要再单独放一个下拉框。 */
+#model.has-model-choices {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 28px;
+}
 
 .n-images-row {
   display: flex; align-items: center; gap: 10px;
@@ -1534,8 +1542,6 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
   gap: 6px;
-  max-height: 124px;
-  overflow: auto;
 }
 
 .compact-reference-field .thumb-item,
@@ -2488,7 +2494,6 @@ main.result-panel .result-actions .btn {
 
   .compact-reference-field .thumb-grid {
     grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
-    max-height: 96px;
   }
 
   .checkbox-field,

@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.3";
+const APP_VERSION = "1.3.4";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -855,9 +855,7 @@ const dom = {
   apiKey:        $("#apiKey"),
   model:         $("#model"),
   proxyEndpoint: $("#proxyEndpoint"),
-  modelList:     $("#modelList"),
   modelChoices:  $("#modelChoices"),
-  modelChoicesCustomSelect: $("#modelChoicesCustomSelect"),
   detectModels:  $("#detectModels"),
   saveConfig:    $("#saveConfig"),
   savedApis:     $("#savedApis"),
@@ -1029,6 +1027,54 @@ function initCustomSelect(selectEl) {
   _customSelectRegistry.push(instance);
   return instance;
 }
+
+// 模型字段是个特例：没有单独的下拉触发器/展开框，#model 输入框本身就是触发器——
+// 点击它就弹出检测到的模型列表（跟其它 .custom-select 视觉一致，共用同一套
+// 外部点击/Escape 关闭逻辑），选中后填入输入框；输入框本身依然可以手动打字输入
+// 任意自定义模型名，两者不冲突。
+function initModelCombobox(selectEl, inputEl) {
+  if (!selectEl || !inputEl) return null;
+  const list = document.getElementById(selectEl.id + "CustomList");
+  if (!list) return null;
+
+  function renderOptions() {
+    list.innerHTML = "";
+    [...selectEl.options].forEach(opt => {
+      if (!opt.value) return; // 跳过"从检测到的模型中选择…"占位项，手动打字场景不需要它
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "custom-select-option";
+      btn.setAttribute("role", "option");
+      btn.textContent = opt.textContent;
+      btn.setAttribute("aria-selected", opt.value === inputEl.value ? "true" : "false");
+      btn.addEventListener("click", () => {
+        selectEl.value = opt.value;
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+        close();
+        inputEl.focus();
+      });
+      list.appendChild(btn);
+    });
+  }
+  function isOpen() { return !list.classList.contains("hidden"); }
+  function open() {
+    if (![...selectEl.options].some(opt => opt.value)) return;
+    _customSelectRegistry.forEach(inst => { if (inst.close !== close) inst.close(); });
+    renderOptions();
+    list.classList.remove("hidden");
+    inputEl.setAttribute("aria-expanded", "true");
+  }
+  function close() {
+    list.classList.add("hidden");
+    inputEl.setAttribute("aria-expanded", "false");
+  }
+  inputEl.addEventListener("click", () => { isOpen() ? close() : open(); });
+  inputEl.addEventListener("input", () => { if (isOpen()) close(); });
+  const instance = { wrapper: inputEl.closest(".model-input-row") || inputEl, close, isOpen, syncLabel: () => {}, renderOptions };
+  _customSelectRegistry.push(instance);
+  return instance;
+}
+
 document.addEventListener("click", e => {
   _customSelectRegistry.forEach(inst => { if (inst.isOpen() && !inst.wrapper.contains(e.target)) inst.close(); });
 }, true);
@@ -1043,7 +1089,7 @@ const customSelects = {
   savedSizes: initCustomSelect(dom.savedSizes),
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
-  modelChoices: initCustomSelect(dom.modelChoices),
+  modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
 
 dom.modelChoices?.addEventListener("change", () => {
@@ -2142,19 +2188,10 @@ function setModelChoices(models = [], options = {}) {
     if (typeof item === "string") return item.trim();
     return String(item?.id || item?.value || "").trim();
   }).filter(Boolean))];
-  if (dom.modelList) {
-    dom.modelList.innerHTML = "";
-    ids.forEach(id => {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = id + priceLabel(id);
-      dom.modelList.appendChild(opt);
-    });
-  }
   if (!dom.modelChoices) return ids;
   dom.modelChoices.innerHTML = "";
   if (!ids.length) {
-    dom.modelChoicesCustomSelect?.classList.add("hidden");
+    dom.model?.classList.remove("has-model-choices");
     return ids;
   }
   dom.modelChoices.appendChild(new Option(cleanText("modelChoicesPlaceholder"), ""));
@@ -2162,8 +2199,7 @@ function setModelChoices(models = [], options = {}) {
     dom.modelChoices.appendChild(new Option(id + priceLabel(id), id));
   });
   dom.modelChoices.value = "";
-  dom.modelChoicesCustomSelect?.classList.remove("hidden");
-  customSelects.modelChoices?.syncLabel();
+  dom.model?.classList.add("has-model-choices");
   return ids;
 }
 
