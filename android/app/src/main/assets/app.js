@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.7";
+const APP_VERSION = "1.3.8";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -3023,7 +3023,9 @@ function getCaptionAutoFillText(row, customTemplate = "") {
   if (templateType === "custom") {
     return renderAutoFillTemplate(customTemplate, vars);
   }
-  return renderAutoFillTemplate("在图片右上角加一个白色对话气泡，文字是{n}", vars);
+  // 气泡的位置/颜色/样式交给全局提示词统一描述（全局提示词里说明"气泡文字对应下面的编号"即可），
+  // 这里的每行内容只需要提供区分用的编号本身，不重复限定样式，避免跟全局提示词冲突或重复。
+  return renderAutoFillTemplate("{n}", vars);
 }
 
 dom.autoFillCaptionRows.addEventListener("click", async () => {
@@ -3037,7 +3039,7 @@ dom.autoFillCaptionRows.addEventListener("click", async () => {
 
   let customTemplate = "";
   if (dom.captionAutoFillTemplate?.value === "custom") {
-    customTemplate = (await askPrompt("输入模板：可用 {n} 表示图片编号", "在图片右上角加一个白色对话气泡，文字是{n}")) || "";
+    customTemplate = (await askPrompt("输入模板：可用 {n} 表示图片编号", "{n}")) || "";
     if (!customTemplate.trim()) return;
   }
 

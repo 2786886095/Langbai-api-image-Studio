@@ -1993,10 +1993,8 @@ async function testCaptionAutoFill(cdp) {
     return { afterDefaultFill, dialogAppeared, afterDeclinedOverwrite, afterCustomFill };
   })()`, true);
 
-  assertQa(JSON.stringify(result.afterDefaultFill) === JSON.stringify([
-    "在图片右上角加一个白色对话气泡，文字是1",
-    "在图片右上角加一个白色对话气泡，文字是2",
-  ]), "The default numbered-bubble template should fill each row with its own row number substituted for {n}.", result);
+  assertQa(JSON.stringify(result.afterDefaultFill) === JSON.stringify(["1", "2"]),
+    "The default numbered-bubble template should fill each row with just its own row number (bubble styling/position is meant to be described once in the global prompt, not repeated per row).", result);
   assertQa(result.dialogAppeared, "Clicking fill again once rows already have content must show a confirm-before-overwrite dialog instead of silently overwriting.", result);
   assertQa(JSON.stringify(result.afterDeclinedOverwrite) === JSON.stringify(result.afterDefaultFill),
     "Declining the overwrite confirmation must leave the existing caption text untouched.", result);
