@@ -1490,7 +1490,7 @@ async function testDragDropHintReflectsPlatform(cdp) {
   });
   try {
     await loadFresh(cdp, "dragdrop-native-windows");
-    const nativeWindowsText = await cdp.eval(`document.querySelector(".image-upload .upload-zone span:last-child")?.textContent || ""`, false);
+    const nativeWindowsText = await cdp.eval(`document.querySelector(".image-upload .upload-zone > span:last-child")?.textContent || ""`, false);
     assertQa(!/拖/.test(nativeWindowsText), "Packaged Windows exe should not tell users they can drag-and-drop reference images onto the upload zone.", { nativeWindowsText });
     assertQa(/点击/.test(nativeWindowsText), "The click-to-upload affordance (the working fallback) should still be advertised.", { nativeWindowsText });
   } finally {
@@ -1499,8 +1499,39 @@ async function testDragDropHintReflectsPlatform(cdp) {
   }
 
   await loadFresh(cdp, "dragdrop-browser");
-  const browserText = await cdp.eval(`document.querySelector(".image-upload .upload-zone span:last-child")?.textContent || ""`, false);
+  const browserText = await cdp.eval(`document.querySelector(".image-upload .upload-zone > span:last-child")?.textContent || ""`, false);
   assertQa(/拖/.test(browserText), "Browser/PWA build (real Chromium, real drag-and-drop support) should still advertise drag-and-drop.", { browserText });
+}
+
+async function testUploadZoneHintTargetsCorrectSpan(cdp) {
+  logStep("setText()'s hint-text calls for upload zones must land on the actual hint <span>, not the nested icon <span> — a bare 'span:last-child' selector matches whichever span comes first in document order that is the last child of ITS OWN parent, which is the icon span (the only child of .upload-icon), not the intended hint text; writing a long sentence into that ~18px icon silently balloons the whole upload zone to over 1000px tall by wrapping one character per line");
+  await loadFresh(cdp, "upload-zone-hint-target");
+  const result = await cdp.eval(`(async () => {
+    document.querySelector('[data-mode="caption"]').click();
+    await new Promise(r => setTimeout(r, 80));
+    function measure(zoneSelector) {
+      const zone = document.querySelector(zoneSelector);
+      const icon = zone.querySelector(".upload-icon");
+      const hint = [...zone.children].find(el => el !== icon);
+      return {
+        zoneHeight: zone.getBoundingClientRect().height,
+        iconOwnText: icon.querySelector(".ui-icon")?.textContent || "",
+        hintText: hint ? hint.textContent : null,
+      };
+    }
+    return {
+      globalRef: measure("#uploadZone"),
+      caption: measure("#captionUploadZone"),
+    };
+  })()`, true);
+
+  assertQa(result.globalRef.zoneHeight < 200, `Global reference upload zone must stay compact (measured ${result.globalRef.zoneHeight}px) — a runaway height means the hint text landed on the wrong element again.`, result);
+  assertQa(result.globalRef.iconOwnText === "", "The global reference upload zone's icon span must never contain the hint sentence.", result);
+  assertQa(/点击|拖拽|Click|Drag|クリック|ドラッグ|클릭|드래그/.test(result.globalRef.hintText || ""), "The global reference upload zone's actual hint span must contain real hint text.", result);
+
+  assertQa(result.caption.zoneHeight < 200, `Caption mode's bulk-upload zone must stay compact (measured ${result.caption.zoneHeight}px) — a runaway height means the hint text landed on the wrong element again.`, result);
+  assertQa(result.caption.iconOwnText === "", "The caption upload zone's icon span must never contain the hint sentence.", result);
+  assertQa(/点击|拖拽|Click|Drag|クリック|ドラッグ|클릭|드래그/.test(result.caption.hintText || ""), "The caption upload zone's actual hint span must contain real hint text.", result);
 }
 
 async function testManualWheelScrollFallback(cdp) {
@@ -2281,6 +2312,7 @@ async function main() {
     await testUpdateControls(cdp);
     await testStartupUpdatePrompt(cdp);
     await testDragDropHintReflectsPlatform(cdp);
+    await testUploadZoneHintTargetsCorrectSpan(cdp);
     await testManualWheelScrollFallback(cdp);
     await testModelChoicesWheelScroll(cdp);
     await testModelComboboxBehavior(cdp);
