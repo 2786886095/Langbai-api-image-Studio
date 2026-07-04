@@ -1829,6 +1829,7 @@ async function testCaptionMode(cdp) {
     set("model", "gpt-image-2");
     document.querySelector('[data-mode="caption"]').click();
     await new Promise(r => setTimeout(r, 50));
+    const globalSizeFieldHiddenInCaption = document.getElementById("globalSizeField").classList.contains("hidden");
     set("prompt", "GLOBAL STYLE");
 
     async function makeImageFile(name, color) {
@@ -1889,6 +1890,7 @@ async function testCaptionMode(cdp) {
     document.getElementById("captionTbody").innerHTML = "";
     document.querySelector('[data-mode="single"]').click();
     await new Promise(r => setTimeout(r, 50));
+    const globalSizeFieldVisibleInSingle = !document.getElementById("globalSizeField").classList.contains("hidden");
     document.getElementById("historyBtn").click();
     await new Promise(r => setTimeout(r, 100));
     const projectCardsBeforeRestore = document.querySelectorAll(".history-project-card").length;
@@ -1898,6 +1900,8 @@ async function testCaptionMode(cdp) {
     return {
       sortedFileNames,
       noEmptyRowBeforeUpload,
+      globalSizeFieldHiddenInCaption,
+      globalSizeFieldVisibleInSingle,
       allRequestsHadExactlyOneImage: calls.every(c => c.imagesCount === 1),
       totalGenerationCalls: initialGenerationCalls,
       historyLength: history.length,
@@ -1913,6 +1917,8 @@ async function testCaptionMode(cdp) {
   })()`, true);
 
   assertQa(result.noEmptyRowBeforeUpload, "Switching into caption mode must not leave a stray auto-created empty row ahead of bulk-uploaded images.", result);
+  assertQa(result.globalSizeFieldHiddenInCaption, "The global resolution picker must be hidden in caption mode — each row's output size always follows its own reference image's dimensions, so a global size control there is irrelevant noise.", result);
+  assertQa(result.globalSizeFieldVisibleInSingle, "The global resolution picker must still be visible in single mode (only caption mode hides it).", result);
   assertQa(JSON.stringify(result.sortedFileNames) === JSON.stringify(["cap-1.png", "cap-2.png", "cap-10.png"]),
     "Bulk-adding images with out-of-order but numeric filenames should create rows sorted in natural filename order (1, 2, 10), not upload order or lexical string order.", result);
   assertQa(result.totalGenerationCalls === 3, "Bulk-generating 3 caption rows should fire exactly 3 separate generation requests, one per row.", result);
@@ -1993,8 +1999,8 @@ async function testCaptionAutoFill(cdp) {
     return { afterDefaultFill, dialogAppeared, afterDeclinedOverwrite, afterCustomFill };
   })()`, true);
 
-  assertQa(JSON.stringify(result.afterDefaultFill) === JSON.stringify(["1", "2"]),
-    "The default numbered-bubble template should fill each row with just its own row number (bubble styling/position is meant to be described once in the global prompt, not repeated per row).", result);
+  assertQa(JSON.stringify(result.afterDefaultFill) === JSON.stringify(["给图片加入1的气泡字幕", "给图片加入2的气泡字幕"]),
+    "The default numbered-bubble template should fill each row with an instruction sentence naming its own row number (bubble styling/position is meant to be described once in the global prompt, not repeated per row).", result);
   assertQa(result.dialogAppeared, "Clicking fill again once rows already have content must show a confirm-before-overwrite dialog instead of silently overwriting.", result);
   assertQa(JSON.stringify(result.afterDeclinedOverwrite) === JSON.stringify(result.afterDefaultFill),
     "Declining the overwrite confirmation must leave the existing caption text untouched.", result);

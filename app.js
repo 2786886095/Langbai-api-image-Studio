@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.8";
+const APP_VERSION = "1.3.9";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -903,6 +903,7 @@ const dom = {
   txtFileInput:  $("#txtFileInput"),
   promptHint:    $("#promptHint"),
   referenceField: $("#referenceField"),
+  globalSizeField: $("#globalSizeField"),
   refImage:      $("#refImage"),
   uploadZone:    $("#uploadZone"),
   thumbGrid:     $("#thumbGrid"),
@@ -2372,6 +2373,7 @@ function switchMode(mode) {
   dom.captionSection.classList.toggle("hidden", !isCaption);
   dom.nImagesField.classList.toggle("hidden", isComic || isCaption);
   dom.referenceField.classList.toggle("hidden", isCaption);
+  dom.globalSizeField.classList.toggle("hidden", isCaption);
   dom.saveComicFolder.classList.toggle("hidden", !(isComic || isCaption));
   dom.progressWrap.classList.toggle("hidden", true);
 
@@ -3024,8 +3026,8 @@ function getCaptionAutoFillText(row, customTemplate = "") {
     return renderAutoFillTemplate(customTemplate, vars);
   }
   // 气泡的位置/颜色/样式交给全局提示词统一描述（全局提示词里说明"气泡文字对应下面的编号"即可），
-  // 这里的每行内容只需要提供区分用的编号本身，不重复限定样式，避免跟全局提示词冲突或重复。
-  return renderAutoFillTemplate("{n}", vars);
+  // 这里只需要一句明确指令 AI 给该图加气泡字幕、并带上编号即可，不重复限定样式。
+  return renderAutoFillTemplate("给图片加入{n}的气泡字幕", vars);
 }
 
 dom.autoFillCaptionRows.addEventListener("click", async () => {
