@@ -1820,7 +1820,7 @@ async function testCaptionMode(cdp) {
     await new Promise(r => setTimeout(r, 500));
 
     const rowsBeforeGenerate = [...document.querySelectorAll(".caption-row")];
-    const sortedFileNames = rowsBeforeGenerate.map(r => r.querySelector(".panel-img-name").textContent);
+    const sortedFileNames = rowsBeforeGenerate.map(r => r.querySelector(".caption-img-thumb").title);
     const noEmptyRowBeforeUpload = rowsBeforeGenerate.length === 3; // no leftover auto-created blank row ahead of the bulk-added ones
     rowsBeforeGenerate.forEach((row, i) => {
       const ta = row.querySelector(".caption-text");
@@ -1895,6 +1895,82 @@ async function testCaptionMode(cdp) {
   assertQa(result.restoredRowCount === 3, "Restoring a caption-project history entry should repopulate all 3 rows.", result);
   assertQa(JSON.stringify(result.restoredCaptionTexts) === JSON.stringify(["bubble text 1", "bubble text 2", "bubble text 3"]),
     "Restoring a caption-project history entry should refill each row's own caption text (not the combined global+row prompt, not blank).", result);
+}
+
+async function testCaptionAutoFill(cdp) {
+  logStep("Caption mode one-click-fill (一键填写): default numbered-bubble template substitutes each row's own number, overwrite requires confirmation, and a custom template can be typed in");
+  await loadFresh(cdp, "caption-autofill");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const answerAskDialog = async (value) => {
+      const start = Date.now();
+      let overlay = null;
+      while (Date.now() - start < 2000) {
+        overlay = document.querySelector(".ask-dialog-overlay");
+        if (overlay) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      if (!overlay) return false;
+      const input = overlay.querySelector(".ask-dialog-input");
+      if (input && value !== false) input.value = value === true ? "" : value;
+      overlay.querySelector(value === false ? ".ask-dialog-cancel" : ".ask-dialog-ok").click();
+      return true;
+    };
+
+    document.querySelector('[data-mode="caption"]').click();
+    await new Promise(r => setTimeout(r, 50));
+
+    async function makeImageFile(name, color) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 4; canvas.height = 4;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      return new File([blob], name, { type: "image/png" });
+    }
+    const dt = new DataTransfer();
+    dt.items.add(await makeImageFile("a.png", "#f33"));
+    dt.items.add(await makeImageFile("b.png", "#3f3"));
+    const input = document.getElementById("captionBulkInput");
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+
+    // Rows start empty, so the default template fill should apply with no overwrite prompt.
+    document.getElementById("captionAutoFillTemplate").value = "numbered-bubble";
+    document.getElementById("autoFillCaptionRows").click();
+    await new Promise(r => setTimeout(r, 80));
+    const afterDefaultFill = [...document.querySelectorAll(".caption-text")].map(el => el.value);
+
+    // Rows now have content: clicking fill again must ask for overwrite confirmation first.
+    document.getElementById("autoFillCaptionRows").click();
+    const dialogAppeared = await Promise.race([
+      answerAskDialog(false), // decline the overwrite this time
+      new Promise(r => setTimeout(() => r(false), 2500)),
+    ]);
+    await new Promise(r => setTimeout(r, 80));
+    const afterDeclinedOverwrite = [...document.querySelectorAll(".caption-text")].map(el => el.value);
+
+    // Now accept the overwrite and use a custom template (should prompt for the template text too).
+    document.getElementById("captionAutoFillTemplate").value = "custom";
+    document.getElementById("autoFillCaptionRows").click();
+    await answerAskDialog(true); // confirm overwrite
+    await answerAskDialog("图{n}号标注"); // supply the custom template
+    await new Promise(r => setTimeout(r, 80));
+    const afterCustomFill = [...document.querySelectorAll(".caption-text")].map(el => el.value);
+
+    return { afterDefaultFill, dialogAppeared, afterDeclinedOverwrite, afterCustomFill };
+  })()`, true);
+
+  assertQa(JSON.stringify(result.afterDefaultFill) === JSON.stringify([
+    "在图片右上角加一个白色对话气泡，文字是1",
+    "在图片右上角加一个白色对话气泡，文字是2",
+  ]), "The default numbered-bubble template should fill each row with its own row number substituted for {n}.", result);
+  assertQa(result.dialogAppeared, "Clicking fill again once rows already have content must show a confirm-before-overwrite dialog instead of silently overwriting.", result);
+  assertQa(JSON.stringify(result.afterDeclinedOverwrite) === JSON.stringify(result.afterDefaultFill),
+    "Declining the overwrite confirmation must leave the existing caption text untouched.", result);
+  assertQa(JSON.stringify(result.afterCustomFill) === JSON.stringify(["图1号标注", "图2号标注"]),
+    "Confirming the overwrite and supplying a custom template should fill each row using that template with {n} substituted.", result);
 }
 
 async function testAndroidUpdateRedirect(cdp) {
@@ -2209,6 +2285,7 @@ async function main() {
     await testModelChoicesWheelScroll(cdp);
     await testModelComboboxBehavior(cdp);
     await testCaptionMode(cdp);
+    await testCaptionAutoFill(cdp);
     await testAndroidUpdateRedirect(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");

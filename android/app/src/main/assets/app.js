@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.5";
+const APP_VERSION = "1.3.6";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -212,7 +212,7 @@ const CLEAN_LOCALES = {
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", autoRetry: "自动重试", globalRetries: "全局重试次数",
     retryHint: "只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
     restoreProject: "恢复项目", downloadProject: "导出项目", viewPrompts: "查看提示词与分镜",
-    globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目",
+    globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目", captionImageCol: "图片", captionBubbleCol: "气泡文字",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
@@ -271,7 +271,7 @@ const CLEAN_LOCALES = {
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", autoRetry: "自動重試", globalRetries: "全域重試次數",
     retryHint: "只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
     restoreProject: "恢復專案", downloadProject: "匯出專案", viewPrompts: "查看提示詞與分鏡",
-    globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案",
+    globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案", captionImageCol: "圖片", captionBubbleCol: "氣泡文字",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
@@ -330,7 +330,7 @@ const CLEAN_LOCALES = {
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", autoRetry: "Auto Retry", globalRetries: "Global retries",
     retryHint: "Only HTTP 400 retries automatically. 0 disables auto retry. Per-panel retries override this.",
     restoreProject: "Restore Project", downloadProject: "Export Project", viewPrompts: "View prompts and panels",
-    globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project",
+    globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project", captionImageCol: "Image", captionBubbleCol: "Bubble Text",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
@@ -389,7 +389,7 @@ const CLEAN_LOCALES = {
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
     retryHint: "HTTP 400 のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
     restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", viewPrompts: "プロンプトとコマを見る",
-    globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト",
+    globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト", captionImageCol: "画像", captionBubbleCol: "吹き出しテキスト",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
@@ -448,7 +448,7 @@ const CLEAN_LOCALES = {
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
     retryHint: "HTTP 400만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
     restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", viewPrompts: "프롬프트와 콘티 보기",
-    globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트",
+    globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트", captionImageCol: "이미지", captionBubbleCol: "말풍선 텍스트",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
@@ -725,10 +725,14 @@ function applyCleanLanguage() {
   if (dom.createPanels) dom.createPanels.textContent = cleanText("createBtn");
   setText(".tool-group-fill .tool-label", "autoFill");
   setButtonText(dom.autoFillPanels, "spark", "fill");
+  setText("#captionSection .tool-group-fill .tool-label", "autoFill");
+  setButtonText(dom.autoFillCaptionRows, "spark", "fill");
   setText(".panel-table th.col-prompt", "panelPrompt");
   setText(".panel-table th.col-size", "resolution");
   setText(".panel-table th.col-retry", "retry");
   setText(".panel-table th.col-img", "reference");
+  setText("#captionTable th.col-img", "captionImageCol");
+  setText("#captionTable th.col-prompt", "captionBubbleCol");
 
   setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
   setButtonText(dom.chooseImageDir, "image", "imageFolder");
@@ -926,6 +930,8 @@ const dom = {
   captionBulkInput: $("#captionBulkInput"),
   captionTbody:  $("#captionTbody"),
   clearCaptionRows: $("#clearCaptionRows"),
+  captionAutoFillTemplate: $("#captionAutoFillTemplate"),
+  autoFillCaptionRows: $("#autoFillCaptionRows"),
   // 进度
   progressWrap:  $("#progressWrap"),
   progressFill:  $("#progressFill"),
@@ -1116,6 +1122,7 @@ const customSelects = {
   nImages: initCustomSelect(dom.nImages),
   savedSizes: initCustomSelect(dom.savedSizes),
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
+  captionAutoFillTemplate: initCustomSelect(dom.captionAutoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
   modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
@@ -3003,6 +3010,44 @@ dom.autoFillPanels.addEventListener("click", async () => {
   showStatus(`已按「${label}」填写 ${rows.length} 个分镜`, "success");
 });
 
+const CAPTION_AUTO_FILL_TEMPLATE_LABELS = {
+  "numbered-bubble": "编号气泡",
+  custom: "自定义模板",
+};
+
+function getCaptionAutoFillText(row, customTemplate = "") {
+  const n = row.querySelector(".panel-num").textContent;
+  const vars = { n, ref: n, caption: n };
+  const templateType = dom.captionAutoFillTemplate?.value || "numbered-bubble";
+
+  if (templateType === "custom") {
+    return renderAutoFillTemplate(customTemplate, vars);
+  }
+  return renderAutoFillTemplate("在图片右上角加一个白色对话气泡，文字是{n}", vars);
+}
+
+dom.autoFillCaptionRows.addEventListener("click", async () => {
+  const rows = $$(".caption-row", dom.captionTbody);
+  if (rows.length === 0) {
+    showStatus("请先批量上传图片", "info"); return;
+  }
+
+  const hasContent = rows.some(row => row.querySelector(".caption-text").value.trim());
+  if (hasContent && !(await askConfirm("已有气泡文字，确定用当前模板覆盖吗？"))) return;
+
+  let customTemplate = "";
+  if (dom.captionAutoFillTemplate?.value === "custom") {
+    customTemplate = (await askPrompt("输入模板：可用 {n} 表示图片编号", "在图片右上角加一个白色对话气泡，文字是{n}")) || "";
+    if (!customTemplate.trim()) return;
+  }
+
+  rows.forEach(row => {
+    row.querySelector(".caption-text").value = getCaptionAutoFillText(row, customTemplate.trim());
+  });
+  const label = CAPTION_AUTO_FILL_TEMPLATE_LABELS[dom.captionAutoFillTemplate?.value || "numbered-bubble"] || "当前模板";
+  showStatus(`已按「${label}」填写 ${rows.length} 张图片`, "success");
+});
+
 function collectPanels() {
   return $$(".panel-row", dom.panelTbody).map(row => ({
     id: row.dataset.panelId,
@@ -3034,14 +3079,11 @@ const captionRowTemplate = $("#captionRowTemplate");
 
 function applyCaptionRowImage(row, ref) {
   const imgPreview = row.querySelector(".panel-img-preview");
-  const imgName = row.querySelector(".panel-img-name");
-  const imgClear = row.querySelector(".panel-img-clear");
+  const imgThumb = row.querySelector(".caption-img-thumb");
   row._captionReference = ref;
   imgPreview.style.backgroundImage = `url("${ref.dataUrl}")`;
   imgPreview.classList.remove("hidden");
-  imgName.textContent = ref.fileName;
-  imgName.title = ref.fileName;
-  imgClear.classList.remove("hidden");
+  imgThumb.title = ref.fileName;
 }
 
 function addCaptionRow(prefilledRef = null) {
@@ -3058,12 +3100,10 @@ function addCaptionRow(prefilledRef = null) {
   });
 
   const imgInput = row.querySelector(".panel-img-input");
-  const imgBtn = row.querySelector(".panel-img-btn");
+  const imgThumb = row.querySelector(".caption-img-thumb");
   const imgPreview = row.querySelector(".panel-img-preview");
-  const imgName = row.querySelector(".panel-img-name");
-  const imgClear = row.querySelector(".panel-img-clear");
 
-  imgBtn.addEventListener("click", e => {
+  imgThumb.addEventListener("click", e => {
     e.preventDefault();
     e.stopPropagation();
     openFileInputOnce(imgInput);
@@ -3073,8 +3113,7 @@ function addCaptionRow(prefilledRef = null) {
     if (file && file.type.startsWith("image/")) {
       const readTask = readImageReference(file);
       row._captionReferenceTask = readTask;
-      imgBtn.disabled = true;
-      imgName.textContent = "读取中";
+      imgThumb.disabled = true;
       try {
         const ref = await readTask;
         if (imgInput.files[0] !== file) return;
@@ -3083,27 +3122,15 @@ function addCaptionRow(prefilledRef = null) {
       } catch (err) {
         row._captionReference = null;
         imgInput.value = "";
-        imgName.textContent = "";
-        imgName.title = "";
+        imgThumb.title = "点击替换图片";
         imgPreview.style.backgroundImage = "";
         imgPreview.classList.add("hidden");
-        imgClear.classList.add("hidden");
         showStatus(err.message || "图片读取失败", "error");
       } finally {
         if (row._captionReferenceTask === readTask) row._captionReferenceTask = null;
-        imgBtn.disabled = false;
+        imgThumb.disabled = false;
       }
     }
-  });
-  imgClear.addEventListener("click", () => {
-    imgInput.value = "";
-    row._captionReference = null;
-    row._captionReferenceTask = null;
-    imgPreview.style.backgroundImage = "";
-    imgPreview.classList.add("hidden");
-    imgName.textContent = "";
-    imgName.title = "";
-    imgClear.classList.add("hidden");
   });
 
   if (prefilledRef) applyCaptionRowImage(row, prefilledRef);

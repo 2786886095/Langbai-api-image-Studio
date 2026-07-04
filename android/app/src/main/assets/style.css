@@ -716,7 +716,8 @@ select.custom-select-native {
   font-family: "Nunito", sans-serif;
   box-shadow: 0 2px 8px var(--primary-glow);
 }
-.panel-row textarea {
+.panel-row textarea,
+.caption-row textarea {
   min-height: 52px !important; padding: 7px 8px !important; font-size: 0.78rem !important;
   margin: 0;
 }
@@ -743,6 +744,25 @@ select.custom-select-native {
   align-items: center; justify-content: center;
   width: 16px; height: 16px; font-size: 0.55rem; line-height: 1; vertical-align: middle;
 }
+
+/* 嵌字模式每一行都必然有一张图（跟漫画模式"参考图可选"不一样），用单个可点击缩略图代替
+   漫画那一套"按钮+缩略图+文件名+清除按钮"四件套纵向堆叠布局——四个元素堆在只有 56px 宽的
+   列里，撑出将近 90px 高的行，是"嵌字列表占的空间太大"这个反馈的真正原因（不是图片本身画
+   得大，是这一列堆叠内容的总高度顶开了整行）。 */
+#captionTable .col-img { width: 64px; }
+.caption-img-thumb {
+  width: 44px; height: 44px; padding: 0; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; transition: var(--transition);
+}
+.caption-img-thumb:hover { border-color: var(--border-strong); }
+.caption-img-thumb .panel-img-preview {
+  width: 100%; height: 100%; margin: 0; border: none; border-radius: 0;
+}
+.caption-img-placeholder { color: var(--text2); font-size: 1.1rem; }
+.caption-img-thumb .panel-img-preview:not(.hidden) ~ .caption-img-placeholder { display: none; }
 
 /* ===== Progress ===== */
 .progress-wrap {
