@@ -1768,11 +1768,95 @@ async function testCardRetryAttemptDisplayAndStop(cdp) {
   })()`, true);
 
   assertQa(/1\s*\/\s*3/.test(result.attemptLabelText), "The card itself should show which automatic-retry attempt it's on (e.g. '第 1/3 次自动重试'), not just rely on a global status line that gets overwritten by other concurrently-retrying cards.", result);
-  assertQa(result.stopBtnVisibleDuringRetry, "A 'stop retry' button should appear on the card once it's actually auto-retrying.", result);
-  assertQa(result.cardAFailed && /已手动停止重试/.test(result.cardAFailedMessage), "Clicking the per-card stop-retry button should cancel that card's in-flight request and mark it as manually stopped.", result);
+  assertQa(result.stopBtnVisibleDuringRetry, "The cancel button must still be visible once the card is auto-retrying (it's visible from the moment the card starts loading, see testCancelDuringFirstAttempt -- this just confirms auto-retry doesn't hide it).", result);
+  assertQa(result.cardAFailed && /已手动取消/.test(result.cardAFailedMessage), "Clicking the per-card cancel button should cancel that card's in-flight request and mark it as manually cancelled.", result);
   assertQa(result.panelACallsBeforeStop === 2, "Panel A's second (retry) request must actually be dispatched before we stop it -- otherwise this only proves stopping during the backoff wait, not cancelling a genuinely in-flight request.", result);
   assertQa(result.panelACalls === 2, "Stopping the card must not trigger yet another request -- exactly the initial attempt (HTTP 504) plus the one retry that got cancelled, nothing more.", result);
   assertQa(result.cardBHasImage && result.panelBCalls === 1, "Stopping panel A's retry must not affect panel B, which should complete normally on its own single request.", result);
+}
+
+async function testCancelDuringFirstAttempt(cdp) {
+  logStep("A single image's cancel button must work during its very first (normal, non-retry) generation attempt, not just once it's already failed and auto-retrying -- the user explicitly clarified that a single image should be cancellable on its own, in addition to the existing 'cancel all' button");
+  await loadFresh(cdp, "cancel-first-attempt");
+  const result = await cdp.eval(`(async () => {
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    // Single mode sends the same prompt for every image in the batch, so requests can't be
+    // told apart by content -- distinguish by call order instead: the first request hangs
+    // (simulating a slow first attempt), every request after that succeeds immediately.
+    let hangingCallMade = false;
+    let hangingCalls = 0;
+    let succeedingCalls = 0;
+    window.fetch = (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      if (!hangingCallMade) {
+        hangingCallMade = true;
+        hangingCalls++;
+        return new Promise((resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+        });
+      }
+      succeedingCalls++;
+      return Promise.resolve(new Response(JSON.stringify({ data: [{ b64_json: png }] }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    };
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "custom");
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    set("nImages", "2");
+    set("prompt", "two images, same prompt");
+
+    document.getElementById("generateBtn").click();
+    let start = Date.now();
+    let hangingCard = null;
+    let succeedingCard = null;
+    while (Date.now() - start < 3000) {
+      const cards = [...document.querySelectorAll(".result-item")];
+      hangingCard = cards.find(c => c.dataset.status === "loading");
+      succeedingCard = cards.find(c => c !== hangingCard && c.querySelector("img"));
+      if (cards.length === 2 && hangingCard && succeedingCard) break;
+      await new Promise(r => setTimeout(r, 40));
+    }
+
+    // The cancel button must already be visible right away -- no failure or retry has
+    // happened yet, this is still the hanging card's very first attempt.
+    const cancelBtnVisibleImmediately = !hangingCard.querySelector(".stop-card-retry")?.classList.contains("hidden");
+    const retryLabelHiddenBeforeCancel = hangingCard.querySelector(".retry-attempt-label")?.classList.contains("hidden");
+
+    hangingCard.querySelector(".stop-card-retry").click();
+    start = Date.now();
+    while (Date.now() - start < 3000) {
+      if (hangingCard.classList.contains("is-failed")) break;
+      await new Promise(r => setTimeout(r, 40));
+    }
+
+    start = Date.now();
+    while (Date.now() - start < 3000) {
+      if (succeedingCard?.querySelector("img")) break;
+      await new Promise(r => setTimeout(r, 40));
+    }
+
+    return {
+      cancelBtnVisibleImmediately,
+      retryLabelHiddenBeforeCancel,
+      hangingCardFailed: hangingCard.classList.contains("is-failed"),
+      hangingCardMessage: hangingCard.dataset.errorMessage || "",
+      hangingCalls,
+      succeedingCardHasImage: !!succeedingCard?.querySelector("img"),
+      succeedingCalls,
+    };
+  })()`, true);
+
+  assertQa(result.cancelBtnVisibleImmediately, "The per-card cancel button must be visible immediately when a card starts loading -- it must not wait for a failed/retrying state to appear, since the whole point is being able to cancel a single image's very first attempt.", result);
+  assertQa(result.retryLabelHiddenBeforeCancel, "The retry-attempt-label must stay hidden when a card is cancelled during its first attempt -- it never failed once, so there was never a retry to report.", result);
+  assertQa(result.hangingCardFailed && /已手动取消/.test(result.hangingCardMessage), "Cancelling an image during its first attempt must mark it as manually cancelled, the same outcome as cancelling during a retry.", result);
+  assertQa(result.hangingCalls === 1, "The cancelled image should only have been requested once (its first attempt, which got cancelled) -- cancelling a first attempt must not trigger a retry.", result);
+  assertQa(result.succeedingCardHasImage && result.succeedingCalls === 1, "Cancelling one image must not affect the other, which should complete normally on its own.", result);
 }
 
 async function testUpdateControls(cdp) {
@@ -2812,6 +2896,7 @@ async function main() {
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
     await testCardRetryAttemptDisplayAndStop(cdp);
+    await testCancelDuringFirstAttempt(cdp);
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);

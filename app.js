@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.13";
+const APP_VERSION = "1.3.14";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -221,7 +221,7 @@ const CLEAN_LOCALES = {
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
-    download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "停止重试",
+    download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "取消",
     failReason: "失败原因", retryFailedAll: "全部失败重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜",
     softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
     checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装",
@@ -280,7 +280,7 @@ const CLEAN_LOCALES = {
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
-    download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "停止重試",
+    download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "取消",
     failReason: "失敗原因", retryFailedAll: "全部失敗重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡",
     softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
     checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝",
@@ -339,7 +339,7 @@ const CLEAN_LOCALES = {
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
-    download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Stop retrying",
+    download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Cancel",
     failReason: "Failure reason", retryFailedAll: "Retry all failed", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry",
     softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
     checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install",
@@ -398,7 +398,7 @@ const CLEAN_LOCALES = {
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
-    download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "再試行を停止",
+    download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "キャンセル",
     failReason: "失敗理由", retryFailedAll: "失敗分を再試行", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません",
     softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
     checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール",
@@ -457,7 +457,7 @@ const CLEAN_LOCALES = {
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
-    download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "재시도 중지",
+    download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "취소",
     failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
     softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
     checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치",
@@ -4018,7 +4018,7 @@ async function generateSingle() {
         ok++;
       } catch (err) {
         if (err?.name === "AbortError") {
-          markPlaceholderFailed(placeholder, i + 1, cardAbort.signal.aborted ? "已手动停止重试" : "已取消生成", { mode: "single", prompt, size, references, retryCount });
+          markPlaceholderFailed(placeholder, i + 1, cardAbort.signal.aborted ? "已手动取消" : "已取消生成", { mode: "single", prompt, size, references, retryCount });
           fail++;
           return;
         }
@@ -4136,7 +4136,7 @@ async function generateComic() {
     } catch (err) {
       const isAbort = err.name === "AbortError";
       if (isAbort || isGenerationCurrent(run)) {
-        const message = isAbort ? (cardAbort.signal.aborted ? "已手动停止重试" : "已取消生成") : err.message;
+        const message = isAbort ? (cardAbort.signal.aborted ? "已手动取消" : "已取消生成") : err.message;
         markPlaceholderFailed(placeholder, panel.id, message, {
           references,
           size,
@@ -4292,7 +4292,7 @@ async function generateCaptions() {
     } catch (err) {
       const isAbort = err.name === "AbortError";
       if (isAbort || isGenerationCurrent(run)) {
-        const message = isAbort ? (cardAbort.signal.aborted ? "已手动停止重试" : "已取消生成") : err.message;
+        const message = isAbort ? (cardAbort.signal.aborted ? "已手动取消" : "已取消生成") : err.message;
         markPlaceholderFailed(placeholder, row.id, message, {
           references,
           size,
@@ -4380,9 +4380,10 @@ function updateProgress(done, total, icon) {
 
 // ─── 结果卡片 / 人工重试 ─────────────────────────────────────
 
-// 卡片自动重试时（撞上 HTTP 400/502/503/504）显示"第 N/M 次自动重试"并给一个可以单独
-// 停掉这一张的按钮——重建 innerHTML 会连带丢弃旧的事件监听器，所以每次重建卡片（初始
-// 占位、人工重试的 renderRetryLoading）都要重新调用这个函数绑定一次。
+// 每张卡片从一进入 loading 状态开始就有一个"取消"按钮（不只是撞上自动重试之后才出现）——
+// 用户明确要求"单张图片能取消生成"，这个按钮在首次生成和自动重试期间都可以点，点击效果
+// 都是 abort 这张卡片自己的 AbortController。重建 innerHTML 会连带丢弃旧的事件监听器，
+// 所以每次重建卡片（初始占位、人工重试的 renderRetryLoading）都要重新调用这个函数绑定一次。
 function wireCardStopRetryButton(card) {
   const btn = card.querySelector(".stop-card-retry");
   btn?.addEventListener("click", () => {
@@ -4391,7 +4392,9 @@ function wireCardStopRetryButton(card) {
 }
 
 // callImageAPI() 的 onRetryAttempt 回调调用这个函数，把"第几次自动重试"显示到具体这一张
-// 卡片上（而不只是顶部会被其它卡片覆盖掉的全局状态栏），同时把"停止重试"按钮露出来。
+// 卡片上（而不只是顶部会被其它卡片覆盖掉的全局状态栏）。"取消"按钮本身从卡片一创建就是
+// 可见的（见 addResultPlaceholder()/renderRetryLoading()），这里对它的 classList.remove
+// 只是防御性的（万一以后有路径创建卡片时漏加可见状态），不是"只有重试时才露出来"。
 function updateCardRetryAttempt(card, { retryIndex, maxRetries, statusLabel } = {}) {
   if (!card?.isConnected) return;
   const label = card.querySelector(".retry-attempt-label");
@@ -4418,7 +4421,7 @@ function addResultPlaceholder(panelId, prompt, retryContext = {}) {
     <div class="result-media result-media-loading">
       <div class="spinner" style="width:28px;height:28px;"></div>
       <div class="retry-attempt-label hidden"></div>
-      <button type="button" class="btn btn-xs stop-card-retry hidden" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
+      <button type="button" class="btn btn-xs stop-card-retry" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
     </div>
     <div class="result-actions">
       <span style="font-size:0.75rem;color:var(--text2);padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 60))}…</span>
@@ -4780,7 +4783,7 @@ function renderRetryLoading(card, panelId, promptText) {
       <div class="spinner" style="width:28px;height:28px;"></div>
       <div style="font-size:0.82rem;">正在重试生成…</div>
       <div class="retry-attempt-label hidden"></div>
-      <button type="button" class="btn btn-xs stop-card-retry hidden" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
+      <button type="button" class="btn btn-xs stop-card-retry" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
     </div>
     <div class="result-actions">
       <span style="font-size:0.75rem;color:var(--text2);padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escapeHtml(promptText)}">${escapeHtml(promptText.slice(0, 80))}</span>
@@ -4834,8 +4837,8 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     return true;
   } catch (err) {
     if (err?.name === "AbortError" && cardAbort.signal.aborted) {
-      markPlaceholderFailed(card, panelId, "已手动停止重试", { ...context, prompt: promptText, size, retryCount });
-      if (!options.quiet) showStatus(`${label} ${panelId} 已手动停止重试`, "info");
+      markPlaceholderFailed(card, panelId, "已手动取消", { ...context, prompt: promptText, size, retryCount });
+      if (!options.quiet) showStatus(`${label} ${panelId} 已手动取消`, "info");
       return false;
     }
     markPlaceholderFailed(card, panelId, err.message || String(err), { ...context, prompt: promptText, size, retryCount });
