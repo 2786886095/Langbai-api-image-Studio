@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.10";
+const APP_VERSION = "1.3.11";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -210,13 +210,13 @@ const CLEAN_LOCALES = {
     historyTitle: "生图记录", historyHint: "漫画会按项目保存，默认折叠提示词，数据保存在本机 localStorage。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", autoRetry: "自动重试", globalRetries: "全局重试次数",
-    retryHint: "只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
+    retryHint: "只有部分临时性错误（HTTP 400/502/503/504）会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
     restoreProject: "恢复项目", downloadProject: "导出项目", viewPrompts: "查看提示词与分镜",
     globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目", captionImageCol: "图片", captionBubbleCol: "气泡文字",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
-    download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片",
+    download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "停止重试",
     failReason: "失败原因", retryFailedAll: "全部失败重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜",
     softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
     checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装",
@@ -269,13 +269,13 @@ const CLEAN_LOCALES = {
     historyTitle: "生圖記錄", historyHint: "漫畫會按專案保存，預設摺疊提示詞，資料保存在本機 localStorage。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", autoRetry: "自動重試", globalRetries: "全域重試次數",
-    retryHint: "只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
+    retryHint: "只有部分暫時性錯誤（HTTP 400/502/503/504）會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
     restoreProject: "恢復專案", downloadProject: "匯出專案", viewPrompts: "查看提示詞與分鏡",
     globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案", captionImageCol: "圖片", captionBubbleCol: "氣泡文字",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
-    download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片",
+    download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "停止重試",
     failReason: "失敗原因", retryFailedAll: "全部失敗重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡",
     softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
     checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝",
@@ -328,13 +328,13 @@ const CLEAN_LOCALES = {
     historyTitle: "Generation History", historyHint: "Comics are saved as projects. Prompts stay collapsed by default and data is stored in localStorage.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", autoRetry: "Auto Retry", globalRetries: "Global retries",
-    retryHint: "Only HTTP 400 retries automatically. 0 disables auto retry. Per-panel retries override this.",
+    retryHint: "Only transient errors (HTTP 400/502/503/504) retry automatically. 0 disables auto retry. Per-panel retries override this.",
     restoreProject: "Restore Project", downloadProject: "Export Project", viewPrompts: "View prompts and panels",
     globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project", captionImageCol: "Image", captionBubbleCol: "Bubble Text",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
-    download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image",
+    download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Stop retrying",
     failReason: "Failure reason", retryFailedAll: "Retry all failed", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry",
     softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
     checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install",
@@ -387,13 +387,13 @@ const CLEAN_LOCALES = {
     historyTitle: "生成履歴", historyHint: "漫画はプロジェクトとして保存され、プロンプトは初期状態で折りたたまれます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
-    retryHint: "HTTP 400 のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
+    retryHint: "一部の一時的エラー（HTTP 400/502/503/504）のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
     restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", viewPrompts: "プロンプトとコマを見る",
     globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト", captionImageCol: "画像", captionBubbleCol: "吹き出しテキスト",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
-    download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み",
+    download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "再試行を停止",
     failReason: "失敗理由", retryFailedAll: "失敗分を再試行", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません",
     softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
     checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール",
@@ -446,13 +446,13 @@ const CLEAN_LOCALES = {
     historyTitle: "생성 기록", historyHint: "만화는 프로젝트로 저장되며 프롬프트는 기본적으로 접혀 있습니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
-    retryHint: "HTTP 400만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
+    retryHint: "일부 일시적 오류(HTTP 400/502/503/504)만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
     restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", viewPrompts: "프롬프트와 콘티 보기",
     globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트", captionImageCol: "이미지", captionBubbleCol: "말풍선 텍스트",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
-    download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기",
+    download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "재시도 중지",
     failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
     softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
     checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치",
@@ -3619,15 +3619,29 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   }, {
     signal,
     maxRetries,
-    onRetry: ({ retryIndex, maxRetries }) => {
-      showStatus(`${contextLabel} 返回 HTTP 400，正在进行第 ${retryIndex}/${maxRetries} 轮自动重试…`, "info");
+    onRetry: ({ retryIndex, maxRetries, error }) => {
+      const statusMatch = String(error?.message || "").match(/HTTP\s*(\d{3})/i);
+      const statusLabel = statusMatch ? `HTTP ${statusMatch[1]}` : "临时错误";
+      showStatus(`${contextLabel} 返回 ${statusLabel}，正在进行第 ${retryIndex}/${maxRetries} 轮自动重试…`, "info");
+      options.onRetryAttempt?.({ retryIndex, maxRetries, statusLabel });
     },
   });
 }
 
 function isTransientApiError(err) {
   const msg = String(err?.message || err || "");
-  return /HTTP\s*400\b/i.test(msg);
+  // 502/503/504 是反向代理/网关层面的临时性错误（上游一时没响应、负载高、网关等待超时），
+  // 跟"请求本身有问题"性质不同，重试通常就有机会成功——用户反馈过实际遇到 504 Gateway
+  // Time-out（nginx）。400 是这一类生图 API 生态里另一种常见的瞬时故障码（不是标准 HTTP
+  // 语义，但这些供应商的接口经常把可重试的临时问题也报成 400，是既有观察）。500 故意不算
+  // 在内：通常意味着后端代码本身出错，重试大概率也不会成功，不属于"基础设施临时抽风"这类。
+  if (/HTTP\s*(400|502|503|504)\b/i.test(msg)) return true;
+  // 原生端 dart:io HttpClient 连接被中途挂断时抛的是 HttpException，不是一个规规矩矩的 HTTP
+  // 状态码错误——"Connection closed before full header was received"（用户实际遇到过）以及
+  // 同类措辞"Connection closed while receiving..."，本质上跟网关返回 502/503/504 是同一个
+  // "基础设施临时抽风"故障家族，只是这次连响应头都没能吐出来，连接直接断了。同样值得重试。
+  if (/connection closed/i.test(msg)) return true;
+  return false;
 }
 
 async function retryTransient(fn, options = {}) {
@@ -3646,7 +3660,7 @@ async function retryTransient(fn, options = {}) {
       if (attempt > maxRetries || !isTransientApiError(err)) throw err;
       const delay = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 600);
       onRetry?.({ retryIndex: attempt, maxRetries, nextAttempt: attempt + 1, delay, error: err });
-      console.warn(`HTTP 400 transient error, retry round ${attempt}/${maxRetries} after ${delay}ms:`, err);
+      console.warn(`Transient API error, retry round ${attempt}/${maxRetries} after ${delay}ms:`, err);
       await sleep(delay, signal);
     }
   }
@@ -3702,6 +3716,23 @@ function createAbortError() {
 
 function throwIfAborted(signal) {
   if (signal?.aborted) throw createAbortError();
+}
+
+// 合并两个 AbortSignal：批量生成整体的 signal（用户点"停止生成"）+ 单张卡片自己的
+// signal（用户点这张卡片自己的"停止重试"按钮）。没有用 AbortSignal.any()（更新的浏览器
+// 才有）是为了不给这个已经支持打包成较旧 WebView2/PWA 场景的项目引入兼容性风险。
+function combineSignals(signalA, signalB) {
+  if (!signalA) return signalB || null;
+  if (!signalB) return signalA;
+  const controller = new AbortController();
+  if (signalA.aborted || signalB.aborted) {
+    controller.abort();
+  } else {
+    const onAbort = () => controller.abort();
+    signalA.addEventListener("abort", onAbort, { once: true });
+    signalB.addEventListener("abort", onAbort, { once: true });
+  }
+  return controller.signal;
 }
 
 function sleep(ms, signal) {
@@ -3946,8 +3977,13 @@ async function generateSingle() {
         references,
         retryCount,
       });
+      const cardAbort = new AbortController();
+      placeholder._cardRetryAbortController = cardAbort;
       try {
-        const data = await callImageAPI(prompt, size, 1, `图片 ${i + 1}`, { references, signal: run.signal, maxRetries: retryCount });
+        const data = await callImageAPI(prompt, size, 1, `图片 ${i + 1}`, {
+          references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
+          onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
+        });
         if (!isGenerationCurrent(run)) return;
         const record = replacePlaceholder(placeholder, i + 1, data, prompt, {
           retryContext: { mode: "single", prompt, size, references, retryCount },
@@ -3955,7 +3991,14 @@ async function generateSingle() {
         if (record) placeholder._historyRecordId = record.id;
         ok++;
       } catch (err) {
-        if (err?.name === "AbortError" || !isGenerationCurrent(run)) return;
+        if (err?.name === "AbortError") {
+          if (cardAbort.signal.aborted) {
+            markPlaceholderFailed(placeholder, i + 1, "已手动停止重试", { mode: "single", prompt, size, references, retryCount });
+            fail++;
+          }
+          return;
+        }
+        if (!isGenerationCurrent(run)) return;
         markPlaceholderFailed(placeholder, i + 1, err.message, { mode: "single", prompt, size, references, retryCount });
         fail++;
       }
@@ -4050,8 +4093,13 @@ async function generateComic() {
   let done = 0;
   const tasks = panelTasks.map(({ panel, fullPrompt, size, references, retryCount, placeholder }) => async () => {
     if (!isGenerationCurrent(run)) return;
+    const cardAbort = new AbortController();
+    placeholder._cardRetryAbortController = cardAbort;
     try {
-      const data = await callImageAPI(fullPrompt, size, 1, `分镜 ${panel.id}`, { references, signal: run.signal, maxRetries: retryCount });
+      const data = await callImageAPI(fullPrompt, size, 1, `分镜 ${panel.id}`, {
+        references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
+        onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
+      });
       if (!isGenerationCurrent(run)) return;
       const record = replacePlaceholder(placeholder, panel.id, data, fullPrompt, {
         skipHistory: true,
@@ -4063,8 +4111,9 @@ async function generateComic() {
       if (record) projectImages.push({ ...record, prompt: panel.prompt, panelPrompt: panel.prompt, fullPrompt, retryCount });
       completed++;
     } catch (err) {
-      if (err.name !== "AbortError" && isGenerationCurrent(run)) {
-        markPlaceholderFailed(placeholder, panel.id, err.message, {
+      const shouldMarkFailed = err.name === "AbortError" ? cardAbort.signal.aborted : isGenerationCurrent(run);
+      if (shouldMarkFailed) {
+        markPlaceholderFailed(placeholder, panel.id, err.name === "AbortError" ? "已手动停止重试" : err.message, {
           references,
           size,
           mode: "comic",
@@ -4196,8 +4245,13 @@ async function generateCaptions() {
   let done = 0;
   const tasks = rowTasks.map(({ row, fullPrompt, size, references, retryCount, placeholder }) => async () => {
     if (!isGenerationCurrent(run)) return;
+    const cardAbort = new AbortController();
+    placeholder._cardRetryAbortController = cardAbort;
     try {
-      const data = await callImageAPI(fullPrompt, size, 1, `图片 ${row.id}`, { references, signal: run.signal, maxRetries: retryCount });
+      const data = await callImageAPI(fullPrompt, size, 1, `图片 ${row.id}`, {
+        references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
+        onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
+      });
       if (!isGenerationCurrent(run)) return;
       const record = replacePlaceholder(placeholder, row.id, data, fullPrompt, {
         skipHistory: true,
@@ -4209,8 +4263,9 @@ async function generateCaptions() {
       if (record) projectImages.push({ ...record, prompt: row.captionText, panelPrompt: row.captionText, fullPrompt, retryCount });
       completed++;
     } catch (err) {
-      if (err.name !== "AbortError" && isGenerationCurrent(run)) {
-        markPlaceholderFailed(placeholder, row.id, err.message, {
+      const shouldMarkFailed = err.name === "AbortError" ? cardAbort.signal.aborted : isGenerationCurrent(run);
+      if (shouldMarkFailed) {
+        markPlaceholderFailed(placeholder, row.id, err.name === "AbortError" ? "已手动停止重试" : err.message, {
           references,
           size,
           mode: "caption",
@@ -4296,6 +4351,28 @@ function updateProgress(done, total, icon) {
 
 // ─── 结果卡片 / 人工重试 ─────────────────────────────────────
 
+// 卡片自动重试时（撞上 HTTP 400/502/503/504）显示"第 N/M 次自动重试"并给一个可以单独
+// 停掉这一张的按钮——重建 innerHTML 会连带丢弃旧的事件监听器，所以每次重建卡片（初始
+// 占位、人工重试的 renderRetryLoading）都要重新调用这个函数绑定一次。
+function wireCardStopRetryButton(card) {
+  const btn = card.querySelector(".stop-card-retry");
+  btn?.addEventListener("click", () => {
+    card._cardRetryAbortController?.abort();
+  });
+}
+
+// callImageAPI() 的 onRetryAttempt 回调调用这个函数，把"第几次自动重试"显示到具体这一张
+// 卡片上（而不只是顶部会被其它卡片覆盖掉的全局状态栏），同时把"停止重试"按钮露出来。
+function updateCardRetryAttempt(card, { retryIndex, maxRetries, statusLabel } = {}) {
+  if (!card?.isConnected) return;
+  const label = card.querySelector(".retry-attempt-label");
+  if (label) {
+    label.textContent = `第 ${retryIndex}/${maxRetries} 次自动重试${statusLabel ? `（${statusLabel}）` : ""}`;
+    label.classList.remove("hidden");
+  }
+  card.querySelector(".stop-card-retry")?.classList.remove("hidden");
+}
+
 function addResultPlaceholder(panelId, prompt, retryContext = {}) {
   const card = document.createElement("div");
   card.className = "result-item";
@@ -4311,10 +4388,13 @@ function addResultPlaceholder(panelId, prompt, retryContext = {}) {
     <div class="panel-label">分镜 ${panelId}</div>
     <div class="result-media result-media-loading">
       <div class="spinner" style="width:28px;height:28px;"></div>
+      <div class="retry-attempt-label hidden"></div>
+      <button type="button" class="btn btn-xs stop-card-retry hidden" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
     </div>
     <div class="result-actions">
       <span style="font-size:0.75rem;color:var(--text2);padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 60))}…</span>
     </div>`;
+  wireCardStopRetryButton(card);
   dom.resultGrid.appendChild(card);
   return card;
 }
@@ -4670,10 +4750,13 @@ function renderRetryLoading(card, panelId, promptText) {
     <div class="result-media result-media-loading">
       <div class="spinner" style="width:28px;height:28px;"></div>
       <div style="font-size:0.82rem;">正在重试生成…</div>
+      <div class="retry-attempt-label hidden"></div>
+      <button type="button" class="btn btn-xs stop-card-retry hidden" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
     </div>
     <div class="result-actions">
       <span style="font-size:0.75rem;color:var(--text2);padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escapeHtml(promptText)}">${escapeHtml(promptText.slice(0, 80))}</span>
     </div>`;
+  wireCardStopRetryButton(card);
   updateFailedRetryTools();
 }
 
@@ -4696,9 +4779,14 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   const label = context.mode === "caption" ? "图片" : "分镜";
   setRetryContext(card, panelId, { ...context, prompt: promptText, size, retryCount });
   renderRetryLoading(card, panelId, promptText);
+  const cardAbort = new AbortController();
+  card._cardRetryAbortController = cardAbort;
   try {
     const references = Array.isArray(context.references) ? context.references : undefined;
-    const data = await callImageAPI(promptText, size, 1, `${label} ${panelId}`, { references, maxRetries: retryCount });
+    const data = await callImageAPI(promptText, size, 1, `${label} ${panelId}`, {
+      references, maxRetries: retryCount, signal: cardAbort.signal,
+      onRetryAttempt: info => updateCardRetryAttempt(card, info),
+    });
     const record = replacePlaceholder(card, panelId, data, promptText, {
       skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
       recordPrompt: isProject ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
@@ -4716,6 +4804,11 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     if (!options.quiet) showStatus(`${label} ${panelId} 重试成功`, "success");
     return true;
   } catch (err) {
+    if (err?.name === "AbortError" && cardAbort.signal.aborted) {
+      markPlaceholderFailed(card, panelId, "已手动停止重试", { ...context, prompt: promptText, size, retryCount });
+      if (!options.quiet) showStatus(`${label} ${panelId} 已手动停止重试`, "info");
+      return false;
+    }
     markPlaceholderFailed(card, panelId, err.message || String(err), { ...context, prompt: promptText, size, retryCount });
     if (!options.quiet) showStatus(`${label} ${panelId} 重试失败: ${err.message || err}`, "error");
     return false;

@@ -969,7 +969,7 @@ async function testSaveComicFolder(cdp) {
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
-  logStep("400-only retry, clear while generating, reload failed image, and i18n layout");
+  logStep("400/502/503/504-only retry, clear while generating, reload failed image, and i18n layout");
   await loadFresh(cdp, "misc");
   const retry = await cdp.eval(`(async () => {
     let attempts400 = 0;
@@ -983,6 +983,37 @@ async function testRetryClearReloadAndI18n(cdp) {
       baseDelay: 1,
       onRetry: info => retryRounds.push({ retryIndex: info.retryIndex, maxRetries: info.maxRetries })
     });
+    // Real-world report: a reverse proxy in front of a generation API returned a genuine
+    // 504 Gateway Time-out (nginx) on a slow request. 502/503/504 are gateway/infra-level
+    // transient errors distinct from "the request itself was bad" -- they should retry the
+    // same way 400 already does.
+    let attempts504 = 0;
+    const ok504 = await retryTransient(async () => {
+      attempts504++;
+      if (attempts504 < 2) throw new Error("HTTP 504: <html><head><title>504 Gateway Time-out</title></head></html>");
+      return "recovered";
+    }, { maxRetries: 3, baseDelay: 1 });
+    let attempts502 = 0;
+    const ok502 = await retryTransient(async () => {
+      attempts502++;
+      if (attempts502 < 2) throw new Error("HTTP 502: Bad Gateway");
+      return "recovered";
+    }, { maxRetries: 3, baseDelay: 1 });
+    let attempts503 = 0;
+    const ok503 = await retryTransient(async () => {
+      attempts503++;
+      if (attempts503 < 2) throw new Error("HTTP 503: Service Unavailable");
+      return "recovered";
+    }, { maxRetries: 3, baseDelay: 1 });
+    // Real-world report: the native dart:io HttpClient throws this exact HttpException (not a
+    // clean HTTP status response) when the TCP connection gets severed mid-request -- same
+    // "infra had a hiccup" family as 502/503/504, just caught one layer lower.
+    let attemptsConnClosed = 0;
+    const okConnClosed = await retryTransient(async () => {
+      attemptsConnClosed++;
+      if (attemptsConnClosed < 2) throw new Error("HttpException: Connection closed before full header was received, uri = https://grsai.dakka.com.cn/v1/api/generate");
+      return "recovered";
+    }, { maxRetries: 3, baseDelay: 1 });
     let attempts400SuccessImmediately = 0;
     const okImmediate = await retryTransient(async () => {
       attempts400SuccessImmediately++;
@@ -1036,6 +1067,14 @@ async function testRetryClearReloadAndI18n(cdp) {
     return {
       attempts400,
       ok400,
+      attempts504,
+      ok504,
+      attempts502,
+      ok502,
+      attempts503,
+      ok503,
+      attemptsConnClosed,
+      okConnClosed,
       retryRounds,
       attempts400SuccessImmediately,
       okImmediate,
@@ -1047,9 +1086,13 @@ async function testRetryClearReloadAndI18n(cdp) {
     };
   })()`, true);
   assertQa(retry.attempts400 === 3 && retry.ok400 === "ok", "HTTP 400 should retry until success.", retry);
+  assertQa(retry.attempts504 === 2 && retry.ok504 === "recovered", "HTTP 504 Gateway Time-out (a real error a user reported hitting behind an nginx reverse proxy) should retry the same way HTTP 400 already does -- it's a gateway/infra hiccup, not a bad request.", retry);
+  assertQa(retry.attempts502 === 2 && retry.ok502 === "recovered", "HTTP 502 Bad Gateway should retry the same way.", retry);
+  assertQa(retry.attempts503 === 2 && retry.ok503 === "recovered", "HTTP 503 Service Unavailable should retry the same way.", retry);
+  assertQa(retry.attemptsConnClosed === 2 && retry.okConnClosed === "recovered", "A native dart:io HttpException (\"Connection closed before full header was received\", a real error a user reported) should retry too -- it's not a clean HTTP status response, but it's the same class of transient infra hiccup as 502/503/504.", retry);
   assertQa(JSON.stringify(retry.retryRounds) === JSON.stringify([{ retryIndex: 1, maxRetries: 3 }, { retryIndex: 2, maxRetries: 3 }]), "HTTP 400 retry status should report the current retry round and total rounds.", retry);
   assertQa(retry.attempts400SuccessImmediately === 1 && retry.okImmediate === "image", "Successful image responses should stop retry immediately.", retry);
-  assertQa(retry.attempts500 === 1 && retry.threw500, "Non-400 errors should not be retried.", retry);
+  assertQa(retry.attempts500 === 1 && retry.threw500, "HTTP 500 must NOT be treated as transient/retryable -- it usually means the backend's own code broke, not a gateway hiccup, so this is the control case proving the retryable set is scoped to exactly 400/502/503/504, not \"any non-2xx\" or \"any 5xx\".", retry);
   assertQa(retry.callAttempts === 3 && retry.callImageReturned, "Image API should stop retrying as soon as a successful image payload returns.", retry);
   assertQa(/1\/3|2\/3/.test(retry.statusText), "Retry status should show the current retry round and total retry rounds.", retry);
 
@@ -1358,6 +1401,125 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(menuBad.length === 0, "Language menu button should open and apply a selected language.", menuBad);
   const themeBad = i18n.filter(group => group.theme.before === group.theme.after);
   assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
+}
+
+async function testCardRetryAttemptDisplayAndStop(cdp) {
+  logStep("Each result card shows its own automatic-retry attempt count (not just a global status message that gets overwritten by concurrent cards) and offers a per-card 'stop retry' button that cancels just that one card without touching sibling cards");
+  await loadFresh(cdp, "card-retry-stop");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    let panelACalls = 0;
+    let panelBCalls = 0;
+    window.fetch = (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      let body = {};
+      try { body = JSON.parse(opts.body || "{}"); } catch {}
+      if (String(body.prompt || "").includes("panel A prompt")) {
+        panelACalls++;
+        if (panelACalls === 1) {
+          return Promise.resolve(new Response(JSON.stringify({ error: "gateway" }), {
+            status: 504,
+            headers: { "Content-Type": "application/json" },
+          }));
+        }
+        // Second attempt hangs until the per-card stop button aborts it.
+        return new Promise((resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+        });
+      }
+      panelBCalls++;
+      return Promise.resolve(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }));
+    };
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "custom");
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    document.querySelector('[data-mode="comic"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    set("prompt", "");
+    set("panelCount", "2");
+    document.getElementById("createPanels").click();
+    await new Promise(r => setTimeout(r, 80));
+    const rows = [...document.querySelectorAll("#panelTbody tr")];
+    const fillPanel = (row, text) => {
+      const ta = row.querySelector("textarea");
+      ta.value = text;
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    fillPanel(rows[0], "panel A prompt");
+    fillPanel(rows[1], "panel B prompt");
+
+    document.getElementById("generateBtn").click();
+
+    let cardA = null;
+    let attemptLabelText = "";
+    let stopBtnVisibleDuringRetry = false;
+    let start = Date.now();
+    while (Date.now() - start < 4000) {
+      cardA = [...document.querySelectorAll(".result-item")].find(c => c.dataset.panelId === "1");
+      const label = cardA?.querySelector(".retry-attempt-label");
+      if (label && !label.classList.contains("hidden") && label.textContent.trim()) {
+        attemptLabelText = label.textContent;
+        stopBtnVisibleDuringRetry = !cardA.querySelector(".stop-card-retry")?.classList.contains("hidden");
+        break;
+      }
+      await new Promise(r => setTimeout(r, 40));
+    }
+
+    // Don't stop yet -- wait for the actual retry request to be dispatched (after the retry
+    // backoff delay elapses) so this proves stopping cancels a genuinely in-flight/hanging
+    // request, not just a request that was still waiting in its backoff window.
+    start = Date.now();
+    while (Date.now() - start < 4000 && panelACalls < 2) {
+      await new Promise(r => setTimeout(r, 40));
+    }
+    const panelACallsBeforeStop = panelACalls;
+
+    cardA.querySelector(".stop-card-retry").click();
+
+    start = Date.now();
+    while (Date.now() - start < 4000) {
+      if (cardA.classList.contains("is-failed")) break;
+      await new Promise(r => setTimeout(r, 40));
+    }
+    const cardAFailedMessage = cardA.dataset.errorMessage || "";
+
+    let cardB = null;
+    start = Date.now();
+    while (Date.now() - start < 4000) {
+      cardB = [...document.querySelectorAll(".result-item")].find(c => c.dataset.panelId === "2");
+      if (cardB?.querySelector("img")) break;
+      await new Promise(r => setTimeout(r, 40));
+    }
+
+    return {
+      attemptLabelText,
+      stopBtnVisibleDuringRetry,
+      cardAFailed: cardA.classList.contains("is-failed"),
+      cardAFailedMessage,
+      panelACallsBeforeStop,
+      panelACalls,
+      panelBCalls,
+      cardBHasImage: !!cardB?.querySelector("img"),
+    };
+  })()`, true);
+
+  assertQa(/1\s*\/\s*3/.test(result.attemptLabelText), "The card itself should show which automatic-retry attempt it's on (e.g. '第 1/3 次自动重试'), not just rely on a global status line that gets overwritten by other concurrently-retrying cards.", result);
+  assertQa(result.stopBtnVisibleDuringRetry, "A 'stop retry' button should appear on the card once it's actually auto-retrying.", result);
+  assertQa(result.cardAFailed && /已手动停止重试/.test(result.cardAFailedMessage), "Clicking the per-card stop-retry button should cancel that card's in-flight request and mark it as manually stopped.", result);
+  assertQa(result.panelACallsBeforeStop === 2, "Panel A's second (retry) request must actually be dispatched before we stop it -- otherwise this only proves stopping during the backoff wait, not cancelling a genuinely in-flight request.", result);
+  assertQa(result.panelACalls === 2, "Stopping the card must not trigger yet another request -- exactly the initial attempt (HTTP 504) plus the one retry that got cancelled, nothing more.", result);
+  assertQa(result.cardBHasImage && result.panelBCalls === 1, "Stopping panel A's retry must not affect panel B, which should complete normally on its own single request.", result);
 }
 
 async function testUpdateControls(cdp) {
@@ -2372,6 +2534,7 @@ async function main() {
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testCardRetryAttemptDisplayAndStop(cdp);
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);

@@ -887,6 +887,20 @@ select.custom-select-native {
   justify-content: center;
   overflow: hidden;
 }
+.result-media-loading {
+  flex-direction: column;
+  gap: 8px;
+}
+.retry-attempt-label {
+  font-size: 0.72rem;
+  color: var(--text2);
+  text-align: center;
+  padding: 0 10px;
+}
+.stop-card-retry {
+  padding: 4px 10px;
+}
+.stop-card-retry .ui-icon { width: 1em; height: 1em; }
 .result-media img {
   width: 100%;
   height: 100%;
