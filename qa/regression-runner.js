@@ -1121,12 +1121,27 @@ async function testRetryClearReloadAndI18n(cdp) {
     await new Promise(r => setTimeout(r, 120));
     const during = {
       disabled: document.getElementById("generateBtn").disabled,
+      isCancelState: document.getElementById("generateBtn").classList.contains("is-cancel"),
       toolbarHidden: document.getElementById("resultToolbar").classList.contains("hidden"),
     };
+
+    // Clicking the button itself while it reads "取消生成" should cancel generation directly --
+    // this is the whole point of turning it into a cancel button instead of just disabling it.
+    document.getElementById("generateBtn").click();
+    await new Promise(r => setTimeout(r, 120));
+    const afterSelfCancel = {
+      disabled: document.getElementById("generateBtn").disabled,
+      isCancelState: document.getElementById("generateBtn").classList.contains("is-cancel"),
+    };
+
+    // Start again and verify the separate "clear results" path still also cancels generation.
+    document.getElementById("generateBtn").click();
+    await new Promise(r => setTimeout(r, 120));
     document.getElementById("clearResults").click();
     await new Promise(r => setTimeout(r, 120));
     return {
       during,
+      afterSelfCancel,
       after: {
         disabled: document.getElementById("generateBtn").disabled,
         gridHidden: document.getElementById("resultGrid").classList.contains("hidden"),
@@ -1135,7 +1150,8 @@ async function testRetryClearReloadAndI18n(cdp) {
       },
     };
   })()`, true);
-  assertQa(clear.during.disabled, "Generate button should be disabled during generation.", clear);
+  assertQa(!clear.during.disabled && clear.during.isCancelState, "The generate button must stay enabled during generation and switch into a 'cancel generation' state -- it should not just disable itself with no way to interrupt.", clear);
+  assertQa(!clear.afterSelfCancel.disabled && !clear.afterSelfCancel.isCancelState, "Clicking the generate button while it reads 'cancel generation' must cancel the in-progress generation and restore the button to its normal state.", clear);
   assertQa(!clear.after.disabled && clear.after.gridHidden && clear.after.toolbarHidden && clear.after.progressHidden, "Clear results should abort generation and reset UI.", clear);
 
   const reload = await cdp.eval(`(async () => {

@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.11";
+const APP_VERSION = "1.3.12";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -202,7 +202,7 @@ const CLEAN_LOCALES = {
     sequentialHint: "不勾选：并发批量生成（最多同时 20 个请求）；勾选：逐张依次生成",
     panelList: "分镜列表", captionList: "嵌字列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
-    reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜",
+    reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜", cancelGeneration: "取消生成",
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…",
     downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
@@ -261,7 +261,7 @@ const CLEAN_LOCALES = {
     sequentialHint: "不勾選：並發批次生成（最多同時 20 個請求）；勾選：逐張依序生成",
     panelList: "分鏡列表", captionList: "嵌字列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
-    reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡",
+    reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡", cancelGeneration: "取消生成",
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…",
     downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
@@ -320,7 +320,7 @@ const CLEAN_LOCALES = {
     sequentialHint: "Unchecked: concurrent batch generation (up to 20 requests at once). Checked: generate one image at a time.",
     panelList: "Panel List", captionList: "Caption List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
-    reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels",
+    reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels", cancelGeneration: "Cancel Generation",
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...",
     downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
@@ -379,7 +379,7 @@ const CLEAN_LOCALES = {
     sequentialHint: "オフ：並列一括生成（最大同時 20 リクエスト）。オン：1 枚ずつ順番に生成。",
     panelList: "コマ一覧", captionList: "テキスト入れ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
-    reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成",
+    reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成", cancelGeneration: "生成をキャンセル",
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...",
     downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
@@ -438,7 +438,7 @@ const CLEAN_LOCALES = {
     sequentialHint: "선택 해제: 동시 일괄 생성(최대 동시 20개 요청). 선택: 한 장씩 순차 생성.",
     panelList: "콘티 목록", captionList: "말풍선 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
-    reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성",
+    reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성", cancelGeneration: "생성 취소",
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...",
     downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
@@ -3203,6 +3203,7 @@ function hideLoading() {
 
 function resetGenerateButton() {
   dom.generateBtn.disabled = false;
+  dom.generateBtn.classList.remove("is-cancel");
   setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : currentMode === "caption" ? "generateAllCaptions" : "generateImage");
 }
 
@@ -3210,7 +3211,11 @@ function beginGeneration() {
   activeGenerationId++;
   if (abortController) abortController.abort();
   abortController = new AbortController();
-  dom.generateBtn.disabled = true;
+  // 按钮保持可点击，但换成"取消生成"——点它会走 stopCurrentGeneration()，
+  // 而不是像以前那样直接禁用、生成过程中完全没有办法主动打断。
+  dom.generateBtn.disabled = false;
+  dom.generateBtn.classList.add("is-cancel");
+  setButtonText(dom.generateBtn, "x", "cancelGeneration");
   return {
     id: activeGenerationId,
     signal: abortController.signal,
@@ -3958,7 +3963,6 @@ async function generateSingle() {
 
   const run = beginGeneration();
   clearStatus();
-  setIconText(dom.generateBtn, "spark", currentLanguage === "en" ? "Generating..." : currentLanguage === "ja" ? "生成中..." : currentLanguage === "ko" ? "생성 중..." : "生成中……");
 
   try {
     dom.resultGrid.innerHTML = "";
@@ -3992,10 +3996,8 @@ async function generateSingle() {
         ok++;
       } catch (err) {
         if (err?.name === "AbortError") {
-          if (cardAbort.signal.aborted) {
-            markPlaceholderFailed(placeholder, i + 1, "已手动停止重试", { mode: "single", prompt, size, references, retryCount });
-            fail++;
-          }
+          markPlaceholderFailed(placeholder, i + 1, cardAbort.signal.aborted ? "已手动停止重试" : "已取消生成", { mode: "single", prompt, size, references, retryCount });
+          fail++;
           return;
         }
         if (!isGenerationCurrent(run)) return;
@@ -4062,7 +4064,6 @@ async function generateComic() {
   updateFailedRetryTools();
   hideLoading();
   generatedImageUrls = [];
-  setIconText(dom.generateBtn, "spark", currentLanguage === "en" ? "Generating..." : currentLanguage === "ja" ? "生成中..." : currentLanguage === "ko" ? "생성 중..." : "生成中……");
   dom.progressWrap.classList.remove("hidden");
 
   const total = validPanels.length;
@@ -4111,9 +4112,10 @@ async function generateComic() {
       if (record) projectImages.push({ ...record, prompt: panel.prompt, panelPrompt: panel.prompt, fullPrompt, retryCount });
       completed++;
     } catch (err) {
-      const shouldMarkFailed = err.name === "AbortError" ? cardAbort.signal.aborted : isGenerationCurrent(run);
-      if (shouldMarkFailed) {
-        markPlaceholderFailed(placeholder, panel.id, err.name === "AbortError" ? "已手动停止重试" : err.message, {
+      const isAbort = err.name === "AbortError";
+      if (isAbort || isGenerationCurrent(run)) {
+        const message = isAbort ? (cardAbort.signal.aborted ? "已手动停止重试" : "已取消生成") : err.message;
+        markPlaceholderFailed(placeholder, panel.id, message, {
           references,
           size,
           mode: "comic",
@@ -4214,7 +4216,6 @@ async function generateCaptions() {
   updateFailedRetryTools();
   hideLoading();
   generatedImageUrls = [];
-  setIconText(dom.generateBtn, "spark", currentLanguage === "en" ? "Generating..." : currentLanguage === "ja" ? "生成中..." : currentLanguage === "ko" ? "생성 중..." : "生成中……");
   dom.progressWrap.classList.remove("hidden");
 
   const total = validRows.length;
@@ -4263,9 +4264,10 @@ async function generateCaptions() {
       if (record) projectImages.push({ ...record, prompt: row.captionText, panelPrompt: row.captionText, fullPrompt, retryCount });
       completed++;
     } catch (err) {
-      const shouldMarkFailed = err.name === "AbortError" ? cardAbort.signal.aborted : isGenerationCurrent(run);
-      if (shouldMarkFailed) {
-        markPlaceholderFailed(placeholder, row.id, err.name === "AbortError" ? "已手动停止重试" : err.message, {
+      const isAbort = err.name === "AbortError";
+      if (isAbort || isGenerationCurrent(run)) {
+        const message = isAbort ? (cardAbort.signal.aborted ? "已手动停止重试" : "已取消生成") : err.message;
+        markPlaceholderFailed(placeholder, row.id, message, {
           references,
           size,
           mode: "caption",
@@ -6055,6 +6057,10 @@ function openLightbox(imageUrl) {
 // ═══════════════════════════════════════════════════════════
 
 dom.generateBtn.addEventListener("click", () => {
+  if (dom.generateBtn.classList.contains("is-cancel")) {
+    stopCurrentGeneration("已取消生成");
+    return;
+  }
   if (currentMode === "comic") generateComic();
   else if (currentMode === "caption") generateCaptions();
   else generateSingle();
