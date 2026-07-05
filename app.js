@@ -10,18 +10,23 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.12";
+const APP_VERSION = "1.3.13";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
   if (!input) return;
   const now = Date.now();
-  if (input._lastPickerOpenAt && now - input._lastPickerOpenAt < 900) return;
+  // 这道锁本来是为了防止同一次物理点击被派发成两个 click 事件时重复弹出选择框——那种重复
+  // 只会相隔几十毫秒。原来的锁定窗口是 900ms，太长了：原生文件选择框弹出本身可能有明显延迟
+  // （尤其冷启动/慢磁盘），用户看不到反馈会不耐烦地再点一次，而这一下会被直接吞掉，表现为
+  // "点了没反应"（嵌字模式批量上传区反馈过这个问题，因为那个入口本来就需要反复点着用）。
+  // 400ms 依然能挡住真正意义上的"同一次点击触发两次"，但不会误伤用户几百毫秒后的正常重试点击。
+  if (input._lastPickerOpenAt && now - input._lastPickerOpenAt < 400) return;
   input._lastPickerOpenAt = now;
   input.click();
   setTimeout(() => {
     if (input._lastPickerOpenAt === now) input._lastPickerOpenAt = 0;
-  }, 1200);
+  }, 500);
 }
 
 // ─── 国际化 ────────────────────────────────────────────────
@@ -2527,6 +2532,12 @@ function getPanelRequestReferences(panel) {
   return dedupeReferences([...(panel.references || []), ...referenceImages]);
 }
 
+// 参考图对象里的 file 是浏览器 File，JSON.stringify 存进 localStorage 时会变成没用的 {}——
+// 存历史记录前只留可序列化、恢复项目时真正用得上的字段。
+function serializableReferences(refs) {
+  return (refs || []).map(({ fileName, dataUrl, width, height }) => ({ fileName, dataUrl, width, height }));
+}
+
 // ═══════════════════════════════════════════════════════════
 //  全局参考图片上传
 // ═══════════════════════════════════════════════════════════
@@ -2745,7 +2756,21 @@ function syncPanelCountInput() {
   dom.panelCount.value = String(Math.max(1, count));
 }
 
-function addPanelRow() {
+// 恢复项目、批量导入等场景需要在创建行的同时就把参考图套上去，跟人工上传共用同一份
+// 渲染逻辑，避免出现"两条路径各画一遍缩略图，改一处忘了改另一处"的情况。
+function applyPanelRowImage(row, ref) {
+  const imgPreview = row.querySelector(".panel-img-preview");
+  const imgName = row.querySelector(".panel-img-name");
+  const imgClear = row.querySelector(".panel-img-clear");
+  row._panelReference = ref;
+  imgPreview.style.backgroundImage = `url("${ref.dataUrl}")`;
+  imgPreview.classList.remove("hidden");
+  imgName.textContent = ref.fileName;
+  imgName.title = ref.fileName;
+  imgClear.classList.remove("hidden");
+}
+
+function addPanelRow(prefilledRef = null) {
   panelCounter++;
   const clone = panelRowTemplate.content.cloneNode(true);
   const row = clone.querySelector(".panel-row");
@@ -2779,12 +2804,7 @@ function addPanelRow() {
       try {
         const ref = await readTask;
         if (imgInput.files[0] !== file) return;
-        row._panelReference = ref;
-        imgPreview.style.backgroundImage = `url("${ref.dataUrl}")`;
-        imgPreview.classList.remove("hidden");
-        imgName.textContent = ref.fileName;
-        imgName.title = ref.fileName;
-        imgClear.classList.remove("hidden");
+        applyPanelRowImage(row, ref);
         showStatus(`分镜 ${row.dataset.panelId} 已绑定参考图`, "success");
       } catch (err) {
         row._panelReference = null;
@@ -2811,6 +2831,8 @@ function addPanelRow() {
     imgName.title = "";
     imgClear.classList.add("hidden");
   });
+
+  if (prefilledRef) applyPanelRowImage(row, prefilledRef);
 
   dom.panelTbody.appendChild(row);
   syncPanelCountInput();
@@ -3850,10 +3872,10 @@ async function smartFetch(url, options = {}) {
     // 用户明确要求彻底不设时长限制，让请求能等多久算多久，不要再猜一个"应该够用"的数字。
     // 传 null（不是不传/不是某个超大数字）表示不设超时：nativeDownload.request() 里对应会
     // 直接跳过 setTimeout，而不是注册一个永远不会真正触发的计时器。
-    // 代价：如果原生调用真的永久卡死（连接半开但既不来数据也不断开），这个请求会一直挂着——
-    // nativeDownload.request() 目前不支持 AbortSignal，"停止生成"对已经发出的原生调用没有
-    // 作用，届时唯一的恢复手段是重启应用。这是用户在知情的情况下明确要的取舍。
-    const result = await nativeDownload.nativeFetchPayload(payload, null);
+    // 传 signal 是为了让"停止重试"/"取消生成"点下去时 JS 侧能立刻不再等这条原生调用——
+    // 原生那边已经发出去的 HTTP 请求本身砍不断（原生桥接没有"根据 id 主动终止在途请求"这个
+    // 能力，见 CLAUDE_HANDOFF.md），但至少 JS 侧会立刻 reject，不会让用户觉得"点了没反应"。
+    const result = await nativeDownload.nativeFetchPayload(payload, null, signal);
     throwIfAborted(signal);
     return new Response(result.body || "", {
       status: result.status || 200,
@@ -3878,7 +3900,7 @@ async function smartFetch(url, options = {}) {
   } catch (err) {
     if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
       const payload = await createProxyPayload(url, method, headers, body, signal);
-      const result = await nativeDownload.nativeFetchPayload(payload, null);
+      const result = await nativeDownload.nativeFetchPayload(payload, null, signal);
       throwIfAborted(signal);
       return new Response(result.body || "", {
         status: result.status || 200,
@@ -4166,6 +4188,10 @@ async function generateComic() {
           prompt: panel.prompt,
           size,
           retryCount,
+          // 存分镜自己的参考图（panel.references），不是合并了全局参考图池之后、实际发请求
+          // 用的那份（getPanelRequestReferences 的结果）——全局池不属于某一个分镜，不该被当成
+          // "这个分镜自己的图"存下来再在恢复时错误地塞回某一行。
+          references: serializableReferences(panel.references),
           status: projectImages.some(img => String(img.panelId) === String(panel.id)) ? "success" : "failed",
         })),
         images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
@@ -4312,12 +4338,13 @@ async function generateCaptions() {
         size: globalSize,
         retryCount: globalRetryCount,
         totalPanels: total,
-        panels: rowTasks.map(({ row, size, retryCount }) => ({
+        panels: rowTasks.map(({ row, size, retryCount, references }) => ({
           panelId: String(row.id),
           panelPrompt: row.captionText,
           prompt: row.captionText,
           size,
           retryCount,
+          references: serializableReferences(references),
           status: projectImages.some(img => String(img.panelId) === String(row.id)) ? "success" : "failed",
         })),
         images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
@@ -4900,9 +4927,14 @@ function compactHistoryItem(item) {
     ...img,
     imageUrl: img.originalUrl || img.imageUrl,
   }));
+  // localStorage 已经超限才会走到这里——分镜/嵌字行的参考图 dataUrl 是这条记录里最占地方的
+  // 部分，压缩时优先把它们丢掉（恢复项目会因此拿不回参考图，但至少提示词/尺寸/重试次数等
+  // 其它信息还能保住，比这条记录直接被裁掉／挤掉更旧的记录要好）。
+  const panels = Array.isArray(item.panels) ? item.panels.map(p => ({ ...p, references: [] })) : item.panels;
   return {
     ...item,
     images,
+    panels,
     imageUrl: images[0]?.imageUrl || item.originalUrl || item.imageUrl,
   };
 }
@@ -5278,7 +5310,7 @@ function restoreHistoryProjectEditor(item, images) {
         prompt: panel.prompt || matchingImage.prompt || "",
         fullPrompt: panel.fullPrompt || matchingImage.fullPrompt || "",
       };
-      const row = addCaptionRow();
+      const row = addCaptionRow(panel.references?.[0] || null);
       const captionInput = row.querySelector(".caption-text");
       if (captionInput) captionInput.value = getPanelOnlyPrompt(rowData, item.globalPrompt || "");
     });
@@ -5304,7 +5336,7 @@ function restoreHistoryProjectEditor(item, images) {
       prompt: panel.prompt || matchingImage.prompt || "",
       fullPrompt: panel.fullPrompt || matchingImage.fullPrompt || "",
     };
-    const row = addPanelRow();
+    const row = addPanelRow(panel.references?.[0] || null);
     const promptInput = row.querySelector("textarea");
     if (promptInput) promptInput.value = getPanelOnlyPrompt(panelData, item.globalPrompt || "");
     applyHistoryPanelSize(row, panel.size || matchingImage.size || item.size || "");
@@ -5411,8 +5443,9 @@ const nativeDownload = (() => {
     return typeof FlutterDownload !== "undefined" && FlutterDownload.postMessage;
   }
 
-  function request(action, payload = {}, timeoutMs = 120000) {
+  function request(action, payload = {}, timeoutMs = 120000, signal = null) {
     if (!available()) return Promise.reject(new Error("native bridge unavailable"));
+    if (signal?.aborted) return Promise.reject(createAbortError());
     const id = `req_${Date.now()}_${seq++}`;
     FlutterDownload.postMessage(JSON.stringify({ id, action, ...payload }));
     return new Promise((resolve, reject) => {
@@ -5432,6 +5465,15 @@ const nativeDownload = (() => {
           reject(new Error(`原生功能调用超时（${action}），请重试`));
         }, timeoutMs);
       }
+      // 生图请求现在不设超时（timeoutMs === null），点"停止重试"/"取消生成"时唯一能让 JS 侧
+      // 立刻不再等待的办法就是这个 abort 监听——原生那边已经发出去的 HTTP 请求本身砍不断
+      // （原生桥接没有"根据 id 主动终止在途请求"这个能力），但至少 JS 侧要立刻放弃等待并
+      // reject，而不是傻等这条原生调用自己什么时候有结果，那样点了按钮跟没点一样没有反应。
+      signal?.addEventListener("abort", () => {
+        if (!pending.has(id)) return;
+        pending.delete(id);
+        reject(createAbortError());
+      }, { once: true });
     });
   }
 
@@ -5472,8 +5514,8 @@ const nativeDownload = (() => {
     nativeFetch(url, method, headers, body) {
       return request("nativeFetch", withDesktopProxyPayload({ url, method, headers, body }));
     },
-    nativeFetchPayload(payload, timeoutMs) {
-      return request("nativeFetch", withDesktopProxyPayload(payload), timeoutMs);
+    nativeFetchPayload(payload, timeoutMs, signal) {
+      return request("nativeFetch", withDesktopProxyPayload(payload), timeoutMs, signal);
     },
     nativeFetchBlob(url) {
       return request("nativeFetch", withDesktopProxyPayload({ url, method: "GET", responseType: "base64" }));

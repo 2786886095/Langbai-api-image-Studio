@@ -521,6 +521,243 @@ async function testReferencesAndAutoFill(cdp) {
   ]), "Reference bubble auto-fill template should match the requested wording.", result);
 }
 
+async function testUploadDebounceWindow(cdp) {
+  logStep("openFileInputOnce()'s debounce must block a genuine same-instant double-fire but not a user's realistic impatient re-click a few hundred ms later -- caption mode's bulk upload zone gets clicked repeatedly in normal use, and users reported clicking it sometimes 'does nothing'");
+  await loadFresh(cdp, "upload-debounce");
+  const result = await cdp.eval(`(async () => {
+    let clicks = 0;
+    const originalClick = HTMLInputElement.prototype.click;
+    HTMLInputElement.prototype.click = function () {
+      if (this === document.getElementById("captionBulkInput")) clicks++;
+    };
+    document.querySelector('[data-mode="caption"]').click();
+    await new Promise(r => setTimeout(r, 50));
+
+    const zone = document.getElementById("captionUploadZone");
+    zone.click();
+    zone.click(); // near-instant second click -- simulates a single physical click firing twice
+    await new Promise(r => setTimeout(r, 20));
+    const afterRapidDouble = clicks;
+
+    await new Promise(r => setTimeout(r, 500)); // outlast the debounce window
+    zone.click(); // a realistic "nothing seemed to happen, let me click again" retry
+    await new Promise(r => setTimeout(r, 20));
+    const afterRealisticRetry = clicks;
+
+    HTMLInputElement.prototype.click = originalClick;
+    return { afterRapidDouble, afterRealisticRetry };
+  })()`, true);
+
+  assertQa(result.afterRapidDouble === 1, "Two clicks fired in near-instant succession (simulating a duplicated click event from a single physical click) must only open the file picker once.", result);
+  assertQa(result.afterRealisticRetry === 2, "A click roughly half a second after the first (a realistic 'nothing seemed to happen, let me click again' retry) must open the file picker again, not get silently swallowed by the debounce window.", result);
+}
+
+async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
+  logStep("Restoring a comic project must bring back each panel's own reference image thumbnail AND panels that failed to generate (not just the successful ones) -- previously references were never saved at all, and saveGenerationProject() silently dropped any panel without a successful image");
+  await loadFresh(cdp, "restore-refs-and-fails-comic");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts = {}) => {
+      // Rows carrying a reference image go through the OpenAI-compatible adapter's
+      // /v1/images/edits (multipart FormData), not /v1/images/generations (plain JSON) --
+      // every row here has its own reference, so this is always the edits/FormData path.
+      if (String(url).includes("/v1/images/generations") || String(url).includes("/v1/images/edits")) {
+        const prompt = opts.body instanceof FormData ? opts.body.get("prompt") : JSON.parse(opts.body || "{}").prompt;
+        if (String(prompt || "").includes("panel two prompt")) {
+          return new Response(JSON.stringify({ error: "boom" }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return originalFetch(url, opts);
+    };
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "custom");
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    document.querySelector('[data-mode="comic"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    set("prompt", "GLOBAL");
+    set("panelCount", "2");
+    document.getElementById("createPanels").click();
+    await new Promise(r => setTimeout(r, 80));
+
+    async function makeImageFile(name, color) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 4; canvas.height = 4;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      return new File([blob], name, { type: "image/png" });
+    }
+    async function attachRef(row, file) {
+      const input = row.querySelector(".panel-img-input");
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const rows = [...document.querySelectorAll("#panelTbody tr")];
+    rows[0].querySelector("textarea").value = "panel one prompt";
+    rows[0].querySelector("textarea").dispatchEvent(new Event("input", { bubbles: true }));
+    rows[1].querySelector("textarea").value = "panel two prompt";
+    rows[1].querySelector("textarea").dispatchEvent(new Event("input", { bubbles: true }));
+    await attachRef(rows[0], await makeImageFile("ref-one.png", "#f33"));
+    await attachRef(rows[1], await makeImageFile("ref-two.png", "#3f3"));
+    const ref1DataUrl = rows[0]._panelReference?.dataUrl;
+    const ref2DataUrl = rows[1]._panelReference?.dataUrl;
+
+    document.getElementById("generateBtn").click();
+    const start = Date.now();
+    while (Date.now() - start < 6000) {
+      const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+      if (history.length === 1) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+    const item = history[0] || {};
+    const savedPanelsHaveRefs = Array.isArray(item.panels) && item.panels.every(p => Array.isArray(p.references) && p.references.length === 1);
+    const savedStatuses = (item.panels || []).map(p => p.status);
+
+    document.getElementById("resultGrid").innerHTML = "";
+    document.getElementById("panelTbody").innerHTML = "";
+    document.querySelector('[data-mode="single"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    document.getElementById("historyBtn").click();
+    await new Promise(r => setTimeout(r, 100));
+    document.querySelector(".history-project-card .history-actions .btn")?.click();
+    await new Promise(r => setTimeout(r, 200));
+
+    const restoredRows = [...document.querySelectorAll("#panelTbody tr")];
+    return {
+      savedPanelsHaveRefs,
+      savedStatuses,
+      restoredRowCount: restoredRows.length,
+      restoredPrompts: restoredRows.map(r => r.querySelector("textarea").value),
+      restoredRef1Matches: restoredRows[0]?._panelReference?.dataUrl === ref1DataUrl,
+      restoredRef2Matches: restoredRows[1]?._panelReference?.dataUrl === ref2DataUrl,
+      restoredThumbsVisible: restoredRows.map(r => !r.querySelector(".panel-img-preview")?.classList.contains("hidden")),
+    };
+  })()`, true);
+
+  assertQa(result.savedPanelsHaveRefs, "saveGenerationProject() must store each panel's own reference image (fileName/dataUrl/width/height) in the panels[] metadata, for both successful and failed panels.", result);
+  assertQa(JSON.stringify(result.savedStatuses) === JSON.stringify(["success", "failed"]), "A partially-failed comic batch must still save a project record covering every panel and tagging each one's status -- not silently drop the failed panel from history.", result);
+  assertQa(result.restoredRowCount === 2, "Restoring the project must recreate both panel rows, including the one that failed to generate.", result);
+  assertQa(JSON.stringify(result.restoredPrompts) === JSON.stringify(["panel one prompt", "panel two prompt"]), "Restoring must refill each row's own prompt text, for both the successful and the failed panel.", result);
+  assertQa(result.restoredRef1Matches && result.restoredRef2Matches, "Restoring a project must reattach each row's own reference image (not just its prompt/size/retry count) -- this was the reported bug: restore drops reference images entirely, so re-uploading was the only way to get a reference back.", result);
+  assertQa(result.restoredThumbsVisible.every(Boolean), "The restored reference thumbnail must actually be visible on each row, not just stored on the row element with the preview still hidden.", result);
+}
+
+async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
+  logStep("Restoring a caption project must bring back each row's own reference image thumbnail AND rows that failed to generate");
+  await loadFresh(cdp, "restore-refs-and-fails-caption");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts = {}) => {
+      // Every caption row carries its own reference image, so this always goes through the
+      // OpenAI-compatible adapter's /v1/images/edits (multipart FormData), not the plain-JSON
+      // /v1/images/generations endpoint.
+      if (String(url).includes("/v1/images/generations") || String(url).includes("/v1/images/edits")) {
+        const prompt = opts.body instanceof FormData ? opts.body.get("prompt") : JSON.parse(opts.body || "{}").prompt;
+        if (String(prompt || "").includes("row two text")) {
+          return new Response(JSON.stringify({ error: "boom" }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return originalFetch(url, opts);
+    };
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "custom");
+    set("apiEndpoint", "http://mock.local");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    document.querySelector('[data-mode="caption"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    set("prompt", "GLOBAL");
+
+    async function makeImageFile(name, color) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 4; canvas.height = 4;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      return new File([blob], name, { type: "image/png" });
+    }
+    const dt = new DataTransfer();
+    dt.items.add(await makeImageFile("cap-1.png", "#f33"));
+    dt.items.add(await makeImageFile("cap-2.png", "#3f3"));
+    const bulkInput = document.getElementById("captionBulkInput");
+    bulkInput.files = dt.files;
+    bulkInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+
+    const rows = [...document.querySelectorAll(".caption-row")];
+    rows[0].querySelector(".caption-text").value = "row one text";
+    rows[0].querySelector(".caption-text").dispatchEvent(new Event("input", { bubbles: true }));
+    rows[1].querySelector(".caption-text").value = "row two text";
+    rows[1].querySelector(".caption-text").dispatchEvent(new Event("input", { bubbles: true }));
+    const ref1DataUrl = rows[0]._captionReference?.dataUrl;
+    const ref2DataUrl = rows[1]._captionReference?.dataUrl;
+
+    document.getElementById("generateBtn").click();
+    const start = Date.now();
+    while (Date.now() - start < 6000) {
+      const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+      if (history.length === 1) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
+    const item = history[0] || {};
+    const savedPanelsHaveRefs = Array.isArray(item.panels) && item.panels.every(p => Array.isArray(p.references) && p.references.length === 1);
+    const savedStatuses = (item.panels || []).map(p => p.status);
+
+    document.getElementById("resultGrid").innerHTML = "";
+    document.getElementById("captionTbody").innerHTML = "";
+    document.querySelector('[data-mode="single"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    document.getElementById("historyBtn").click();
+    await new Promise(r => setTimeout(r, 100));
+    document.querySelector(".history-project-card .history-actions .btn")?.click();
+    await new Promise(r => setTimeout(r, 200));
+
+    const restoredRows = [...document.querySelectorAll(".caption-row")];
+    return {
+      savedPanelsHaveRefs,
+      savedStatuses,
+      restoredRowCount: restoredRows.length,
+      restoredTexts: restoredRows.map(r => r.querySelector(".caption-text").value),
+      restoredRef1Matches: restoredRows[0]?._captionReference?.dataUrl === ref1DataUrl,
+      restoredRef2Matches: restoredRows[1]?._captionReference?.dataUrl === ref2DataUrl,
+      restoredThumbsVisible: restoredRows.map(r => !r.querySelector(".panel-img-preview")?.classList.contains("hidden")),
+    };
+  })()`, true);
+
+  assertQa(result.savedPanelsHaveRefs, "saveGenerationProject() must store each caption row's own reference image in the panels[] metadata, for both successful and failed rows.", result);
+  assertQa(JSON.stringify(result.savedStatuses) === JSON.stringify(["success", "failed"]), "A partially-failed caption batch must still save a project record covering every row and tagging each one's status.", result);
+  assertQa(result.restoredRowCount === 2, "Restoring the project must recreate both caption rows, including the one that failed to generate.", result);
+  assertQa(JSON.stringify(result.restoredTexts) === JSON.stringify(["row one text", "row two text"]), "Restoring must refill each row's own caption text, for both the successful and the failed row.", result);
+  assertQa(result.restoredRef1Matches && result.restoredRef2Matches, "Restoring a caption project must reattach each row's own reference image.", result);
+  assertQa(result.restoredThumbsVisible.every(Boolean), "The restored reference thumbnail must actually be visible on each caption row.", result);
+}
+
 async function testHistoryRestoreAndExport(cdp) {
   logStep("Comic generation history as project, restore, and ZIP export");
   await loadFresh(cdp, "history");
@@ -2480,7 +2717,7 @@ async function testGrsaiOfficialAdapter(cdp) {
 }
 
 async function testNativeDownloadTimeoutOptOut(cdp) {
-  logStep("Generation-related native calls opt out of nativeDownload.request()'s timeout entirely (timeoutMs=null) so a legitimately slow request is never prematurely killed, while every other caller that still passes a real timeoutMs must keep timing out as before");
+  logStep("Generation-related native calls opt out of nativeDownload.request()'s timeout entirely (timeoutMs=null) so a legitimately slow request is never prematurely killed, while every other caller that still passes a real timeoutMs must keep timing out as before; passing an AbortSignal must let the JS side stop waiting immediately even though the underlying native call can't truly be cancelled");
   await loadFresh(cdp, "native-timeout-optout");
   const result = await cdp.eval(`(async () => {
     let capturedId = null;
@@ -2514,12 +2751,33 @@ async function testNativeDownloadTimeoutOptOut(cdp) {
       boundedError = err.message;
     }
 
-    return { stillPendingAfterWait, unlimitedSettled, resolvedStatus: resolved?.status, boundedError };
+    // Case 3: a real user report -- "点了取消重试没有反应" (clicking the per-card stop-retry
+    // button did nothing). Root cause: nativeFetchPayload() never accepted an AbortSignal at
+    // all, so when a native call is unlimited (timeoutMs=null) and genuinely in flight, there
+    // was NO way to make the JS side stop waiting -- clicking "stop" looked like it did nothing
+    // for however long the (now-unbounded) native call happened to take. Aborting the signal
+    // must reject immediately, without waiting for the native side to ever respond.
+    const ctrl = new AbortController();
+    const abortablePromise = nativeDownload.nativeFetchPayload({ url: "http://test/abortable", method: "GET", headers: {}, body: "" }, null, ctrl.signal);
+    let abortableSettled = false;
+    let abortableError = null;
+    abortablePromise.then(() => { abortableSettled = true; }, err => { abortableSettled = true; abortableError = err; });
+    await new Promise(r => setTimeout(r, 100));
+    const stillPendingBeforeAbort = !abortableSettled;
+    ctrl.abort();
+    await new Promise(r => setTimeout(r, 20));
+
+    return {
+      stillPendingAfterWait, unlimitedSettled, resolvedStatus: resolved?.status, boundedError,
+      stillPendingBeforeAbort, abortableSettledAfterAbort: abortableSettled, abortableErrorName: abortableError?.name,
+    };
   })()`, true);
 
   assertQa(result.stillPendingAfterWait, "A native call with timeoutMs=null must not settle on its own after waiting -- passing null has to skip registering the setTimeout entirely (setTimeout(fn, Infinity) can't be used instead: the delay is coerced to a 32-bit signed int, so a too-large/Infinity delay overflows and most engines, including V8, fire it almost immediately -- the opposite of \"unlimited\").", result);
   assertQa(result.unlimitedSettled && result.resolvedStatus === 200, "A timeoutMs=null call must still resolve normally once the native side actually responds.", result);
   assertQa(result.boundedError && /原生功能调用超时/.test(result.boundedError), "Callers that still pass a real timeoutMs (chooseDir, saveFile, the default 120s, ...) must keep timing out as before -- the null-check added for generation calls must not accidentally disable timeouts for everyone else.", result);
+  assertQa(result.stillPendingBeforeAbort, "Before aborting, a native call with a signal but no response yet must still be genuinely pending (sanity check that the test itself isn't racing).", result);
+  assertQa(result.abortableSettledAfterAbort && result.abortableErrorName === "AbortError", "Aborting the signal passed to nativeFetchPayload() must immediately reject the call with an AbortError, even though the native side never actually responded -- this is what lets the per-card 'stop retry' / 'cancel generation' buttons do something instead of silently waiting for a native call that (now that generation has no timeout) might never come back on its own.", result);
 }
 
 async function main() {
@@ -2545,6 +2803,9 @@ async function main() {
     await testCustomSelects(cdp);
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
+    await testUploadDebounceWindow(cdp);
+    await testComicProjectRestorePreservesReferencesAndFailures(cdp);
+    await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
     await testHistoryRestoreAndExport(cdp);
     await testRetryReplacesHistoryEntry(cdp);
     await testSequentialToggleSharedAcrossModes(cdp);
