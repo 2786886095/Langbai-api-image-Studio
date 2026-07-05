@@ -2301,6 +2301,49 @@ async function testGrsaiOfficialAdapter(cdp) {
   assertQa(result.genericCalls.length === 1 && result.genericCalls[0].url.includes("/v1/images/generations"), "Custom API selection should use the generic OpenAI-compatible route, not the GrsAI /v1/api/generate route.", result);
 }
 
+async function testNativeDownloadTimeoutOptOut(cdp) {
+  logStep("Generation-related native calls opt out of nativeDownload.request()'s timeout entirely (timeoutMs=null) so a legitimately slow request is never prematurely killed, while every other caller that still passes a real timeoutMs must keep timing out as before");
+  await loadFresh(cdp, "native-timeout-optout");
+  const result = await cdp.eval(`(async () => {
+    let capturedId = null;
+    window.FlutterDownload = {
+      postMessage(raw) {
+        const payload = JSON.parse(raw);
+        capturedId = payload.id;
+        // Deliberately never resolve/reject here -- simulates a native call that's still
+        // legitimately in flight (or, in the pathological case, one that's truly stuck).
+      }
+    };
+
+    // Case 1: timeoutMs === null must never settle on its own, no matter how long we wait.
+    const unlimitedPromise = nativeDownload.nativeFetchPayload({ url: "http://test/unlimited", method: "GET", headers: {}, body: "" }, null);
+    let unlimitedSettled = false;
+    unlimitedPromise.then(() => { unlimitedSettled = true; }, () => { unlimitedSettled = true; });
+    await new Promise(r => setTimeout(r, 400));
+    const stillPendingAfterWait = !unlimitedSettled;
+
+    // It must still resolve normally once a real response actually arrives.
+    window.AiGenAndroidBridge.resolve(capturedId, { status: 200, headers: {}, body: "ok" });
+    const resolved = await unlimitedPromise;
+    await new Promise(r => setTimeout(r, 20));
+
+    // Case 2: an ordinary bounded timeout (chooseDir, saveFile, etc. all still pass a real
+    // number) must keep firing as before -- the null-check must not disable timeouts globally.
+    let boundedError = null;
+    try {
+      await nativeDownload.nativeFetchPayload({ url: "http://test/bounded", method: "GET", headers: {}, body: "" }, 60);
+    } catch (err) {
+      boundedError = err.message;
+    }
+
+    return { stillPendingAfterWait, unlimitedSettled, resolvedStatus: resolved?.status, boundedError };
+  })()`, true);
+
+  assertQa(result.stillPendingAfterWait, "A native call with timeoutMs=null must not settle on its own after waiting -- passing null has to skip registering the setTimeout entirely (setTimeout(fn, Infinity) can't be used instead: the delay is coerced to a 32-bit signed int, so a too-large/Infinity delay overflows and most engines, including V8, fire it almost immediately -- the opposite of \"unlimited\").", result);
+  assertQa(result.unlimitedSettled && result.resolvedStatus === 200, "A timeoutMs=null call must still resolve normally once the native side actually responds.", result);
+  assertQa(result.boundedError && /原生功能调用超时/.test(result.boundedError), "Callers that still pass a real timeoutMs (chooseDir, saveFile, the default 120s, ...) must keep timing out as before -- the null-check added for generation calls must not accidentally disable timeouts for everyone else.", result);
+}
+
 async function main() {
   const server = createStaticServer();
   await new Promise(resolve => server.listen(appPort, host, resolve));
@@ -2331,6 +2374,7 @@ async function main() {
     await testRetryClearReloadAndI18n(cdp);
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);
+    await testNativeDownloadTimeoutOptOut(cdp);
     await testUpdateControls(cdp);
     await testStartupUpdatePrompt(cdp);
     await testDragDropHintReflectsPlatform(cdp);

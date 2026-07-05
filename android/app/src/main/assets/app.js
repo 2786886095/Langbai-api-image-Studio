@@ -2188,8 +2188,6 @@ const GRSAI_OFFICIAL_MODELS = Object.freeze([
   ...GRSAI_NANO_BANANA_MODELS,
 ]);
 const GRSAI_POLL_INTERVAL_MS = 2000;
-// 15 分钟（跟 smartFetch 里原生调用的超时改成一致，见那边的注释），不再是 6 分钟。
-const GRSAI_MAX_POLL_COUNT = 450;
 
 const KNOWN_PRICES = {
   "gpt-image-2": "¥0.03/张", "gpt-image-2-vip": "¥0.065/张",
@@ -3387,7 +3385,11 @@ registerAdapter({
     if (data.status === "running") {
       const taskId = data.id;
       if (!taskId) throw new Error("GrsAI 未返回任务 ID");
-      for (let i = 0; i < GRSAI_MAX_POLL_COUNT; i++) {
+      // 故意不设轮询次数上限——用户明确要求生图请求不设时长限制，让它想等多久就等多久。
+      // 这个循环本身很轻量（每 2 秒一次的状态查询，不是持续占用一个大请求），唯一的退出方式
+      // 是拿到终态（succeeded/failed/violation）或者用户主动点"停止生成"（signal 触发 abort，
+      // sleep()/smartFetch() 都会据此抛出，从这里往外冒泡）。
+      while (true) {
         await sleep(GRSAI_POLL_INTERVAL_MS, signal);
         const pollResp = await smartFetch(`${base}/v1/api/result?id=${taskId}`, {
           headers: { "Authorization": `Bearer ${apiKey}` },
@@ -3403,9 +3405,6 @@ registerAdapter({
         if (data.status === "failed" || data.status === "violation") {
           throw new Error(`GrsAI 生成失败: ${grsaiStatusError(data)}`);
         }
-      }
-      if (data.status === "running") {
-        throw new Error(`GrsAI 生成超时：轮询 ${GRSAI_MAX_POLL_COUNT} 次仍未完成`);
       }
     }
 
@@ -3809,13 +3808,16 @@ async function smartFetch(url, options = {}) {
   if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
     const payload = await createProxyPayload(url, method, headers, body, signal);
     // 原生端（lib/main.dart 的 _nativeFetch）用 dart:io HttpClient，只设置了 30 秒的
-    // connectionTimeout（仅覆盖建连阶段），请求发出后到收到完整响应这段没有任何原生侧超时——
-    // 这个 JS 侧超时是唯一的兜底。5 分钟被证实不够用：一些模型/供应商的生图请求是同步阻塞到
-    // 生成完成才返回（不是走"排队+轮询"），排队繁忙时经常正常运行超过 5 分钟却被这里提前判死刑，
-    // 表现为用户看到"原生功能调用超时"而不是真实的成功/失败结果。改成 15 分钟，跟 chooseDir 用的
-    // 时长一致（这个代码库里"这个操作可能确实要很久，给够时间"的既有约定），不是真的取消超时
-    // （彻底不设上限的话，一次真正卡死的原生调用会让 pending 里的记录永远留着且没有任何恢复手段）。
-    const result = await nativeDownload.nativeFetchPayload(payload, 15 * 60 * 1000);
+    // connectionTimeout（仅覆盖建连阶段），请求发出后到收到完整响应这段没有任何原生侧超时。
+    // 之前这里给过 JS 侧超时（先是 5 分钟，后来 15 分钟），但排队繁忙/同步阻塞式的生图请求
+    // 仍然经常撞上限，被提前判死刑成"原生功能调用超时"，而不是等到真实的成功/失败结果——
+    // 用户明确要求彻底不设时长限制，让请求能等多久算多久，不要再猜一个"应该够用"的数字。
+    // 传 null（不是不传/不是某个超大数字）表示不设超时：nativeDownload.request() 里对应会
+    // 直接跳过 setTimeout，而不是注册一个永远不会真正触发的计时器。
+    // 代价：如果原生调用真的永久卡死（连接半开但既不来数据也不断开），这个请求会一直挂着——
+    // nativeDownload.request() 目前不支持 AbortSignal，"停止生成"对已经发出的原生调用没有
+    // 作用，届时唯一的恢复手段是重启应用。这是用户在知情的情况下明确要的取舍。
+    const result = await nativeDownload.nativeFetchPayload(payload, null);
     throwIfAborted(signal);
     return new Response(result.body || "", {
       status: result.status || 200,
@@ -3840,7 +3842,7 @@ async function smartFetch(url, options = {}) {
   } catch (err) {
     if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
       const payload = await createProxyPayload(url, method, headers, body, signal);
-      const result = await nativeDownload.nativeFetchPayload(payload, 15 * 60 * 1000);
+      const result = await nativeDownload.nativeFetchPayload(payload, null);
       throwIfAborted(signal);
       return new Response(result.body || "", {
         status: result.status || 200,
@@ -5320,14 +5322,21 @@ const nativeDownload = (() => {
     FlutterDownload.postMessage(JSON.stringify({ id, action, ...payload }));
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
-      setTimeout(() => {
-        if (!pending.has(id)) return;
-        pending.delete(id);
-        // 这条消息以前写死"Android"，但这个桥接函数在 Windows/Android 上是同一份代码、同一个
-        // 调用路径，Windows 端超时也会走到这里——之前的措辞会让 Windows 用户误以为是安卓端才有
-        // 的问题。改成不带平台名、带上具体 action，方便定位到底是哪个操作卡住了。
-        reject(new Error(`原生功能调用超时（${action}），请重试`));
-      }, timeoutMs);
+      // timeoutMs === null 表示调用方明确要求不设超时（目前只有生图请求这么用，见 smartFetch()）。
+      // 注意：这里不能用 setTimeout(fn, Infinity) 来表示"不超时"——delay 内部会被转成 32 位有符号
+      // 整数，超出 2^31-1 毫秒（约 24.8 天）会溢出，绝大多数引擎（包括 V8）会把它当成 0/极小值
+      // 处理，导致"传 Infinity"实际效果是几乎立刻超时，跟意图完全相反。所以"不设超时"必须是
+      // "压根不创建这个计时器"，不是"创建一个超大延迟的计时器"。
+      if (timeoutMs !== null) {
+        setTimeout(() => {
+          if (!pending.has(id)) return;
+          pending.delete(id);
+          // 这条消息以前写死"Android"，但这个桥接函数在 Windows/Android 上是同一份代码、同一个
+          // 调用路径，Windows 端超时也会走到这里——之前的措辞会让 Windows 用户误以为是安卓端才有
+          // 的问题。改成不带平台名、带上具体 action，方便定位到底是哪个操作卡住了。
+          reject(new Error(`原生功能调用超时（${action}），请重试`));
+        }, timeoutMs);
+      }
     });
   }
 
