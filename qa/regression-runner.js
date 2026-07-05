@@ -1236,6 +1236,10 @@ async function testRetryClearReloadAndI18n(cdp) {
     window.__batchRetryCalls = [];
     window.fetch = async (url, opts = {}) => {
       if (String(url).includes("/v1/images/generations")) {
+        // Stagger responses so the retry-all progress bar has more than one instant to
+        // report on — with every call resolving on the same microtask tick there would
+        // be no way to observe an intermediate "done < total" state at all.
+        await new Promise(r => setTimeout(r, 120 * (window.__batchRetryCalls.length + 1)));
         let body = {};
         try { body = JSON.parse(opts.body || "{}"); } catch {}
         window.__batchRetryCalls.push({ prompt: body.prompt, size: body.size });
@@ -1248,22 +1252,33 @@ async function testRetryClearReloadAndI18n(cdp) {
     };
     set("failedRetryCount", "2");
     document.getElementById("retryFailedAll").click();
+    const progressWrap = document.getElementById("progressWrap");
+    const progressText = document.getElementById("progressText");
+    const progressSamples = [];
     const start = Date.now();
     while (Date.now() - start < 5000) {
+      progressSamples.push({ hidden: progressWrap.classList.contains("hidden"), text: progressText.textContent });
       // Retries now run concurrently: all four cards clear .is-failed and fire their
       // API calls almost simultaneously, well before their DOM is re-rendered. Wait
       // for the replacement <img> nodes too, or we snapshot mid-flight.
       if (document.querySelectorAll(".result-item.is-failed").length === 0
         && window.__batchRetryCalls.length === 4
         && document.querySelectorAll(".result-item img").length === 24) break;
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(r => setTimeout(r, 40));
     }
+    const progressVisibleDuringRetry = progressSamples.some(s => !s.hidden);
+    const progressReachedTotal = progressSamples.some(s => s.text.includes("4/4"));
+    await new Promise(r => setTimeout(r, 3300)); // outlast the 3s post-completion hide delay
+    const progressHiddenAfterDelay = progressWrap.classList.contains("hidden");
     const after = {
       failedCount: document.querySelectorAll(".result-item.is-failed").length,
       imageCount: document.querySelectorAll(".result-item img").length,
       retryToolsHidden: document.getElementById("retryFailedTools").classList.contains("hidden"),
       retryCounts: cards.slice(0, 4).map(card => card._retryContext?.retryCount),
       calls: window.__batchRetryCalls,
+      progressVisibleDuringRetry,
+      progressReachedTotal,
+      progressHiddenAfterDelay,
     };
     return { before, after };
   })()`, true);
@@ -1274,6 +1289,9 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(resultGrid.before.firstReason.includes("mocked failure reason") && resultGrid.before.minMediaHeight >= 170, "Failed cards should show their reason inside a stable media area.", resultGrid);
   assertQa(resultGrid.after.failedCount === 0 && resultGrid.after.imageCount === 24 && resultGrid.after.retryToolsHidden, "Retry all failed should replace failed cards and hide the failed toolbar.", resultGrid);
   assertQa(resultGrid.after.calls.length === 4 && resultGrid.after.retryCounts.every(count => count === 2), "Retry all failed should use the toolbar retry count for each failed panel.", resultGrid);
+  assertQa(resultGrid.after.progressVisibleDuringRetry, "Retry-all-failed must show the progress bar while it runs — otherwise a long retry batch (native call timeouts are now up to 15 minutes) looks frozen with no feedback.", resultGrid);
+  assertQa(resultGrid.after.progressReachedTotal, "Retry-all-failed's progress bar must reach done === total (\"4/4\") once every card has settled.", resultGrid);
+  assertQa(resultGrid.after.progressHiddenAfterDelay, "The progress bar should hide itself again a few seconds after retry-all-failed finishes, not stay on screen forever.", resultGrid);
 
   const i18n = [];
   for (const viewport of [

@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.9";
+const APP_VERSION = "1.3.10";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -2188,7 +2188,8 @@ const GRSAI_OFFICIAL_MODELS = Object.freeze([
   ...GRSAI_NANO_BANANA_MODELS,
 ]);
 const GRSAI_POLL_INTERVAL_MS = 2000;
-const GRSAI_MAX_POLL_COUNT = 180;
+// 15 分钟（跟 smartFetch 里原生调用的超时改成一致，见那边的注释），不再是 6 分钟。
+const GRSAI_MAX_POLL_COUNT = 450;
 
 const KNOWN_PRICES = {
   "gpt-image-2": "¥0.03/张", "gpt-image-2-vip": "¥0.065/张",
@@ -3807,9 +3808,14 @@ async function smartFetch(url, options = {}) {
 
   if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
     const payload = await createProxyPayload(url, method, headers, body, signal);
-    // 生图请求经常比普通网络请求慢得多（复杂模型、排队、GrsAI 异步轮询等都可能超过 2 分钟），
-    // 用比默认更长的超时，避免明明还在正常生成、只是慢一点，就被判定为"调用超时"。
-    const result = await nativeDownload.nativeFetchPayload(payload, 5 * 60 * 1000);
+    // 原生端（lib/main.dart 的 _nativeFetch）用 dart:io HttpClient，只设置了 30 秒的
+    // connectionTimeout（仅覆盖建连阶段），请求发出后到收到完整响应这段没有任何原生侧超时——
+    // 这个 JS 侧超时是唯一的兜底。5 分钟被证实不够用：一些模型/供应商的生图请求是同步阻塞到
+    // 生成完成才返回（不是走"排队+轮询"），排队繁忙时经常正常运行超过 5 分钟却被这里提前判死刑，
+    // 表现为用户看到"原生功能调用超时"而不是真实的成功/失败结果。改成 15 分钟，跟 chooseDir 用的
+    // 时长一致（这个代码库里"这个操作可能确实要很久，给够时间"的既有约定），不是真的取消超时
+    // （彻底不设上限的话，一次真正卡死的原生调用会让 pending 里的记录永远留着且没有任何恢复手段）。
+    const result = await nativeDownload.nativeFetchPayload(payload, 15 * 60 * 1000);
     throwIfAborted(signal);
     return new Response(result.body || "", {
       status: result.status || 200,
@@ -3834,7 +3840,7 @@ async function smartFetch(url, options = {}) {
   } catch (err) {
     if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
       const payload = await createProxyPayload(url, method, headers, body, signal);
-      const result = await nativeDownload.nativeFetchPayload(payload, 5 * 60 * 1000);
+      const result = await nativeDownload.nativeFetchPayload(payload, 15 * 60 * 1000);
       throwIfAborted(signal);
       return new Response(result.body || "", {
         status: result.status || 200,
@@ -4569,14 +4575,27 @@ async function retryAllFailedResults() {
   updateFailedRetryTools();
   if (dom.retryFailedAll) dom.retryFailedAll.innerHTML = `${icon("spark")} ${cleanText("retry")} (${cards.length})`;
 
+  // 超时被放宽到 15 分钟后，单张卡片重试失败前可能要等很久——如果整个过程完全没有中间反馈，
+  // 按钮从点击到重新可用之间会显得像卡死了。复用批量生成同一套 #progressWrap/updateProgress
+  // 进度条，让"已完成 done/total"实时可见，而不是干等一个不会变化的按钮文字。
+  const total = cards.length;
+  let done = 0;
+  dom.progressWrap.classList.remove("hidden");
+  updateProgress(0, total, "⏳");
+
   let ok = 0;
   let failed = 0;
   try {
     // 与批量生成保持同样的并发度；串行会让后面的卡片等前一张生完才开始，
     // 看起来像"只重试了一个"。
-    const tasks = cards.map(card => () => {
-      if (!card.isConnected || !card.classList.contains("is-failed")) return Promise.resolve(null);
-      return retryResultCard(card, false, { retryCountOverride: retryCount, quiet: true });
+    const tasks = cards.map(card => async () => {
+      let result = null;
+      if (card.isConnected && card.classList.contains("is-failed")) {
+        result = await retryResultCard(card, false, { retryCountOverride: retryCount, quiet: true });
+      }
+      done++;
+      updateProgress(done, total, done >= total ? "✅" : "⏳");
+      return result;
     });
     const settled = await concurrentLimitSettled(tasks, 20);
     for (const result of settled) {
@@ -4592,6 +4611,7 @@ async function retryAllFailedResults() {
   } finally {
     retryAllFailedInProgress = false;
     updateFailedRetryTools();
+    setTimeout(() => dom.progressWrap.classList.add("hidden"), 3000);
   }
 }
 
