@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260706-1-3-15">
+  <link rel="stylesheet" href="style.css?v=20260706-1-3-16">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -453,7 +453,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.3.15</strong>
+            <strong id="currentVersionLabel">v1.3.16</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -463,6 +463,17 @@
             <span>更新资源</span>
             <strong id="updateAssetLabel">未检测</strong>
           </div>
+          <div class="setting-row hidden" id="installDirRow">
+            <div>
+              <strong id="installDirLabel">安装目录</strong>
+              <div id="settingsInstallDirLabel" class="path-label">未选择</div>
+            </div>
+            <div class="setting-row-actions">
+              <button type="button" id="settingsChooseInstallDir" class="btn btn-sm">选择目录</button>
+              <button type="button" id="settingsResetInstallDir" class="btn btn-sm hidden">恢复自动</button>
+            </div>
+          </div>
+          <p class="field-hint hidden" id="installDirHint">留空表示更新时自动使用当前程序所在目录；如果想让更新覆盖到别的位置（比如旧版本装在其它盘），可以手动选择。</p>
           <textarea id="updateNotes" class="update-notes" readonly placeholder="检查更新后显示 GitHub Release 说明"></textarea>
           <div class="update-actions">
             <button type="button" id="checkUpdates" class="btn btn-sm"><span class="ui-icon ui-icon-search"></span> 检查更新</button>
@@ -532,6 +543,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260706-1-3-15"></script>
+  <script src="app.js?v=20260706-1-3-16"></script>
 </body>
 </html>

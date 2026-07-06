@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.15";
+const APP_VERSION = "1.3.16";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 
 function openFileInputOnce(input) {
@@ -232,7 +232,12 @@ const CLEAN_LOCALES = {
     updateInstallStarted: "更新安装已启动。Windows 会关闭当前程序后覆盖安装目录；安卓请在系统安装器中确认。",
     updateOpenRelease: "当前环境不能直接覆盖安装，已打开更新包下载链接。",
     updateOpenGithubMobile: "安卓版请在 GitHub 发布页下载安装包，已为你打开该页面。",
-    updateNowPrompt: "是否立即更新？"
+    updateNowPrompt: "是否立即更新？",
+    installDir: "安装目录",
+    installDirHint: "留空表示更新时自动使用当前程序所在目录；如果想让更新覆盖到别的位置（比如旧版本装在其它盘），可以手动选择。",
+    resetInstallDir: "恢复自动",
+    installDirUpdated: "安装目录已更新，下次更新会安装到这个目录",
+    installDirResetDone: "已恢复为自动跟随当前程序位置"
   },
   "zh-Hant": {
     langZh: "簡體", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -291,7 +296,12 @@ const CLEAN_LOCALES = {
     updateInstallStarted: "更新安裝已啟動。Windows 會關閉目前程式後覆蓋安裝目錄；Android 請在系統安裝器中確認。",
     updateOpenRelease: "目前環境不能直接覆蓋安裝，已開啟更新包下載連結。",
     updateOpenGithubMobile: "Android 版請在 GitHub 發布頁下載安裝包，已為你開啟該頁面。",
-    updateNowPrompt: "是否立即更新？"
+    updateNowPrompt: "是否立即更新？",
+    installDir: "安裝目錄",
+    installDirHint: "留空表示更新時自動使用目前程式所在目錄；如果想讓更新覆蓋到別的位置（比如舊版本裝在其他磁碟），可以手動選擇。",
+    resetInstallDir: "恢復自動",
+    installDirUpdated: "安裝目錄已更新，下次更新會安裝到這個目錄",
+    installDirResetDone: "已恢復為自動跟隨目前程式位置"
   },
   en: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -350,7 +360,12 @@ const CLEAN_LOCALES = {
     updateInstallStarted: "Update install started. Windows will close this app and overwrite the install folder; confirm in the Android installer on Android.",
     updateOpenRelease: "This environment cannot overwrite the app directly, so the update package link was opened.",
     updateOpenGithubMobile: "On Android, please download and install from the GitHub release page. It has been opened for you.",
-    updateNowPrompt: "Update now?"
+    updateNowPrompt: "Update now?",
+    installDir: "Install Directory",
+    installDirHint: "Leave unset to automatically use the currently running install's folder. Pick a folder manually if you want updates to overwrite a different location (e.g. an older install on another drive).",
+    resetInstallDir: "Reset to Auto",
+    installDirUpdated: "Install directory updated; the next update will install there",
+    installDirResetDone: "Reset to automatically follow the current install location"
   },
   ja: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -409,7 +424,12 @@ const CLEAN_LOCALES = {
     updateInstallStarted: "更新インストールを開始しました。Windows はアプリを閉じてインストール先を上書きします。Android ではインストーラで確認してください。",
     updateOpenRelease: "この環境では直接上書きできないため、更新パッケージのリンクを開きました。",
     updateOpenGithubMobile: "Android 版は GitHub のリリースページからダウンロード・インストールしてください。ページを開きました。",
-    updateNowPrompt: "今すぐ更新しますか？"
+    updateNowPrompt: "今すぐ更新しますか？",
+    installDir: "インストール先",
+    installDirHint: "空欄のままだと、更新時に現在実行中のインストール先フォルダーを自動的に使用します。別の場所（別ドライブの旧バージョンなど）に更新を上書きしたい場合は、手動で選択してください。",
+    resetInstallDir: "自動に戻す",
+    installDirUpdated: "インストール先を更新しました。次回の更新はこのフォルダーにインストールされます",
+    installDirResetDone: "現在のインストール先に自動的に従うよう戻しました"
   },
   ko: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
@@ -468,7 +488,12 @@ const CLEAN_LOCALES = {
     updateInstallStarted: "업데이트 설치가 시작되었습니다. Windows는 앱을 닫고 설치 폴더를 덮어씁니다. Android에서는 설치 관리자에서 확인하세요.",
     updateOpenRelease: "현재 환경에서는 직접 덮어쓸 수 없어 업데이트 패키지 링크를 열었습니다.",
     updateOpenGithubMobile: "Android 버전은 GitHub 릴리스 페이지에서 다운로드 및 설치해주세요. 페이지를 열었습니다.",
-    updateNowPrompt: "지금 업데이트하시겠습니까?"
+    updateNowPrompt: "지금 업데이트하시겠습니까?",
+    installDir: "설치 위치",
+    installDirHint: "비워두면 업데이트 시 현재 실행 중인 설치 폴더를 자동으로 사용합니다. 다른 위치(예: 다른 드라이브에 있는 이전 버전)에 업데이트를 덮어쓰고 싶다면 수동으로 선택하세요.",
+    resetInstallDir: "자동으로 재설정",
+    installDirUpdated: "설치 위치가 업데이트되었습니다. 다음 업데이트부터 이 폴더에 설치됩니다",
+    installDirResetDone: "현재 설치 위치를 자동으로 따르도록 재설정했습니다"
   }
 };
 
@@ -793,6 +818,10 @@ function applyCleanLanguage() {
   setButtonText(dom.checkUpdates, "search", "checkUpdates");
   setButtonText(dom.installUpdate, "spark", "installUpdate");
   if (dom.updateStatus && !dom.updateStatus.dataset.customStatus) dom.updateStatus.textContent = cleanText("updateInitialHint");
+  setText("#installDirLabel", "installDir");
+  setText("#installDirHint", "installDirHint");
+  if (dom.settingsChooseInstallDir) dom.settingsChooseInstallDir.textContent = cleanText("chooseFolder");
+  if (dom.settingsResetInstallDir) dom.settingsResetInstallDir.textContent = cleanText("resetInstallDir");
   setText("#historyTitle", "historyTitle");
   setText("#historyModal .modal-header .field-hint", "historyHint");
   setAttr("#historySearch", "placeholder", "searchHistory");
@@ -983,6 +1012,11 @@ const dom = {
   settingsChooseZipDir:   $("#settingsChooseZipDir"),
   settingsImageDirLabel:  $("#settingsImageDirLabel"),
   settingsZipDirLabel:    $("#settingsZipDirLabel"),
+  settingsChooseInstallDir: $("#settingsChooseInstallDir"),
+  settingsResetInstallDir:  $("#settingsResetInstallDir"),
+  settingsInstallDirLabel:  $("#settingsInstallDirLabel"),
+  installDirRow:  $("#installDirRow"),
+  installDirHint: $("#installDirHint"),
   historyEnabled: $("#historyEnabled"),
   historyLimit:   $("#historyLimit"),
   retryCount:     $("#retryCount"),
@@ -5532,11 +5566,15 @@ const nativeDownload = (() => {
     downloadUpdate(url, fileName, install, platform) {
       return request("downloadUpdate", withDesktopProxyPayload({ url, fileName, install: !!install, platform }), 15 * 60 * 1000);
     },
+    getInstallDir() { return request("getInstallDir", {}); },
+    chooseInstallDir() { return request("chooseInstallDir", {}, 15 * 60 * 1000); },
+    resetInstallDir() { return request("resetInstallDir", {}); },
   };
 })();
 
 document.body.classList.toggle("native-download", nativeDownload.available());
 document.body.classList.toggle("no-native-download", !nativeDownload.available());
+document.body.classList.toggle("windows-native", isNativeWindowsWebview());
 
 function shortPathLabel(uri) {
   if (!uri) return "未选择";
@@ -5569,6 +5607,45 @@ dom.chooseImageDir?.addEventListener("click", () => chooseDownloadDir("images"))
 dom.chooseZipDir?.addEventListener("click", () => chooseDownloadDir("zips"));
 dom.settingsChooseImageDir?.addEventListener("click", () => chooseDownloadDir("images"));
 dom.settingsChooseZipDir?.addEventListener("click", () => chooseDownloadDir("zips"));
+
+// 安装目录只对打包后的原生 Windows exe 有意义（安卓更新是跳 GitHub 发布页，浏览器/PWA 没有
+// "安装目录"这个概念），所以整行在 switchMode 之外单独用 isNativeWindowsWebview() 控制显隐，
+// 不复用 native-download/no-native-download 这两个"安卓+Windows 共用"的 body class。
+async function refreshInstallDirLabel() {
+  if (!dom.settingsInstallDirLabel || !isNativeWindowsWebview()) return;
+  try {
+    const info = await nativeDownload.getInstallDir();
+    dom.settingsInstallDirLabel.textContent = info?.installDir || cleanText("notChecked");
+    if (dom.settingsResetInstallDir) dom.settingsResetInstallDir.classList.toggle("hidden", !info?.isOverride);
+  } catch (err) {
+    dom.settingsInstallDirLabel.textContent = cleanText("notChecked");
+  }
+}
+
+dom.settingsChooseInstallDir?.addEventListener("click", async () => {
+  try {
+    showStatus("正在打开安装目录选择器…", "info");
+    await nativeDownload.chooseInstallDir();
+    await refreshInstallDirLabel();
+    showStatus(cleanText("installDirUpdated"), "success");
+  } catch (err) {
+    showStatus(`目录选择失败: ${err.message}`, "error");
+  }
+});
+
+dom.settingsResetInstallDir?.addEventListener("click", async () => {
+  try {
+    await nativeDownload.resetInstallDir();
+    await refreshInstallDirLabel();
+    showStatus(cleanText("installDirResetDone"), "success");
+  } catch (err) {
+    showStatus(`重置失败: ${err.message}`, "error");
+  }
+});
+
+if (dom.installDirRow) dom.installDirRow.classList.toggle("hidden", !isNativeWindowsWebview());
+if (dom.installDirHint) dom.installDirHint.classList.toggle("hidden", !isNativeWindowsWebview());
+refreshInstallDirLabel();
 updateDirLabels();
 
 document.addEventListener("visibilitychange", () => {

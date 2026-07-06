@@ -2585,6 +2585,107 @@ async function testAndroidUpdateRedirect(cdp) {
   }
 }
 
+async function testWindowsInstallDirControl(cdp) {
+  logStep("Windows-only 'install directory' override lets the user pick where an in-app update overwrites, instead of always trusting the auto-detected current install location");
+  await loadFresh(cdp, "install-dir-hidden");
+  const hiddenResult = await cdp.eval(`(() => {
+    document.getElementById("settingsBtn").click();
+    return {
+      rowHidden: document.getElementById("installDirRow").classList.contains("hidden"),
+      hintHidden: document.getElementById("installDirHint").classList.contains("hidden"),
+    };
+  })()`, true);
+  assertQa(hiddenResult.rowHidden && hiddenResult.hintHidden, "Without a native Windows bridge (plain browser/PWA/Android), the install-directory row must stay hidden -- it has no meaning outside the packaged Windows exe.", hiddenResult);
+
+  // installDirRow's visibility is computed once at boot (isNativeWindowsWebview()), mirroring how
+  // the real WebView2 host injects the FlutterDownload bridge before the page's own script runs.
+  // Defining window.FlutterDownload via a plain cdp.eval() AFTER loadFresh() would be too late (the
+  // boot-time check would already have run against "no bridge yet"), so it has to go in via
+  // Page.addScriptToEvaluateOnNewDocument, same technique testDragDropHintReflectsPlatform uses.
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      window.__installDirCalls = [];
+      window.__installDirOverrideActive = false;
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          window.__installDirCalls.push(payload.action);
+          const autoDir = "C:/Users/test/AppData/Local/AI Image Generator";
+          const customDir = "F:/AI/picture/AI Image Generator";
+          let result;
+          if (payload.action === "getInstallDir") {
+            result = { installDir: window.__installDirOverrideActive ? customDir : autoDir, isOverride: window.__installDirOverrideActive };
+          } else if (payload.action === "chooseInstallDir") {
+            window.__installDirOverrideActive = true;
+            result = { installDir: customDir, isOverride: true };
+          } else if (payload.action === "resetInstallDir") {
+            window.__installDirOverrideActive = false;
+            result = { installDir: autoDir, isOverride: false };
+          } else {
+            result = { ok: true };
+          }
+          setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, result), 0);
+        }
+      };
+    `,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "install-dir-windows");
+    const result = await cdp.eval(`(async () => {
+      document.getElementById("settingsBtn").click();
+      await new Promise(r => setTimeout(r, 150));
+      const initialRowHidden = document.getElementById("installDirRow").classList.contains("hidden");
+      const initialLabel = document.getElementById("settingsInstallDirLabel")?.textContent || "";
+      const initialResetHidden = document.getElementById("settingsResetInstallDir")?.classList.contains("hidden");
+
+      document.getElementById("settingsChooseInstallDir").click();
+      let start = Date.now();
+      while (Date.now() - start < 3000) {
+        if ((document.getElementById("settingsInstallDirLabel")?.textContent || "").includes("F:")) break;
+        await new Promise(r => setTimeout(r, 40));
+      }
+      const afterChooseLabel = document.getElementById("settingsInstallDirLabel")?.textContent || "";
+      const afterChooseResetHidden = document.getElementById("settingsResetInstallDir")?.classList.contains("hidden");
+
+      document.getElementById("settingsResetInstallDir").click();
+      start = Date.now();
+      while (Date.now() - start < 3000) {
+        if ((document.getElementById("settingsInstallDirLabel")?.textContent || "").includes("AppData")) break;
+        await new Promise(r => setTimeout(r, 40));
+      }
+      const afterResetLabel = document.getElementById("settingsInstallDirLabel")?.textContent || "";
+      const afterResetResetHidden = document.getElementById("settingsResetInstallDir")?.classList.contains("hidden");
+
+      return {
+        initialRowHidden,
+        initialLabel,
+        initialResetHidden,
+        afterChooseLabel,
+        afterChooseResetHidden,
+        afterResetLabel,
+        afterResetResetHidden,
+        actions: window.__installDirCalls.slice(),
+      };
+    })()`, true);
+
+    assertQa(!result.initialRowHidden, "Inside a packaged Windows exe (native bridge present + Windows user agent), the install-directory row must be visible.", result);
+    assertQa(result.initialLabel.includes("AppData"), "On first load, the label should show the auto-detected install directory (no manual override yet).", result);
+    assertQa(result.initialResetHidden, "The 'reset to auto' button must stay hidden while there is no manual override.", result);
+    assertQa(result.afterChooseLabel.includes("F:") && result.afterChooseLabel.includes("picture"), "Clicking 'choose directory' and picking a folder must update the label to the newly chosen path.", result);
+    assertQa(!result.afterChooseResetHidden, "Once a manual override is set, the 'reset to auto' button must become visible.", result);
+    assertQa(result.afterResetLabel.includes("AppData"), "Clicking 'reset to auto' must revert the label back to the auto-detected install directory.", result);
+    assertQa(result.afterResetResetHidden, "After resetting, the 'reset to auto' button must hide again since there is no override anymore.", result);
+    assertQa(result.actions.filter(a => a === "getInstallDir").length >= 3, "getInstallDir should be queried on load and again after each choose/reset action to refresh the displayed path.", result);
+    assertQa(result.actions.includes("chooseInstallDir") && result.actions.includes("resetInstallDir") && result.actions.indexOf("chooseInstallDir") < result.actions.indexOf("resetInstallDir"), "chooseInstallDir must be invoked before resetInstallDir, matching the user's click order.", result);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+}
+
 async function testDesktopProxyControls(cdp) {
   logStep("Desktop proxy settings and native payload propagation");
   await loadFresh(cdp, "desktop-proxy");
@@ -2910,6 +3011,7 @@ async function main() {
     await testCaptionMode(cdp);
     await testCaptionAutoFill(cdp);
     await testAndroidUpdateRedirect(cdp);
+    await testWindowsInstallDirControl(cdp);
     cdp.assertNoRuntimeIssues();
     console.log("\n[qa] All regression checks passed.");
   } finally {

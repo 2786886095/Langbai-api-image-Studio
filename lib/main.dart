@@ -530,6 +530,15 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         case 'getDirs':
           result = _windowsDownloadDirs();
           break;
+        case 'getInstallDir':
+          result = _windowsInstallDirInfo();
+          break;
+        case 'chooseInstallDir':
+          result = await _chooseWindowsInstallDir();
+          break;
+        case 'resetInstallDir':
+          result = await _resetWindowsInstallDir();
+          break;
         case 'saveFile':
           result = await _saveWindowsFile(
             payload['kind']?.toString() ?? 'images',
@@ -670,6 +679,79 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         _windowsDefaultDownloadDir(kind);
   }
 
+  // 安装目录默认跟随"当前正在运行的这个 exe 所在目录"（见 _downloadWindowsUpdate 的
+  // /DIR= 修复），但用户可能想手动指定更新覆盖到另一个位置（比如当前跑的是 C 盘这份，
+  // 但想把 F 盘那份旧版本也更新掉）。这里用同一份 settings.json 存一个独立的 installDir
+  // 覆盖值，跟 downloadDirs 是平级的两个字段，不要合并到一起——installDir 只有一个值，
+  // 不像 downloadDirs 是按 kind 分类的字典。
+  String? _windowsInstallDirOverride() {
+    try {
+      final file = _windowsSettingsFile();
+      if (!file.existsSync()) return null;
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is! Map) return null;
+      final value = decoded['installDir'];
+      if (value is! String || value.trim().isEmpty) return null;
+      return value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveWindowsInstallDir(String? path) async {
+    final file = _windowsSettingsFile();
+    await file.parent.create(recursive: true);
+    var data = <String, Object?>{};
+    try {
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map) {
+          data = decoded.map((key, value) => MapEntry(key.toString(), value));
+        }
+      }
+    } catch (_) {
+      data = <String, Object?>{};
+    }
+    if (path == null || path.trim().isEmpty) {
+      data.remove('installDir');
+    } else {
+      data['installDir'] = path;
+    }
+    await file.writeAsString(jsonEncode(data), flush: true);
+  }
+
+  String _defaultWindowsInstallDir() =>
+      File(Platform.resolvedExecutable).parent.path;
+
+  String _effectiveWindowsInstallDir() =>
+      _windowsInstallDirOverride() ?? _defaultWindowsInstallDir();
+
+  Map<String, Object?> _windowsInstallDirInfo() {
+    final override = _windowsInstallDirOverride();
+    return {
+      'installDir': override ?? _defaultWindowsInstallDir(),
+      'isOverride': override != null,
+    };
+  }
+
+  Future<Map<String, Object?>> _chooseWindowsInstallDir() async {
+    final current = _effectiveWindowsInstallDir();
+    await Directory(current).create(recursive: true);
+    final selected = await file_selector.getDirectoryPath(
+      initialDirectory: current,
+      confirmButtonText: '选择目录',
+    );
+    if (selected != null && selected.trim().isNotEmpty) {
+      await _saveWindowsInstallDir(selected);
+    }
+    return _windowsInstallDirInfo();
+  }
+
+  Future<Map<String, Object?>> _resetWindowsInstallDir() async {
+    await _saveWindowsInstallDir(null);
+    return _windowsInstallDirInfo();
+  }
+
   Future<String> _chooseWindowsDownloadDir(String kind) async {
     final current = Directory(_windowsDownloadDir(kind));
     await current.create(recursive: true);
@@ -734,9 +816,11 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     if (install && safeName.toLowerCase().endsWith('.exe')) {
       // Inno Setup 自带的"沿用上次安装目录"依赖注册表里的 AppId 记录，一旦这条记录因为
       // 提权状态变化等原因对不上，就会静默退回 setup.iss 里的 DefaultDirName（本机 AppData），
-      // 用户实际装在别的盘时更新就会在 C 盘另起一份。这里直接用当前正在运行的 exe 所在目录
-      // 显式传 /DIR，不依赖那条注册表探测，保证永远原地覆盖安装。
-      final installDir = File(Platform.resolvedExecutable).parent.path;
+      // 用户实际装在别的盘时更新就会在 C 盘另起一份。这里直接显式传 /DIR，不依赖那条注册表
+      // 探测：默认用当前正在运行的 exe 所在目录（_effectiveWindowsInstallDir() 没有手动覆盖
+      // 时的兜底值），如果用户在设置里手动选过安装目录（比如想更新覆盖到另一个盘上的旧版本），
+      // 就用那个覆盖值。
+      final installDir = _effectiveWindowsInstallDir();
       await Process.start(
         file.path,
         [

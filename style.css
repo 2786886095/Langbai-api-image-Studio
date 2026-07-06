@@ -2781,6 +2781,12 @@ main.result-panel .result-actions .btn {
   gap: 8px;
 }
 
+.setting-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .proxy-actions {
   display: flex;
   flex-wrap: wrap;
