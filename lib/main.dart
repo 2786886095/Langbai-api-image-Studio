@@ -732,9 +732,20 @@ class _WindowsWebShellState extends State<WindowsWebShell>
 
     var installerStarted = false;
     if (install && safeName.toLowerCase().endsWith('.exe')) {
+      // Inno Setup 自带的"沿用上次安装目录"依赖注册表里的 AppId 记录，一旦这条记录因为
+      // 提权状态变化等原因对不上，就会静默退回 setup.iss 里的 DefaultDirName（本机 AppData），
+      // 用户实际装在别的盘时更新就会在 C 盘另起一份。这里直接用当前正在运行的 exe 所在目录
+      // 显式传 /DIR，不依赖那条注册表探测，保证永远原地覆盖安装。
+      final installDir = File(Platform.resolvedExecutable).parent.path;
       await Process.start(
         file.path,
-        ['/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
+        [
+          '/SILENT',
+          '/NORESTART',
+          '/CLOSEAPPLICATIONS',
+          '/RESTARTAPPLICATIONS',
+          '/DIR=$installDir',
+        ],
         mode: ProcessStartMode.detached,
       );
       installerStarted = true;
