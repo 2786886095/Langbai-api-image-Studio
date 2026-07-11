@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-image-generator-1-3-16-20260706";
+const CACHE_NAME = "ai-image-generator-1-3-17-20260711";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -48,16 +48,16 @@ self.addEventListener("fetch", event => {
     return;
   }
 
+  const network = fetch(request).then(response => {
+    if (response && response.ok) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+    }
+    return response;
+  }).catch(() => null);
+  event.waitUntil(network.then(() => undefined));
   event.respondWith(
-    caches.match(request).then(cached => {
-      const network = fetch(request).then(response => {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-        }
-        return response;
-      });
-      return cached || network;
-    })
+    caches.match(request, { ignoreSearch: true })
+      .then(cached => cached || network.then(response => response || Response.error()))
   );
 });

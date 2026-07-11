@@ -1,6 +1,6 @@
 /* ===================================================================
    AI 图片生成器 — app.js
-   双模式：单图生成 + 漫画分镜批量生成
+   三种工作流：单图生成 + 漫画分镜 + 气泡嵌字
    兼容 url 和 b64_json 两种响应格式
    多 API 站点适配（GrsAI / OpenAI / SiliconFlow / Gemini）
    =================================================================== */
@@ -10,8 +10,10 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.16";
+const APP_VERSION = "1.3.17";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
+const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function openFileInputOnce(input) {
   if (!input) return;
@@ -32,6 +34,7 @@ function openFileInputOnce(input) {
 // ─── 国际化 ────────────────────────────────────────────────
 const LANG_KEY = "ai_image_gen_language";
 const SUPPORTED_LANGS = ["zh-CN", "zh-Hant", "en", "ja", "ko"];
+const LANGUAGE_LOCALE_TAGS = { "zh-CN": "zh-CN", "zh-Hant": "zh-TW", en: "en-US", ja: "ja-JP", ko: "ko-KR" };
 let currentLanguage = SUPPORTED_LANGS.includes(localStorage.getItem(LANG_KEY))
   ? localStorage.getItem(LANG_KEY)
   : "zh-CN";
@@ -44,7 +47,7 @@ const I18N = {
   "切换主题": { "zh-Hant": "切換主題", en: "Toggle theme", ja: "テーマ切替", ko: "테마 전환" },
   "关闭": { "zh-Hant": "關閉", en: "Close", ja: "閉じる", ko: "닫기" },
   "AI 图片生成器": { "zh-Hant": "AI 圖片生成器", en: "AI Image Generator", ja: "AI 画像生成", ko: "AI 이미지 생성기" },
-  "单图生成 · 漫画分镜批量生成": { "zh-Hant": "單圖生成 · 漫畫分鏡批次生成", en: "Single image generation · Batch comic storyboard generation", ja: "単体画像生成 · 漫画ストーリーボード一括生成", ko: "단일 이미지 생성 · 만화 컷 일괄 생성" },
+  "单图生成 · 漫画分镜 · 气泡嵌字": { "zh-Hant": "單圖生成 · 漫畫分鏡 · 氣泡嵌字", en: "Single images · Comic panels · Speech bubbles", ja: "単体画像 · 漫画コマ · 吹き出し文字", ko: "단일 이미지 · 만화 컷 · 말풍선 문구" },
   "API 配置": { "zh-Hant": "API 設定", en: "API Settings", ja: "API 設定", ko: "API 설정" },
   "已保存的 API": { "zh-Hant": "已儲存的 API", en: "Saved APIs", ja: "保存済み API", ko: "저장된 API" },
   "— 手动填写 —": { "zh-Hant": "— 手動填寫 —", en: "— Manual entry —", ja: "— 手動入力 —", ko: "— 직접 입력 —" },
@@ -127,7 +130,7 @@ const I18N = {
   "最多保留记录数": { "zh-Hant": "最多保留記錄數", en: "Maximum records", ja: "最大保存件数", ko: "최대 기록 수" },
   "清空全部记录": { "zh-Hant": "清空全部記錄", en: "Clear All Records", ja: "全履歴を消去", ko: "모든 기록 삭제" },
   "生图记录": { "zh-Hant": "生圖記錄", en: "Generation History", ja: "生成履歴", ko: "생성 기록" },
-  "按日期倒序排列，数据保存在本机 localStorage。": { "zh-Hant": "依日期倒序排列，資料儲存在本機 localStorage。", en: "Sorted by date descending. Data is stored in localStorage.", ja: "日付の降順で表示。データは localStorage に保存されます。", ko: "날짜 내림차순으로 정렬되며 localStorage에 저장됩니다." },
+  "项目元数据与图片均保存在本机，提示词默认折叠。": { "zh-Hant": "專案資料與圖片均保存在本機，提示詞預設摺疊。", en: "Project data and images stay on this device. Prompts are collapsed by default.", ja: "プロジェクトデータと画像は端末内に保存され、プロンプトは初期状態で折りたたまれます。", ko: "프로젝트 데이터와 이미지는 이 기기에 보관되며 프롬프트는 기본적으로 접혀 있습니다." },
   "搜索提示词 / 模型 / 日期": { "zh-Hant": "搜尋提示詞 / 模型 / 日期", en: "Search prompt / model / date", ja: "プロンプト / モデル / 日付を検索", ko: "프롬프트 / 모델 / 날짜 검색" },
   "刷新": { "zh-Hant": "重新整理", en: "Refresh", ja: "更新", ko: "새로고침" },
   "该分镜的专属提示词…": { "zh-Hant": "該分鏡的專屬提示詞…", en: "Prompt for this panel...", ja: "このコマ専用のプロンプト…", ko: "이 컷 전용 프롬프트..." },
@@ -158,6 +161,37 @@ const I18N = {
   "漫画项目": { "zh-Hant": "漫畫專案", en: "Comic Project", ja: "漫画プロジェクト", ko: "만화 프로젝트" },
   "恢复项目": { "zh-Hant": "恢復專案", en: "Restore Project", ja: "プロジェクトを復元", ko: "프로젝트 복원" },
   "无提示词": { "zh-Hant": "無提示詞", en: "No prompt", ja: "プロンプトなし", ko: "프롬프트 없음" },
+  "请先填写 API 地址，再设为默认": { "zh-Hant": "請先填寫 API 位址，再設為預設", en: "Enter the API URL before setting it as default.", ja: "API URL を入力してから既定に設定してください。", ko: "API URL을 입력한 후 기본값으로 설정하세요." },
+  "这些参考图已经导入过了": { "zh-Hant": "這些參考圖已經匯入過了", en: "These reference images have already been imported.", ja: "これらの参照画像はすでに読み込まれています。", ko: "이 참고 이미지는 이미 가져왔습니다." },
+  "当前尺寸无效，宽高需要在 64 到 4096 之间": { "zh-Hant": "目前尺寸無效，寬高需介於 64 到 4096", en: "Invalid size. Width and height must be between 64 and 4096.", ja: "サイズが無効です。幅と高さは 64～4096 にしてください。", ko: "크기가 올바르지 않습니다. 너비와 높이는 64~4096이어야 합니다." },
+  "请先添加分镜": { "zh-Hant": "請先新增分鏡", en: "Add a panel first.", ja: "先にコマを追加してください。", ko: "먼저 컷을 추가하세요." },
+  "请先批量上传图片": { "zh-Hant": "請先批次上傳圖片", en: "Bulk-upload images first.", ja: "先に画像を一括アップロードしてください。", ko: "먼저 이미지를 일괄 업로드하세요." },
+  "模型列表获取失败，已加载常用模型": { "zh-Hant": "模型清單取得失敗，已載入常用模型", en: "Could not fetch the model list. Common models were loaded instead.", ja: "モデル一覧を取得できなかったため、一般的なモデルを読み込みました。", ko: "모델 목록을 가져오지 못해 일반 모델을 불러왔습니다." },
+  "检测端点存在，但 API Key 无效或无权限。已加载常用模型供选择": { "zh-Hant": "端點可用，但 API Key 無效或無權限。已載入常用模型供選擇", en: "The endpoint is reachable, but the API key is invalid or unauthorized. Common models were loaded.", ja: "エンドポイントには接続できましたが、API Key が無効か権限がありません。一般的なモデルを読み込みました。", ko: "엔드포인트에는 연결됐지만 API Key가 잘못됐거나 권한이 없습니다. 일반 모델을 불러왔습니다." },
+  "该 API 不开放模型列表，已加载常用模型": { "zh-Hant": "此 API 未開放模型清單，已載入常用模型", en: "This API does not expose a model list. Common models were loaded.", ja: "この API はモデル一覧を公開していないため、一般的なモデルを読み込みました。", ko: "이 API는 모델 목록을 제공하지 않아 일반 모델을 불러왔습니다." },
+  "请先填写 API 地址和 Key": { "zh-Hant": "請先填寫 API 位址與 Key", en: "Enter the API URL and key first.", ja: "API URL と Key を入力してください。", ko: "API URL과 Key를 먼저 입력하세요." },
+  "未知平台，已加载通用模型列表": { "zh-Hant": "未知平台，已載入通用模型清單", en: "Unknown provider. A generic model list was loaded.", ja: "不明なプロバイダーのため、汎用モデル一覧を読み込みました。", ko: "알 수 없는 공급자라 범용 모델 목록을 불러왔습니다." },
+  "正在检测模型列表…": { "zh-Hant": "正在偵測模型清單…", en: "Detecting models...", ja: "モデルを検出中…", ko: "모델을 감지하는 중..." },
+  "该平台不支持模型列表查询，已加载常用模型": { "zh-Hant": "此平台不支援模型清單查詢，已載入常用模型", en: "This provider does not support model discovery. Common models were loaded.", ja: "このプロバイダーはモデル検索に対応していないため、一般的なモデルを読み込みました。", ko: "이 공급자는 모델 조회를 지원하지 않아 일반 모델을 불러왔습니다." },
+  "请先配置 API 地址": { "zh-Hant": "請先設定 API 位址", en: "Configure an API URL first.", ja: "先に API URL を設定してください。", ko: "먼저 API URL을 설정하세요." },
+  "请先配置 API Key": { "zh-Hant": "請先設定 API Key", en: "Configure an API key first.", ja: "先に API Key を設定してください。", ko: "먼저 API Key를 설정하세요." },
+  "请输入提示词或导入 txt 文件": { "zh-Hant": "請輸入提示詞或匯入 txt 檔案", en: "Enter a prompt or import a txt file.", ja: "プロンプトを入力するか txt ファイルを読み込んでください。", ko: "프롬프트를 입력하거나 txt 파일을 가져오세요." },
+  "请至少为一个分镜填写提示词": { "zh-Hant": "請至少為一個分鏡填寫提示詞", en: "Enter a prompt for at least one panel.", ja: "少なくとも 1 コマにプロンプトを入力してください。", ko: "최소 한 컷에 프롬프트를 입력하세요." },
+  "请至少给一张图片上传图片并填写气泡文字": { "zh-Hant": "請至少上傳一張圖片並填寫氣泡文字", en: "Upload at least one image and enter its bubble text.", ja: "少なくとも 1 枚の画像をアップロードし、吹き出しの文字を入力してください。", ko: "이미지를 한 장 이상 업로드하고 말풍선 문구를 입력하세요." },
+  "重试前请先填写提示词": { "zh-Hant": "重試前請先填寫提示詞", en: "Enter a prompt before retrying.", ja: "再試行する前にプロンプトを入力してください。", ko: "재시도 전에 프롬프트를 입력하세요." },
+  "已从历史记录恢复到结果区": { "zh-Hant": "已從歷史記錄恢復到結果區", en: "Restored from history to the results area.", ja: "履歴から結果エリアへ復元しました。", ko: "기록에서 결과 영역으로 복원했습니다." },
+  "历史记录已清空": { "zh-Hant": "歷史記錄已清空", en: "History cleared.", ja: "履歴を消去しました。", ko: "기록을 모두 지웠습니다." },
+  "已从后台返回，页面状态已刷新": { "zh-Hant": "已從背景返回，頁面狀態已重新整理", en: "Returned to the app and refreshed its state.", ja: "アプリに戻り、状態を更新しました。", ko: "앱으로 돌아와 상태를 새로고침했습니다." },
+  "当前不是原生软件环境，浏览器会使用默认下载目录": { "zh-Hant": "目前不是原生軟體環境，瀏覽器會使用預設下載目錄", en: "This is not a native app shell. The browser will use its default download folder.", ja: "ネイティブアプリ環境ではないため、ブラウザーの既定ダウンロード先を使用します。", ko: "네이티브 앱 환경이 아니므로 브라우저 기본 다운로드 폴더를 사용합니다." },
+  "正在打开安装目录选择器…": { "zh-Hant": "正在開啟安裝目錄選擇器…", en: "Opening the installation folder picker...", ja: "インストール先の選択画面を開いています…", ko: "설치 폴더 선택기를 여는 중..." },
+  "链接已复制": { "zh-Hant": "連結已複製", en: "Link copied.", ja: "リンクをコピーしました。", ko: "링크를 복사했습니다." },
+  "参考图导入失败": { "zh-Hant": "參考圖匯入失敗", en: "Reference image import failed.", ja: "参照画像の読み込みに失敗しました。", ko: "참고 이미지 가져오기에 실패했습니다." },
+  "分镜参考图读取失败": { "zh-Hant": "分鏡參考圖讀取失敗", en: "Could not read the panel reference image.", ja: "コマの参照画像を読み込めませんでした。", ko: "컷 참고 이미지를 읽지 못했습니다." },
+  "图片读取失败": { "zh-Hant": "圖片讀取失敗", en: "Could not read the image.", ja: "画像を読み込めませんでした。", ko: "이미지를 읽지 못했습니다." },
+  "批量导入图片失败": { "zh-Hant": "批次匯入圖片失敗", en: "Bulk image import failed.", ja: "画像の一括読み込みに失敗しました。", ko: "이미지 일괄 가져오기에 실패했습니다." },
+  "历史图片加载失败": { "zh-Hant": "歷史圖片載入失敗", en: "Could not load the history image.", ja: "履歴画像を読み込めませんでした。", ko: "기록 이미지를 불러오지 못했습니다." },
+  "正在重试生成…": { "zh-Hant": "正在重試生成…", en: "Retrying generation...", ja: "生成を再試行中…", ko: "생성을 재시도하는 중..." },
+  "未知日期": { "zh-Hant": "未知日期", en: "Unknown date", ja: "日付不明", ko: "날짜 알 수 없음" },
 };
 
 const I18N_PATTERNS = [
@@ -166,6 +200,35 @@ const I18N_PATTERNS = [
   [/^参考图 (\d+): (.+)$/, "参考图 {1}: {2}", { "zh-Hant": "參考圖 {1}: {2}", en: "Reference {1}: {2}", ja: "参照画像 {1}: {2}", ko: "참고 이미지 {1}: {2}" }],
   [/^已加载 (\d+) 个模型，点击选择$/, "已加载 {1} 个模型，点击选择", { "zh-Hant": "已載入 {1} 個模型，點擊選擇", en: "{1} models loaded. Click to choose.", ja: "{1} 個のモデルを読み込みました。クリックして選択", ko: "{1}개 모델 로드됨. 클릭하여 선택" }],
   [/^已加载 (\d+) 个生图模型，点击选择$/, "已加载 {1} 个生图模型，点击选择", { "zh-Hant": "已載入 {1} 個生圖模型，點擊選擇", en: "{1} image models loaded. Click to choose.", ja: "{1} 個の画像モデルを読み込みました。クリックして選択", ko: "{1}개 이미지 모델 로드됨. 클릭하여 선택" }],
+  [/^已切换: (.+)$/, "已切换: {1}", { "zh-Hant": "已切換：{1}", en: "Switched to: {1}", ja: "切り替えました：{1}", ko: "전환됨: {1}" }],
+  [/^已保存: (.+?)( ✅)?$/, "已保存: {1}{2}", { "zh-Hant": "已儲存：{1}{2}", en: "Saved: {1}{2}", ja: "保存しました：{1}{2}", ko: "저장됨: {1}{2}" }],
+  [/^已设为默认 API: (.+)$/, "已设为默认 API: {1}", { "zh-Hant": "已設為預設 API：{1}", en: "Default API set to: {1}", ja: "既定の API に設定：{1}", ko: "기본 API로 설정됨: {1}" }],
+  [/^已删除: (.+)$/, "已删除: {1}", { "zh-Hant": "已刪除：{1}", en: "Deleted: {1}", ja: "削除しました：{1}", ko: "삭제됨: {1}" }],
+  [/^已导入 (\d+) 个文本参考 ✅$/, "已导入 {1} 个文本参考 ✅", { "zh-Hant": "已匯入 {1} 個文字參考 ✅", en: "Imported {1} text references ✅", ja: "{1} 件のテキスト参照を読み込みました ✅", ko: "텍스트 참고 {1}개를 가져왔습니다 ✅" }],
+  [/^已添加 (\d+) 张参考图（共 (\d+) 张）$/, "已添加 {1} 张参考图（共 {2} 张）", { "zh-Hant": "已新增 {1} 張參考圖（共 {2} 張）", en: "Added {1} reference images ({2} total).", ja: "参照画像を {1} 枚追加しました（合計 {2} 枚）。", ko: "참고 이미지 {1}장을 추가했습니다(총 {2}장)." }],
+  [/^已保存常用尺寸: (.+)$/, "已保存常用尺寸: {1}", { "zh-Hant": "已儲存常用尺寸：{1}", en: "Saved size preset: {1}", ja: "サイズを保存しました：{1}", ko: "크기 프리셋 저장됨: {1}" }],
+  [/^已应用尺寸: (.+)$/, "已应用尺寸: {1}", { "zh-Hant": "已套用尺寸：{1}", en: "Applied size: {1}", ja: "サイズを適用しました：{1}", ko: "크기 적용됨: {1}" }],
+  [/^已删除常用尺寸: (.+)$/, "已删除常用尺寸: {1}", { "zh-Hant": "已刪除常用尺寸：{1}", en: "Deleted size preset: {1}", ja: "保存済みサイズを削除しました：{1}", ko: "크기 프리셋 삭제됨: {1}" }],
+  [/^分镜 (\d+) 已绑定参考图$/, "分镜 {1} 已绑定参考图", { "zh-Hant": "分鏡 {1} 已綁定參考圖", en: "Reference image attached to panel {1}.", ja: "コマ {1} に参照画像を設定しました。", ko: "컷 {1}에 참고 이미지를 연결했습니다." }],
+  [/^当前已经是 (\d+) 个分镜$/, "当前已经是 {1} 个分镜", { "zh-Hant": "目前已經是 {1} 個分鏡", en: "There are already {1} panels.", ja: "すでに {1} コマあります。", ko: "이미 {1}개 컷이 있습니다." }],
+  [/^已创建 (\d+) 个分镜$/, "已创建 {1} 个分镜", { "zh-Hant": "已建立 {1} 個分鏡", en: "Created {1} panels.", ja: "{1} コマを作成しました。", ko: "컷 {1}개를 만들었습니다." }],
+  [/^已调整为 (\d+) 个分镜$/, "已调整为 {1} 个分镜", { "zh-Hant": "已調整為 {1} 個分鏡", en: "Adjusted to {1} panels.", ja: "{1} コマに調整しました。", ko: "컷 {1}개로 조정했습니다." }],
+  [/^正在读取 (\d+) 张分镜参考图…$/, "正在读取 {1} 张分镜参考图…", { "zh-Hant": "正在讀取 {1} 張分鏡參考圖…", en: "Reading {1} panel reference images...", ja: "コマの参照画像を {1} 枚読み込み中…", ko: "컷 참고 이미지 {1}장을 읽는 중..." }],
+  [/^正在读取 (\d+) 张图片…$/, "正在读取 {1} 张图片…", { "zh-Hant": "正在讀取 {1} 張圖片…", en: "Reading {1} images...", ja: "画像を {1} 枚読み込み中…", ko: "이미지 {1}장을 읽는 중..." }],
+  [/^GrsAI 生成中… (\d+)%$/, "GrsAI 生成中… {1}%", { "zh-Hant": "GrsAI 生成中… {1}%", en: "GrsAI generating... {1}%", ja: "GrsAI 生成中… {1}%", ko: "GrsAI 생성 중... {1}%" }],
+  [/^已加载 (\d+) 个生图模型$/, "已加载 {1} 个生图模型", { "zh-Hant": "已載入 {1} 個生圖模型", en: "Loaded {1} image models.", ja: "画像モデルを {1} 個読み込みました。", ko: "이미지 모델 {1}개를 불러왔습니다." }],
+  [/^(.+) 返回 (.+)，正在进行第 (\d+)\/(\d+) 轮自动重试…$/, "{1} 返回 {2}，正在进行第 {3}/{4} 轮自动重试…", { "zh-Hant": "{1} 回傳 {2}，正在進行第 {3}/{4} 輪自動重試…", en: "{1} returned {2}. Automatic retry {3}/{4}...", ja: "{1} が {2} を返しました。自動再試行 {3}/{4}…", ko: "{1}에서 {2}을 반환했습니다. 자동 재시도 {3}/{4}..." }],
+  [/^(\d+) 张成功，(\d+) 张失败$/, "{1} 张成功，{2} 张失败", { "zh-Hant": "{1} 張成功，{2} 張失敗", en: "{1} succeeded, {2} failed.", ja: "{1} 枚成功、{2} 枚失敗。", ko: "{1}장 성공, {2}장 실패." }],
+  [/^(\d+) 张全部生成完成$/, "{1} 张全部生成完成", { "zh-Hant": "{1} 張全部生成完成", en: "All {1} images generated.", ja: "{1} 枚すべて生成しました。", ko: "이미지 {1}장을 모두 생성했습니다." }],
+  [/^完成：(\d+) 成功 \/ (\d+) 失败$/, "完成：{1} 成功 / {2} 失败", { "zh-Hant": "完成：{1} 成功 / {2} 失敗", en: "Done: {1} succeeded / {2} failed.", ja: "完了：成功 {1} / 失敗 {2}", ko: "완료: {1} 성공 / {2} 실패" }],
+  [/^全部 (\d+) 个分镜生成完成！$/, "全部 {1} 个分镜生成完成！", { "zh-Hant": "全部 {1} 個分鏡生成完成！", en: "All {1} panels generated!", ja: "全 {1} コマを生成しました！", ko: "컷 {1}개를 모두 생성했습니다!" }],
+  [/^全部 (\d+) 张图片生成完成！$/, "全部 {1} 张图片生成完成！", { "zh-Hant": "全部 {1} 張圖片生成完成！", en: "All {1} images generated!", ja: "全 {1} 枚の画像を生成しました！", ko: "이미지 {1}장을 모두 생성했습니다!" }],
+  [/^生成失败: (.+)$/, "生成失败: {1}", { "zh-Hant": "生成失敗：{1}", en: "Generation failed: {1}", ja: "生成に失敗しました：{1}", ko: "생성 실패: {1}" }],
+  [/^批量生成失败: (.+)$/, "批量生成失败: {1}", { "zh-Hant": "批次生成失敗：{1}", en: "Batch generation failed: {1}", ja: "一括生成に失敗しました：{1}", ko: "일괄 생성 실패: {1}" }],
+  [/^第 (\d+)\/(\d+) 次自动重试（(.+)）$/, "第 {1}/{2} 次自动重试（{3}）", { "zh-Hant": "第 {1}/{2} 次自動重試（{3}）", en: "Automatic retry {1}/{2} ({3})", ja: "自動再試行 {1}/{2}（{3}）", ko: "자동 재시도 {1}/{2} ({3})" }],
+  [/^第 (\d+)\/(\d+) 次自动重试$/, "第 {1}/{2} 次自动重试", { "zh-Hant": "第 {1}/{2} 次自動重試", en: "Automatic retry {1}/{2}", ja: "自動再試行 {1}/{2}", ko: "자동 재시도 {1}/{2}" }],
+  [/^目录选择失败: (.+)$/, "目录选择失败: {1}", { "zh-Hant": "目錄選擇失敗：{1}", en: "Folder selection failed: {1}", ja: "フォルダー選択に失敗しました：{1}", ko: "폴더 선택 실패: {1}" }],
+  [/^下载失败: (.+)$/, "下载失败: {1}", { "zh-Hant": "下載失敗：{1}", en: "Download failed: {1}", ja: "ダウンロードに失敗しました：{1}", ko: "다운로드 실패: {1}" }],
 ];
 
 const I18N_REVERSE = new Map();
@@ -177,7 +240,7 @@ for (const [source, translations] of Object.entries(I18N)) {
 const CLEAN_LOCALES = {
   "zh-CN": {
     langZh: "简体", langHant: "繁体", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜批量生成",
+    appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜 · 气泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
     apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
@@ -204,7 +267,7 @@ const CLEAN_LOCALES = {
     generateAllCaptions: "批量生成全部图片",
     matchSize: "输出尺寸与参考图一致", resolution: "全局分辨率", landscape: "横版 3:2", portrait: "竖版 2:3",
     custom: "自定义", width: "宽", height: "高", savedSizes: "常用尺寸", saveSizePreset: "保存尺寸", deleteSizePreset: "删除常用尺寸", imageCount: "生成数量", sequential: "依次生成",
-    sequentialHint: "不勾选：并发批量生成（最多同时 20 个请求）；勾选：逐张依次生成",
+    sequentialHint: "不勾选：按当前 API 的并发上限批量生成；勾选：逐张依次生成",
     panelList: "分镜列表", captionList: "嵌字列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜", cancelGeneration: "取消生成",
@@ -212,10 +275,10 @@ const CLEAN_LOCALES = {
     downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
     imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录",
-    historyTitle: "生图记录", historyHint: "漫画会按项目保存，默认折叠提示词，数据保存在本机 localStorage。",
+    historyTitle: "生图记录", historyHint: "漫画与嵌字任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", autoRetry: "自动重试", globalRetries: "全局重试次数",
-    retryHint: "只有部分临时性错误（HTTP 400/502/503/504）会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
+    retryHint: "只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
     restoreProject: "恢复项目", downloadProject: "导出项目", viewPrompts: "查看提示词与分镜",
     globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目", captionImageCol: "图片", captionBubbleCol: "气泡文字",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
@@ -224,12 +287,12 @@ const CLEAN_LOCALES = {
     download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "取消",
     failReason: "失败原因", retryFailedAll: "全部失败重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜",
     softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
-    checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装",
-    updateInitialHint: "可从 GitHub Releases 检测新版。Windows 会在下载后退出并覆盖安装目录；安卓会打开系统安装器。",
+    checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装", openReleasePage: "打开发布页",
+    updateInitialHint: "可从 GitHub Releases 检测新版。Windows 可校验后覆盖安装；macOS 会下载并打开更新包；安卓和 iOS 会用系统浏览器打开发布页。",
     checkingUpdates: "正在检查更新…", noUpdate: "已是最新版", updateAvailable: "发现新版本 {version}",
     updateCheckFailed: "检查更新失败", noUpdateAsset: "没有找到适合当前平台的更新包",
     downloadingUpdate: "正在下载更新包…", updateDownloaded: "更新包已下载: {path}",
-    updateInstallStarted: "更新安装已启动。Windows 会关闭当前程序后覆盖安装目录；安卓请在系统安装器中确认。",
+    updateInstallStarted: "更新安装已启动。Windows 会关闭当前程序并覆盖安装目录。",
     updateOpenRelease: "当前环境不能直接覆盖安装，已打开更新包下载链接。",
     updateOpenGithubMobile: "安卓版请在 GitHub 发布页下载安装包，已为你打开该页面。",
     updateNowPrompt: "是否立即更新？",
@@ -241,7 +304,7 @@ const CLEAN_LOCALES = {
   },
   "zh-Hant": {
     langZh: "簡體", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡批次生成",
+    appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡 · 氣泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
     apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
@@ -268,7 +331,7 @@ const CLEAN_LOCALES = {
     generateAllCaptions: "批次生成全部圖片",
     matchSize: "輸出尺寸與參考圖一致", resolution: "全域解析度", landscape: "橫版 3:2", portrait: "直版 2:3",
     custom: "自訂", width: "寬", height: "高", savedSizes: "常用尺寸", saveSizePreset: "儲存尺寸", deleteSizePreset: "刪除常用尺寸", imageCount: "生成數量", sequential: "依序生成",
-    sequentialHint: "不勾選：並發批次生成（最多同時 20 個請求）；勾選：逐張依序生成",
+    sequentialHint: "不勾選：依目前 API 的並發上限批次生成；勾選：逐張依序生成",
     panelList: "分鏡列表", captionList: "嵌字列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡", cancelGeneration: "取消生成",
@@ -276,10 +339,10 @@ const CLEAN_LOCALES = {
     downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
     imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄",
-    historyTitle: "生圖記錄", historyHint: "漫畫會按專案保存，預設摺疊提示詞，資料保存在本機 localStorage。",
+    historyTitle: "生圖記錄", historyHint: "漫畫與嵌字工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", autoRetry: "自動重試", globalRetries: "全域重試次數",
-    retryHint: "只有部分暫時性錯誤（HTTP 400/502/503/504）會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
+    retryHint: "只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
     restoreProject: "恢復專案", downloadProject: "匯出專案", viewPrompts: "查看提示詞與分鏡",
     globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案", captionImageCol: "圖片", captionBubbleCol: "氣泡文字",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
@@ -288,12 +351,12 @@ const CLEAN_LOCALES = {
     download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "取消",
     failReason: "失敗原因", retryFailedAll: "全部失敗重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡",
     softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
-    checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝",
-    updateInitialHint: "可從 GitHub Releases 檢測新版。Windows 會在下載後退出並覆蓋安裝目錄；Android 會開啟系統安裝器。",
+    checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝", openReleasePage: "開啟發布頁",
+    updateInitialHint: "可從 GitHub Releases 檢測新版。Windows 可在驗證後覆蓋安裝；macOS 會下載並開啟更新包；Android 與 iOS 會以系統瀏覽器開啟發布頁。",
     checkingUpdates: "正在檢查更新…", noUpdate: "已是最新版本", updateAvailable: "發現新版本 {version}",
     updateCheckFailed: "檢查更新失敗", noUpdateAsset: "沒有找到適合目前平台的更新包",
     downloadingUpdate: "正在下載更新包…", updateDownloaded: "更新包已下載: {path}",
-    updateInstallStarted: "更新安裝已啟動。Windows 會關閉目前程式後覆蓋安裝目錄；Android 請在系統安裝器中確認。",
+    updateInstallStarted: "更新安裝已啟動。Windows 會關閉目前程式並覆蓋安裝目錄。",
     updateOpenRelease: "目前環境不能直接覆蓋安裝，已開啟更新包下載連結。",
     updateOpenGithubMobile: "Android 版請在 GitHub 發布頁下載安裝包，已為你開啟該頁面。",
     updateNowPrompt: "是否立即更新？",
@@ -305,7 +368,7 @@ const CLEAN_LOCALES = {
   },
   en: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI Image Generator", subtitle: "Single images · Batch comic storyboards",
+    appTitle: "AI Image Generator", subtitle: "Single images · Comic panels · Speech bubbles",
     web: "Web/PWA", desktop: "Desktop", android: "Android",
     create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
     apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
@@ -332,7 +395,7 @@ const CLEAN_LOCALES = {
     generateAllCaptions: "Generate All Images",
     matchSize: "Match output size to reference", resolution: "Global Resolution", landscape: "Landscape 3:2", portrait: "Portrait 2:3",
     custom: "Custom", width: "W", height: "H", savedSizes: "Saved sizes", saveSizePreset: "Save size", deleteSizePreset: "Delete saved size", imageCount: "Image Count", sequential: "Generate sequentially",
-    sequentialHint: "Unchecked: concurrent batch generation (up to 20 requests at once). Checked: generate one image at a time.",
+    sequentialHint: "Unchecked: batch generation uses the current API concurrency limit. Checked: generate one image at a time.",
     panelList: "Panel List", captionList: "Caption List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels", cancelGeneration: "Cancel Generation",
@@ -340,10 +403,10 @@ const CLEAN_LOCALES = {
     downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
     imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder",
-    historyTitle: "Generation History", historyHint: "Comics are saved as projects. Prompts stay collapsed by default and data is stored in localStorage.",
+    historyTitle: "Generation History", historyHint: "Comic and caption jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", autoRetry: "Auto Retry", globalRetries: "Global retries",
-    retryHint: "Only transient errors (HTTP 400/502/503/504) retry automatically. 0 disables auto retry. Per-panel retries override this.",
+    retryHint: "Only HTTP 400 retries automatically. 0 disables auto retry. Per-panel retries override this.",
     restoreProject: "Restore Project", downloadProject: "Export Project", viewPrompts: "View prompts and panels",
     globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project", captionImageCol: "Image", captionBubbleCol: "Bubble Text",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
@@ -352,12 +415,12 @@ const CLEAN_LOCALES = {
     download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Cancel",
     failReason: "Failure reason", retryFailedAll: "Retry all failed", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry",
     softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
-    checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install",
-    updateInitialHint: "Checks GitHub Releases for a new version. Windows exits after download and overwrites the app folder; Android opens the system installer.",
+    checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install", openReleasePage: "Open release page",
+    updateInitialHint: "Checks GitHub Releases for a new version. Windows can verify and replace the installation; macOS downloads and opens the update package; Android and iOS open the release page in the system browser.",
     checkingUpdates: "Checking for updates...", noUpdate: "Already up to date", updateAvailable: "New version available: {version}",
     updateCheckFailed: "Update check failed", noUpdateAsset: "No update package was found for this platform",
     downloadingUpdate: "Downloading update package...", updateDownloaded: "Update package downloaded: {path}",
-    updateInstallStarted: "Update install started. Windows will close this app and overwrite the install folder; confirm in the Android installer on Android.",
+    updateInstallStarted: "Update install started. Windows will close this app and replace the installation folder.",
     updateOpenRelease: "This environment cannot overwrite the app directly, so the update package link was opened.",
     updateOpenGithubMobile: "On Android, please download and install from the GitHub release page. It has been opened for you.",
     updateNowPrompt: "Update now?",
@@ -369,7 +432,7 @@ const CLEAN_LOCALES = {
   },
   ja: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画ストーリーボード一括生成",
+    appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画コマ · 吹き出し文字",
     web: "Web/PWA", desktop: "デスクトップ", android: "Android",
     create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
     apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
@@ -396,7 +459,7 @@ const CLEAN_LOCALES = {
     generateAllCaptions: "全画像を一括生成",
     matchSize: "出力サイズを参考画像に合わせる", resolution: "全体解像度", landscape: "横 3:2", portrait: "縦 2:3",
     custom: "カスタム", width: "幅", height: "高", savedSizes: "保存サイズ", saveSizePreset: "サイズ保存", deleteSizePreset: "保存サイズ削除", imageCount: "生成数", sequential: "順番に生成",
-    sequentialHint: "オフ：並列一括生成（最大同時 20 リクエスト）。オン：1 枚ずつ順番に生成。",
+    sequentialHint: "オフ：現在の API の同時実行上限で一括生成。オン：1 枚ずつ順番に生成。",
     panelList: "コマ一覧", captionList: "テキスト入れ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成", cancelGeneration: "生成をキャンセル",
@@ -404,10 +467,10 @@ const CLEAN_LOCALES = {
     downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
     imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択",
-    historyTitle: "生成履歴", historyHint: "漫画はプロジェクトとして保存され、プロンプトは初期状態で折りたたまれます。",
+    historyTitle: "生成履歴", historyHint: "漫画と文字入れはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
-    retryHint: "一部の一時的エラー（HTTP 400/502/503/504）のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
+    retryHint: "HTTP 400 の場合のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
     restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", viewPrompts: "プロンプトとコマを見る",
     globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト", captionImageCol: "画像", captionBubbleCol: "吹き出しテキスト",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
@@ -416,12 +479,12 @@ const CLEAN_LOCALES = {
     download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "キャンセル",
     failReason: "失敗理由", retryFailedAll: "失敗分を再試行", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません",
     softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
-    checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール",
-    updateInitialHint: "GitHub Releases から新しいバージョンを確認します。Windows はダウンロード後に終了してインストール先を上書きし、Android はシステムインストーラを開きます。",
+    checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール", openReleasePage: "リリースページを開く",
+    updateInitialHint: "GitHub Releases から新しいバージョンを確認します。Windows は検証後にインストール先を更新し、macOS は更新パッケージをダウンロードして開き、Android と iOS はシステムブラウザでリリースページを開きます。",
     checkingUpdates: "更新を確認中...", noUpdate: "最新です", updateAvailable: "新しいバージョンがあります: {version}",
     updateCheckFailed: "更新確認に失敗しました", noUpdateAsset: "このプラットフォーム用の更新パッケージが見つかりません",
     downloadingUpdate: "更新パッケージをダウンロード中...", updateDownloaded: "更新パッケージを保存しました: {path}",
-    updateInstallStarted: "更新インストールを開始しました。Windows はアプリを閉じてインストール先を上書きします。Android ではインストーラで確認してください。",
+    updateInstallStarted: "更新インストールを開始しました。Windows はアプリを閉じてインストール先を更新します。",
     updateOpenRelease: "この環境では直接上書きできないため、更新パッケージのリンクを開きました。",
     updateOpenGithubMobile: "Android 版は GitHub のリリースページからダウンロード・インストールしてください。ページを開きました。",
     updateNowPrompt: "今すぐ更新しますか？",
@@ -433,7 +496,7 @@ const CLEAN_LOCALES = {
   },
   ko: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 콘티 일괄 생성",
+    appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 컷 · 말풍선 문구",
     web: "Web/PWA", desktop: "데스크톱", android: "Android",
     create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
     apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
@@ -460,7 +523,7 @@ const CLEAN_LOCALES = {
     generateAllCaptions: "전체 이미지 일괄 생성",
     matchSize: "출력 크기를 참고 이미지와 맞춤", resolution: "전체 해상도", landscape: "가로 3:2", portrait: "세로 2:3",
     custom: "사용자 지정", width: "너비", height: "높이", savedSizes: "저장 크기", saveSizePreset: "크기 저장", deleteSizePreset: "저장 크기 삭제", imageCount: "생성 수", sequential: "순차 생성",
-    sequentialHint: "선택 해제: 동시 일괄 생성(최대 동시 20개 요청). 선택: 한 장씩 순차 생성.",
+    sequentialHint: "선택 해제: 현재 API의 동시 처리 한도에 따라 일괄 생성. 선택: 한 장씩 순차 생성.",
     panelList: "콘티 목록", captionList: "말풍선 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성", cancelGeneration: "생성 취소",
@@ -468,10 +531,10 @@ const CLEAN_LOCALES = {
     downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
     imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택",
-    historyTitle: "생성 기록", historyHint: "만화는 프로젝트로 저장되며 프롬프트는 기본적으로 접혀 있습니다.",
+    historyTitle: "생성 기록", historyHint: "만화와 캡션 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
-    retryHint: "일부 일시적 오류(HTTP 400/502/503/504)만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
+    retryHint: "HTTP 400인 경우에만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
     restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", viewPrompts: "프롬프트와 콘티 보기",
     globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트", captionImageCol: "이미지", captionBubbleCol: "말풍선 텍스트",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
@@ -480,12 +543,12 @@ const CLEAN_LOCALES = {
     download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "취소",
     failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
     softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
-    checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치",
-    updateInitialHint: "GitHub Releases에서 새 버전을 확인합니다. Windows는 다운로드 후 종료하고 설치 폴더를 덮어쓰며, Android는 시스템 설치 관리자를 엽니다.",
+    checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치", openReleasePage: "릴리스 페이지 열기",
+    updateInitialHint: "GitHub Releases에서 새 버전을 확인합니다. Windows는 검증 후 설치를 교체하고, macOS는 업데이트 패키지를 내려받아 열며, Android와 iOS는 시스템 브라우저에서 릴리스 페이지를 엽니다.",
     checkingUpdates: "업데이트 확인 중...", noUpdate: "최신 버전입니다", updateAvailable: "새 버전 발견: {version}",
     updateCheckFailed: "업데이트 확인 실패", noUpdateAsset: "현재 플랫폼용 업데이트 패키지를 찾지 못했습니다",
     downloadingUpdate: "업데이트 패키지 다운로드 중...", updateDownloaded: "업데이트 패키지 다운로드됨: {path}",
-    updateInstallStarted: "업데이트 설치가 시작되었습니다. Windows는 앱을 닫고 설치 폴더를 덮어씁니다. Android에서는 설치 관리자에서 확인하세요.",
+    updateInstallStarted: "업데이트 설치가 시작되었습니다. Windows는 앱을 닫고 설치 폴더를 교체합니다.",
     updateOpenRelease: "현재 환경에서는 직접 덮어쓸 수 없어 업데이트 패키지 링크를 열었습니다.",
     updateOpenGithubMobile: "Android 버전은 GitHub 릴리스 페이지에서 다운로드 및 설치해주세요. 페이지를 열었습니다.",
     updateNowPrompt: "지금 업데이트하시겠습니까?",
@@ -499,6 +562,10 @@ const CLEAN_LOCALES = {
 
 function cleanText(key) {
   return CLEAN_LOCALES[currentLanguage]?.[key] || CLEAN_LOCALES["zh-CN"][key] || key;
+}
+
+function localeTagForCurrentLanguage() {
+  return LANGUAGE_LOCALE_TAGS[currentLanguage] || "zh-CN";
 }
 
 function setText(selector, key, root = document) {
@@ -537,7 +604,7 @@ function templateToRegex(template) {
 function fillTemplate(template, values = []) {
   let text = String(template);
   values.forEach((value, index) => {
-    text = text.split(`{${index + 1}}`).join(value);
+    text = text.split(`{${index + 1}}`).join(value ?? "");
   });
   return text;
 }
@@ -816,7 +883,10 @@ function applyCleanLanguage() {
   if (dom.updateAssetLabel && !latestUpdateRelease) dom.updateAssetLabel.textContent = cleanText("notChecked");
   if (dom.updateNotes && !dom.updateNotes.value) dom.updateNotes.placeholder = cleanText("releaseNotesPlaceholder");
   setButtonText(dom.checkUpdates, "search", "checkUpdates");
-  setButtonText(dom.installUpdate, "spark", "installUpdate");
+  const updatePlatform = getRuntimePlatform();
+  const updateActionKey = getUpdateActionKey(updatePlatform);
+  const updateActionIcon = updateActionKey === "installUpdate" ? "spark" : updateActionKey === "openReleasePage" ? "web" : "download";
+  setButtonText(dom.installUpdate, updateActionIcon, updateActionKey);
   if (dom.updateStatus && !dom.updateStatus.dataset.customStatus) dom.updateStatus.textContent = cleanText("updateInitialHint");
   setText("#installDirLabel", "installDir");
   setText("#installDirHint", "installDirHint");
@@ -835,6 +905,9 @@ function applyLanguage(lang) {
   document.title = tr("AI 图片生成器");
   if (dom.languageSelect) dom.languageSelect.value = currentLanguage;
   if (dom.languageSelect) dom.languageSelect.title = tr("界面语言");
+  dom.languageMenu?.querySelectorAll(".language-option").forEach(option => {
+    option.setAttribute("aria-selected", option.dataset.lang === currentLanguage ? "true" : "false");
+  });
   isApplyingLanguage = true;
   try {
     refreshLocalizedUiState();
@@ -860,6 +933,12 @@ function initI18n() {
     const isOpen = !dom.languageMenu?.classList.contains("hidden");
     setLanguageMenuOpen(!isOpen);
   });
+  dom.languageMenuButton?.addEventListener("keydown", event => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setLanguageMenuOpen(true, event.key === "ArrowUp" ? "last" : "selected");
+    }
+  });
   dom.languageMenu?.addEventListener("click", (event) => {
     const option = event.target.closest("[data-lang]");
     if (!option) return;
@@ -867,6 +946,26 @@ function initI18n() {
     event.stopPropagation();
     applyLanguage(option.dataset.lang);
     setLanguageMenuOpen(false);
+    dom.languageMenuButton?.focus();
+  });
+  dom.languageMenu?.addEventListener("keydown", event => {
+    const options = [...dom.languageMenu.querySelectorAll(".language-option")];
+    const current = options.indexOf(document.activeElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      let next = current;
+      if (event.key === "ArrowDown") next = (current + 1 + options.length) % options.length;
+      if (event.key === "ArrowUp") next = (current - 1 + options.length) % options.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = options.length - 1;
+      options[next]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setLanguageMenuOpen(false);
+      dom.languageMenuButton?.focus();
+    } else if (event.key === "Tab") {
+      setLanguageMenuOpen(false);
+    }
   });
   document.addEventListener("click", (event) => {
     if (!dom.languageControl?.contains(event.target)) setLanguageMenuOpen(false);
@@ -899,11 +998,17 @@ function initI18n() {
   });
 }
 
-function setLanguageMenuOpen(open) {
+function setLanguageMenuOpen(open, focusPosition = "") {
   if (!dom.languageMenu || !dom.languageMenuButton) return;
   dom.languageMenu.classList.toggle("hidden", !open);
   dom.languageControl?.classList.toggle("is-open", open);
   dom.languageMenuButton.setAttribute("aria-expanded", open ? "true" : "false");
+  const options = [...dom.languageMenu.querySelectorAll(".language-option")];
+  options.forEach(option => option.setAttribute("aria-selected", option.dataset.lang === currentLanguage ? "true" : "false"));
+  if (open && focusPosition) {
+    const selected = options.find(option => option.dataset.lang === currentLanguage);
+    (focusPosition === "last" ? options[options.length - 1] : selected || options[0])?.focus();
+  }
 }
 
 // ─── DOM 引用 ──────────────────────────────────────────────
@@ -1061,11 +1166,12 @@ function initCustomSelect(selectEl) {
 
   function renderOptions() {
     list.innerHTML = "";
-    [...selectEl.options].forEach(opt => {
+    [...selectEl.options].forEach((opt, index) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "custom-select-option";
       btn.setAttribute("role", "option");
+      btn.id = `${selectEl.id}_option_${index}`;
       btn.textContent = opt.textContent;
       btn.setAttribute("aria-selected", opt.value === selectEl.value ? "true" : "false");
       btn.addEventListener("click", () => {
@@ -1084,17 +1190,54 @@ function initCustomSelect(selectEl) {
     if (valueLabel) valueLabel.textContent = opt ? opt.textContent : "";
   }
   function isOpen() { return !list.classList.contains("hidden"); }
-  function open() {
+  function focusOption(position = "selected") {
+    const options = [...list.querySelectorAll(".custom-select-option")];
+    if (!options.length) return;
+    let index = options.findIndex(option => option.getAttribute("aria-selected") === "true");
+    if (position === "first") index = 0;
+    if (position === "last") index = options.length - 1;
+    options[Math.max(0, index)]?.focus();
+  }
+  function open(focusPosition = "") {
     _customSelectRegistry.forEach(inst => { if (inst.close !== close) inst.close(); });
     renderOptions();
     list.classList.remove("hidden");
     trigger.setAttribute("aria-expanded", "true");
+    if (focusPosition) focusOption(focusPosition);
   }
   function close() {
     list.classList.add("hidden");
     trigger.setAttribute("aria-expanded", "false");
   }
   trigger.addEventListener("click", () => { isOpen() ? close() : open(); });
+  trigger.addEventListener("keydown", event => {
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      open(event.key === "ArrowUp" || event.key === "End" ? "last" : "first");
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      isOpen() ? close() : open("selected");
+    }
+  });
+  list.addEventListener("keydown", event => {
+    const options = [...list.querySelectorAll(".custom-select-option")];
+    const current = options.indexOf(document.activeElement);
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      let next = current;
+      if (event.key === "ArrowDown") next = (current + 1 + options.length) % options.length;
+      if (event.key === "ArrowUp") next = (current - 1 + options.length) % options.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = options.length - 1;
+      options[next]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      trigger.focus();
+    } else if (event.key === "Tab") {
+      close();
+    }
+  });
   selectEl.addEventListener("change", syncLabel);
   syncLabel();
   const instance = { wrapper, close, isOpen, syncLabel, renderOptions };
@@ -1144,6 +1287,32 @@ function initModelCombobox(selectEl, inputEl) {
   }
   inputEl.addEventListener("click", () => { isOpen() ? close() : open(); });
   inputEl.addEventListener("input", () => { if (isOpen()) close(); });
+  inputEl.addEventListener("keydown", event => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      open();
+      const options = [...list.querySelectorAll(".custom-select-option")];
+      (event.key === "ArrowUp" ? options.at(-1) : options[0])?.focus();
+    } else if (event.key === "Escape" && isOpen()) {
+      event.preventDefault();
+      close();
+    }
+  });
+  list.addEventListener("keydown", event => {
+    const options = [...list.querySelectorAll(".custom-select-option")];
+    const current = options.indexOf(document.activeElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      options[(current + delta + options.length) % options.length]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      inputEl.focus();
+    } else if (event.key === "Tab") {
+      close();
+    }
+  });
   const instance = { wrapper: inputEl.closest(".model-input-row") || inputEl, close, isOpen, syncLabel: () => {}, renderOptions };
   _customSelectRegistry.push(instance);
   return instance;
@@ -1338,8 +1507,56 @@ function loadConfig() {
     return getDefaultApiConfig() || {};
   }
 }
-function saveConfig(config) { localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeApiConfig(config))); }
-function clearConfig() { localStorage.removeItem(STORAGE_KEY); }
+function secureStorageBridgeAvailable() {
+  return window.__AI_GEN_SECURE_STORAGE === true && typeof FlutterDownload !== "undefined" && !!FlutterDownload.postMessage;
+}
+
+function secureApiKeyName(id) {
+  return `api_key:${String(id || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 160)}`;
+}
+
+function redactStoredApiKey(storageKey, id) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || (storageKey === STORAGE_APIS ? "[]" : "{}"));
+    if (Array.isArray(parsed)) {
+      let changed = false;
+      parsed.forEach(item => {
+        if (item?.id === id && item.apiKey) {
+          item.apiKey = "";
+          item.hasSecureKey = true;
+          changed = true;
+        }
+      });
+      if (changed) localStorage.setItem(storageKey, JSON.stringify(parsed));
+    } else if (parsed?.id === id && parsed.apiKey) {
+      parsed.apiKey = "";
+      parsed.hasSecureKey = true;
+      localStorage.setItem(storageKey, JSON.stringify(parsed));
+    }
+  } catch (err) {
+    console.warn("API Key 本地记录脱敏失败", err);
+  }
+}
+
+function persistApiKeySecurely(config, storageKey) {
+  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey) return;
+  const id = config.id;
+  void nativeDownload.saveSecret(secureApiKeyName(id), config.apiKey)
+    .then(() => redactStoredApiKey(storageKey, id))
+    .catch(err => console.warn("系统安全存储写入失败，暂时保留本地配置以避免 Key 丢失", err));
+}
+
+function saveConfig(config) {
+  const normalized = normalizeApiConfig(config);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  persistApiKeySecurely(normalized, STORAGE_KEY);
+}
+function clearConfig() {
+  let id = "";
+  try { id = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").id || ""; } catch {}
+  localStorage.removeItem(STORAGE_KEY);
+  if (id && secureStorageBridgeAvailable()) void nativeDownload.deleteSecret(secureApiKeyName(id)).catch(() => {});
+}
 
 function makeApiId() {
   if (crypto?.randomUUID) return crypto.randomUUID();
@@ -1355,6 +1572,7 @@ function normalizeApiConfig(config = {}) {
     apiProvider,
     endpoint,
     apiKey: config.apiKey || "",
+    hasSecureKey: config.hasSecureKey === true,
     model: config.model || "",
     proxyEndpoint: config.proxyEndpoint || "",
     platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(endpoint) || cleanText("customApi"),
@@ -1373,7 +1591,17 @@ function saveDefaultApiId(id) {
 function getDefaultApiConfig() {
   const id = loadDefaultApiId();
   if (!id) return null;
-  return loadAllApis().find(api => api.id === id) || null;
+  const apis = loadAllApis();
+  const byId = apis.find(api => api.id === id);
+  if (byId) return byId;
+  if (/^\d+$/.test(id)) {
+    const legacy = apis[Number(id)];
+    if (legacy) {
+      saveDefaultApiId(legacy.id);
+      return legacy;
+    }
+  }
+  return null;
 }
 
 function inferApiProvider(endpoint = "") {
@@ -1424,7 +1652,19 @@ function applyConfig(cfg) {
   const provider = cfg.apiProvider || cfg.provider || inferApiProvider(endpoint);
   applyApiProvider(provider, { forceEndpoint: false });
   if (endpoint) dom.apiEndpoint.value = endpoint;
-  if (cfg.apiKey)   dom.apiKey.value = cfg.apiKey;
+  dom.apiKey.value = cfg.apiKey || "";
+  if (!cfg.apiKey && cfg.hasSecureKey && cfg.id) {
+    const expectedId = cfg.id;
+    setTimeout(() => {
+      if (!secureStorageBridgeAvailable()) return;
+      void nativeDownload.loadSecret(secureApiKeyName(expectedId)).then(value => {
+        const active = loadConfig();
+        if (active.id !== expectedId || !value) return;
+        dom.apiKey.value = String(value);
+        updateApiQuickState();
+      }).catch(err => console.warn("系统安全存储读取 API Key 失败", err));
+    }, 0);
+  }
   if (cfg.model)    dom.model.value = cfg.model;
   if (cfg.proxyEndpoint) dom.proxyEndpoint.value = cfg.proxyEndpoint;
   if (!cfg.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
@@ -1496,11 +1736,22 @@ const STORAGE_APIS = "ai_image_gen_apis";
 function loadAllApis() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]");
-    return Array.isArray(raw) ? raw.map(normalizeApiConfig) : [];
+    if (!Array.isArray(raw)) return [];
+    let migrated = false;
+    const normalized = raw.map(item => {
+      if (!item?.id) migrated = true;
+      return normalizeApiConfig(item);
+    });
+    if (migrated) localStorage.setItem(STORAGE_APIS, JSON.stringify(normalized));
+    return normalized;
   }
   catch { return []; }
 }
-function saveAllApis(list) { localStorage.setItem(STORAGE_APIS, JSON.stringify(list)); }
+function saveAllApis(list) {
+  const normalized = (list || []).map(normalizeApiConfig);
+  localStorage.setItem(STORAGE_APIS, JSON.stringify(normalized));
+  normalized.forEach(config => persistApiKeySecurely(config, STORAGE_APIS));
+}
 
 function renderSavedApis() {
   const apis = loadAllApis();
@@ -1614,15 +1865,19 @@ dom.deleteSavedApi.addEventListener("click", async () => {
   if (!(await askConfirm(`删除配置「${name}」?`))) return;
   apis.splice(idx, 1);
   saveAllApis(apis);
+  if (deleted?.id && secureStorageBridgeAvailable()) {
+    void nativeDownload.deleteSecret(secureApiKeyName(deleted.id)).catch(() => {});
+  }
   if (loadDefaultApiId() === deleted?.id) saveDefaultApiId("");
   dom.savedApis.value = "";
   renderSavedApis();
   const active = loadConfig();
-  const deletingActive = deleted && (
-    active.id === deleted.id ||
-    active.name === deleted.name ||
-    (active.endpoint && active.endpoint === deleted.endpoint && active.apiKey === deleted.apiKey)
-  );
+  const deletingActive = deleted && ((active.id && deleted.id)
+    ? active.id === deleted.id
+    : (
+      active.name === deleted.name ||
+      (active.endpoint && active.endpoint === deleted.endpoint && active.apiKey === deleted.apiKey)
+    ));
   if (deletingActive) {
     clearConfig();
     applyApiProvider("custom", { forceEndpoint: true });
@@ -1683,7 +1938,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   dom.themeToggle.innerHTML = icon(theme === "light" ? "sun" : "moon");
   const themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (themeMeta) themeMeta.setAttribute("content", theme === "light" ? "#f5f6f1" : "#101310");
+  if (themeMeta) themeMeta.setAttribute("content", theme === "light" ? "#eef2fb" : "#121417");
   localStorage.setItem(THEME_KEY, theme);
 }
 
@@ -1826,7 +2081,7 @@ function updateDesktopProxyUi(settings = loadSettings()) {
 }
 
 async function testDesktopProxy() {
-  if (!nativeDownload.available()) {
+  if (!isNativeDesktopWebview()) {
     setDesktopProxyStatus(cleanText("desktopProxyBrowserOnly"), "info");
     showStatus(cleanText("desktopProxyBrowserOnly"), "info");
     return;
@@ -1917,15 +2172,54 @@ function initManualWheelScrollFix() {
   }, { passive: false, capture: true });
 }
 
+function getFocusableElements(container) {
+  return [...(container?.querySelectorAll?.(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  ) || [])].filter(el => !el.closest(".hidden") && getComputedStyle(el).visibility !== "hidden");
+}
+
+function trapOverlayFocus(event, overlay) {
+  if (event.key !== "Tab" || !overlay) return;
+  const focusable = getFocusableElements(overlay);
+  if (!focusable.length) {
+    event.preventDefault();
+    overlay.querySelector(".modal-card")?.focus();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function openModal(modal) {
-  modal?.classList.remove("hidden");
+  if (!modal) return;
+  modal._returnFocus = document.activeElement;
+  modal.classList.remove("hidden");
   updateBodyScrollLock();
+  requestAnimationFrame(() => {
+    const focusable = getFocusableElements(modal);
+    (focusable[0] || modal.querySelector(".modal-card"))?.focus();
+  });
 }
 
 function closeModal(modal) {
-  modal?.classList.add("hidden");
+  if (!modal || modal.classList.contains("hidden")) return;
+  modal.classList.add("hidden");
   updateBodyScrollLock();
+  const returnFocus = modal._returnFocus;
+  modal._returnFocus = null;
+  if (returnFocus?.isConnected) requestAnimationFrame(() => returnFocus.focus());
 }
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Tab") trapOverlayFocus(event, getTopVisibleOverlay());
+}, true);
 
 // ─── 自定义确认/输入弹窗 ─────────────────────────────────────
 // 部分 WebView 环境（安卓 WebView 未接管 onJsConfirm/onJsPrompt 时默认静默返回 false/null，
@@ -1933,6 +2227,7 @@ function closeModal(modal) {
 // confirm()/prompt()，因此用页面内弹窗统一替代，保证全端行为一致。
 function openAskDialog({ message, kind = "confirm", defaultValue = "" }) {
   return new Promise(resolve => {
+    const returnFocus = document.activeElement;
     const isPrompt = kind === "prompt";
     const overlay = document.createElement("div");
     overlay.className = "modal ask-dialog-overlay";
@@ -1956,9 +2251,11 @@ function openAskDialog({ message, kind = "confirm", defaultValue = "" }) {
       document.removeEventListener("keydown", onKeydown, true);
       overlay.remove();
       updateBodyScrollLock();
+      if (returnFocus?.isConnected) returnFocus.focus();
       resolve(value);
     };
     const onKeydown = e => {
+      trapOverlayFocus(e, overlay);
       if (e.key === "Escape") { e.preventDefault(); finish(isPrompt ? null : false); }
       else if (e.key === "Enter") { e.preventDefault(); finish(isPrompt ? input.value : true); }
     };
@@ -2028,6 +2325,8 @@ function compareVersions(a, b) {
 }
 
 function getRuntimePlatform() {
+  const nativePlatform = String(window.__AI_GEN_NATIVE_PLATFORM || "").toLowerCase();
+  if (["android", "ios", "windows", "macos"].includes(nativePlatform)) return nativePlatform;
   const ua = navigator.userAgent || "";
   if (/android/i.test(ua)) return "android";
   if (/windows/i.test(ua)) return "windows";
@@ -2036,10 +2335,20 @@ function getRuntimePlatform() {
   return "web";
 }
 
+function getUpdateActionKey(platform = getRuntimePlatform()) {
+  if (platform === "windows") return "installUpdate";
+  if (platform === "android" || platform === "ios") return "openReleasePage";
+  return "downloadUpdate";
+}
+
 // 是否运行在打包后的 Windows exe（webview_windows 离屏渲染）里，而不是纯浏览器/PWA。
 // 这个判定被多个"仅原生 Windows exe 才有"的已知插件缺陷复用（拖放、滚轮嵌套滚动等）。
 function isNativeWindowsWebview() {
   return nativeDownload.available() && getRuntimePlatform() === "windows";
+}
+
+function isNativeDesktopWebview() {
+  return nativeDownload.available() && ["windows", "macos", "linux"].includes(getRuntimePlatform());
 }
 
 // webview_windows 用离屏渲染（Windows.Graphics.Capture）承载页面内容，HTML5 拖放依赖的 OS 级
@@ -2053,17 +2362,48 @@ function selectUpdateAsset(release, platform = getRuntimePlatform()) {
   const assets = Array.isArray(release?.assets) ? release.assets : [];
   if (!assets.length) return null;
   const byName = matcher => assets.find(asset => matcher.test(String(asset.name || "")));
-  const candidates = {
+  const platformCandidates = {
     android: [/android.*\.apk$/i, /\.apk$/i],
     windows: [/windows.*\.exe$/i, /setup.*\.exe$/i, /\.exe$/i],
     macos: [/macos.*\.zip$/i, /darwin.*\.zip$/i],
     ios: [/ios.*\.zip$/i],
-  }[platform] || [/setup.*\.exe$/i, /\.apk$/i, /\.zip$/i];
+  };
+  const candidates = platformCandidates[platform] || [/setup.*\.exe$/i, /\.apk$/i, /\.zip$/i];
   for (const matcher of candidates) {
     const asset = byName(matcher);
     if (asset?.browser_download_url) return asset;
   }
+  if (platformCandidates[platform]) return null;
   return assets.find(asset => asset?.browser_download_url) || null;
+}
+
+function selectChecksumAsset(release) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  return assets.find(asset => /^sha256sums(?:\.txt)?$/i.test(String(asset?.name || ""))) || null;
+}
+
+function parseReleaseChecksum(text, fileName) {
+  const wanted = String(fileName || "").trim();
+  for (const rawLine of String(text || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    let match = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/i);
+    if (match && match[2].replace(/^\.\//, "").trim() === wanted) return match[1].toLowerCase();
+    match = line.match(/^SHA256\s*\((.+)\)\s*=\s*([a-f0-9]{64})$/i);
+    if (match && match[1].trim() === wanted) return match[2].toLowerCase();
+  }
+  return "";
+}
+
+async function fetchReleaseChecksum(release, fileName) {
+  const checksumAsset = selectChecksumAsset(release);
+  if (!checksumAsset?.browser_download_url) {
+    throw new Error(`Release 缺少 SHA256SUMS.txt，已阻止安装 ${fileName}`);
+  }
+  const response = await smartFetch(checksumAsset.browser_download_url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`SHA-256 校验表下载失败：HTTP ${response.status}`);
+  const expected = parseReleaseChecksum(await response.text(), fileName);
+  if (!expected) throw new Error(`SHA256SUMS.txt 中找不到 ${fileName}`);
+  return expected;
 }
 
 function setUpdateStatus(message, type = "info", custom = true) {
@@ -2124,6 +2464,10 @@ async function checkForUpdates(options = {}) {
     if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = latest ? `v${latest}` : cleanText("notChecked");
     const isNewer = compareVersions(latest, APP_VERSION) > 0;
     const info = { release, latest, isNewer };
+    try {
+      const state = JSON.parse(localStorage.getItem(UPDATE_CHECK_STATE_KEY) || "{}");
+      localStorage.setItem(UPDATE_CHECK_STATE_KEY, JSON.stringify({ ...state, lastCheckedAt: Date.now() }));
+    } catch {}
     setLatestUpdateInfo(info);
     const message = isNewer
       ? interpolate(cleanText("updateAvailable"), { version: `v${latest}` })
@@ -2156,7 +2500,7 @@ async function downloadLatestUpdate(install = false) {
 
     // 手机端（安卓）不做应用内下载/覆盖安装：只跳转到 GitHub 发布页，用户在浏览器/系统里自行下载安装。
     // 桌面端（Windows/macOS）继续走原生下载 + 覆盖安装。
-    if (getRuntimePlatform() === "android") {
+    if (["android", "ios"].includes(getRuntimePlatform())) {
       const releaseUrl = info.release?.html_url || `https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v${info.latest}`;
       await openExternalUrl(releaseUrl);
       setUpdateStatus(cleanText("updateOpenGithubMobile"), "info");
@@ -2168,9 +2512,10 @@ async function downloadLatestUpdate(install = false) {
     if (!asset) throw new Error(cleanText("noUpdateAsset"));
     const url = asset.browser_download_url;
     const fileName = asset.name || `AI-Image-Generator-${info.latest || Date.now()}.zip`;
+    const expectedSha256 = await fetchReleaseChecksum(info.release, fileName);
 
     if (nativeDownload.available() && typeof nativeDownload.downloadUpdate === "function") {
-      const result = await nativeDownload.downloadUpdate(url, fileName, install, getRuntimePlatform());
+      const result = await nativeDownload.downloadUpdate(url, fileName, install, getRuntimePlatform(), expectedSha256);
       const path = result?.path || fileName;
       if (install && result?.installerStarted) {
         setUpdateStatus(cleanText("updateInstallStarted"), "success");
@@ -2188,7 +2533,8 @@ async function downloadLatestUpdate(install = false) {
     showStatus(cleanText("updateOpenRelease"), "info");
     return { opened: true, url };
   } catch (err) {
-    const message = `${install ? cleanText("installUpdate") : cleanText("downloadUpdate")}: ${err.message || err}`;
+    const actionKey = install ? getUpdateActionKey() : "downloadUpdate";
+    const message = `${cleanText(actionKey)}: ${err.message || err}`;
     setUpdateStatus(message, "error");
     showStatus(message, "error");
     throw err;
@@ -2201,7 +2547,16 @@ if (dom.currentVersionLabel) dom.currentVersionLabel.textContent = `v${APP_VERSI
 if (dom.latestVersionLabel) dom.latestVersionLabel.textContent = cleanText("notChecked");
 dom.checkUpdates?.addEventListener("click", () => void checkForUpdates());
 dom.installUpdate?.addEventListener("click", () => void downloadLatestUpdate(true));
-window.AiGenUpdate = { APP_VERSION, checkForUpdates, downloadLatestUpdate, compareVersions, selectUpdateAsset, getRuntimePlatform };
+window.AiGenUpdate = {
+  APP_VERSION,
+  checkForUpdates,
+  downloadLatestUpdate,
+  compareVersions,
+  selectUpdateAsset,
+  selectChecksumAsset,
+  parseReleaseChecksum,
+  getRuntimePlatform,
+};
 window.AiGenProxy = { resolveDesktopProxyConfig, getDesktopProxyPayload, withDesktopProxyPayload, parseDesktopProxyUrl };
 
 // ─── 已知模型价格（跨平台通用） ─────────────────────────────
@@ -2516,10 +2871,43 @@ function getEffectivePrompt() {
   return parts.join("\n\n");
 }
 
+const MAX_REFERENCE_FILES = 100;
+const MAX_REFERENCE_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_REFERENCE_TOTAL_BYTES = 250 * 1024 * 1024;
+
+function validateImageImport(files, existingCount = 0) {
+  const imageFiles = [...files].filter(file => file?.type?.startsWith("image/"));
+  if (existingCount + imageFiles.length > MAX_REFERENCE_FILES) {
+    throw new Error(`参考图最多 ${MAX_REFERENCE_FILES} 张，当前选择会达到 ${existingCount + imageFiles.length} 张`);
+  }
+  const oversized = imageFiles.find(file => Number(file.size || 0) > MAX_REFERENCE_FILE_BYTES);
+  if (oversized) throw new Error(`${oversized.name || "图片"} 超过单张 25 MB 限制`);
+  const totalBytes = imageFiles.reduce((sum, file) => sum + Number(file.size || 0), 0);
+  if (totalBytes > MAX_REFERENCE_TOTAL_BYTES) throw new Error("本次图片总大小超过 250 MB，请分批导入");
+  return imageFiles;
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(Math.max(1, limit), items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 function readImageReference(file) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type?.startsWith("image/")) {
       reject(new Error("请选择有效的图片文件"));
+      return;
+    }
+    if (Number(file.size || 0) > MAX_REFERENCE_FILE_BYTES) {
+      reject(new Error(`${file.name || "图片"} 超过单张 25 MB 限制`));
       return;
     }
 
@@ -2596,11 +2984,10 @@ dom.refImage.addEventListener("change", () => {
 });
 
 async function addReferenceImages(files) {
-  const imageFiles = [...files].filter(file => file.type?.startsWith("image/"));
-  if (imageFiles.length === 0) return;
-
   try {
-    const refs = await Promise.all(imageFiles.map(readImageReference));
+    const imageFiles = validateImageImport(files, referenceImages.length);
+    if (imageFiles.length === 0) return;
+    const refs = await mapWithConcurrency(imageFiles, 4, readImageReference);
     const before = referenceImages.length;
     referenceImages = sortReferencesByName(dedupeReferences([...referenceImages, ...refs]));
     const added = referenceImages.length - before;
@@ -2982,6 +3369,14 @@ dom.captionBulkInput.addEventListener("change", () => {
   addCaptionRowsFromFiles(dom.captionBulkInput.files);
   dom.captionBulkInput.value = "";
 });
+
+[dom.uploadZone, dom.captionUploadZone].forEach(zone => {
+  zone?.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    zone.click();
+  });
+});
 dom.clearCaptionRows.addEventListener("click", async () => {
   if (dom.captionTbody.children.length === 0 && !abortController) return;
   if (await askConfirm("确定清空所有嵌字行？")) {
@@ -3199,11 +3594,10 @@ function addCaptionRow(prefilledRef = null) {
 }
 
 async function addCaptionRowsFromFiles(fileList) {
-  const imageFiles = [...fileList].filter(file => file.type?.startsWith("image/"));
-  if (imageFiles.length === 0) return;
-
   try {
-    const refs = sortReferencesByName(await Promise.all(imageFiles.map(readImageReference)));
+    const imageFiles = validateImageImport(fileList, dom.captionTbody.children.length);
+    if (imageFiles.length === 0) return;
+    const refs = sortReferencesByName(await mapWithConcurrency(imageFiles, 4, readImageReference));
     refs.forEach(ref => addCaptionRow(ref));
     showStatus(`已添加 ${refs.length} 张图片（共 ${dom.captionTbody.children.length} 张）`, "success");
   } catch (err) {
@@ -3434,7 +3828,7 @@ registerAdapter({
     console.log(`GrsAI 请求: model=${model} size=${size} hasRef=${hasRef} refs=${refs.length}`);
 
     const t0 = Date.now();
-    let res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal });
+    let res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
     let data = res;
     console.log(`GrsAI /api/generate 响应 (${Date.now() - t0}ms):`, data.status);
 
@@ -3530,7 +3924,7 @@ registerAdapter({
     if (!hasRef || refs.length === 0) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       console.log(`JeniyaTop → generations model=${model}`);
-      return apiFetch(url, apiKey, { model, prompt, n, size, response_format: "b64_json" }, { signal });
+      return apiFetch(url, apiKey, { model, prompt, n, size, response_format: "b64_json" }, { signal, nativeTimeoutMs: null });
     }
 
     // 有参考图 → images/edits (multipart/form-data)
@@ -3549,6 +3943,7 @@ registerAdapter({
       headers: { "Authorization": `Bearer ${apiKey}` },
       body: fd,
       signal,
+      nativeTimeoutMs: null,
     });
     if (!resp.ok) {
       const t = await resp.text().catch(() => "");
@@ -3618,7 +4013,7 @@ registerAdapter({
     if (!hasRef || refs.length === 0) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       console.log(`OpenAI → generations model=${model}`);
-      return apiFetch(url, apiKey, { model, prompt, n, size, response_format: "b64_json" }, { signal });
+      return apiFetch(url, apiKey, { model, prompt, n, size, response_format: "b64_json" }, { signal, nativeTimeoutMs: null });
     }
 
     const url = normalizeApiUrl(endpoint, "images/edits");
@@ -3636,6 +4031,7 @@ registerAdapter({
       headers: { "Authorization": `Bearer ${apiKey}` },
       body: fd,
       signal,
+      nativeTimeoutMs: null,
     });
     if (!resp.ok) {
       const t = await resp.text().catch(() => "");
@@ -3674,7 +4070,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     if (!adapter) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       if (hasRef) console.warn("⚠ 无适配器匹配 + 有参考图：参考图将被忽略，仅走 generations 端点");
-      return apiFetch(url, apiKey, { model, prompt, n, size: finalSize, response_format: "b64_json" }, { signal });
+      return apiFetch(url, apiKey, { model, prompt, n, size: finalSize, response_format: "b64_json" }, { signal, nativeTimeoutMs: null });
     }
     return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, { signal });
   }, {
@@ -3691,18 +4087,9 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
 
 function isTransientApiError(err) {
   const msg = String(err?.message || err || "");
-  // 502/503/504 是反向代理/网关层面的临时性错误（上游一时没响应、负载高、网关等待超时），
-  // 跟"请求本身有问题"性质不同，重试通常就有机会成功——用户反馈过实际遇到 504 Gateway
-  // Time-out（nginx）。400 是这一类生图 API 生态里另一种常见的瞬时故障码（不是标准 HTTP
-  // 语义，但这些供应商的接口经常把可重试的临时问题也报成 400，是既有观察）。500 故意不算
-  // 在内：通常意味着后端代码本身出错，重试大概率也不会成功，不属于"基础设施临时抽风"这类。
-  if (/HTTP\s*(400|502|503|504)\b/i.test(msg)) return true;
-  // 原生端 dart:io HttpClient 连接被中途挂断时抛的是 HttpException，不是一个规规矩矩的 HTTP
-  // 状态码错误——"Connection closed before full header was received"（用户实际遇到过）以及
-  // 同类措辞"Connection closed while receiving..."，本质上跟网关返回 502/503/504 是同一个
-  // "基础设施临时抽风"故障家族，只是这次连响应头都没能吐出来，连接直接断了。同样值得重试。
-  if (/connection closed/i.test(msg)) return true;
-  return false;
+  // 产品规则是精确的：只有供应商返回 HTTP 400 才自动重试。任何成功图片都会直接 return，
+  // 其它状态码和网络错误立即交给用户处理，避免把不可恢复的失败重复提交多轮。
+  return /HTTP\s*400\b/i.test(msg);
 }
 
 async function retryTransient(fn, options = {}) {
@@ -3809,6 +4196,14 @@ function sleep(ms, signal) {
 
 // ─── 并发控制 ──────────────────────────────────────────────
 
+function getProviderConcurrency() {
+  const endpoint = dom.apiEndpoint?.value?.trim?.() || "";
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const adapter = findAdapter(endpoint, provider);
+  const configured = Number(adapter?.concurrency || 4);
+  return Math.max(1, Math.min(20, Number.isFinite(configured) ? Math.floor(configured) : 4));
+}
+
 async function concurrentLimitSettled(tasks, limit = 20, signal = null) {
   const results = [];
   const executing = [];
@@ -3891,57 +4286,66 @@ async function createProxyPayload(url, method, headers, body, signal = null) {
 async function smartFetch(url, options = {}) {
   const signal = options.signal || null;
   throwIfAborted(signal);
+  const hasExplicitTimeout = Object.prototype.hasOwnProperty.call(options, "nativeTimeoutMs");
+  const requestTimeoutMs = hasExplicitTimeout ? options.nativeTimeoutMs : 120000;
+  const useNative = nativeDownload.available() && /^https?:\/\//i.test(url);
+  const fetchOptions = { ...options };
+  delete fetchOptions.nativeTimeoutMs;
+  let browserTimer = null;
+  let browserAbort = null;
+  let forwardAbort = null;
+  let browserTimedOut = false;
+  let effectiveSignal = signal;
+  if (!useNative && requestTimeoutMs !== null && Number.isFinite(Number(requestTimeoutMs)) && Number(requestTimeoutMs) > 0) {
+    browserAbort = new AbortController();
+    if (signal) {
+      forwardAbort = () => browserAbort.abort();
+      signal.addEventListener("abort", forwardAbort, { once: true });
+    }
+    browserTimer = setTimeout(() => {
+      browserTimedOut = true;
+      browserAbort.abort();
+    }, Number(requestTimeoutMs));
+    effectiveSignal = browserAbort.signal;
+  }
   const method = options.method || "GET";
   const headers = headersToObject(options.headers || {});
   const body = options.body instanceof FormData
     ? options.body
     : (typeof options.body === "string" || options.body == null ? options.body : JSON.stringify(options.body));
 
-  if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
-    const payload = await createProxyPayload(url, method, headers, body, signal);
-    // 原生端（lib/main.dart 的 _nativeFetch）用 dart:io HttpClient，只设置了 30 秒的
-    // connectionTimeout（仅覆盖建连阶段），请求发出后到收到完整响应这段没有任何原生侧超时。
-    // 之前这里给过 JS 侧超时（先是 5 分钟，后来 15 分钟），但排队繁忙/同步阻塞式的生图请求
-    // 仍然经常撞上限，被提前判死刑成"原生功能调用超时"，而不是等到真实的成功/失败结果——
-    // 用户明确要求彻底不设时长限制，让请求能等多久算多久，不要再猜一个"应该够用"的数字。
-    // 传 null（不是不传/不是某个超大数字）表示不设超时：nativeDownload.request() 里对应会
-    // 直接跳过 setTimeout，而不是注册一个永远不会真正触发的计时器。
-    // 传 signal 是为了让"停止重试"/"取消生成"点下去时 JS 侧能立刻不再等这条原生调用——
-    // 原生那边已经发出去的 HTTP 请求本身砍不断（原生桥接没有"根据 id 主动终止在途请求"这个
-    // 能力，见 CLAUDE_HANDOFF.md），但至少 JS 侧会立刻 reject，不会让用户觉得"点了没反应"。
-    const result = await nativeDownload.nativeFetchPayload(payload, null, signal);
-    throwIfAborted(signal);
-    return new Response(result.body || "", {
-      status: result.status || 200,
-      headers: result.headers || {},
-    });
-  }
-
-  const proxy = dom.proxyEndpoint?.value.trim();
-  if (proxy && /^https?:\/\//i.test(url)) {
-    const payload = await createProxyPayload(url, method, headers, body, signal);
-    throwIfAborted(signal);
-    return fetch(proxy, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal,
-    });
-  }
-
   try {
-    return await fetch(url, options);
-  } catch (err) {
-    if (nativeDownload.available() && /^https?:\/\//i.test(url)) {
+    if (useNative) {
       const payload = await createProxyPayload(url, method, headers, body, signal);
-      const result = await nativeDownload.nativeFetchPayload(payload, null, signal);
+      // 生图调用显式传 null，可无限等待但仍能由 signal 手动取消；更新检查、模型检测、
+      // 图片加载等普通请求使用默认 120 秒上限，避免界面永久卡在“处理中”。
+      const result = await nativeDownload.nativeFetchPayload(payload, requestTimeoutMs, signal);
       throwIfAborted(signal);
       return new Response(result.body || "", {
         status: result.status || 200,
         headers: result.headers || {},
       });
     }
+
+    const proxy = dom.proxyEndpoint?.value.trim();
+    if (proxy && /^https?:\/\//i.test(url)) {
+      const payload = await createProxyPayload(url, method, headers, body, effectiveSignal);
+      throwIfAborted(effectiveSignal);
+      return await fetch(proxy, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: effectiveSignal,
+      });
+    }
+
+    return await fetch(url, { ...fetchOptions, signal: effectiveSignal });
+  } catch (err) {
+    if (browserTimedOut) throw new Error(`网络请求超时（${Math.round(Number(requestTimeoutMs) / 1000)} 秒）`);
     throw err;
+  } finally {
+    if (browserTimer !== null) clearTimeout(browserTimer);
+    if (forwardAbort && signal) signal.removeEventListener("abort", forwardAbort);
   }
 }
 
@@ -3956,11 +4360,12 @@ async function apiFetch(url, apiKey, body, options = {}) {
       },
       body: JSON.stringify(body),
       signal: options.signal || null,
+      nativeTimeoutMs: Object.prototype.hasOwnProperty.call(options, "nativeTimeoutMs") ? options.nativeTimeoutMs : 120000,
     });
   } catch (err) {
     if (err.message === "Failed to fetch") {
       console.error("请求 URL:", url);
-      throw new Error("网络请求失败。桌面软件请检查设置里的电脑端网络代理；纯浏览器 HTML 请使用系统/浏览器代理，或运行项目内 api-proxy.js 后在 API 配置里填写 http://127.0.0.1:8787/proxy");
+      throw new Error("网络请求失败。桌面软件请检查设置里的电脑端网络代理；纯浏览器 HTML 请运行 api-proxy.js，并填写启动时显示的完整带令牌地址");
     }
     throw err;
   }
@@ -4068,7 +4473,7 @@ async function generateSingle() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, 20, run.signal);
+      await concurrentLimitSettled(tasks, getProviderConcurrency(), run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
@@ -4081,7 +4486,7 @@ async function generateSingle() {
     hideLoading();
     let msg = err.message;
     if (msg === "Failed to fetch") {
-      msg = "网络请求失败。手机端会自动尝试原生网络；电脑端请运行 node api-proxy.js，并在 API 配置里填写 http://127.0.0.1:8787/proxy";
+      msg = "网络请求失败。手机端会使用原生网络；纯浏览器端请运行 api-proxy.js，并填写启动时显示的完整带令牌地址";
     }
     showStatus(`生成失败: ${msg}`, "error");
     dom.emptyState.classList.remove("hidden");
@@ -4165,7 +4570,14 @@ async function generateComic() {
         size,
         retryContext: { references, size, mode: "comic", globalPrompt, panelPrompt: panel.prompt, prompt: fullPrompt, fullPrompt, retryCount },
       });
-      if (record) projectImages.push({ ...record, prompt: panel.prompt, panelPrompt: panel.prompt, fullPrompt, retryCount });
+      if (record) projectImages.push({
+        ...record,
+        prompt: panel.prompt,
+        panelPrompt: panel.prompt,
+        fullPrompt,
+        retryCount,
+        _cachePromise: placeholder._imageCachePromise,
+      });
       completed++;
     } catch (err) {
       const isAbort = err.name === "AbortError";
@@ -4196,19 +4608,19 @@ async function generateComic() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, 20, run.signal);
+      await concurrentLimitSettled(tasks, getProviderConcurrency(), run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
     updateProgress(completed + failed, total, "✅");
 
-    if (completed > 0) {
+    if (completed > 0 || failed > 0) {
       const newProjectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       await saveGenerationProject({
         id: newProjectId,
         type: "comic-project",
         mode: "comic",
-        title: `漫画项目 ${new Date().toLocaleString("zh-CN")}`,
+        title: `${cleanText("comicProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
         createdAt: new Date().toISOString(),
         globalPrompt,
         model: dom.model.value.trim(),
@@ -4222,10 +4634,8 @@ async function generateComic() {
           prompt: panel.prompt,
           size,
           retryCount,
-          // 存分镜自己的参考图（panel.references），不是合并了全局参考图池之后、实际发请求
-          // 用的那份（getPanelRequestReferences 的结果）——全局池不属于某一个分镜，不该被当成
-          // "这个分镜自己的图"存下来再在恢复时错误地塞回某一行。
-          references: serializableReferences(panel.references),
+          // 历史项目只恢复参数，不保存或恢复参考图，避免把大体积 data URL 塞进 localStorage。
+          references: [],
           status: projectImages.some(img => String(img.panelId) === String(panel.id)) ? "success" : "failed",
         })),
         images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
@@ -4321,7 +4731,14 @@ async function generateCaptions() {
         size,
         retryContext: { references, size, mode: "caption", globalPrompt, panelPrompt: row.captionText, prompt: fullPrompt, fullPrompt, retryCount },
       });
-      if (record) projectImages.push({ ...record, prompt: row.captionText, panelPrompt: row.captionText, fullPrompt, retryCount });
+      if (record) projectImages.push({
+        ...record,
+        prompt: row.captionText,
+        panelPrompt: row.captionText,
+        fullPrompt,
+        retryCount,
+        _cachePromise: placeholder._imageCachePromise,
+      });
       completed++;
     } catch (err) {
       const isAbort = err.name === "AbortError";
@@ -4352,19 +4769,19 @@ async function generateCaptions() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, 20, run.signal);
+      await concurrentLimitSettled(tasks, getProviderConcurrency(), run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
     updateProgress(completed + failed, total, "✅");
 
-    if (completed > 0) {
+    if (completed > 0 || failed > 0) {
       const newProjectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       await saveGenerationProject({
         id: newProjectId,
         type: "caption-project",
         mode: "caption",
-        title: `嵌字项目 ${new Date().toLocaleString("zh-CN")}`,
+        title: `${cleanText("captionProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
         createdAt: new Date().toISOString(),
         globalPrompt,
         model: dom.model.value.trim(),
@@ -4372,13 +4789,13 @@ async function generateCaptions() {
         size: globalSize,
         retryCount: globalRetryCount,
         totalPanels: total,
-        panels: rowTasks.map(({ row, size, retryCount, references }) => ({
+        panels: rowTasks.map(({ row, size, retryCount }) => ({
           panelId: String(row.id),
           panelPrompt: row.captionText,
           prompt: row.captionText,
           size,
           retryCount,
-          references: serializableReferences(references),
+          references: [],
           status: projectImages.some(img => String(img.panelId) === String(row.id)) ? "success" : "failed",
         })),
         images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
@@ -4410,6 +4827,8 @@ function updateProgress(done, total, icon) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   dom.progressFill.style.width = `${pct}%`;
   dom.progressText.textContent = `${icon} ${done}/${total}`;
+  dom.progressWrap?.setAttribute("aria-valuenow", String(pct));
+  dom.progressWrap?.setAttribute("aria-valuetext", `${done}/${total}`);
 }
 
 // ─── 结果卡片 / 人工重试 ─────────────────────────────────────
@@ -4433,7 +4852,8 @@ function updateCardRetryAttempt(card, { retryIndex, maxRetries, statusLabel } = 
   if (!card?.isConnected) return;
   const label = card.querySelector(".retry-attempt-label");
   if (label) {
-    label.textContent = `第 ${retryIndex}/${maxRetries} 次自动重试${statusLabel ? `（${statusLabel}）` : ""}`;
+    const source = `第 ${retryIndex}/${maxRetries} 次自动重试${statusLabel ? `（${statusLabel}）` : ""}`;
+    label.textContent = translateTextValue(source);
     label.classList.remove("hidden");
   }
   card.querySelector(".stop-card-retry")?.classList.remove("hidden");
@@ -4451,7 +4871,7 @@ function addResultPlaceholder(panelId, prompt, retryContext = {}) {
     ...retryContext,
   });
   card.innerHTML = `
-    <div class="panel-label">分镜 ${panelId}</div>
+    <div class="panel-label">${escapeHtml(tr(`分镜 ${panelId}`))}</div>
     <div class="result-media result-media-loading">
       <div class="spinner" style="width:28px;height:28px;"></div>
       <div class="retry-attempt-label hidden"></div>
@@ -4487,6 +4907,8 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     markPlaceholderFailed(card, panelId, "API 未返回图片数据", options.retryContext);
     return;
   }
+  const originalImageUrl = item?.originalUrl || options.originalImageUrl ||
+    (!String(imageUrl).startsWith("idb://") ? imageUrl : "");
 
   card.classList.remove("is-failed");
   delete card.dataset.failed;
@@ -4503,7 +4925,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   });
   const label = document.createElement("div");
   label.className = "panel-label";
-  label.textContent = `分镜 ${panelId}`;
+  label.textContent = tr(`分镜 ${panelId}`);
   card.appendChild(label);
 
   const media = document.createElement("div");
@@ -4522,6 +4944,9 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   img.alt = `分镜 ${panelId}`;
   img.loading = "lazy";
   img.decoding = "async";
+  img.tabIndex = 0;
+  img.setAttribute("role", "button");
+  img.setAttribute("aria-label", `${cleanText("panelLabel")} ${panelId}`);
   img.addEventListener("load", () => {
     media.classList.remove("is-loading", "is-error");
     mediaStatusText.textContent = "";
@@ -4554,12 +4979,14 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     media.classList.add("is-loading");
     mediaStatusText.textContent = tr("图片重新加载中…");
     try {
-      let blob = card._zipBlob;
+      // “强制重载”必须丢弃上一次失败的 Blob。旧逻辑即使 force=true 仍先复用
+      // card._zipBlob，导致用户每点一次都把同一份坏缓存重新塞给 <img>。
+      let blob = force ? null : card._zipBlob;
       if (!blob && !force && card._imageCachePromise) {
         blob = await card._imageCachePromise;
       }
       if (!blob) {
-        card._imageCachePromise = imageUrlToBlob(imageUrl);
+        card._imageCachePromise = imageUrlToBlobWithFallback(imageUrl, originalImageUrl);
         blob = await card._imageCachePromise;
       }
       if (seq !== previewReloadSeq || !img.isConnected) return;
@@ -4582,6 +5009,11 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   img.addEventListener("click", () => {
     if (!media.classList.contains("is-error")) openLightbox(card._localImageUrl || imageUrl);
   });
+  img.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    if (!media.classList.contains("is-error")) void openLightbox(card._localImageUrl || imageUrl);
+  });
   mediaStatus.append(mediaStatusText, reloadBtn);
   media.append(img, mediaStatus);
   card.appendChild(media);
@@ -4593,6 +5025,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
 
   card._zipImage = {
     url: imageUrl,
+    originalUrl: originalImageUrl,
     panelId: String(panelId),
     prompt: recordPrompt,
     panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
@@ -4604,7 +5037,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   // 字节抓到本地；之后 ZIP 打包、单图下载、灯箱都优先用本地副本。
   releaseCardImageCache(card);
   if (!imageUrl.startsWith("data:")) {
-    card._imageCachePromise = imageUrlToBlob(imageUrl)
+    card._imageCachePromise = imageUrlToBlobWithFallback(imageUrl, originalImageUrl)
       .then(blob => {
         if (img.isConnected) setPreviewFromBlob(blob);
         return blob;
@@ -4618,8 +5051,8 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   const actions = document.createElement("div");
   actions.className = "result-actions";
   actions.append(
-    makeCardActionBtn("download", "download", () => downloadImage(card._zipBlob || card._localImageUrl || imageUrl, panelId)),
-    makeCardActionBtn("copy", "copyLink", () => copyImageUrl(imageUrl, item.url)),
+    makeCardActionBtn("download", "download", () => downloadImage(card._zipBlob || card._localImageUrl || imageUrl, panelId, originalImageUrl)),
+    makeCardActionBtn("copy", "copyLink", () => copyImageUrl(imageUrl, originalImageUrl)),
     makeCardActionBtn("retry", "retry", () => retryResultCard(card, false)),
     makeCardActionBtn("edit", "editRetry", () => retryResultCard(card, true))
   );
@@ -4637,8 +5070,9 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     endpoint: dom.apiEndpoint.value.trim(),
     size: options.size || options.retryContext?.size || getSelectedSize(),
     imageUrl,
-    originalUrl: item.url || "",
+    originalUrl: originalImageUrl,
     retryCount: options.retryContext?.retryCount ?? getGlobalRetryCount(),
+    _cachePromise: card._imageCachePromise,
   };
   generatedImageUrls.push({ url: imageUrl, panelId: String(panelId), prompt, recordId: record.id });
   if (!options.skipHistory && record.mode !== "comic") saveGenerationRecord(record);
@@ -4663,10 +5097,10 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   delete card._zipImage;
   releaseCardImageCache(card);
   card.innerHTML = `
-    <div class="panel-label">分镜 ${panelId}</div>
+    <div class="panel-label">${escapeHtml(tr(`分镜 ${panelId}`))}</div>
     <div class="result-media result-media-failed">
       <div class="result-error">
-        <strong><span class="ui-icon ui-icon-retry"></span> 失败</strong>
+        <strong><span class="ui-icon ui-icon-retry"></span> ${escapeHtml(tr("失败"))}</strong>
         <small>${escapeHtml(cleanText("failReason"))}</small>
         <span class="result-error-message">${escapeHtml(message.slice(0, 500))}</span>
       </div>
@@ -4745,7 +5179,7 @@ async function retryAllFailedResults() {
       updateProgress(done, total, done >= total ? "✅" : "⏳");
       return result;
     });
-    const settled = await concurrentLimitSettled(tasks, 20);
+    const settled = await concurrentLimitSettled(tasks, getProviderConcurrency());
     for (const result of settled) {
       if (result.status === "fulfilled") {
         if (result.value === null) continue;
@@ -4812,10 +5246,10 @@ function renderRetryLoading(card, panelId, promptText) {
   card.style.borderColor = "";
   card.title = "";
   card.innerHTML = `
-    <div class="panel-label">分镜 ${escapeHtml(String(panelId))}</div>
+    <div class="panel-label">${escapeHtml(tr(`分镜 ${panelId}`))}</div>
     <div class="result-media result-media-loading">
       <div class="spinner" style="width:28px;height:28px;"></div>
-      <div style="font-size:0.82rem;">正在重试生成…</div>
+      <div style="font-size:0.82rem;">${escapeHtml(tr("正在重试生成…"))}</div>
       <div class="retry-attempt-label hidden"></div>
       <button type="button" class="btn btn-xs stop-card-retry" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
     </div>
@@ -4924,6 +5358,128 @@ function addPromptCollapseToggle(container, promptEl, text) {
 // ═══════════════════════════════════════════════════════════
 
 const HISTORY_KEY = "ai_image_gen_history_v1";
+const HISTORY_BLOB_DB = "ai_image_generator_history";
+const HISTORY_BLOB_STORE = "images";
+let historyBlobDbPromise = null;
+let historyBlobPruneQueue = Promise.resolve();
+
+function openHistoryBlobDb() {
+  if (typeof indexedDB === "undefined") return Promise.reject(new Error("IndexedDB unavailable"));
+  if (historyBlobDbPromise) return historyBlobDbPromise;
+  historyBlobDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(HISTORY_BLOB_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(HISTORY_BLOB_STORE)) {
+        request.result.createObjectStore(HISTORY_BLOB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("历史图片数据库打开失败"));
+  });
+  return historyBlobDbPromise;
+}
+
+async function putHistoryBlob(key, blob) {
+  const db = await openHistoryBlobDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(HISTORY_BLOB_STORE, "readwrite");
+    tx.objectStore(HISTORY_BLOB_STORE).put(blob, key);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error || new Error("历史图片写入失败"));
+    tx.onabort = () => reject(tx.error || new Error("历史图片写入已中止"));
+  });
+}
+
+async function getHistoryBlob(key) {
+  const db = await openHistoryBlobDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(HISTORY_BLOB_STORE, "readonly").objectStore(HISTORY_BLOB_STORE).get(key);
+    request.onsuccess = () => resolve(request.result instanceof Blob ? request.result : null);
+    request.onerror = () => reject(request.error || new Error("历史图片读取失败"));
+  });
+}
+
+async function clearHistoryBlobStore() {
+  try {
+    const db = await openHistoryBlobDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(HISTORY_BLOB_STORE, "readwrite");
+      tx.objectStore(HISTORY_BLOB_STORE).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn("清理历史图片数据库失败", err);
+  }
+}
+
+function collectHistoryBlobKeys(list) {
+  const keys = new Set();
+  const add = value => {
+    if (String(value || "").startsWith("idb://")) keys.add(String(value).slice(6));
+  };
+  (list || []).forEach(item => {
+    add(item?.imageUrl);
+    getHistoryImages(item).forEach(image => add(image.imageUrl));
+  });
+  return keys;
+}
+
+async function pruneHistoryBlobStore(list) {
+  try {
+    const keep = collectHistoryBlobKeys(list);
+    const db = await openHistoryBlobDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(HISTORY_BLOB_STORE, "readwrite");
+      const request = tx.objectStore(HISTORY_BLOB_STORE).openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if (!keep.has(String(cursor.key))) cursor.delete();
+        cursor.continue();
+      };
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn("整理历史图片数据库失败", err);
+  }
+}
+
+function scheduleHistoryBlobPrune() {
+  historyBlobPruneQueue = historyBlobPruneQueue
+    .catch(() => {})
+    .then(() => pruneHistoryBlobStore(loadHistory()));
+  return historyBlobPruneQueue;
+}
+
+function releaseHistoryPreviewUrls(root = dom.historyList) {
+  root?.querySelectorAll?.("img[data-history-object-url]").forEach(img => {
+    URL.revokeObjectURL(img.dataset.historyObjectUrl);
+  });
+}
+
+async function setHistoryImageSource(img, imageUrl, fallbackUrl = "") {
+  if (!img || !imageUrl) return;
+  if (!String(imageUrl).startsWith("idb://")) {
+    img.src = imageUrl;
+    return;
+  }
+  try {
+    const blob = await getHistoryBlob(String(imageUrl).slice(6));
+    if (!blob) {
+      if (fallbackUrl && img.isConnected) img.src = fallbackUrl;
+      return;
+    }
+    if (!img.isConnected) return;
+    const objectUrl = URL.createObjectURL(blob);
+    img.dataset.historyObjectUrl = objectUrl;
+    img.src = objectUrl;
+  } catch (err) {
+    if (fallbackUrl && img.isConnected) img.src = fallbackUrl;
+    console.warn("历史图片预览加载失败", err);
+  }
+}
 
 function loadHistory() {
   try {
@@ -4964,9 +5520,7 @@ function compactHistoryItem(item) {
     ...img,
     imageUrl: img.originalUrl || img.imageUrl,
   }));
-  // localStorage 已经超限才会走到这里——分镜/嵌字行的参考图 dataUrl 是这条记录里最占地方的
-  // 部分，压缩时优先把它们丢掉（恢复项目会因此拿不回参考图，但至少提示词/尺寸/重试次数等
-  // 其它信息还能保住，比这条记录直接被裁掉／挤掉更旧的记录要好）。
+  // 项目历史按产品规则不恢复参考图；这里同时兼容清理旧版本曾保存的参考图。
   const panels = Array.isArray(item.panels) ? item.panels.map(p => ({ ...p, references: [] })) : item.panels;
   return {
     ...item,
@@ -4979,42 +5533,48 @@ function compactHistoryItem(item) {
 function saveHistory(list) {
   const limit = loadSettings().historyLimit || 100;
   const normalized = list
-    .filter(x => x && getHistoryThumbnail(x))
+    .filter(x => x && (isHistoryProject(x) || getHistoryThumbnail(x)))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, limit);
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(normalized));
+    void scheduleHistoryBlobPrune();
   } catch (err) {
     const compact = normalized
       .map(compactHistoryItem)
       .slice(0, Math.max(20, Math.floor(limit / 2)));
     localStorage.setItem(HISTORY_KEY, JSON.stringify(compact));
-    console.warn("历史图片缓存超出 localStorage 限制，已裁剪旧记录并退回 URL 存储", err);
+    void scheduleHistoryBlobPrune();
+    console.warn("历史项目元数据超出 localStorage 限制，已裁剪旧记录并退回 URL 存储", err);
   }
 }
 
 async function saveGenerationRecord(record) {
   if (loadSettings().historyEnabled === false) return;
-  record.imageUrl = await makeHistoryImageUrl(record.imageUrl);
+  const { _cachePromise, ...persisted } = record;
+  persisted.imageUrl = await makeHistoryImageUrl(record.imageUrl, _cachePromise, record.id);
   const list = loadHistory();
-  list.unshift(record);
+  list.unshift(persisted);
   saveHistory(list);
 }
 
 async function saveGenerationProject(project) {
   if (loadSettings().historyEnabled === false) return;
   const sourceImages = Array.isArray(project.images) ? project.images.filter(img => img?.imageUrl) : [];
-  if (!sourceImages.length) return;
 
   const images = [];
   for (const img of sourceImages) {
     const panelPrompt = getPanelOnlyPrompt(img, project.globalPrompt || "");
-    const { fullPrompt: _fullPrompt, ...imageRecord } = img;
+    const { fullPrompt: _fullPrompt, _cachePromise, ...imageRecord } = img;
     images.push({
       ...imageRecord,
       prompt: panelPrompt,
       panelPrompt,
-      imageUrl: await makeHistoryImageUrl(img.imageUrl),
+      imageUrl: await makeHistoryImageUrl(
+        img.imageUrl,
+        _cachePromise,
+        `${project.id || "project"}_${img.panelId || images.length + 1}`,
+      ),
       originalUrl: img.originalUrl || img.imageUrl,
     });
   }
@@ -5038,7 +5598,11 @@ async function saveGenerationProject(project) {
 // （而不是留着旧记录不管、平白多出一条重复记录）。
 async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
   if (loadSettings().historyEnabled === false) return;
-  const record = { ...newRecord, imageUrl: await makeHistoryImageUrl(newRecord.imageUrl) };
+  const { _cachePromise, ...persisted } = newRecord;
+  const record = {
+    ...persisted,
+    imageUrl: await makeHistoryImageUrl(newRecord.imageUrl, _cachePromise, newRecord.id),
+  };
   const list = loadHistory();
   const filtered = oldRecordId ? list.filter(item => item.id !== oldRecordId) : list;
   filtered.unshift(record);
@@ -5060,7 +5624,11 @@ async function updateComicHistoryPanel(projectId, panelId, record) {
     prompt: panelPrompt,
     panelPrompt,
     fullPrompt: record.fullPrompt || project.images[idx].fullPrompt,
-    imageUrl: await makeHistoryImageUrl(record.imageUrl),
+    imageUrl: await makeHistoryImageUrl(
+      record.imageUrl,
+      record._cachePromise,
+      `${projectId}_${panelId}`,
+    ),
     originalUrl: record.originalUrl || record.imageUrl,
     retryCount: record.retryCount ?? project.images[idx].retryCount,
     size: record.size || project.images[idx].size,
@@ -5072,28 +5640,36 @@ async function updateComicHistoryPanel(projectId, panelId, record) {
   saveHistory(list);
 }
 
-async function makeHistoryImageUrl(imageUrl) {
-  if (!imageUrl || imageUrl.startsWith("data:")) return imageUrl;
+async function makeHistoryImageUrl(imageUrl, cachedBlob = null, preferredKey = "") {
+  if (!imageUrl || String(imageUrl).startsWith("idb://")) return imageUrl;
   try {
-    // imageUrlToBlob 在安卓/Windows 壳里走原生请求（裸 fetch 会被 WebView CORS 拦截），
-    // 浏览器端才退回 fetch。远程生图 URL 约 2 小时被中转站删除，历史记录必须存本地字节。
-    return await blobToDataUrl(await imageUrlToBlob(imageUrl));
+    let blob = cachedBlob instanceof Blob ? cachedBlob : null;
+    if (!blob && cachedBlob) blob = await Promise.resolve(cachedBlob).catch(() => null);
+    if (!(blob instanceof Blob)) blob = await imageUrlToBlob(imageUrl);
+    const key = sanitizeFilePart(preferredKey || `history_${Date.now()}_${Math.random().toString(16).slice(2)}`, "history");
+    await putHistoryBlob(key, blob);
+    return `idb://${key}`;
   } catch (err) {
-    console.warn("历史图片本地缓存失败，保留远程 URL", err);
-    return imageUrl;
+    console.warn("IndexedDB 历史图片缓存失败，尝试退回 data URL", err);
+    try {
+      const blob = cachedBlob instanceof Blob ? cachedBlob : await imageUrlToBlob(imageUrl);
+      return await blobToDataUrl(blob);
+    } catch {
+      return imageUrl;
+    }
   }
 }
 
 function formatDateGroup(iso) {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "未知日期";
-  return date.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
+  if (Number.isNaN(date.getTime())) return tr("未知日期");
+  return date.toLocaleDateString(localeTagForCurrentLanguage(), { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
 }
 
 function formatTime(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString(localeTagForCurrentLanguage(), { hour: "2-digit", minute: "2-digit" });
 }
 
 function getFilteredHistory() {
@@ -5126,6 +5702,7 @@ function getFilteredHistory() {
 function renderHistory() {
   if (!dom.historyList) return;
   const list = getFilteredHistory();
+  releaseHistoryPreviewUrls();
   dom.historyList.innerHTML = "";
   if (!list.length) {
     const empty = document.createElement("div");
@@ -5167,12 +5744,27 @@ function createHistoryProjectCard(item, images, thumbnail) {
   if (previewImages.length === 0 && thumbnail) previewImages.push({ imageUrl: thumbnail, panelId: "1" });
   previewImages.forEach((image, index) => {
     const thumb = document.createElement("img");
-    thumb.src = image.imageUrl || thumbnail;
     thumb.alt = `${cleanText("panelLabel")} ${image.panelId || index + 1}`;
     thumb.loading = "lazy";
-    thumb.addEventListener("click", () => openLightbox(thumb.src));
+    thumb.tabIndex = 0;
+    thumb.setAttribute("role", "button");
+    const source = image.imageUrl || thumbnail;
+    const fallback = image.originalUrl || "";
+    void setHistoryImageSource(thumb, source, fallback);
+    thumb.addEventListener("click", () => void openLightbox(source, fallback));
+    thumb.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      void openLightbox(source, fallback);
+    });
     strip.appendChild(thumb);
   });
+  if (!previewImages.length) {
+    const failed = document.createElement("div");
+    failed.className = "history-project-empty-preview";
+    failed.textContent = `${cleanText("failReason")} · ${item.totalPanels || item.panels?.length || 0}`;
+    strip.appendChild(failed);
+  }
   if (images.length > previewImages.length) {
     const more = document.createElement("div");
     more.className = "history-project-more";
@@ -5184,10 +5776,11 @@ function createHistoryProjectCard(item, images, thumbnail) {
   meta.className = "history-meta";
   const title = document.createElement("div");
   title.className = "history-project-title";
-  title.textContent = item.title || `${cleanText("comicProject")} · ${images.length}`;
+  const projectType = item.mode === "caption" ? cleanText("captionProject") : cleanText("comicProject");
+  title.textContent = item.title || `${projectType} · ${images.length}`;
   const sub = document.createElement("div");
   sub.className = "history-sub";
-  sub.textContent = `${formatTime(item.createdAt)} · ${cleanText("comicProject")} · ${images.length} · ${item.model || "-"}`;
+  sub.textContent = `${formatTime(item.createdAt)} · ${projectType} · ${images.length} · ${item.model || "-"}`;
 
   const details = document.createElement("details");
   details.className = "history-project-details";
@@ -5234,6 +5827,7 @@ function createHistoryProjectCard(item, images, thumbnail) {
   download.type = "button";
   download.className = "btn btn-xs";
   download.textContent = cleanText("downloadProject");
+  download.disabled = images.length === 0;
   download.addEventListener("click", () => downloadHistoryProject(item));
   actions.append(restore, download);
 
@@ -5250,10 +5844,17 @@ function createHistoryCard(item) {
   const card = document.createElement("article");
   card.className = "history-card";
   const img = document.createElement("img");
-  img.src = thumbnail;
   img.alt = item.prompt || "历史图片";
   img.loading = "lazy";
-  img.addEventListener("click", () => openLightbox(thumbnail));
+  img.tabIndex = 0;
+  img.setAttribute("role", "button");
+  void setHistoryImageSource(img, thumbnail, item.originalUrl || "");
+  img.addEventListener("click", () => void openLightbox(thumbnail, item.originalUrl || ""));
+  img.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    void openLightbox(thumbnail, item.originalUrl || "");
+  });
 
   const meta = document.createElement("div");
   meta.className = "history-meta";
@@ -5282,7 +5883,7 @@ function createHistoryCard(item) {
   download.className = "btn btn-xs";
   download.textContent = cleanText("download");
   download.addEventListener("click", () => {
-    downloadImage(item.imageUrl, item.panelId || item.id);
+    downloadImage(item.imageUrl, item.panelId || item.id, item.originalUrl || "");
   });
   actions.append(restore, download);
 
@@ -5347,7 +5948,7 @@ function restoreHistoryProjectEditor(item, images) {
         prompt: panel.prompt || matchingImage.prompt || "",
         fullPrompt: panel.fullPrompt || matchingImage.fullPrompt || "",
       };
-      const row = addCaptionRow(panel.references?.[0] || null);
+      const row = addCaptionRow();
       const captionInput = row.querySelector(".caption-text");
       if (captionInput) captionInput.value = getPanelOnlyPrompt(rowData, item.globalPrompt || "");
     });
@@ -5373,7 +5974,7 @@ function restoreHistoryProjectEditor(item, images) {
       prompt: panel.prompt || matchingImage.prompt || "",
       fullPrompt: panel.fullPrompt || matchingImage.fullPrompt || "",
     };
-    const row = addPanelRow(panel.references?.[0] || null);
+    const row = addPanelRow();
     const promptInput = row.querySelector("textarea");
     if (promptInput) promptInput.value = getPanelOnlyPrompt(panelData, item.globalPrompt || "");
     applyHistoryPanelSize(row, panel.size || matchingImage.size || item.size || "");
@@ -5406,7 +6007,7 @@ function restoreHistoryItem(item) {
       const card = document.createElement("div");
       card.className = "result-item";
       const panelId = image.panelId || index + 1;
-      const data = { data: [{ url: image.imageUrl }] };
+      const data = { data: [{ url: image.imageUrl, originalUrl: image.originalUrl || "" }] };
       const panelPrompt = getPanelOnlyPrompt(image, item.globalPrompt || "");
       const fullPrompt = image.fullPrompt || (item.globalPrompt ? `${item.globalPrompt}\n\n${panelPrompt}` : panelPrompt);
       replacePlaceholder(card, panelId, data, panelPrompt, {
@@ -5434,7 +6035,7 @@ function restoreHistoryItem(item) {
 
   const card = document.createElement("div");
   card.className = "result-item";
-  const data = { data: [{ url: item.imageUrl }] };
+  const data = { data: [{ url: item.imageUrl, originalUrl: item.originalUrl || "" }] };
   replacePlaceholder(card, item.panelId || "历史", data, item.prompt || "", {
     skipHistory: true,
     size: item.size,
@@ -5463,6 +6064,7 @@ dom.historySearch?.addEventListener("input", renderHistory);
 dom.clearHistory?.addEventListener("click", async () => {
   if (!(await askConfirm("确定清空全部生图记录？"))) return;
   saveHistory([]);
+  await clearHistoryBlobStore();
   renderHistory();
   showStatus("历史记录已清空", "info");
 });
@@ -5484,33 +6086,58 @@ const nativeDownload = (() => {
     if (!available()) return Promise.reject(new Error("native bridge unavailable"));
     if (signal?.aborted) return Promise.reject(createAbortError());
     const id = `req_${Date.now()}_${seq++}`;
-    FlutterDownload.postMessage(JSON.stringify({ id, action, ...payload }));
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
+      let timer = null;
+      let abortHandler = null;
+      const cancelNativeFetch = () => {
+        if (action !== "nativeFetch" || !available()) return;
+        try {
+          FlutterDownload.postMessage(JSON.stringify({
+            id: "",
+            action: "cancelNativeFetch",
+            targetId: id,
+          }));
+        } catch (err) {
+          console.warn("Cannot notify native request cancellation", err);
+        }
+      };
+      const cleanup = () => {
+        if (timer !== null) clearTimeout(timer);
+        if (abortHandler && signal) signal.removeEventListener("abort", abortHandler);
+      };
+      pending.set(id, { resolve, reject, cleanup });
       // timeoutMs === null 表示调用方明确要求不设超时（目前只有生图请求这么用，见 smartFetch()）。
       // 注意：这里不能用 setTimeout(fn, Infinity) 来表示"不超时"——delay 内部会被转成 32 位有符号
       // 整数，超出 2^31-1 毫秒（约 24.8 天）会溢出，绝大多数引擎（包括 V8）会把它当成 0/极小值
       // 处理，导致"传 Infinity"实际效果是几乎立刻超时，跟意图完全相反。所以"不设超时"必须是
       // "压根不创建这个计时器"，不是"创建一个超大延迟的计时器"。
       if (timeoutMs !== null) {
-        setTimeout(() => {
+        timer = setTimeout(() => {
           if (!pending.has(id)) return;
           pending.delete(id);
+          cleanup();
+          cancelNativeFetch();
           // 这条消息以前写死"Android"，但这个桥接函数在 Windows/Android 上是同一份代码、同一个
           // 调用路径，Windows 端超时也会走到这里——之前的措辞会让 Windows 用户误以为是安卓端才有
           // 的问题。改成不带平台名、带上具体 action，方便定位到底是哪个操作卡住了。
           reject(new Error(`原生功能调用超时（${action}），请重试`));
         }, timeoutMs);
       }
-      // 生图请求现在不设超时（timeoutMs === null），点"停止重试"/"取消生成"时唯一能让 JS 侧
-      // 立刻不再等待的办法就是这个 abort 监听——原生那边已经发出去的 HTTP 请求本身砍不断
-      // （原生桥接没有"根据 id 主动终止在途请求"这个能力），但至少 JS 侧要立刻放弃等待并
-      // reject，而不是傻等这条原生调用自己什么时候有结果，那样点了按钮跟没点一样没有反应。
-      signal?.addEventListener("abort", () => {
+      abortHandler = () => {
         if (!pending.has(id)) return;
         pending.delete(id);
+        cleanup();
+        cancelNativeFetch();
         reject(createAbortError());
-      }, { once: true });
+      };
+      signal?.addEventListener("abort", abortHandler, { once: true });
+      try {
+        FlutterDownload.postMessage(JSON.stringify({ id, action, ...payload }));
+      } catch (err) {
+        pending.delete(id);
+        cleanup();
+        reject(err);
+      }
     });
   }
 
@@ -5519,13 +6146,15 @@ const nativeDownload = (() => {
       const item = pending.get(id);
       if (!item) return;
       pending.delete(id);
+      item.cleanup?.();
       item.resolve(result);
     },
     reject(id, message) {
       const item = pending.get(id);
       if (!item) return;
       pending.delete(id);
-      item.reject(new Error(message || "Android 操作失败"));
+      item.cleanup?.();
+      item.reject(new Error(message || "原生操作失败"));
     },
     setDirs(nextDirs) {
       dirs.images = nextDirs?.images || "";
@@ -5563,18 +6192,45 @@ const nativeDownload = (() => {
     saveFile(kind, fileName, mimeType, base64, folder = "") {
       return request("saveFile", { kind, fileName, mimeType, base64, folder });
     },
-    downloadUpdate(url, fileName, install, platform) {
-      return request("downloadUpdate", withDesktopProxyPayload({ url, fileName, install: !!install, platform }), 15 * 60 * 1000);
+    downloadUpdate(url, fileName, install, platform, expectedSha256 = "") {
+      return request("downloadUpdate", withDesktopProxyPayload({
+        url,
+        fileName,
+        install: !!install,
+        platform,
+        expectedSha256,
+      }), null);
     },
     getInstallDir() { return request("getInstallDir", {}); },
     chooseInstallDir() { return request("chooseInstallDir", {}, 15 * 60 * 1000); },
     resetInstallDir() { return request("resetInstallDir", {}); },
+    saveSecret(key, value) { return request("saveSecret", { key, value }); },
+    loadSecret(key) { return request("loadSecret", { key }); },
+    deleteSecret(key) { return request("deleteSecret", { key }); },
   };
 })();
 
 document.body.classList.toggle("native-download", nativeDownload.available());
 document.body.classList.toggle("no-native-download", !nativeDownload.available());
 document.body.classList.toggle("windows-native", isNativeWindowsWebview());
+document.body.classList.toggle("desktop-native", isNativeDesktopWebview());
+
+function migrateApiKeysToSecureStorage() {
+  if (!secureStorageBridgeAvailable()) return;
+  const current = loadConfig();
+  if (current?.apiKey) saveConfig(current);
+  const apis = loadAllApis();
+  if (apis.some(api => api.apiKey)) saveAllApis(apis);
+  if (!dom.apiKey.value && current?.hasSecureKey) applyConfig(current);
+}
+
+window.addEventListener("aigen-native-ready", () => {
+  migrateApiKeysToSecureStorage();
+  // The native marker can arrive after the first paint (notably on iOS/iPadOS).
+  // Refresh platform-specific update labels once the reliable platform is known.
+  applyLanguage(currentLanguage);
+});
+migrateApiKeysToSecureStorage();
 
 function shortPathLabel(uri) {
   if (!uri) return "未选择";
@@ -5592,7 +6248,7 @@ function updateDirLabels() {
 async function chooseDownloadDir(kind) {
   try {
     if (!nativeDownload.available()) {
-      showStatus("当前不是 Flutter 安卓壳环境，浏览器会使用默认下载目录", "info");
+      showStatus("当前不是原生软件环境，浏览器会使用默认下载目录", "info");
       return;
     }
     showStatus(kind === "images" ? "正在打开图片目录选择器…" : "正在打开 ZIP 目录选择器…", "info");
@@ -5675,7 +6331,9 @@ function hideDownloadProgress() {
 }
 
 async function fetchBlobWithProgress(url, onProgress) {
-  const resp = await fetch(url);
+  // In browsers, <img> may display a cross-origin URL while fetch() is blocked by CORS.
+  // Reuse smartFetch so a configured api-proxy.js URL also fixes preview reload/export.
+  const resp = await smartFetch(url, { nativeTimeoutMs: 120000 });
   if (!resp.ok) throw new Error(`下载失败 HTTP ${resp.status}`);
   const total = Number(resp.headers.get("content-length")) || 0;
   if (!resp.body || !total) {
@@ -5745,9 +6403,33 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mime });
 }
 
+async function normalizeImageBlob(blob) {
+  if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("图片字节为空");
+  const bytes = new Uint8Array(await blob.slice(0, 32).arrayBuffer());
+  let type = "";
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) type = "image/png";
+  else if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) type = "image/jpeg";
+  else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) type = "image/gif";
+  else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) type = "image/webp";
+  else {
+    const head = new TextDecoder("utf-8", { fatal: false }).decode(bytes).trimStart().toLowerCase();
+    if (head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) type = "image/svg+xml";
+  }
+  if (!type && String(blob.type || "").toLowerCase().startsWith("image/")) return blob;
+  if (!type) throw new Error("下载内容不是有效图片，可能是已过期链接或接口错误页");
+  return blob.type === type ? blob : new Blob([blob], { type });
+}
+
 async function imageUrlToBlob(url, onProgress) {
+  if (String(url).startsWith("idb://")) {
+    const cached = await getHistoryBlob(String(url).slice(6));
+    if (!cached) throw new Error("历史图片缓存不存在或已被清理");
+    const normalized = await normalizeImageBlob(cached);
+    onProgress?.(100, normalized.size, normalized.size);
+    return normalized;
+  }
   if (String(url).startsWith("data:")) {
-    const blob = dataUrlToBlob(url);
+    const blob = await normalizeImageBlob(dataUrlToBlob(url));
     onProgress?.(100, blob.size, blob.size);
     return blob;
   }
@@ -5757,11 +6439,21 @@ async function imageUrlToBlob(url, onProgress) {
     if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
     const headers = result?.headers || {};
     const type = headers["content-type"] || headers["Content-Type"] || "image/png";
-    const blob = new Blob([base64ToBytes(result.base64 || "")], { type });
+    const blob = await normalizeImageBlob(new Blob([base64ToBytes(result.base64 || "")], { type }));
     onProgress?.(100, blob.size, blob.size);
     return blob;
   }
-  return fetchBlobWithProgress(url, onProgress);
+  return normalizeImageBlob(await fetchBlobWithProgress(url, onProgress));
+}
+
+async function imageUrlToBlobWithFallback(url, fallbackUrl = "", onProgress) {
+  try {
+    return await imageUrlToBlob(url, onProgress);
+  } catch (primaryError) {
+    const fallback = String(fallbackUrl || "").trim();
+    if (!fallback || fallback === String(url || "")) throw primaryError;
+    return imageUrlToBlob(fallback, onProgress);
+  }
 }
 
 function sanitizeFilePart(value, fallback = "item") {
@@ -5898,7 +6590,7 @@ async function buildImagesZip(images, meta = {}) {
         blob = await Promise.resolve(image.cachePromise).catch(() => null);
         if (!(blob instanceof Blob)) blob = null;
       }
-      if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl, pct => {
+      if (!blob) blob = await imageUrlToBlobWithFallback(image.url || image.imageUrl, image.originalUrl || "", pct => {
         const base = 8 + Math.round((i / Math.max(images.length, 1)) * 52);
         setDownloadProgress(Math.min(60, base + Math.round((pct || 0) * 0.2)), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
       });
@@ -5936,7 +6628,7 @@ async function buildImagesZip(images, meta = {}) {
   return makeZipBlob(entries);
 }
 
-async function downloadImage(imageSource, index) {
+async function downloadImage(imageSource, index, fallbackUrl = "") {
   try {
     setDownloadProgress(3, "准备下载图片…");
     const filename = `panel-${index}.png`;
@@ -5944,7 +6636,7 @@ async function downloadImage(imageSource, index) {
     // 也可以是 data:/blob:/https: 字符串。
     const blob = imageSource instanceof Blob
       ? imageSource
-      : await imageUrlToBlob(imageSource, pct => {
+      : await imageUrlToBlobWithFallback(imageSource, fallbackUrl, pct => {
           setDownloadProgress(Math.max(5, Math.min(85, pct * 0.85)), `图片下载中 ${pct}%`);
         });
     const knownBase64 = typeof imageSource === "string" && imageSource.startsWith("data:")
@@ -5955,7 +6647,8 @@ async function downloadImage(imageSource, index) {
   } catch (err) {
     hideDownloadProgress();
     showStatus(`下载失败: ${err.message || err}`, "error");
-    if (typeof imageSource === "string") await openExternalUrl(imageSource);
+    const externalFallback = /^https?:/i.test(String(fallbackUrl || "")) ? fallbackUrl : imageSource;
+    if (typeof externalFallback === "string") await openExternalUrl(externalFallback);
   }
 }
 
@@ -6112,7 +6805,7 @@ async function saveProjectResultsToFolder() {
     if (!nativeDownload.dirs.images) {
       await nativeDownload.chooseDir("images");
     }
-    const folder = sanitizeFilePart(`${isCaption ? "嵌字" : "漫画"}_${new Date().toLocaleString("zh-CN")}`, isCaption ? "caption" : "comic");
+    const folder = sanitizeFilePart(`${isCaption ? "caption" : "comic"}_${new Date().toLocaleString(localeTagForCurrentLanguage())}`, isCaption ? "caption" : "comic");
     const failures = [];
     let saved = 0;
 
@@ -6156,20 +6849,43 @@ async function saveProjectResultsToFolder() {
 //  灯箱
 // ═══════════════════════════════════════════════════════════
 
-function openLightbox(imageUrl) {
+async function openLightbox(imageUrl, fallbackUrl = "") {
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.tabIndex = -1;
   const img = document.createElement("img");
-  img.src = imageUrl;
+  let objectUrl = "";
+  if (String(imageUrl || "").startsWith("idb://")) {
+    try {
+      const blob = await getHistoryBlob(String(imageUrl).slice(6));
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob);
+        img.src = objectUrl;
+      } else if (fallbackUrl) {
+        img.src = fallbackUrl;
+      } else {
+        throw new Error("历史图片缓存不存在");
+      }
+    } catch (err) {
+      showStatus(err.message || "历史图片加载失败", "error");
+      return;
+    }
+  } else {
+    img.src = imageUrl;
+  }
   overlay.appendChild(img);
   const close = () => {
     overlay.remove();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
     document.removeEventListener("keydown", onKey);
     updateBodyScrollLock();
   };
   overlay.addEventListener("click", close);
   document.body.appendChild(overlay);
   updateBodyScrollLock();
+  overlay.focus();
   const onKey = e => { if (e.key === "Escape") close(); };
   document.addEventListener("keydown", onKey);
 }
@@ -6206,11 +6922,23 @@ function registerServiceWorker() {
 // 启动时静默检测一次更新；如果有新版本，弹窗询问是否立即更新（不打扰用户的话直接取消即可）。
 async function checkForUpdatesOnLaunch() {
   try {
+    let state = {};
+    try { state = JSON.parse(localStorage.getItem(UPDATE_CHECK_STATE_KEY) || "{}"); } catch {}
+    if (Date.now() - Number(state.lastCheckedAt || 0) < UPDATE_CHECK_INTERVAL_MS) return;
     const info = await checkForUpdates({ silent: true });
     if (!info?.isNewer) return;
+    if (state.dismissedVersion === info.latest) return;
     const message = `${interpolate(cleanText("updateAvailable"), { version: `v${info.latest}` })}\n${cleanText("updateNowPrompt")}`;
     const shouldUpdate = await askConfirm(message);
-    if (shouldUpdate) await downloadLatestUpdate(true);
+    if (shouldUpdate) {
+      await downloadLatestUpdate(true);
+    } else {
+      localStorage.setItem(UPDATE_CHECK_STATE_KEY, JSON.stringify({
+        ...state,
+        lastCheckedAt: Date.now(),
+        dismissedVersion: info.latest,
+      }));
+    }
   } catch (err) {
     console.warn("Startup update check failed:", err);
   }

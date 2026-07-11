@@ -199,16 +199,24 @@ async function loadFresh(cdp, query = "qa", viewport = { width: 1365, height: 76
     deviceScaleFactor: 1,
     mobile: viewport.mobile,
   });
-  await cdp.eval(`location.href = ${JSON.stringify(`${appUrl}?${query}=`)} + Date.now()`);
-  for (let i = 0; i < 80; i++) {
-    const ready = await cdp.eval(`document.readyState === "complete" && !!document.getElementById("generateBtn")`);
-    if (ready) {
+  const targetUrl = `${appUrl}?${query}=${Date.now()}`;
+  await cdp.send("Page.navigate", { url: targetUrl });
+  let lastState = null;
+  for (let i = 0; i < 200; i++) {
+    lastState = await cdp.eval(`(() => ({
+      url: location.href,
+      readyState: document.readyState,
+      hasGenerateButton: !!document.getElementById("generateBtn"),
+      title: document.title,
+      bodyLength: document.body?.textContent?.length || 0,
+    }))()`).catch(err => ({ transientNavigationError: String(err?.message || err) }));
+    if (lastState?.readyState === "complete" && lastState.hasGenerateButton) {
       await sleep(150);
       return;
     }
     await sleep(100);
   }
-  throw new Error("App did not become ready.");
+  throw new Error(`App did not become ready: ${JSON.stringify(lastState)}`);
 }
 
 async function testCustomSelects(cdp) {
@@ -395,6 +403,49 @@ async function testApiConfig(cdp) {
   assertQa(reloadDelete.after.endpoint === "" && reloadDelete.after.key === "", "Deleting active API should clear fields.", reloadDelete);
   assertQa(reloadDelete.after.apis.length === 0 && reloadDelete.after.active === null, "Deleting active API should clear storage.", reloadDelete);
 
+  const legacyIdentity = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const endpoint = "https://same-endpoint.example/v1/images/generations";
+    localStorage.setItem("ai_image_gen_apis", JSON.stringify([
+      { name: "account-a", endpoint, apiProvider: "custom", apiKey: "", hasSecureKey: true, model: "gpt-image-2" },
+      { name: "account-b", endpoint, apiProvider: "custom", apiKey: "", hasSecureKey: true, model: "gpt-image-2" }
+    ]));
+    localStorage.setItem("ai_image_gen_default_api_id", "1");
+    const migrated = loadAllApis();
+    const idsFirstRead = migrated.map(api => api.id);
+    const idsSecondRead = loadAllApis().map(api => api.id);
+    const defaultApi = getDefaultApiConfig();
+    const migratedDefaultId = localStorage.getItem("ai_image_gen_default_api_id");
+    localStorage.setItem("ai_image_gen_config", JSON.stringify(migrated[0]));
+    applyConfig(migrated[0]);
+    renderSavedApis();
+    document.getElementById("savedApis").value = "1";
+    document.getElementById("deleteSavedApi").click();
+    const start = Date.now();
+    let overlay = null;
+    while (Date.now() - start < 1000) {
+      overlay = document.querySelector(".ask-dialog-overlay");
+      if (overlay) break;
+      await new Promise(r => setTimeout(r, 20));
+    }
+    overlay?.querySelector(".ask-dialog-ok")?.click();
+    await new Promise(r => setTimeout(r, 80));
+    return {
+      idsFirstRead,
+      idsSecondRead,
+      migratedDefaultId,
+      expectedDefaultId: defaultApi?.id || "",
+      activeId: JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}").id || "",
+      expectedActiveId: migrated[0].id,
+      endpointAfterDelete: document.getElementById("apiEndpoint").value,
+      remainingIds: loadAllApis().map(api => api.id),
+    };
+  })()`, true);
+  assertQa(legacyIdentity.idsFirstRead.every(Boolean) && JSON.stringify(legacyIdentity.idsFirstRead) === JSON.stringify(legacyIdentity.idsSecondRead), "Legacy API profiles must receive stable persisted ids on first load.", legacyIdentity);
+  assertQa(legacyIdentity.migratedDefaultId === legacyIdentity.expectedDefaultId, "A legacy numeric default selection must migrate to the stable API id.", legacyIdentity);
+  assertQa(legacyIdentity.activeId === legacyIdentity.expectedActiveId && legacyIdentity.endpointAfterDelete.includes("same-endpoint.example"), "Deleting another redacted profile on the same endpoint must not clear the active profile.", legacyIdentity);
+  assertQa(legacyIdentity.remainingIds.length === 1 && legacyIdentity.remainingIds[0] === legacyIdentity.expectedActiveId, "Only the selected non-active profile should be deleted.", legacyIdentity);
+
   const modelChoice = await cdp.eval(`(async () => {
     document.getElementById("configSection").open = true;
     await new Promise(r => setTimeout(r, 50));
@@ -553,7 +604,7 @@ async function testUploadDebounceWindow(cdp) {
 }
 
 async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
-  logStep("Restoring a comic project must bring back each panel's own reference image thumbnail AND panels that failed to generate (not just the successful ones) -- previously references were never saved at all, and saveGenerationProject() silently dropped any panel without a successful image");
+  logStep("Restoring a comic project keeps every panel and parameter but intentionally does not restore reference images");
   await loadFresh(cdp, "restore-refs-and-fails-comic");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -626,7 +677,7 @@ async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
 
     const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
     const item = history[0] || {};
-    const savedPanelsHaveRefs = Array.isArray(item.panels) && item.panels.every(p => Array.isArray(p.references) && p.references.length === 1);
+    const savedPanelsOmitRefs = Array.isArray(item.panels) && item.panels.every(p => !p.references || p.references.length === 0);
     const savedStatuses = (item.panels || []).map(p => p.status);
 
     document.getElementById("resultGrid").innerHTML = "";
@@ -640,7 +691,7 @@ async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
 
     const restoredRows = [...document.querySelectorAll("#panelTbody tr")];
     return {
-      savedPanelsHaveRefs,
+      savedPanelsOmitRefs,
       savedStatuses,
       restoredRowCount: restoredRows.length,
       restoredPrompts: restoredRows.map(r => r.querySelector("textarea").value),
@@ -650,16 +701,16 @@ async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
     };
   })()`, true);
 
-  assertQa(result.savedPanelsHaveRefs, "saveGenerationProject() must store each panel's own reference image (fileName/dataUrl/width/height) in the panels[] metadata, for both successful and failed panels.", result);
+  assertQa(result.savedPanelsOmitRefs, "Project history must not persist large reference-image data URLs; restore is parameter-only by product requirement.", result);
   assertQa(JSON.stringify(result.savedStatuses) === JSON.stringify(["success", "failed"]), "A partially-failed comic batch must still save a project record covering every panel and tagging each one's status -- not silently drop the failed panel from history.", result);
   assertQa(result.restoredRowCount === 2, "Restoring the project must recreate both panel rows, including the one that failed to generate.", result);
   assertQa(JSON.stringify(result.restoredPrompts) === JSON.stringify(["panel one prompt", "panel two prompt"]), "Restoring must refill each row's own prompt text, for both the successful and the failed panel.", result);
-  assertQa(result.restoredRef1Matches && result.restoredRef2Matches, "Restoring a project must reattach each row's own reference image (not just its prompt/size/retry count) -- this was the reported bug: restore drops reference images entirely, so re-uploading was the only way to get a reference back.", result);
-  assertQa(result.restoredThumbsVisible.every(Boolean), "The restored reference thumbnail must actually be visible on each row, not just stored on the row element with the preview still hidden.", result);
+  assertQa(!result.restoredRef1Matches && !result.restoredRef2Matches, "Restoring a project must not silently reattach old reference images.", result);
+  assertQa(result.restoredThumbsVisible.every(value => value === false), "Reference thumbnails must remain empty after parameter-only restore.", result);
 }
 
 async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
-  logStep("Restoring a caption project must bring back each row's own reference image thumbnail AND rows that failed to generate");
+  logStep("Restoring a caption project keeps every row and caption but intentionally does not restore reference images");
   await loadFresh(cdp, "restore-refs-and-fails-caption");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -726,7 +777,7 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
 
     const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
     const item = history[0] || {};
-    const savedPanelsHaveRefs = Array.isArray(item.panels) && item.panels.every(p => Array.isArray(p.references) && p.references.length === 1);
+    const savedPanelsOmitRefs = Array.isArray(item.panels) && item.panels.every(p => !p.references || p.references.length === 0);
     const savedStatuses = (item.panels || []).map(p => p.status);
 
     document.getElementById("resultGrid").innerHTML = "";
@@ -740,7 +791,7 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
 
     const restoredRows = [...document.querySelectorAll(".caption-row")];
     return {
-      savedPanelsHaveRefs,
+      savedPanelsOmitRefs,
       savedStatuses,
       restoredRowCount: restoredRows.length,
       restoredTexts: restoredRows.map(r => r.querySelector(".caption-text").value),
@@ -750,12 +801,12 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
     };
   })()`, true);
 
-  assertQa(result.savedPanelsHaveRefs, "saveGenerationProject() must store each caption row's own reference image in the panels[] metadata, for both successful and failed rows.", result);
+  assertQa(result.savedPanelsOmitRefs, "Caption project history must not persist reference-image bytes.", result);
   assertQa(JSON.stringify(result.savedStatuses) === JSON.stringify(["success", "failed"]), "A partially-failed caption batch must still save a project record covering every row and tagging each one's status.", result);
   assertQa(result.restoredRowCount === 2, "Restoring the project must recreate both caption rows, including the one that failed to generate.", result);
   assertQa(JSON.stringify(result.restoredTexts) === JSON.stringify(["row one text", "row two text"]), "Restoring must refill each row's own caption text, for both the successful and the failed row.", result);
-  assertQa(result.restoredRef1Matches && result.restoredRef2Matches, "Restoring a caption project must reattach each row's own reference image.", result);
-  assertQa(result.restoredThumbsVisible.every(Boolean), "The restored reference thumbnail must actually be visible on each caption row.", result);
+  assertQa(!result.restoredRef1Matches && !result.restoredRef2Matches, "Restoring a caption project must not reattach old reference images.", result);
+  assertQa(result.restoredThumbsVisible.every(value => value === false), "Restored caption rows must show empty image slots until the user chooses references again.", result);
 }
 
 async function testHistoryRestoreAndExport(cdp) {
@@ -874,10 +925,11 @@ async function testHistoryRestoreAndExport(cdp) {
     document.getElementById("downloadZip").click();
     const exportStart = Date.now();
     while (Date.now() - exportStart < 5000) {
-      if (window.__downloadBlobs.length && !document.getElementById("downloadZip").disabled) break;
+      if (window.__downloadBlobs.some(item => item.type === "application/zip") && !document.getElementById("downloadZip").disabled) break;
       await new Promise(r => setTimeout(r, 80));
     }
-    const blobRec = window.__downloadBlobs[0];
+    const zipBlobs = () => window.__downloadBlobs.filter(item => item.type === "application/zip");
+    const blobRec = zipBlobs()[0];
     let zipText = "";
     if (blobRec) zipText = new TextDecoder().decode(await blobRec.blob.arrayBuffer());
     const zipEntries = blobRec ? await listZipEntries(blobRec.blob) : [];
@@ -885,10 +937,10 @@ async function testHistoryRestoreAndExport(cdp) {
     document.getElementById("exportBtn").click();
     const headerExportStart = Date.now();
     while (Date.now() - headerExportStart < 5000) {
-      if (window.__downloadBlobs.length >= 2 && !document.getElementById("downloadZip").disabled) break;
+      if (zipBlobs().length >= 2 && !document.getElementById("downloadZip").disabled) break;
       await new Promise(r => setTimeout(r, 80));
     }
-    const headerCurrentBlob = window.__downloadBlobs[1];
+    const headerCurrentBlob = zipBlobs()[1];
     const headerCurrentEntries = headerCurrentBlob ? await listZipEntries(headerCurrentBlob.blob) : [];
     document.getElementById("resultGrid").innerHTML = "";
     document.getElementById("resultGrid").classList.add("hidden");
@@ -907,10 +959,10 @@ async function testHistoryRestoreAndExport(cdp) {
     projectExportButton?.click();
     const projectExportStart = Date.now();
     while (Date.now() - projectExportStart < 5000) {
-      if (window.__downloadBlobs.length >= 3) break;
+      if (zipBlobs().length >= 3) break;
       await new Promise(r => setTimeout(r, 80));
     }
-    const projectBlob = window.__downloadBlobs[2];
+    const projectBlob = zipBlobs()[2];
     const projectEntries = projectBlob ? await listZipEntries(projectBlob.blob) : [];
     const projectDownload = window.__downloads[window.__downloads.length - 1] || null;
     const directBefore = { downloads: window.__downloads.length, revokes: window.__revokedUrls.length };
@@ -983,6 +1035,72 @@ async function testHistoryRestoreAndExport(cdp) {
   assertQa(result.headerExportHistory.projectExport?.type === "application/zip" && result.headerExportHistory.projectExport.entries.some(name => name.endsWith("/project.json")), "History project export button should create a valid project ZIP.", result);
   assertQa(result.directDownload.clicked && result.directDownload.immediateRevokes === 0, "Browser download should not revoke its object URL immediately.", result);
   assertQa(result.buttonDisabled === false, "Generate button should reset after generation.", result);
+}
+
+async function testHistoryImageCacheFallback(cdp) {
+  logStep("History previews, lightbox, and ZIP export fall back to the original image URL when IndexedDB bytes are missing");
+  await loadFresh(cdp, "history-image-fallback");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const originalUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    localStorage.setItem("ai_image_gen_history_v1", JSON.stringify([{
+      id: "fallback-single", type: "single", mode: "single", createdAt: new Date().toISOString(),
+      imageUrl: "idb://missing-history-blob", originalUrl, prompt: "fallback image", panelId: "1"
+    }]));
+    renderHistory();
+    await new Promise(r => setTimeout(r, 80));
+    const previewSrc = document.querySelector(".history-card img")?.src || "";
+    await openLightbox("idb://missing-history-blob", originalUrl);
+    await new Promise(r => setTimeout(r, 30));
+    const lightboxSrc = document.querySelector(".lightbox img")?.src || "";
+    document.querySelector(".lightbox")?.click();
+    document.querySelector(".history-card .history-actions .btn")?.click();
+    const restoreStart = Date.now();
+    while (Date.now() - restoreStart < 2000) {
+      const card = document.querySelector(".result-item");
+      if (card?._zipBlob?.size > 0 && card.querySelector("img")?.src.startsWith("blob:")) break;
+      await new Promise(r => setTimeout(r, 30));
+    }
+    const restoredCard = document.querySelector(".result-item");
+    const restored = {
+      src: restoredCard?.querySelector("img")?.src || "",
+      blobSize: restoredCard?._zipBlob?.size || 0,
+    };
+    const blob = await imageUrlToBlobWithFallback("idb://missing-history-blob", originalUrl);
+    const zip = await buildImagesZip([{
+      url: "idb://missing-history-blob", originalUrl, panelId: "1", prompt: "fallback image"
+    }], { folder: "fallback", mode: "single" });
+    return { previewSrc, lightboxSrc, restored, blob: { size: blob.size, type: blob.type }, zip: { size: zip.size, type: zip.type } };
+  })()`, true);
+  assertQa(result.previewSrc.startsWith("data:image/png;base64,"), "A missing IndexedDB preview must use the preserved original URL.", result);
+  assertQa(result.lightboxSrc.startsWith("data:image/png;base64,"), "The lightbox must use the original URL when its IndexedDB blob is gone.", result);
+  assertQa(result.restored.src.startsWith("blob:") && result.restored.blobSize > 0, "Restoring a history item must carry its original URL into the result card when IndexedDB bytes are missing.", result);
+  assertQa(result.blob.type === "image/png" && result.blob.size > 0, "Image-byte loading must fall back to the original URL.", result);
+  assertQa(result.zip.type === "application/zip" && result.zip.size > 200, "Project ZIP export must still work after history image cache eviction.", result);
+}
+
+async function testHistoryPruneConcurrency(cdp) {
+  logStep("Concurrent history saves serialize IndexedDB pruning and always use the newest history snapshot");
+  await loadFresh(cdp, "history-prune-concurrency");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const originalPrune = pruneHistoryBlobStore;
+    const snapshots = [];
+    pruneHistoryBlobStore = async list => {
+      snapshots.push(list.map(item => item.id));
+      await new Promise(r => setTimeout(r, 30));
+    };
+    const imageUrl = "data:image/png;base64,iVBORw0KGgo=";
+    const oldItem = { id: "old", type: "single", mode: "single", imageUrl, createdAt: "2026-01-01T00:00:00Z" };
+    const newItem = { id: "new", type: "single", mode: "single", imageUrl, createdAt: "2026-01-02T00:00:00Z" };
+    saveHistory([oldItem]);
+    saveHistory([newItem, oldItem]);
+    await historyBlobPruneQueue;
+    pruneHistoryBlobStore = originalPrune;
+    return { snapshots, stored: loadHistory().map(item => item.id) };
+  })()`, true);
+  assertQa(result.snapshots.length === 2 && result.snapshots.every(ids => ids.includes("new") && ids.includes("old")), "Every queued prune must read the latest history instead of deleting blobs from a newer save.", result);
+  assertQa(JSON.stringify(result.stored) === JSON.stringify(["new", "old"]), "Concurrent history saves must retain both records.", result);
 }
 
 async function testRetryReplacesHistoryEntry(cdp) {
@@ -1206,7 +1324,7 @@ async function testSaveComicFolder(cdp) {
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
-  logStep("400/502/503/504-only retry, clear while generating, reload failed image, and i18n layout");
+  logStep("HTTP-400-only retry, clear while generating, reload failed image, and i18n layout");
   await loadFresh(cdp, "misc");
   const retry = await cdp.eval(`(async () => {
     let attempts400 = 0;
@@ -1220,37 +1338,21 @@ async function testRetryClearReloadAndI18n(cdp) {
       baseDelay: 1,
       onRetry: info => retryRounds.push({ retryIndex: info.retryIndex, maxRetries: info.maxRetries })
     });
-    // Real-world report: a reverse proxy in front of a generation API returned a genuine
-    // 504 Gateway Time-out (nginx) on a slow request. 502/503/504 are gateway/infra-level
-    // transient errors distinct from "the request itself was bad" -- they should retry the
-    // same way 400 already does.
-    let attempts504 = 0;
-    const ok504 = await retryTransient(async () => {
-      attempts504++;
-      if (attempts504 < 2) throw new Error("HTTP 504: <html><head><title>504 Gateway Time-out</title></head></html>");
-      return "recovered";
-    }, { maxRetries: 3, baseDelay: 1 });
-    let attempts502 = 0;
-    const ok502 = await retryTransient(async () => {
-      attempts502++;
-      if (attempts502 < 2) throw new Error("HTTP 502: Bad Gateway");
-      return "recovered";
-    }, { maxRetries: 3, baseDelay: 1 });
-    let attempts503 = 0;
-    const ok503 = await retryTransient(async () => {
-      attempts503++;
-      if (attempts503 < 2) throw new Error("HTTP 503: Service Unavailable");
-      return "recovered";
-    }, { maxRetries: 3, baseDelay: 1 });
-    // Real-world report: the native dart:io HttpClient throws this exact HttpException (not a
-    // clean HTTP status response) when the TCP connection gets severed mid-request -- same
-    // "infra had a hiccup" family as 502/503/504, just caught one layer lower.
-    let attemptsConnClosed = 0;
-    const okConnClosed = await retryTransient(async () => {
-      attemptsConnClosed++;
-      if (attemptsConnClosed < 2) throw new Error("HttpException: Connection closed before full header was received, uri = https://grsai.dakka.com.cn/v1/api/generate");
-      return "recovered";
-    }, { maxRetries: 3, baseDelay: 1 });
+    const non400Probe = async message => {
+      let attempts = 0;
+      let threw = false;
+      try {
+        await retryTransient(async () => {
+          attempts++;
+          throw new Error(message);
+        }, { maxRetries: 3, baseDelay: 1 });
+      } catch { threw = true; }
+      return { attempts, threw };
+    };
+    const probe504 = await non400Probe("HTTP 504: Gateway Time-out");
+    const probe502 = await non400Probe("HTTP 502: Bad Gateway");
+    const probe503 = await non400Probe("HTTP 503: Service Unavailable");
+    const probeConnClosed = await non400Probe("HttpException: Connection closed before full header was received");
     let attempts400SuccessImmediately = 0;
     const okImmediate = await retryTransient(async () => {
       attempts400SuccessImmediately++;
@@ -1304,14 +1406,14 @@ async function testRetryClearReloadAndI18n(cdp) {
     return {
       attempts400,
       ok400,
-      attempts504,
-      ok504,
-      attempts502,
-      ok502,
-      attempts503,
-      ok503,
-      attemptsConnClosed,
-      okConnClosed,
+      attempts504: probe504.attempts,
+      threw504: probe504.threw,
+      attempts502: probe502.attempts,
+      threw502: probe502.threw,
+      attempts503: probe503.attempts,
+      threw503: probe503.threw,
+      attemptsConnClosed: probeConnClosed.attempts,
+      threwConnClosed: probeConnClosed.threw,
       retryRounds,
       attempts400SuccessImmediately,
       okImmediate,
@@ -1323,13 +1425,13 @@ async function testRetryClearReloadAndI18n(cdp) {
     };
   })()`, true);
   assertQa(retry.attempts400 === 3 && retry.ok400 === "ok", "HTTP 400 should retry until success.", retry);
-  assertQa(retry.attempts504 === 2 && retry.ok504 === "recovered", "HTTP 504 Gateway Time-out (a real error a user reported hitting behind an nginx reverse proxy) should retry the same way HTTP 400 already does -- it's a gateway/infra hiccup, not a bad request.", retry);
-  assertQa(retry.attempts502 === 2 && retry.ok502 === "recovered", "HTTP 502 Bad Gateway should retry the same way.", retry);
-  assertQa(retry.attempts503 === 2 && retry.ok503 === "recovered", "HTTP 503 Service Unavailable should retry the same way.", retry);
-  assertQa(retry.attemptsConnClosed === 2 && retry.okConnClosed === "recovered", "A native dart:io HttpException (\"Connection closed before full header was received\", a real error a user reported) should retry too -- it's not a clean HTTP status response, but it's the same class of transient infra hiccup as 502/503/504.", retry);
+  assertQa(retry.attempts504 === 1 && retry.threw504, "HTTP 504 must fail immediately; only HTTP 400 is retryable.", retry);
+  assertQa(retry.attempts502 === 1 && retry.threw502, "HTTP 502 must fail immediately; only HTTP 400 is retryable.", retry);
+  assertQa(retry.attempts503 === 1 && retry.threw503, "HTTP 503 must fail immediately; only HTTP 400 is retryable.", retry);
+  assertQa(retry.attemptsConnClosed === 1 && retry.threwConnClosed, "Connection errors must fail immediately rather than entering the HTTP 400 retry loop.", retry);
   assertQa(JSON.stringify(retry.retryRounds) === JSON.stringify([{ retryIndex: 1, maxRetries: 3 }, { retryIndex: 2, maxRetries: 3 }]), "HTTP 400 retry status should report the current retry round and total rounds.", retry);
   assertQa(retry.attempts400SuccessImmediately === 1 && retry.okImmediate === "image", "Successful image responses should stop retry immediately.", retry);
-  assertQa(retry.attempts500 === 1 && retry.threw500, "HTTP 500 must NOT be treated as transient/retryable -- it usually means the backend's own code broke, not a gateway hiccup, so this is the control case proving the retryable set is scoped to exactly 400/502/503/504, not \"any non-2xx\" or \"any 5xx\".", retry);
+  assertQa(retry.attempts500 === 1 && retry.threw500, "HTTP 500 must not retry; the retryable set is exactly HTTP 400.", retry);
   assertQa(retry.callAttempts === 3 && retry.callImageReturned, "Image API should stop retrying as soon as a successful image payload returns.", retry);
   assertQa(/1\/3|2\/3/.test(retry.statusText), "Retry status should show the current retry round and total retry rounds.", retry);
 
@@ -1398,13 +1500,19 @@ async function testRetryClearReloadAndI18n(cdp) {
     const originalFetch = window.fetch.bind(window);
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     let fetchCalls = 0;
+    let directByteFetches = 0;
+    const proxyTargets = [];
+    document.getElementById("proxyEndpoint").value = "http://127.0.0.1:8787/proxy?token=qa";
     window.fetch = async (url, opts = {}) => {
-      if (String(url).includes("mock-preview-image.png")) {
+      if (String(url).includes("127.0.0.1:8787/proxy")) {
         fetchCalls++;
+        const payload = JSON.parse(opts.body || "{}");
+        proxyTargets.push(payload.url || "");
         if (fetchCalls === 1) throw new TypeError("initial preview cache failed");
         const bytes = Uint8Array.from(atob(png), c => c.charCodeAt(0));
         return new Response(bytes, { status: 200, headers: { "Content-Type": "image/png" } });
       }
+      if (String(url).includes("mock-preview-image.png")) directByteFetches++;
       return originalFetch(url, opts);
     };
     const card = document.createElement("div");
@@ -1430,16 +1538,20 @@ async function testRetryClearReloadAndI18n(cdp) {
       before,
       after: img.src,
       fetchCalls,
+      directByteFetches,
+      proxyTargets,
       blobPreview: img.src.startsWith("blob:"),
       zipBlobSize: card._zipBlob?.size || 0,
       errorState: media.classList.contains("is-error"),
       loadingState: media.classList.contains("is-loading"),
     };
     window.fetch = originalFetch;
+    document.getElementById("proxyEndpoint").value = "";
     return result;
   })()`, true);
   assertQa(reload.before !== reload.after && reload.blobPreview && reload.zipBlobSize > 0, "Failed image reload should fetch image bytes and switch preview to a local blob URL.", reload);
   assertQa(reload.fetchCalls >= 2 && !reload.errorState, "Reload should recover from direct preview failure using the same byte-fetch path as download.", reload);
+  assertQa(reload.directByteFetches === 0 && reload.proxyTargets.length >= 2 && reload.proxyTargets.every(url => url.includes("mock-preview-image.png")), "Browser image-byte reload must use the configured CORS proxy instead of retrying a blocked direct fetch.", reload);
 
   const resultGrid = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -1621,6 +1733,14 @@ async function testRetryClearReloadAndI18n(cdp) {
         const exportButton = document.getElementById("exportBtn");
         const exportRect = exportButton.getBoundingClientRect();
         const exportStyle = getComputedStyle(exportButton);
+        showStatus("全部 3 个分镜生成完成！", "success");
+        const expectedRuntimeStatus = {
+          "zh-CN": "全部 3 个分镜生成完成！",
+          "zh-Hant": "全部 3 個分鏡生成完成！",
+          en: "All 3 panels generated!",
+          ja: "全 3 コマを生成しました！",
+          ko: "컷 3개를 모두 생성했습니다!",
+        }[lang];
         results.push({
           lang,
           header: document.querySelector(".header h1")?.innerText,
@@ -1629,6 +1749,7 @@ async function testRetryClearReloadAndI18n(cdp) {
           overflows,
           languageCenter: langStyle.textAlign === "center" && langStyle.textAlignLast === "center",
           exportVisible: exportStyle.display !== "none" && exportStyle.visibility !== "hidden" && exportRect.width > 0 && exportRect.height > 0,
+          statusOk: document.getElementById("status")?.textContent === expectedRuntimeStatus,
         });
       }
       const menuButton = document.getElementById("languageMenuButton");
@@ -1648,7 +1769,7 @@ async function testRetryClearReloadAndI18n(cdp) {
     i18n.push({ viewport: viewport.name, item: item.results, menu: item.menu, theme: item.theme });
   }
   const flat = i18n.flatMap(group => group.item.map(item => ({ viewport: group.viewport, ...item })));
-  const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.overflows.length || !item.languageCenter || !item.exportVisible);
+  const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.overflows.length || !item.languageCenter || !item.exportVisible || !item.statusOk);
   assertQa(bad.length === 0, "All supported languages should render without bad tokens, Japanese Chinese residue, or control overflow.", bad);
   const menuBad = i18n.filter(group => !group.menu.opened || !group.menu.changed);
   assertQa(menuBad.length === 0, "Language menu button should open and apply a selected language.", menuBad);
@@ -1673,7 +1794,7 @@ async function testCardRetryAttemptDisplayAndStop(cdp) {
         panelACalls++;
         if (panelACalls === 1) {
           return Promise.resolve(new Response(JSON.stringify({ error: "gateway" }), {
-            status: 504,
+            status: 400,
             headers: { "Content-Type": "application/json" },
           }));
         }
@@ -1771,7 +1892,7 @@ async function testCardRetryAttemptDisplayAndStop(cdp) {
   assertQa(result.stopBtnVisibleDuringRetry, "The cancel button must still be visible once the card is auto-retrying (it's visible from the moment the card starts loading, see testCancelDuringFirstAttempt -- this just confirms auto-retry doesn't hide it).", result);
   assertQa(result.cardAFailed && /已手动取消/.test(result.cardAFailedMessage), "Clicking the per-card cancel button should cancel that card's in-flight request and mark it as manually cancelled.", result);
   assertQa(result.panelACallsBeforeStop === 2, "Panel A's second (retry) request must actually be dispatched before we stop it -- otherwise this only proves stopping during the backoff wait, not cancelling a genuinely in-flight request.", result);
-  assertQa(result.panelACalls === 2, "Stopping the card must not trigger yet another request -- exactly the initial attempt (HTTP 504) plus the one retry that got cancelled, nothing more.", result);
+  assertQa(result.panelACalls === 2, "Stopping the card must not trigger yet another request -- exactly the initial attempt (HTTP 400) plus the one retry that got cancelled, nothing more.", result);
   assertQa(result.cardBHasImage && result.panelBCalls === 1, "Stopping panel A's retry must not affect panel B, which should complete normally on its own single request.", result);
 }
 
@@ -1943,6 +2064,7 @@ async function testUpdateControls(cdp) {
 
 function startupUpdateMockScript(tagName) {
   return `
+    localStorage.removeItem("ai_image_update_check_state_v1");
     window.__openExternalCalls = [];
     window.__origFetch = window.fetch;
     window.fetch = function(url, options) {
@@ -1951,8 +2073,17 @@ function startupUpdateMockScript(tagName) {
           tag_name: ${JSON.stringify(tagName)},
           html_url: "https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/${tagName}",
           body: "## Mock release for testing",
-          assets: [{ name: "AI-Image-Generator-Setup.exe", browser_download_url: "https://example.test/Setup.exe" }]
+          assets: [
+            { name: "AI-Image-Generator-Setup.exe", browser_download_url: "https://example.test/Setup.exe" },
+            { name: "SHA256SUMS.txt", browser_download_url: "https://example.test/SHA256SUMS.txt" }
+          ]
         }), { status: 200, headers: { "content-type": "application/json" } }));
+      }
+      if (String(url).includes("SHA256SUMS.txt")) {
+        return Promise.resolve(new Response(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  AI-Image-Generator-Setup.exe\\n",
+          { status: 200, headers: { "content-type": "text/plain" } }
+        ));
       }
       return window.__origFetch(url, options);
     };
@@ -2566,6 +2697,11 @@ async function testAndroidUpdateRedirect(cdp) {
         await new Promise(r => setTimeout(r, 50));
       }
       const installResult = await window.AiGenUpdate.downloadLatestUpdate(true);
+      const mobileActionLabel = document.getElementById("installUpdate")?.textContent.trim() || "";
+      const previousNativePlatform = window.__AI_GEN_NATIVE_PLATFORM;
+      window.__AI_GEN_NATIVE_PLATFORM = "ios";
+      const markerPlatform = window.AiGenUpdate.getRuntimePlatform();
+      window.__AI_GEN_NATIVE_PLATFORM = previousNativePlatform;
       window.open = originalOpen;
       return {
         platform: window.AiGenUpdate.getRuntimePlatform ? window.AiGenUpdate.getRuntimePlatform() : "unknown",
@@ -2574,12 +2710,16 @@ async function testAndroidUpdateRedirect(cdp) {
         downloadUpdateCalls: calls.filter(c => c.action === "downloadUpdate"),
         openedUrls,
         status: document.getElementById("updateStatus")?.textContent || "",
+        mobileActionLabel,
+        markerPlatform,
       };
     })()`, true);
     assertQa(result.downloadUpdateCalls.length === 0, "Android should never invoke the native downloadUpdate/install bridge action.", result);
     assertQa(result.installResult?.opened === true && result.installResult?.url === "https://github.com/2786886095/Langbai-api-image-Studio/releases/tag/v9.9.9", "Android install click should resolve with the GitHub release page URL instead of downloading a package.", result);
     assertQa(result.openExternalCalls.length === 1 && result.openExternalCalls[0].url.includes("github.com/2786886095/Langbai-api-image-Studio/releases/tag/v9.9.9"), "Android should open the GitHub release page via the native openExternal bridge.", result);
     assertQa(/GitHub/.test(result.status), "Update status text should tell Android users to use the GitHub release page.", result);
+    assertQa(/发布页|發布頁|release|リリース|릴리스/i.test(result.mobileActionLabel), "Mobile update action must say that it opens the release page, not promise an in-app install.", result);
+    assertQa(result.markerPlatform === "ios", "The native platform marker must override a desktop-style user agent, as used by some iPads.", result);
   } finally {
     await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
   }
@@ -2902,14 +3042,16 @@ async function testGrsaiOfficialAdapter(cdp) {
 }
 
 async function testNativeDownloadTimeoutOptOut(cdp) {
-  logStep("Generation-related native calls opt out of nativeDownload.request()'s timeout entirely (timeoutMs=null) so a legitimately slow request is never prematurely killed, while every other caller that still passes a real timeoutMs must keep timing out as before; passing an AbortSignal must let the JS side stop waiting immediately even though the underlying native call can't truly be cancelled");
+  logStep("Generation native calls have no arbitrary timeout, bounded calls still time out, and abort sends a real native cancellation message");
   await loadFresh(cdp, "native-timeout-optout");
   const result = await cdp.eval(`(async () => {
     let capturedId = null;
+    const bridgeCalls = [];
     window.FlutterDownload = {
       postMessage(raw) {
         const payload = JSON.parse(raw);
-        capturedId = payload.id;
+        bridgeCalls.push(payload);
+        if (payload.action === "nativeFetch") capturedId = payload.id;
         // Deliberately never resolve/reject here -- simulates a native call that's still
         // legitimately in flight (or, in the pathological case, one that's truly stuck).
       }
@@ -2936,6 +3078,27 @@ async function testNativeDownloadTimeoutOptOut(cdp) {
       boundedError = err.message;
     }
 
+    // smartFetch itself must keep ordinary native HTTP calls bounded. Generation calls
+    // explicitly pass null and remain unlimited.
+    let smartFetchBoundedError = null;
+    try {
+      await smartFetch("http://test/smart-bounded", { nativeTimeoutMs: 60 });
+    } catch (err) {
+      smartFetchBoundedError = err.message;
+    }
+    const originalNativeFetchPayload = nativeDownload.nativeFetchPayload;
+    let generationTimeout = "not-called";
+    nativeDownload.nativeFetchPayload = async (_payload, timeoutMs) => {
+      generationTimeout = timeoutMs;
+      return {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data: [{ b64_json: "ok" }] }),
+      };
+    };
+    await apiFetch("http://test/generation", "sk-test", { prompt: "test" }, { nativeTimeoutMs: null });
+    nativeDownload.nativeFetchPayload = originalNativeFetchPayload;
+
     // Case 3: a real user report -- "点了取消重试没有反应" (clicking the per-card stop-retry
     // button did nothing). Root cause: nativeFetchPayload() never accepted an AbortSignal at
     // all, so when a native call is unlimited (timeoutMs=null) and genuinely in flight, there
@@ -2954,15 +3117,142 @@ async function testNativeDownloadTimeoutOptOut(cdp) {
 
     return {
       stillPendingAfterWait, unlimitedSettled, resolvedStatus: resolved?.status, boundedError,
+      smartFetchBoundedError, generationTimeout,
       stillPendingBeforeAbort, abortableSettledAfterAbort: abortableSettled, abortableErrorName: abortableError?.name,
+      cancelCalls: bridgeCalls.filter(call => call.action === "cancelNativeFetch"),
     };
   })()`, true);
 
   assertQa(result.stillPendingAfterWait, "A native call with timeoutMs=null must not settle on its own after waiting -- passing null has to skip registering the setTimeout entirely (setTimeout(fn, Infinity) can't be used instead: the delay is coerced to a 32-bit signed int, so a too-large/Infinity delay overflows and most engines, including V8, fire it almost immediately -- the opposite of \"unlimited\").", result);
   assertQa(result.unlimitedSettled && result.resolvedStatus === 200, "A timeoutMs=null call must still resolve normally once the native side actually responds.", result);
   assertQa(result.boundedError && /原生功能调用超时/.test(result.boundedError), "Callers that still pass a real timeoutMs (chooseDir, saveFile, the default 120s, ...) must keep timing out as before -- the null-check added for generation calls must not accidentally disable timeouts for everyone else.", result);
+  assertQa(result.smartFetchBoundedError && /原生功能调用超时/.test(result.smartFetchBoundedError), "smartFetch must keep ordinary native HTTP calls bounded instead of leaving update checks and reloads pending forever.", result);
+  assertQa(result.generationTimeout === null, "Image-generation API calls must explicitly opt out of the ordinary request timeout.", result);
   assertQa(result.stillPendingBeforeAbort, "Before aborting, a native call with a signal but no response yet must still be genuinely pending (sanity check that the test itself isn't racing).", result);
   assertQa(result.abortableSettledAfterAbort && result.abortableErrorName === "AbortError", "Aborting the signal passed to nativeFetchPayload() must immediately reject the call with an AbortError, even though the native side never actually responded -- this is what lets the per-card 'stop retry' / 'cancel generation' buttons do something instead of silently waiting for a native call that (now that generation has no timeout) might never come back on its own.", result);
+  assertQa(result.cancelCalls.length >= 2 && result.cancelCalls.every(call => /^req_/.test(call.targetId || "")), "Timeout and AbortSignal paths must tell the native layer which in-flight request id to close, not only reject the JavaScript promise.", result);
+}
+
+async function testNativeSecureApiKeyMigration(cdp) {
+  logStep("Native shells migrate API keys into system secure storage and redact localStorage without losing the active key");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      localStorage.setItem("ai_image_gen_config", JSON.stringify({
+        id: "secure_primary", name: "Secure API", apiProvider: "custom",
+        endpoint: "https://api.example.test/v1/images/generations", apiKey: "sk-legacy-secret", model: "gpt-image-2"
+      }));
+      localStorage.setItem("ai_image_gen_apis", JSON.stringify([{
+        id: "secure_primary", name: "Secure API", apiProvider: "custom",
+        endpoint: "https://api.example.test/v1/images/generations", apiKey: "sk-legacy-secret", model: "gpt-image-2"
+      }]));
+      window.__AI_GEN_SECURE_STORAGE = true;
+      window.__AI_GEN_NATIVE_PLATFORM = "windows";
+      window.__secureSecrets = {};
+      window.__secureCalls = [];
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          window.__secureCalls.push(payload);
+          let result = true;
+          if (payload.action === "saveSecret") window.__secureSecrets[payload.key] = payload.value;
+          if (payload.action === "loadSecret") result = window.__secureSecrets[payload.key] || "";
+          if (payload.action === "deleteSecret") delete window.__secureSecrets[payload.key];
+          setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
+        }
+      };
+    `,
+  });
+  try {
+    await loadFresh(cdp, "secure-api-key");
+    const result = await cdp.eval(`(async () => {
+      const start = Date.now();
+      while (Date.now() - start < 3000) {
+        const current = JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}");
+        if (current.hasSecureKey && !current.apiKey) break;
+        await new Promise(r => setTimeout(r, 30));
+      }
+      const current = JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}");
+      const saved = JSON.parse(localStorage.getItem("ai_image_gen_apis") || "[]");
+      const inputBeforeReload = document.getElementById("apiKey").value;
+      document.getElementById("apiKey").value = "";
+      applyConfig(current);
+      await new Promise(r => setTimeout(r, 120));
+      return {
+        current,
+        saved,
+        inputBeforeReload,
+        inputAfterReload: document.getElementById("apiKey").value,
+        saveCalls: window.__secureCalls.filter(call => call.action === "saveSecret"),
+        loadCalls: window.__secureCalls.filter(call => call.action === "loadSecret"),
+      };
+    })()`, true);
+    assertQa(result.current.hasSecureKey === true && result.current.apiKey === "", "The active native config must be redacted after secure storage succeeds.", result);
+    assertQa(result.saved[0]?.hasSecureKey === true && result.saved[0]?.apiKey === "", "Saved API profiles must be redacted too.", result);
+    assertQa(result.inputBeforeReload === "sk-legacy-secret" && result.inputAfterReload === "sk-legacy-secret", "Migration and secure reload must not lose the user's API key.", result);
+    assertQa(result.saveCalls.length >= 1 && result.loadCalls.length >= 1, "Migration must write and later read the OS secure-storage bridge.", result);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+  }
+}
+
+async function testPwaOfflineCache(cdp) {
+  logStep("PWA cache boots the versioned app.js/style.css URLs while fully offline");
+  // The rest of the suite deliberately bypasses service workers and disables the
+  // browser cache. Turn both controls back on for this real offline boot test.
+  await cdp.send("Network.setBypassServiceWorker", { bypass: false });
+  await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
+  try {
+    await loadFresh(cdp, "pwa-offline-warmup");
+    const supported = await cdp.eval(`"serviceWorker" in navigator`);
+    assertQa(supported, "The PWA test requires Service Worker support on localhost.");
+    await cdp.eval(`navigator.serviceWorker.ready.then(() => true)`, true);
+
+    // A newly installed worker controls the next navigation. Wait for that
+    // navigation instead of reading the previous document immediately.
+    await cdp.send("Page.reload", { ignoreCache: false });
+    await sleep(250);
+    let controlledOnline = false;
+    for (let i = 0; i < 80; i++) {
+      controlledOnline = await cdp.eval(`document.readyState === "complete"
+        && !!document.getElementById("generateBtn")
+        && !!navigator.serviceWorker?.controller`).catch(() => false);
+      if (controlledOnline) break;
+      await sleep(100);
+    }
+    assertQa(controlledOnline, "The installed Service Worker must control the online warm-up navigation.");
+
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: true,
+      latency: 0,
+      downloadThroughput: 0,
+      uploadThroughput: 0,
+      connectionType: "none",
+    });
+    await cdp.send("Page.reload", { ignoreCache: false });
+    await sleep(250);
+    let result = null;
+    for (let i = 0; i < 80; i++) {
+      result = await cdp.eval(`(() => ({
+        title: document.querySelector(".header h1")?.textContent || "",
+        version: window.AiGenUpdate?.APP_VERSION || "",
+        hasGenerateButton: !!document.getElementById("generateBtn"),
+        controlled: !!navigator.serviceWorker?.controller,
+      }))()`).catch(() => null);
+      if (result?.version && result.hasGenerateButton && result.controlled) break;
+      await sleep(100);
+    }
+    assertQa(result?.version === "1.3.17" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+  } finally {
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+      connectionType: "wifi",
+    });
+    await cdp.send("Network.setBypassServiceWorker", { bypass: true });
+    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+  }
 }
 
 async function main() {
@@ -2992,6 +3282,8 @@ async function main() {
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
     await testHistoryRestoreAndExport(cdp);
+    await testHistoryImageCacheFallback(cdp);
+    await testHistoryPruneConcurrency(cdp);
     await testRetryReplacesHistoryEntry(cdp);
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
@@ -3001,6 +3293,8 @@ async function main() {
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
+    await testNativeSecureApiKeyMigration(cdp);
+    await testPwaOfflineCache(cdp);
     await testUpdateControls(cdp);
     await testStartupUpdatePrompt(cdp);
     await testDragDropHintReflectsPlatform(cdp);

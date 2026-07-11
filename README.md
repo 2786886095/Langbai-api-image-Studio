@@ -1,6 +1,6 @@
 # api生图 · AI 图片生成器
 
-> 单图生成 · 漫画分镜批量生成 —— 一套 Web 内核，多端可用（浏览器 / PWA / Windows / macOS / iOS / 安卓 App）。
+> 单图生成 · 漫画分镜 · 气泡嵌字 —— 一套 Web 内核，多端可用（浏览器 / PWA / Windows / macOS / iOS / 安卓 App）。
 
 「api生图」是一个零构建、纯前端的 AI 图片生成器：用你自己的图片生成 API（GrsAI / OpenAI 兼容 / SiliconFlow / Gemini 等）出图，并通过 Flutter WebView 壳覆盖桌面端与移动端。
 
@@ -15,7 +15,7 @@
 
 ## ✨ 功能
 
-- **双模式**：单图生成 + 漫画分镜批量生成
+- **三种工作流**：单图生成 + 漫画分镜批量生成 + 参考图气泡嵌字
 - **多平台 API 适配**：GrsAI 官方 generate/result、OpenAI 通用（generations / edits）等
 - 参考图上传 / TXT 导入 / 自定义分辨率 / 有限并发控制
 - **生图历史**（漫画按「项目」保存）、失败一键重试、可调重试次数
@@ -38,7 +38,8 @@
 
 ## 🚀 运行
 
-- **浏览器**：先 `node api-proxy.js`，再用任意 HTTP 服务打开 `index.html`，在「浏览器 CORS 转发地址」填 `http://127.0.0.1:8787/proxy`。
+- **浏览器**：先 `node api-proxy.js`，复制终端显示的带令牌地址（形如 `http://127.0.0.1:8787/proxy?token=...`），再用本机 HTTP 服务打开 `index.html` 并将该地址填入「浏览器 CORS 转发地址」。
+- 浏览器代理默认拒绝访问本机/局域网目标，避免被网页滥用；确实要连接本地 API 时，可先设置 `AI_PROXY_ALLOW_PRIVATE=1` 再启动 `api-proxy.js`。
 - **桌面软件**：设置里的「电脑端网络代理」默认使用 `http://127.0.0.1:7890`，也可切到 SOCKS5、直连或自定义。
 - **安卓**：`flutter build apk --release`。⚠️ 中文路径会导致 Dart AOT/着色器编译失败，请复制到纯 ASCII 路径再构建。
 - **Windows 安装包**：`flutter build windows --release` 之后用 [Inno Setup](https://jrsoftware.org/isinfo.php) 编译 `windows/installer/setup.iss`（`ISCC.exe windows\installer\setup.iss /DMyAppVersion=x.x.x`），产出 `AI-Image-Generator-Setup.exe`。安装到 `%LOCALAPPDATA%\AI Image Generator`，无需管理员权限；再次运行同一个安装器会自动关闭正在运行的旧版本并覆盖升级。
@@ -46,4 +47,4 @@
 
 ## 🔑 关于密钥
 
-API Key 由你在应用内填写，仅保存在本机浏览器 `localStorage`，**不随仓库上传**，不会出现在代码里。
+API Key 由你在应用内填写，桌面与移动软件壳会迁移到系统安全存储，并从 `localStorage` 脱敏；纯浏览器版本仍由浏览器本地保存。密钥**不随仓库上传**，不会写入源码。

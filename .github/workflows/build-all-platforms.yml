@@ -7,9 +7,34 @@ on:
       - main
 
 jobs:
+  quality:
+    name: Quality gate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          cache: true
+      - run: flutter pub get
+      - name: JavaScript syntax and proxy tests
+        shell: pwsh
+        run: |
+          node --check app.js
+          node --check api-proxy.js
+          node --check qa/regression-runner.js
+          node --check qa/static-audit.js
+          node qa/static-audit.js
+          node --test qa/api-proxy.test.js
+      - name: Browser regression suite
+        run: node qa/regression-runner.js
+      - run: flutter analyze
+      - run: flutter test
+
   android:
     name: Android APK
     runs-on: ubuntu-latest
+    needs: quality
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -23,9 +48,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "No ANDROID_KEYSTORE_BASE64 secret set; release build will fall back to the debug key (updates won't overwrite-install)."
-            exit 0
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "Android release signing secrets are required; refusing to publish a debug-signed release artifact."
+            exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/release-keystore.jks
           : > android/key.properties
@@ -35,15 +60,20 @@ jobs:
           echo "storeFile=release-keystore.jks" >> android/key.properties
       - run: flutter pub get
       - run: flutter build apk --release
+      - name: Generate checksum
+        run: sha256sum build/app/outputs/flutter-apk/app-release.apk > build/app/outputs/flutter-apk/app-release.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-release.apk.sha256
           if-no-files-found: error
 
   windows:
     name: Windows Installer
     runs-on: windows-latest
+    needs: quality
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -99,15 +129,19 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "windows\installer\setup.iss" "/DMyAppVersion=$version"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed with exit code $LASTEXITCODE" }
           Copy-Item "windows\installer\Output\AI-Image-Generator-Setup.exe" "AI-Image-Generator-Setup.exe"
+          (Get-FileHash "AI-Image-Generator-Setup.exe" -Algorithm SHA256).Hash.ToLower() + "  AI-Image-Generator-Setup.exe" | Set-Content "AI-Image-Generator-Setup.exe.sha256" -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: AI-Image-Generator-Setup.exe
+          path: |
+            AI-Image-Generator-Setup.exe
+            AI-Image-Generator-Setup.exe.sha256
           if-no-files-found: error
 
   macos:
     name: macOS app
     runs-on: macos-latest
+    needs: quality
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -118,16 +152,21 @@ jobs:
       - run: flutter pub get
       - run: flutter build macos --release
       - name: Package macOS app
-        run: ditto -c -k --sequesterRsrc --keepParent "build/macos/Build/Products/Release/AI Image Generator.app" AI-Image-Generator-macos.zip
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent "build/macos/Build/Products/Release/AI Image Generator.app" AI-Image-Generator-macos.zip
+          shasum -a 256 AI-Image-Generator-macos.zip > AI-Image-Generator-macos.zip.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          path: AI-Image-Generator-macos.zip
+          path: |
+            AI-Image-Generator-macos.zip
+            AI-Image-Generator-macos.zip.sha256
           if-no-files-found: error
 
   ios:
     name: iOS app unsigned
     runs-on: macos-latest
+    needs: quality
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -137,9 +176,13 @@ jobs:
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign
       - name: Package unsigned iOS app
-        run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app AI-Image-Generator-ios-unsigned.zip
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app AI-Image-Generator-ios-unsigned.zip
+          shasum -a 256 AI-Image-Generator-ios-unsigned.zip > AI-Image-Generator-ios-unsigned.zip.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: ios-release-unsigned
-          path: AI-Image-Generator-ios-unsigned.zip
+          path: |
+            AI-Image-Generator-ios-unsigned.zip
+            AI-Image-Generator-ios-unsigned.zip.sha256
           if-no-files-found: error

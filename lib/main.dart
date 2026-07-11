@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
+import 'package:socks5_proxy/socks_client.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart' as mobile_webview;
 import 'package:webview_flutter_android/webview_flutter_android.dart'
     as android_webview;
@@ -13,7 +18,46 @@ import 'package:webview_windows/webview_windows.dart' as windows_webview;
 import 'proxy_config.dart';
 
 const _appTitle = 'AI 图片生成器';
-const _appBackground = Color(0xFF101310);
+const _appBackground = Color(0xFF121417);
+const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
+
+String _validateSecretKey(Object? value) {
+  final key = value?.toString().trim() ?? '';
+  if (!RegExp(r'^api_key:[A-Za-z0-9_-]{1,160}$').hasMatch(key)) {
+    throw PlatformException(
+      code: 'invalid_secret_key',
+      message: 'Invalid secure-storage key.',
+    );
+  }
+  return key;
+}
+
+Future<Object?> _handleSecretAction(
+  String action,
+  Map<String, dynamic> payload,
+) async {
+  final key = _validateSecretKey(payload['key']);
+  switch (action) {
+    case 'saveSecret':
+      await _secureStorage.write(
+        key: key,
+        value: payload['value']?.toString() ?? '',
+      );
+      return true;
+    case 'loadSecret':
+      return _secureStorage.read(key: key);
+    case 'deleteSecret':
+      await _secureStorage.delete(key: key);
+      return true;
+    default:
+      throw PlatformException(
+        code: 'unknown_secret_action',
+        message: 'Unknown secure-storage action: $action',
+      );
+  }
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,7 +145,40 @@ void _addMultipartBody(
 bool _isDesktopPlatform() =>
     Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
-HttpClient _createNetworkClient(Map<String, dynamic> payload) {
+final Map<String, HttpClient> _activeNetworkClients = <String, HttpClient>{};
+final Set<String> _cancelledNetworkRequests = <String>{};
+
+void _cancelNetworkRequest(String requestId) {
+  if (requestId.isEmpty) return;
+  final active = _activeNetworkClients.remove(requestId);
+  if (active != null) {
+    active.close(force: true);
+    return;
+  }
+  // Cancellation can arrive while proxy DNS is still resolving. Keep a short-lived
+  // marker for that race, then discard it so repeated timeouts cannot grow this set.
+  _cancelledNetworkRequests.add(requestId);
+  Timer(const Duration(minutes: 1), () {
+    _cancelledNetworkRequests.remove(requestId);
+  });
+}
+
+Future<InternetAddress> _resolveProxyAddress(String host) async {
+  final literal = InternetAddress.tryParse(host);
+  if (literal != null) return literal;
+  final addresses = await InternetAddress.lookup(host).timeout(
+    const Duration(seconds: 30),
+  );
+  if (addresses.isEmpty) {
+    throw const SocketException('Proxy host did not resolve.');
+  }
+  return addresses.first;
+}
+
+Future<HttpClient> _createNetworkClient(
+  Map<String, dynamic> payload, {
+  String requestId = '',
+}) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
   final proxy = resolveDesktopProxyFindProxy(
     desktopPlatform: _isDesktopPlatform(),
@@ -115,8 +192,28 @@ HttpClient _createNetworkClient(Map<String, dynamic> payload) {
       message: proxy.error ?? 'Invalid proxy configuration.',
     );
   }
-  client.findProxy = (_) => proxy.findProxy;
-  return client;
+  try {
+    if (proxy.kind == DesktopProxyKind.socks5) {
+      final address = await _resolveProxyAddress(proxy.host!);
+      SocksTCPClient.assignToHttpClient(
+        client,
+        <ProxySettings>[ProxySettings(address, proxy.port!)],
+      );
+      client.findProxy = (_) => 'DIRECT';
+    } else {
+      client.findProxy = (_) => proxy.findProxy;
+    }
+    if (requestId.isNotEmpty) {
+      if (_cancelledNetworkRequests.remove(requestId)) {
+        throw const HttpException('Request cancelled.');
+      }
+      _activeNetworkClients[requestId] = client;
+    }
+    return client;
+  } catch (_) {
+    client.close(force: true);
+    rethrow;
+  }
 }
 
 Future<Map<String, Object?>> _nativeFetch(
@@ -130,10 +227,26 @@ Future<Map<String, Object?>> _nativeFetch(
           ?.map((key, value) => MapEntry(key.toString(), value.toString())) ??
       <String, String>{};
   final body = payload['body']?.toString();
+  final requestId = payload['id']?.toString() ?? '';
 
-  final client = _createNetworkClient(payload);
+  final uri = Uri.tryParse(url);
+  if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    throw PlatformException(
+      code: 'invalid_url',
+      message: 'Only http/https URLs can be requested.',
+    );
+  }
+  if (!const <String>{'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'}
+      .contains(method)) {
+    throw PlatformException(
+      code: 'invalid_method',
+      message: 'Unsupported HTTP method: $method',
+    );
+  }
+
+  final client = await _createNetworkClient(payload, requestId: requestId);
   try {
-    final request = await client.openUrl(method, Uri.parse(url));
+    final request = await client.openUrl(method, uri);
     _setForwardHeaders(request, headers, multipart: isMultipart);
     if (isMultipart) {
       final boundary =
@@ -152,10 +265,17 @@ Future<Map<String, Object?>> _nativeFetch(
     }
 
     final response = await request.close();
-    final responseBytes = await response.fold<List<int>>(
-      <int>[],
-      (previous, element) => previous..addAll(element),
-    );
+    const maxResponseBytes = 128 * 1024 * 1024;
+    final responseBuilder = BytesBuilder(copy: false);
+    var responseLength = 0;
+    await for (final chunk in response) {
+      responseLength += chunk.length;
+      if (responseLength > maxResponseBytes) {
+        throw const HttpException('Response exceeds the 128 MB safety limit.');
+      }
+      responseBuilder.add(chunk);
+    }
+    final responseBytes = responseBuilder.takeBytes();
     final responseHeaders = <String, String>{};
     response.headers.forEach((name, values) {
       responseHeaders[name] = values.join(',');
@@ -171,6 +291,10 @@ Future<Map<String, Object?>> _nativeFetch(
     }
     return result;
   } finally {
+    if (requestId.isNotEmpty) {
+      _activeNetworkClients.remove(requestId);
+      _cancelledNetworkRequests.remove(requestId);
+    }
     client.close(force: true);
   }
 }
@@ -179,6 +303,7 @@ Future<File> _downloadUrlToFile(
   String url,
   File target, {
   Map<String, dynamic> proxyPayload = const <String, dynamic>{},
+  String expectedSha256 = '',
 }) async {
   if (!_isExternalHttpUrl(url)) {
     throw PlatformException(
@@ -187,10 +312,21 @@ Future<File> _downloadUrlToFile(
     );
   }
 
-  final client = _createNetworkClient(proxyPayload);
+  final expected = expectedSha256.trim().toLowerCase();
+  if (expected.isNotEmpty && !RegExp(r'^[a-f0-9]{64}$').hasMatch(expected)) {
+    throw PlatformException(
+      code: 'invalid_checksum',
+      message: 'Expected SHA-256 checksum is invalid.',
+    );
+  }
+
+  final client = await _createNetworkClient(proxyPayload);
+  final partial = File('${target.path}.part');
   try {
-    final request = await client.getUrl(Uri.parse(url));
-    final response = await request.close();
+    final request = await client
+        .getUrl(Uri.parse(url))
+        .timeout(const Duration(seconds: 45));
+    final response = await request.close().timeout(const Duration(minutes: 2));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw PlatformException(
         code: 'download_failed',
@@ -198,13 +334,30 @@ Future<File> _downloadUrlToFile(
       );
     }
     await target.parent.create(recursive: true);
-    final sink = target.openWrite();
+    if (await partial.exists()) await partial.delete();
+    final sink = partial.openWrite();
     try {
-      await response.pipe(sink);
+      await response.timeout(const Duration(minutes: 2)).pipe(sink);
     } finally {
       await sink.close();
     }
+    if (expected.isNotEmpty) {
+      final actual = (await sha256.bind(partial.openRead()).first).toString();
+      if (actual != expected) {
+        await partial.delete();
+        throw PlatformException(
+          code: 'checksum_mismatch',
+          message:
+              'Downloaded file SHA-256 does not match the release checksum.',
+        );
+      }
+    }
+    if (await target.exists()) await target.delete();
+    await partial.rename(target.path);
     return target;
+  } catch (_) {
+    if (await partial.exists()) await partial.delete();
+    rethrow;
   } finally {
     client.close(force: true);
   }
@@ -215,10 +368,28 @@ bool _isExternalHttpUrl(String url) {
   return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
 }
 
-Future<bool> _openWindowsExternalUrl(String url) async {
+bool isTrustedReleaseAssetUrl(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || uri.scheme != 'https' || uri.host != 'github.com') {
+    return false;
+  }
+  final path = uri.path.toLowerCase();
+  return path.startsWith(
+    '/2786886095/langbai-api-image-studio/releases/download/',
+  );
+}
+
+Future<bool> _openSystemExternalUrl(String url) async {
   if (!_isExternalHttpUrl(url)) return false;
-  await Process.start('rundll32.exe', ['url.dll,FileProtocolHandler', url]);
-  return true;
+  return launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+}
+
+bool _isTrustedAppAssetUrl(String url) {
+  if (url == 'about:blank') return true;
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.scheme != 'file') return false;
+  final normalized = uri.path.replaceAll('\\', '/').toLowerCase();
+  return normalized.endsWith('/flutter_assets/index.html');
 }
 
 class MobileWebShell extends StatefulWidget {
@@ -234,6 +405,7 @@ class _MobileWebShellState extends State<MobileWebShell>
       MethodChannel('com.aigen.ai_image_generator/downloads');
 
   late final mobile_webview.WebViewController _controller;
+  bool _trustedMobileDocument = false;
 
   @override
   void initState() {
@@ -245,7 +417,34 @@ class _MobileWebShellState extends State<MobileWebShell>
       ..setBackgroundColor(_appBackground)
       ..setNavigationDelegate(
         mobile_webview.NavigationDelegate(
-          onPageFinished: (_) => _syncDownloadDirs(),
+          onPageStarted: (url) {
+            _trustedMobileDocument = _isTrustedAppAssetUrl(url);
+          },
+          onPageFinished: (url) {
+            _trustedMobileDocument = _isTrustedAppAssetUrl(url);
+            if (_trustedMobileDocument) {
+              final platform = Platform.isAndroid
+                  ? 'android'
+                  : Platform.isIOS
+                      ? 'ios'
+                      : Platform.isMacOS
+                          ? 'macos'
+                          : 'mobile';
+              unawaited(_controller.runJavaScript(
+                'window.__AI_GEN_NATIVE_PLATFORM=${jsonEncode(platform)};window.__AI_GEN_SECURE_STORAGE=true;window.dispatchEvent(new Event("aigen-native-ready"));',
+              ));
+              unawaited(_syncDownloadDirs());
+            }
+          },
+          onNavigationRequest: (request) {
+            if (_isTrustedAppAssetUrl(request.url)) {
+              return mobile_webview.NavigationDecision.navigate;
+            }
+            if (_isExternalHttpUrl(request.url)) {
+              unawaited(_openSystemExternalUrl(request.url));
+            }
+            return mobile_webview.NavigationDecision.prevent;
+          },
         ),
       )
       ..addJavaScriptChannel(
@@ -297,6 +496,7 @@ class _MobileWebShellState extends State<MobileWebShell>
   Future<void> _handleDownloadMessage(
     mobile_webview.JavaScriptMessage message,
   ) async {
+    if (!_trustedMobileDocument) return;
     final Map<String, dynamic> payload;
     try {
       payload = jsonDecode(message.message) as Map<String, dynamic>;
@@ -309,9 +509,19 @@ class _MobileWebShellState extends State<MobileWebShell>
     try {
       Object? result;
       switch (action) {
+        case 'saveSecret':
+        case 'loadSecret':
+        case 'deleteSecret':
+          result = await _handleSecretAction(action, payload);
+          break;
+        case 'cancelNativeFetch':
+          _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
+          result = true;
+          break;
         case 'chooseDir':
+          final kind = payload['kind']?.toString() ?? 'images';
           result = await _downloads.invokeMethod<String>('chooseDirectory', {
-            'kind': payload['kind'] ?? 'images',
+            'kind': kind,
           });
           await _syncDownloadDirs();
           break;
@@ -330,14 +540,13 @@ class _MobileWebShellState extends State<MobileWebShell>
           });
           break;
         case 'downloadUpdate':
-          result = await _downloads.invokeMethod<Map<dynamic, dynamic>>(
-            'downloadUpdate',
-            {
-              'url': payload['url'] ?? '',
-              'fileName': payload['fileName'] ?? 'update.apk',
-              'install': payload['install'] == true,
-            },
-          );
+          if (!Platform.isMacOS) {
+            throw PlatformException(
+              code: 'unsupported_update',
+              message: 'Mobile updates must be opened in the system browser.',
+            );
+          }
+          result = await _downloadMacUpdate(payload);
           break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
@@ -350,9 +559,11 @@ class _MobileWebShellState extends State<MobileWebShell>
               message: 'Only http/https URLs can be opened externally.',
             );
           }
-          result = await _downloads.invokeMethod<bool>('openExternalUrl', {
-            'url': url,
-          });
+          result = Platform.isAndroid
+              ? await _downloads.invokeMethod<bool>('openExternalUrl', {
+                  'url': url,
+                })
+              : await _openSystemExternalUrl(url);
           break;
         default:
           throw PlatformException(
@@ -360,9 +571,9 @@ class _MobileWebShellState extends State<MobileWebShell>
             message: 'Unknown action: $action',
           );
       }
-      await _resolveJs(id, result);
+      if (id.isNotEmpty) await _resolveJs(id, result);
     } catch (error) {
-      await _rejectJs(id, error.toString());
+      if (id.isNotEmpty) await _rejectJs(id, error.toString());
     }
   }
 
@@ -378,6 +589,65 @@ class _MobileWebShellState extends State<MobileWebShell>
     } catch (_) {
       // Optional outside Android.
     }
+  }
+
+  String _macDefaultDownloadDir(String kind) {
+    final home = Platform.environment['HOME'] ?? Directory.current.path;
+    return <String>[
+      home,
+      'Downloads',
+      'AI Image Generator',
+      kind == 'zips'
+          ? 'zips'
+          : kind == 'updates'
+              ? 'updates'
+              : 'images',
+    ].join(Platform.pathSeparator);
+  }
+
+  String _sanitizePortableFileName(String name) {
+    final fallback = 'download-${DateTime.now().millisecondsSinceEpoch}.bin';
+    final source = name.trim().isEmpty ? fallback : name.trim();
+    final sanitized = source.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    return sanitized.length > 180 ? sanitized.substring(0, 180) : sanitized;
+  }
+
+  Future<Map<String, Object?>> _downloadMacUpdate(
+    Map<String, dynamic> payload,
+  ) async {
+    final url = payload['url']?.toString() ?? '';
+    final expectedSha256 = payload['expectedSha256']?.toString() ?? '';
+    if (!isTrustedReleaseAssetUrl(url) || expectedSha256.isEmpty) {
+      throw PlatformException(
+        code: 'untrusted_update',
+        message: 'Update URL or SHA-256 checksum is missing or untrusted.',
+      );
+    }
+    final dir = Directory(_macDefaultDownloadDir('updates'));
+    final file = File(<String>[
+      dir.path,
+      _sanitizePortableFileName(
+        payload['fileName']?.toString() ?? 'update.zip',
+      ),
+    ].join(Platform.pathSeparator));
+    await _downloadUrlToFile(
+      url,
+      file,
+      proxyPayload: payload,
+      expectedSha256: expectedSha256,
+    );
+    if (payload['install'] == true) {
+      await Process.start(
+        'open',
+        <String>[file.path],
+        mode: ProcessStartMode.detached,
+      );
+    }
+    return <String, Object?>{
+      'path': file.path,
+      'installerStarted': false,
+      'opened': payload['install'] == true,
+    };
   }
 
   Future<void> _resolveJs(String id, Object? result) {
@@ -424,6 +694,8 @@ class _WindowsWebShellState extends State<WindowsWebShell>
 
   bool _isReady = false;
   bool _isWindowSizeDegenerate = false;
+  bool _trustedWindowsDocument = false;
+  String? _windowsIndexUrl;
   String? _errorTitle;
   String? _errorMessage;
 
@@ -473,10 +745,13 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           unawaited(_syncWindowsDownloadDirs());
         }
       }));
+      _subscriptions.add(_controller.url.listen((url) {
+        unawaited(_handleWindowsUrlChanged(url));
+      }));
 
       await _controller.setBackgroundColor(_appBackground);
-      await _controller.setPopupWindowPolicy(
-          windows_webview.WebviewPopupWindowPolicy.sameWindow);
+      await _controller
+          .setPopupWindowPolicy(windows_webview.WebviewPopupWindowPolicy.deny);
       await _controller
           .addScriptToExecuteOnDocumentCreated(_windowsBridgeScript);
 
@@ -488,7 +763,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         );
       }
 
-      await _controller.loadUrl(Uri.file(indexFile.path).toString());
+      _windowsIndexUrl = Uri.file(indexFile.path).toString();
+      _trustedWindowsDocument = true;
+      await _controller.loadUrl(_windowsIndexUrl!);
       if (!mounted) return;
       setState(() => _isReady = true);
     } on Object catch (error) {
@@ -512,7 +789,34 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     );
   }
 
+  bool _isTrustedWindowsUrl(String url) {
+    final expected = _windowsIndexUrl;
+    if (expected == null) return false;
+    final actualUri = Uri.tryParse(url);
+    final expectedUri = Uri.tryParse(expected);
+    if (actualUri == null ||
+        expectedUri == null ||
+        actualUri.scheme != 'file') {
+      return false;
+    }
+    return actualUri.toFilePath().toLowerCase() ==
+        expectedUri.toFilePath().toLowerCase();
+  }
+
+  Future<void> _handleWindowsUrlChanged(String url) async {
+    final trusted = _isTrustedWindowsUrl(url);
+    _trustedWindowsDocument = trusted;
+    if (trusted || _windowsIndexUrl == null || url == 'about:blank') return;
+
+    await _controller.stop();
+    if (_isExternalHttpUrl(url)) {
+      await _openSystemExternalUrl(url);
+    }
+    await _controller.loadUrl(_windowsIndexUrl!);
+  }
+
   Future<void> _handleWindowsBridgeMessage(dynamic rawMessage) async {
+    if (!_trustedWindowsDocument) return;
     final payload = _decodeBridgePayload(rawMessage);
     if (payload == null) return;
 
@@ -521,6 +825,15 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     try {
       Object? result;
       switch (action) {
+        case 'saveSecret':
+        case 'loadSecret':
+        case 'deleteSecret':
+          result = await _handleSecretAction(action, payload);
+          break;
+        case 'cancelNativeFetch':
+          _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
+          result = true;
+          break;
         case 'chooseDir':
           result = await _chooseWindowsDownloadDir(
             payload['kind']?.toString() ?? 'images',
@@ -559,7 +872,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           result = await _nativeFetch(payload);
           break;
         case 'openExternal':
-          result = await _openWindowsExternalUrl(
+          result = await _openSystemExternalUrl(
             payload['url']?.toString() ?? '',
           );
           break;
@@ -569,9 +882,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
             message: 'Unknown action: $action',
           );
       }
-      await _resolveWindowsJs(id, result);
+      if (id.isNotEmpty) await _resolveWindowsJs(id, result);
     } catch (error) {
-      await _rejectWindowsJs(id, error.toString());
+      if (id.isNotEmpty) await _rejectWindowsJs(id, error.toString());
     }
   }
 
@@ -807,10 +1120,28 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     bool install,
     Map<String, dynamic> payload,
   ) async {
+    final expectedSha256 = payload['expectedSha256']?.toString() ?? '';
+    if (!isTrustedReleaseAssetUrl(url) || expectedSha256.isEmpty) {
+      throw PlatformException(
+        code: 'untrusted_update',
+        message: 'Update URL or SHA-256 checksum is missing or untrusted.',
+      );
+    }
     final dir = Directory(_windowsDownloadDir('updates'));
     final safeName = _sanitizeWindowsFileName(fileName);
+    if (!safeName.toLowerCase().endsWith('.exe')) {
+      throw PlatformException(
+        code: 'invalid_update_type',
+        message: 'Windows updates must be installer .exe files.',
+      );
+    }
     final file = File([dir.path, safeName].join(Platform.pathSeparator));
-    await _downloadUrlToFile(url, file, proxyPayload: payload);
+    await _downloadUrlToFile(
+      url,
+      file,
+      proxyPayload: payload,
+      expectedSha256: expectedSha256,
+    );
 
     var installerStarted = false;
     if (install && safeName.toLowerCase().endsWith('.exe')) {
@@ -894,7 +1225,11 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: Card(
-            color: const Color(0xFF1B1724),
+            color: const Color(0xFF1E2329),
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -912,12 +1247,12 @@ class _WindowsWebShellState extends State<WindowsWebShell>
                   const SizedBox(height: 12),
                   Text(
                     _errorMessage!,
-                    style: const TextStyle(color: Color(0xFFD8D0E8)),
+                    style: const TextStyle(color: Color(0xFFD5DCE5)),
                   ),
                   const SizedBox(height: 16),
                   const SelectableText(
                     'WebView2 Runtime: https://developer.microsoft.com/microsoft-edge/webview2/',
-                    style: TextStyle(color: Color(0xFF9FB7FF)),
+                    style: TextStyle(color: Color(0xFFAAB5FF)),
                   ),
                 ],
               ),
@@ -929,7 +1264,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
 
     if (!_isReady || !_controller.value.isInitialized) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF8B7CF6)),
+        child: CircularProgressIndicator(color: Color(0xFF879CFF)),
       );
     }
 
@@ -943,7 +1278,11 @@ class _WindowsWebShellState extends State<WindowsWebShell>
 
 const _windowsBridgeScript = r'''
 (() => {
+  const path = location.pathname.replace(/\\/g, "/").toLowerCase();
+  if (location.protocol !== "file:" || !path.endsWith("/flutter_assets/index.html")) return;
   if (window.FlutterDownload) return;
+  window.__AI_GEN_NATIVE_PLATFORM = "windows";
+  window.__AI_GEN_SECURE_STORAGE = true;
   window.FlutterDownload = {
     postMessage(message) {
       if (!window.chrome || !window.chrome.webview) return;
@@ -959,5 +1298,15 @@ const _windowsBridgeScript = r'''
       }
     }
   };
+  addEventListener("click", (event) => {
+    const anchor = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+    if (!anchor || !/^https?:/i.test(anchor.href)) return;
+    event.preventDefault();
+    window.FlutterDownload.postMessage(JSON.stringify({
+      id: `external_${Date.now()}`,
+      action: "openExternal",
+      url: anchor.href
+    }));
+  }, true);
 })();
 ''';

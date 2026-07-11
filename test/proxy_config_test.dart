@@ -15,7 +15,10 @@ void main() {
       mode: 'socks10808',
     );
     expect(proxy.valid, isTrue);
-    expect(proxy.findProxy, 'SOCKS 127.0.0.1:10808');
+    expect(proxy.findProxy, 'DIRECT');
+    expect(proxy.kind, DesktopProxyKind.socks5);
+    expect(proxy.host, '127.0.0.1');
+    expect(proxy.port, 10808);
   });
 
   test('direct mode resolves to DIRECT', () {
@@ -39,7 +42,9 @@ void main() {
       proxyUrl: 'socks5://127.0.0.1:10808',
     );
     expect(http.findProxy, 'PROXY 127.0.0.1:7890');
-    expect(socks.findProxy, 'SOCKS 127.0.0.1:10808');
+    expect(http.kind, DesktopProxyKind.http);
+    expect(socks.findProxy, 'DIRECT');
+    expect(socks.kind, DesktopProxyKind.socks5);
   });
 
   test('invalid custom proxy URL is rejected on desktop', () {
