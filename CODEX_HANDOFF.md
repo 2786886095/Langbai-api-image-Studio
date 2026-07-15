@@ -1,15 +1,24 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.17
+# Codex / Claude Handoff: AI 图片生成器 v1.3.18
 
-更新时间：2026-07-11
+更新时间：2026-07-15
 项目路径：`F:\AI\agent\图像生成`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.17+41`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.18+42`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.18 增量修复
+
+- 修复“输入项目名称后，保存到文件夹仍使用固定名称”的问题。
+- 漫画与嵌字模式的名称输入框现在明确提示会同时控制项目和文件夹名称。
+- 有名称时文件夹格式为：`用户名称_YYYY-MM-DD_HH-mm-ss`。
+- 未输入名称时分别使用：`漫画项目_YYYY-MM-DD_HH-mm-ss`、`嵌字项目_YYYY-MM-DD_HH-mm-ss`。
+- 自定义名称会清理跨平台不允许的文件名字符，并限制长度，但始终保留日期时间后缀。
+- 回归测试会执行三次真实原生桥保存，分别验证自定义漫画名、未命名漫画和未命名嵌字。
 
 ## 本轮修复
 

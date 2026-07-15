@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.17";
+const APP_VERSION = "1.3.18";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -271,7 +271,7 @@ const CLEAN_LOCALES = {
     panelList: "分镜列表", captionList: "嵌字列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜", cancelGeneration: "取消生成",
-    imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…",
+    imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…", projectExportName: "项目 / 文件夹名称（可选）…",
     downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
     imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录",
@@ -335,7 +335,7 @@ const CLEAN_LOCALES = {
     panelList: "分鏡列表", captionList: "嵌字列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡", cancelGeneration: "取消生成",
-    imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…",
+    imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…", projectExportName: "專案 / 資料夾名稱（可選）…",
     downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
     imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄",
@@ -399,7 +399,7 @@ const CLEAN_LOCALES = {
     panelList: "Panel List", captionList: "Caption List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels", cancelGeneration: "Cancel Generation",
-    imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...",
+    imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...", projectExportName: "Project / folder name (optional)...",
     downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
     imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder",
@@ -463,7 +463,7 @@ const CLEAN_LOCALES = {
     panelList: "コマ一覧", captionList: "テキスト入れ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成", cancelGeneration: "生成をキャンセル",
-    imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...",
+    imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...", projectExportName: "プロジェクト / フォルダー名（任意）...",
     downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
     imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択",
@@ -527,7 +527,7 @@ const CLEAN_LOCALES = {
     panelList: "콘티 목록", captionList: "말풍선 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성", cancelGeneration: "생성 취소",
-    imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...",
+    imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...", projectExportName: "프로젝트 / 폴더 이름(선택)...",
     downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
     imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택",
@@ -839,7 +839,7 @@ function applyCleanLanguage() {
   if (dom.clearResults) dom.clearResults.textContent = cleanText("clearResults");
   setText(".retry-failed-count span", "failedRetryCount");
   setRetryFailedButtonText();
-  if (dom.zipFileName) dom.zipFileName.placeholder = cleanText("zipName");
+  if (dom.zipFileName) dom.zipFileName.placeholder = cleanText(isComic || isCaption ? "projectExportName" : "zipName");
   if (dom.imageDirLabel && dom.imageDirLabel.textContent.trim()) dom.imageDirLabel.textContent = nativeDownload?.dirs?.images ? shortPathLabel(nativeDownload.dirs.images) : cleanText("notSelected");
   if (dom.zipDirLabel && dom.zipDirLabel.textContent.trim()) dom.zipDirLabel.textContent = nativeDownload?.dirs?.zips ? shortPathLabel(nativeDownload.dirs.zips) : cleanText("notSelected");
   setText("#emptyState h3", "emptyTitle");
@@ -6465,6 +6465,20 @@ function sanitizeFilePart(value, fallback = "item") {
   return clean || fallback;
 }
 
+function formatProjectFolderTimestamp(date = new Date()) {
+  const pad = value => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
+
+function buildProjectFolderName(mode = currentMode, date = new Date()) {
+  const fallback = cleanText(mode === "caption" ? "captionProject" : "comicProject");
+  const custom = String(dom.zipFileName?.value || "").trim().replace(/\.zip$/i, "").trim();
+  // Keep room for the timestamp so a long custom name cannot trim away the
+  // collision-resistant suffix on Windows, Android or Apple platforms.
+  const base = sanitizeFilePart(custom || fallback, fallback).slice(0, 38).replace(/[ .-]+$/g, "") || fallback;
+  return `${base}_${formatProjectFolderTimestamp(date)}`;
+}
+
 function imageExtFromBlob(url, blob) {
   const type = (blob?.type || "").toLowerCase();
   if (type.includes("jpeg") || type.includes("jpg")) return "jpg";
@@ -6805,7 +6819,7 @@ async function saveProjectResultsToFolder() {
     if (!nativeDownload.dirs.images) {
       await nativeDownload.chooseDir("images");
     }
-    const folder = sanitizeFilePart(`${isCaption ? "caption" : "comic"}_${new Date().toLocaleString(localeTagForCurrentLanguage())}`, isCaption ? "caption" : "comic");
+    const folder = buildProjectFolderName(isCaption ? "caption" : "comic");
     const failures = [];
     let saved = 0;
 

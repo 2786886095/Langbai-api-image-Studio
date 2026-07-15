@@ -1,13 +1,13 @@
-# Claude Handoff: AI 图片生成器 v1.3.17
+# Claude Handoff: AI 图片生成器 v1.3.18
 
-更新时间：2026-07-11
+更新时间：2026-07-15
 项目路径：`F:\AI\agent\图像生成`
 GitHub：`https://github.com/2786886095/Langbai-api-image-Studio`
-本交接对应源码版本：`v1.3.17+41`；线上发布状态以 GitHub Releases 实际页面为准。
+本交接对应源码版本：`v1.3.18+42`；线上发布状态以 GitHub Releases 实际页面为准。
 
-## v1.3.17 当前状态（优先读）
+## v1.3.18 当前状态（优先读）
 
-本轮对代理、HTTP-400-only 重试、首次请求取消、图片重新加载、IndexedDB 历史缓存、导出、更新安全、secure storage、PWA 离线、macOS/iOS 目录权限和深色主题做了完整修复。最新实现、测试结果、Android 实际构建哈希、发布前检查清单及禁止回退项集中写在根目录 `CODEX_HANDOFF.md`；请先读该文件。本文件下方保留 v1.3.16 及更早版本的详细历史，不再重复粘贴 v1.3.17 内容。
+`v1.3.18` 修复项目文件夹命名：输入名称后实际文件夹使用该名称；未输入时漫画与嵌字分别使用不同默认前缀；三种情况都追加 `YYYY-MM-DD_HH-mm-ss`。此前 `v1.3.17` 的代理、HTTP-400-only 重试、首次请求取消、图片重载、历史缓存、导出、更新安全、secure storage、PWA 与跨端桥修复全部保留。最新测试与发布清单集中写在根目录 `CODEX_HANDOFF.md`；请先读该文件。
 
 **没有 v1.2.8 的 Release**：v1.2.8（模型列表改成下拉框）commit 已推送、CI 也过了，但发布验证过程中用户就已经发现了 flex-shrink bug（见下方 v1.2.8/v1.2.9 一节），所以没有创建 v1.2.8 的 GitHub Release，直接把修复并入 v1.2.9 一起发布。如果看到 git log 里有 v1.2.8 的 commit 但 GitHub Releases 里没有对应 tag，这是预期状态，不是遗漏。
 

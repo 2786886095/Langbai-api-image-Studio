@@ -1237,7 +1237,7 @@ async function testSequentialToggleSharedAcrossModes(cdp) {
 }
 
 async function testSaveComicFolder(cdp) {
-  logStep("Comic-mode 'save to folder' button is mode-gated and saves every panel through the native bridge into one shared auto-created folder");
+  logStep("Project folder exports use the entered name, otherwise distinguish comic/caption projects, and always append a collision-safe local timestamp");
   await loadFresh(cdp, "save-folder");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -1277,6 +1277,7 @@ async function testSaveComicFolder(cdp) {
     document.querySelector('[data-mode="comic"]').click();
     await new Promise(r => setTimeout(r, 50));
     const comicHidden = document.getElementById("saveComicFolder").classList.contains("hidden");
+    const projectNamePlaceholder = document.getElementById("zipFileName").placeholder;
 
     set("prompt", "GLOBAL");
     set("panelCount", "2");
@@ -1294,33 +1295,58 @@ async function testSaveComicFolder(cdp) {
       await new Promise(r => setTimeout(r, 80));
     }
 
-    document.getElementById("saveComicFolder").click();
-    start = Date.now();
-    while (Date.now() - start < 4000) {
-      if (calls.filter(c => c.action === "saveFile").length >= 2) break;
-      await new Promise(r => setTimeout(r, 80));
-    }
-    await new Promise(r => setTimeout(r, 50));
+    const saveFolderOnce = async () => {
+      const before = calls.filter(c => c.action === "saveFile").length;
+      document.getElementById("saveComicFolder").click();
+      const started = Date.now();
+      while (Date.now() - started < 4000) {
+        const saved = calls.filter(c => c.action === "saveFile");
+        if (saved.length >= before + 2 && !document.getElementById("saveComicFolder").disabled) {
+          return saved.slice(before);
+        }
+        await new Promise(r => setTimeout(r, 40));
+      }
+      return calls.filter(c => c.action === "saveFile").slice(before);
+    };
 
-    const saveCalls = calls.filter(c => c.action === "saveFile");
+    set("zipFileName", "海边:故事");
+    const namedComicCalls = await saveFolderOnce();
+
+    set("zipFileName", "");
+    const unnamedComicCalls = await saveFolderOnce();
+
+    document.querySelector('[data-mode="caption"]').click();
+    await new Promise(r => setTimeout(r, 50));
+    const captionNamePlaceholder = document.getElementById("zipFileName").placeholder;
+    const unnamedCaptionCalls = await saveFolderOnce();
+
+    const saveCalls = [...namedComicCalls, ...unnamedComicCalls, ...unnamedCaptionCalls];
     return {
       singleHidden,
       comicHidden,
       saveCallCount: saveCalls.length,
-      folders: [...new Set(saveCalls.map(c => c.folder))],
+      namedComicFolders: [...new Set(namedComicCalls.map(c => c.folder))],
+      unnamedComicFolders: [...new Set(unnamedComicCalls.map(c => c.folder))],
+      unnamedCaptionFolders: [...new Set(unnamedCaptionCalls.map(c => c.folder))],
       fileNames: [...new Set(saveCalls.map(c => c.fileName))],
       kinds: [...new Set(saveCalls.map(c => c.kind))],
       allHaveBase64: saveCalls.every(c => typeof c.base64 === "string" && c.base64.length > 0),
+      projectNamePlaceholder,
+      captionNamePlaceholder,
     };
   })()`, true);
 
   assertQa(result.singleHidden === true, "Save-to-folder button should stay hidden in single-image mode.", result);
   assertQa(result.comicHidden === false, "Save-to-folder button should become visible when switching to comic mode.", result);
-  assertQa(result.saveCallCount === 2, "Saving a 2-panel comic result to a folder should call the native saveFile bridge once per panel.", result);
-  assertQa(result.folders.length === 1 && !!result.folders[0], "All panels from one save-to-folder action should share the same auto-created folder name.", result);
+  assertQa(result.saveCallCount === 6, "Three 2-image project exports should call the native saveFile bridge once per image.", result);
+  assertQa(result.namedComicFolders.length === 1 && /^海边-故事_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.namedComicFolders[0]), "An entered project name must become the folder name, with invalid filename characters sanitized and a timestamp appended.", result);
+  assertQa(result.unnamedComicFolders.length === 1 && /^漫画项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedComicFolders[0]), "An unnamed comic export must use the localized comic-project prefix plus timestamp.", result);
+  assertQa(result.unnamedCaptionFolders.length === 1 && /^嵌字项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedCaptionFolders[0]), "An unnamed caption export must use a different localized caption-project prefix plus timestamp.", result);
+  assertQa(new Set([result.namedComicFolders[0], result.unnamedComicFolders[0], result.unnamedCaptionFolders[0]]).size === 3, "Named, unnamed comic, and unnamed caption exports must never collapse into the same folder name.", result);
+  assertQa(/项目.*文件夹/.test(result.projectNamePlaceholder) && /项目.*文件夹/.test(result.captionNamePlaceholder), "Comic and caption modes should explain that the name field controls both the project and folder name.", result);
   assertQa(result.kinds.length === 1 && result.kinds[0] === "images", "Folder save should use the 'images' download-directory kind, matching the existing image-dir picker.", result);
   assertQa(result.allHaveBase64, "Every saveFile call should carry the actual image bytes as base64.", result);
-  assertQa(result.fileNames.length === 2, "Each panel should get a distinct filename within the shared folder.", result);
+  assertQa(result.fileNames.length === 4, "Comic panels and caption images should each get distinct filenames inside their project folder.", result);
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
@@ -3241,7 +3267,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.17" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === "1.3.18" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,
