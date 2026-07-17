@@ -1803,6 +1803,152 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
 }
 
+async function testRetryAllFailedCanCancelAndRestart(cdp) {
+  logStep("Retry-all-failed stays visible, cancels hung requests, releases its lock, and can immediately start a fresh retry round");
+  await loadFresh(cdp, "retry-all-cancel-restart");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiEndpoint", "https://api.example.test/v1/images/generations");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    document.getElementById("apiProvider").value = "custom";
+
+    const grid = document.getElementById("resultGrid");
+    grid.innerHTML = "";
+    grid.classList.remove("hidden");
+    document.getElementById("resultToolbar").classList.remove("hidden");
+    for (let i = 1; i <= 2; i++) {
+      const prompt = "retry prompt " + i;
+      const card = addResultPlaceholder(i, prompt, {
+        mode: "comic",
+        panelPrompt: prompt,
+        prompt,
+        size: "1024x1024",
+        retryCount: 0,
+      });
+      markPlaceholderFailed(card, i, "HTTP 400: initial failure", {
+        mode: "comic",
+        panelPrompt: prompt,
+        prompt,
+        size: "1024x1024",
+        retryCount: 0,
+      });
+    }
+
+    const originalFetch = window.fetch.bind(window);
+    let hangingCalls = 0;
+    window.fetch = async (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      hangingCalls++;
+      return new Promise((resolve, reject) => {
+        const abort = () => reject(new DOMException("Aborted", "AbortError"));
+        if (opts.signal?.aborted) abort();
+        else opts.signal?.addEventListener("abort", abort, { once: true });
+      });
+    };
+
+    const button = document.getElementById("retryFailedAll");
+    const tools = document.getElementById("retryFailedTools");
+    button.click();
+    const start = Date.now();
+    while (Date.now() - start < 2000 && hangingCalls < 2) await sleep(20);
+    const during = {
+      calls: hangingCalls,
+      toolsVisible: !tools.classList.contains("hidden"),
+      buttonEnabled: !button.disabled,
+      buttonText: button.textContent,
+      loadingCards: document.querySelectorAll(".result-item[data-status='loading']").length,
+      status: document.getElementById("status").textContent,
+    };
+
+    button.click();
+    const cancelStart = Date.now();
+    while (Date.now() - cancelStart < 2000) {
+      if (document.querySelectorAll(".result-item.is-failed").length === 2 && !button.disabled) break;
+      await sleep(20);
+    }
+    const afterCancel = {
+      failedCards: document.querySelectorAll(".result-item.is-failed").length,
+      toolsVisible: !tools.classList.contains("hidden"),
+      buttonEnabled: !button.disabled,
+      buttonText: button.textContent,
+      status: document.getElementById("status").textContent,
+    };
+
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    let restartCalls = 0;
+    window.fetch = async (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      restartCalls++;
+      return new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    button.click();
+    const restartStart = Date.now();
+    while (Date.now() - restartStart < 3000) {
+      if (document.querySelectorAll(".result-item img").length === 2) break;
+      await sleep(20);
+    }
+    const afterRestart = {
+      calls: restartCalls,
+      images: document.querySelectorAll(".result-item img").length,
+      failedCards: document.querySelectorAll(".result-item.is-failed").length,
+      toolsHidden: tools.classList.contains("hidden"),
+    };
+
+    const cardToHangThenClear = document.querySelector(".result-item");
+    markPlaceholderFailed(cardToHangThenClear, 1, "HTTP 400: fail before clear", cardToHangThenClear._retryContext);
+    let clearAbortObserved = false;
+    window.fetch = async (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      return new Promise((resolve, reject) => {
+        opts.signal?.addEventListener("abort", () => {
+          clearAbortObserved = true;
+          reject(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
+      });
+    };
+    button.click();
+    await sleep(80);
+    document.getElementById("clearResults").click();
+    await sleep(120);
+
+    grid.classList.remove("hidden");
+    document.getElementById("resultToolbar").classList.remove("hidden");
+    const freshCard = addResultPlaceholder(3, "fresh prompt", {
+      mode: "comic", panelPrompt: "fresh prompt", prompt: "fresh prompt", size: "1024x1024", retryCount: 0,
+    });
+    markPlaceholderFailed(freshCard, 3, "HTTP 400: fresh failure", {
+      mode: "comic", panelPrompt: "fresh prompt", prompt: "fresh prompt", size: "1024x1024", retryCount: 0,
+    });
+    const afterClear = {
+      clearAbortObserved,
+      toolsVisible: !tools.classList.contains("hidden"),
+      buttonEnabled: !button.disabled,
+      buttonText: button.textContent,
+    };
+    window.fetch = originalFetch;
+    return { during, afterCancel, afterRestart, afterClear };
+  })()`, true);
+
+  assertQa(result.during.calls === 2 && result.during.loadingCards === 2, "Retry all should start every failed card instead of silently ignoring the click.", result);
+  assertQa(result.during.toolsVisible && result.during.buttonEnabled && /取消|cancel/i.test(result.during.buttonText), "While retry requests are pending, the toolbar must stay visible and turn into an enabled cancel control.", result);
+  assertQa(result.during.status.includes("2"), "Starting retry all should immediately show how many failed items are being retried.", result);
+  assertQa(result.afterCancel.failedCards === 2 && result.afterCancel.toolsVisible && result.afterCancel.buttonEnabled, "Cancelling hung retries must restore failed cards and release the global retry lock.", result);
+  assertQa(/全部失败重试|retry all failed/i.test(result.afterCancel.buttonText) && /可再次|again/i.test(result.afterCancel.status), "After cancellation, the control and status should clearly say retrying is available again.", result);
+  assertQa(result.afterRestart.calls === 2 && result.afterRestart.images === 2 && result.afterRestart.failedCards === 0 && result.afterRestart.toolsHidden, "A fresh retry-all round after cancellation must run normally and replace every failed card.", result);
+  assertQa(result.afterClear.clearAbortObserved && result.afterClear.toolsVisible && result.afterClear.buttonEnabled && /全部失败重试|retry all failed/i.test(result.afterClear.buttonText), "Clearing results during a hung retry-all round must abort it, release the old lock, and leave future failed cards retryable.", result);
+}
+
 async function testCardRetryAttemptDisplayAndStop(cdp) {
   logStep("Each result card shows its own automatic-retry attempt count (not just a global status message that gets overwritten by concurrent cards) and offers a per-card 'stop retry' button that cancels just that one card without touching sibling cards");
   await loadFresh(cdp, "card-retry-stop");
@@ -3419,7 +3565,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.19" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === "1.3.20" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,
@@ -3467,6 +3613,7 @@ async function main() {
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testRetryAllFailedCanCancelAndRestart(cdp);
     await testCardRetryAttemptDisplayAndStop(cdp);
     await testCancelDuringFirstAttempt(cdp);
     await testDesktopProxyControls(cdp);

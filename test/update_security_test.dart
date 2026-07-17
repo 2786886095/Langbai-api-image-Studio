@@ -7,7 +7,7 @@ void main() {
       () {
     expect(
       isTrustedReleaseAssetUrl(
-        'https://github.com/2786886095/Langbai-api-image-Studio/releases/download/v1.3.19/AI-Image-Generator-Setup.exe',
+        'https://github.com/2786886095/Langbai-api-image-Studio/releases/download/v1.3.20/AI-Image-Generator-Setup.exe',
       ),
       isTrue,
     );
@@ -17,7 +17,7 @@ void main() {
     );
     expect(
       isTrustedReleaseAssetUrl(
-        'http://github.com/2786886095/Langbai-api-image-Studio/releases/download/v1.3.19/Setup.exe',
+        'http://github.com/2786886095/Langbai-api-image-Studio/releases/download/v1.3.20/Setup.exe',
       ),
       isFalse,
     );
