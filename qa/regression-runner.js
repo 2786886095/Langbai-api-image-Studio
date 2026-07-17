@@ -1079,6 +1079,67 @@ async function testHistoryImageCacheFallback(cdp) {
   assertQa(result.zip.type === "application/zip" && result.zip.size > 200, "Project ZIP export must still work after history image cache eviction.", result);
 }
 
+async function testGeneratedImagePersistentCache(cdp) {
+  logStep("Every successful image is persisted immediately in the app cache even when history is disabled, retention cleanup removes only expired entries, and history reuses cache:// bytes");
+  await loadFresh(cdp, "generated-image-cache");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    await generatedCacheCleanupQueue.catch(() => {});
+    await clearGeneratedCacheStore();
+    saveSettings({ historyEnabled: false, cacheRetentionDays: 7 });
+    dom.resultGrid.innerHTML = "";
+    dom.resultGrid.classList.remove("hidden");
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const card = addResultPlaceholder("cache-1", "cache test", { mode: "single", prompt: "cache test" });
+    const record = replacePlaceholder(card, "cache-1", { data: [{ b64_json: png }] }, "cache test", { mode: "single" });
+    const generatedBlob = await record._cachePromise;
+    const persistedBlob = await getGeneratedCacheBlob(record._cacheKey);
+    const historyWhileDisabled = loadHistory().length;
+
+    const now = Date.now();
+    await putGeneratedCacheBlob("qa-expired", generatedBlob, now - 8 * 86400000);
+    await putGeneratedCacheBlob("qa-fresh", generatedBlob, now - 6 * 86400000);
+    const removed = await cleanupGeneratedImageCache({ now, force: true });
+    const expired = await getGeneratedCacheBlob("qa-expired");
+    const fresh = await getGeneratedCacheBlob("qa-fresh");
+
+    saveSettings({ historyEnabled: true });
+    const historyCard = addResultPlaceholder("cache-2", "history cache test", { mode: "single", prompt: "history cache test" });
+    const historyRecord = replacePlaceholder(historyCard, "cache-2", { data: [{ b64_json: png }] }, "history cache test", { mode: "single" });
+    await historyRecord._cachePromise;
+    const waitStart = Date.now();
+    while (!loadHistory().length && Date.now() - waitStart < 2000) await new Promise(r => setTimeout(r, 20));
+    const historyUrl = loadHistory()[0]?.imageUrl || "";
+
+    document.getElementById("cacheRetentionDays").value = "14";
+    document.getElementById("cacheRetentionDays").dispatchEvent(new Event("change", { bubbles: true }));
+    await generatedCacheCleanupQueue;
+    const savedRetention = loadSettings().cacheRetentionDays;
+    const cleared = await clearGeneratedCacheStore();
+    return {
+      generatedSize: generatedBlob?.size || 0,
+      persistedSize: persistedBlob?.size || 0,
+      historyWhileDisabled,
+      removed,
+      expiredExists: !!expired,
+      freshExists: !!fresh,
+      historyUrl,
+      savedRetention,
+      cleared,
+      controls: {
+        days: !!document.getElementById("cacheRetentionDays"),
+        clear: !!document.getElementById("clearGeneratedCache"),
+        status: !!document.getElementById("generatedCacheStatus"),
+      },
+    };
+  })()`, true);
+  assertQa(result.generatedSize > 0 && result.persistedSize === result.generatedSize, "A successful generated image must be written to persistent app cache immediately.", result);
+  assertQa(result.historyWhileDisabled === 0, "The image cache must remain independent from the optional history feature.", result);
+  assertQa(result.removed >= 1 && !result.expiredExists && result.freshExists, "Retention cleanup must delete expired cache entries while retaining newer images.", result);
+  assertQa(result.historyUrl.startsWith("cache://"), "New history records should reuse the generated cache instead of duplicating image bytes in the legacy history store.", result);
+  assertQa(result.savedRetention === 14 && Object.values(result.controls).every(Boolean), "Cache retention controls must save their value and remain present in Settings.", result);
+}
+
 async function testHistoryPruneConcurrency(cdp) {
   logStep("Concurrent history saves serialize IndexedDB pruning and always use the newest history snapshot");
   await loadFresh(cdp, "history-prune-concurrency");
@@ -3565,7 +3626,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.20" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === "1.3.21" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,
@@ -3608,6 +3669,7 @@ async function main() {
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
     await testHistoryRestoreAndExport(cdp);
     await testHistoryImageCacheFallback(cdp);
+    await testGeneratedImagePersistentCache(cdp);
     await testHistoryPruneConcurrency(cdp);
     await testRetryReplacesHistoryEntry(cdp);
     await testSequentialToggleSharedAcrossModes(cdp);

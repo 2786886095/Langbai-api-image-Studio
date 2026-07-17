@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.20
+# Codex / Claude Handoff: AI 图片生成器 v1.3.21
 
 更新时间：2026-07-17
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,18 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.20+44`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.21+45`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.21 增量功能
+
+- 所有成功生成的图片都会立即写入独立 IndexedDB 临时缓存，不再依赖“保存历史”开关，避免中转站约两小时后删除图片导致下载失败。
+- 设置新增缓存保留天数（默认 7 天，范围 1～365 天）、自动清理说明和立即清理按钮；应用启动、设置变更和生成新图时会清理过期缓存。
+- 新历史记录使用 `cache://` 引用同一份缓存字节，不再向旧历史图片仓库重复写入一份 Blob；旧版 `idb://` 历史仍兼容。
+- 临时缓存仅在应用内部存储；生成时不会写用户目录，只有“打包下载 ZIP”或“保存到文件夹”才会创建正式文件。
+- 五语言和回归测试已补齐，覆盖关闭历史后的缓存、期限清理、设置持久化及历史缓存复用。
 
 ## v1.3.20 增量修复
 
@@ -144,9 +152,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.20"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.21"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.20` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.21` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -162,5 +170,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.20 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.21 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
