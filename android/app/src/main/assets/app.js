@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.18";
+const APP_VERSION = "1.3.19";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -270,6 +270,13 @@ const CLEAN_LOCALES = {
     sequentialHint: "不勾选：按当前 API 的并发上限批量生成；勾选：逐张依次生成",
     panelList: "分镜列表", captionList: "嵌字列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
+    bulkPrompts: "批量输入提示词", bulkComicTitle: "批量输入分镜提示词", bulkCaptionTitle: "批量输入嵌字提示词",
+    bulkComicHint: "每行一条，按顺序对应分镜；空行也会占据一个位置。", bulkCaptionHint: "每行一条，按图片名称顺序对应；空行也会占据一个位置。",
+    bulkPromptPlaceholder: "第 1 条提示词\n第 2 条提示词\n第 3 条提示词", bulkPromptCount: "输入 {lines} 行 / 当前 {rows} {unit}",
+    applyBulkPrompts: "按顺序填入", cancel: "取消", noBulkPrompts: "请至少输入一条非空提示词", noCaptionImages: "请先批量上传图片",
+    tooManyComicPrompts: "一次最多输入 100 条分镜提示词",
+    tooManyCaptionPrompts: "提示词有 {lines} 条，但当前只有 {rows} 张图片。请删除多出的提示词或继续上传图片。",
+    overwriteBulkPrompts: "对应位置已有内容，确定按批量输入覆盖吗？", bulkPromptsApplied: "已按顺序填写 {count} 条提示词", bulkPromptsRemaining: "，另有 {count} {unit}保持不变",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜", cancelGeneration: "取消生成",
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…", projectExportName: "项目 / 文件夹名称（可选）…",
     downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
@@ -334,6 +341,13 @@ const CLEAN_LOCALES = {
     sequentialHint: "不勾選：依目前 API 的並發上限批次生成；勾選：逐張依序生成",
     panelList: "分鏡列表", captionList: "嵌字列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
+    bulkPrompts: "批次輸入提示詞", bulkComicTitle: "批次輸入分鏡提示詞", bulkCaptionTitle: "批次輸入嵌字提示詞",
+    bulkComicHint: "每行一條，依序對應分鏡；空行也會保留一個位置。", bulkCaptionHint: "每行一條，依圖片名稱順序對應；空行也會保留一個位置。",
+    bulkPromptPlaceholder: "第 1 條提示詞\n第 2 條提示詞\n第 3 條提示詞", bulkPromptCount: "輸入 {lines} 行 / 目前 {rows} {unit}",
+    applyBulkPrompts: "依序填入", cancel: "取消", noBulkPrompts: "請至少輸入一條非空提示詞", noCaptionImages: "請先批次上傳圖片",
+    tooManyComicPrompts: "一次最多輸入 100 條分鏡提示詞",
+    tooManyCaptionPrompts: "提示詞有 {lines} 條，但目前只有 {rows} 張圖片。請刪除多出的提示詞或繼續上傳圖片。",
+    overwriteBulkPrompts: "對應位置已有內容，確定依批次輸入覆蓋嗎？", bulkPromptsApplied: "已依序填寫 {count} 條提示詞", bulkPromptsRemaining: "，另有 {count} {unit}保持不變",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡", cancelGeneration: "取消生成",
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…", projectExportName: "專案 / 資料夾名稱（可選）…",
     downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
@@ -398,6 +412,13 @@ const CLEAN_LOCALES = {
     sequentialHint: "Unchecked: batch generation uses the current API concurrency limit. Checked: generate one image at a time.",
     panelList: "Panel List", captionList: "Caption List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
+    bulkPrompts: "Bulk Prompts", bulkComicTitle: "Bulk Panel Prompts", bulkCaptionTitle: "Bulk Caption Prompts",
+    bulkComicHint: "One prompt per line, matched to panels in order. Blank lines keep their position.", bulkCaptionHint: "One prompt per line, matched by image filename order. Blank lines keep their position.",
+    bulkPromptPlaceholder: "Prompt 1\nPrompt 2\nPrompt 3", bulkPromptCount: "{lines} lines / {rows} {unit}",
+    applyBulkPrompts: "Apply in Order", cancel: "Cancel", noBulkPrompts: "Enter at least one non-empty prompt", noCaptionImages: "Upload images first",
+    tooManyComicPrompts: "Up to 100 panel prompts can be entered at once",
+    tooManyCaptionPrompts: "There are {lines} prompts but only {rows} images. Remove extra prompts or upload more images.",
+    overwriteBulkPrompts: "Some matching rows already contain text. Overwrite them?", bulkPromptsApplied: "Applied {count} prompts in order", bulkPromptsRemaining: "; {count} {unit} left unchanged",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels", cancelGeneration: "Cancel Generation",
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...", projectExportName: "Project / folder name (optional)...",
     downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
@@ -462,6 +483,13 @@ const CLEAN_LOCALES = {
     sequentialHint: "オフ：現在の API の同時実行上限で一括生成。オン：1 枚ずつ順番に生成。",
     panelList: "コマ一覧", captionList: "テキスト入れ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
+    bulkPrompts: "プロンプト一括入力", bulkComicTitle: "コマプロンプト一括入力", bulkCaptionTitle: "文字入れプロンプト一括入力",
+    bulkComicHint: "1行に1件、コマ順に対応します。空行も位置として保持されます。", bulkCaptionHint: "1行に1件、画像ファイル名順に対応します。空行も位置として保持されます。",
+    bulkPromptPlaceholder: "プロンプト 1\nプロンプト 2\nプロンプト 3", bulkPromptCount: "入力 {lines} 行 / 現在 {rows} {unit}",
+    applyBulkPrompts: "順番に入力", cancel: "キャンセル", noBulkPrompts: "空でないプロンプトを1件以上入力してください", noCaptionImages: "先に画像を一括アップロードしてください",
+    tooManyComicPrompts: "一度に入力できるコマプロンプトは100件までです",
+    tooManyCaptionPrompts: "プロンプトは {lines} 件ですが、画像は {rows} 枚です。余分なプロンプトを削除するか画像を追加してください。",
+    overwriteBulkPrompts: "対応する行に内容があります。上書きしますか？", bulkPromptsApplied: "{count} 件のプロンプトを順番に入力しました", bulkPromptsRemaining: "、残り {count} {unit}は変更していません",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成", cancelGeneration: "生成をキャンセル",
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...", projectExportName: "プロジェクト / フォルダー名（任意）...",
     downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
@@ -526,6 +554,13 @@ const CLEAN_LOCALES = {
     sequentialHint: "선택 해제: 현재 API의 동시 처리 한도에 따라 일괄 생성. 선택: 한 장씩 순차 생성.",
     panelList: "콘티 목록", captionList: "말풍선 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
+    bulkPrompts: "프롬프트 일괄 입력", bulkComicTitle: "콘티 프롬프트 일괄 입력", bulkCaptionTitle: "말풍선 프롬프트 일괄 입력",
+    bulkComicHint: "한 줄에 하나씩 콘티 순서대로 대응합니다. 빈 줄도 위치를 유지합니다.", bulkCaptionHint: "한 줄에 하나씩 이미지 파일명 순서대로 대응합니다. 빈 줄도 위치를 유지합니다.",
+    bulkPromptPlaceholder: "프롬프트 1\n프롬프트 2\n프롬프트 3", bulkPromptCount: "입력 {lines}줄 / 현재 {rows}개 {unit}",
+    applyBulkPrompts: "순서대로 입력", cancel: "취소", noBulkPrompts: "비어 있지 않은 프롬프트를 하나 이상 입력하세요", noCaptionImages: "먼저 이미지를 일괄 업로드하세요",
+    tooManyComicPrompts: "콘티 프롬프트는 한 번에 최대 100개까지 입력할 수 있습니다",
+    tooManyCaptionPrompts: "프롬프트는 {lines}개지만 이미지는 {rows}장뿐입니다. 초과 프롬프트를 삭제하거나 이미지를 더 업로드하세요.",
+    overwriteBulkPrompts: "대응 위치에 기존 내용이 있습니다. 덮어쓸까요?", bulkPromptsApplied: "프롬프트 {count}개를 순서대로 입력했습니다", bulkPromptsRemaining: ", 나머지 {count}개 {unit}은 변경하지 않았습니다",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성", cancelGeneration: "생성 취소",
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...", projectExportName: "프로젝트 / 폴더 이름(선택)...",
     downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
@@ -814,8 +849,10 @@ function applyCleanLanguage() {
 
   setIconLabel("#comicPanelSection .section-header > span", "comic", "panelList");
   setButtonText(dom.addPanel, "plus", "addPanel");
+  setButtonText(dom.bulkInputPanelPrompts, "file", "bulkPrompts");
   if (dom.clearPanels) dom.clearPanels.textContent = cleanText("clear");
   setIconLabel("#captionSection .section-header > span", "bubble", "captionList");
+  setButtonText(dom.bulkInputCaptionPrompts, "file", "bulkPrompts");
   if (dom.clearCaptionRows) dom.clearCaptionRows.textContent = cleanText("clear");
   setText(".tool-group:nth-child(1) .tool-label", "batchCreate");
   setText(".panel-count-control > span", "panelCount");
@@ -824,6 +861,7 @@ function applyCleanLanguage() {
   setButtonText(dom.autoFillPanels, "spark", "fill");
   setText("#captionSection .tool-group-fill .tool-label", "autoFill");
   setButtonText(dom.autoFillCaptionRows, "spark", "fill");
+  updateBulkPromptDialogLanguage();
   setText(".panel-table th.col-prompt", "panelPrompt");
   setText(".panel-table th.col-size", "resolution");
   setText(".panel-table th.col-retry", "retry");
@@ -1063,6 +1101,7 @@ const dom = {
   createPanels:  $("#createPanels"),
   addPanel:      $("#addPanel"),
   clearPanels:   $("#clearPanels"),
+  bulkInputPanelPrompts: $("#bulkInputPanelPrompts"),
   panelTbody:    $("#panelTbody"),
   // 嵌字专属
   captionSection: $("#captionSection"),
@@ -1072,6 +1111,15 @@ const dom = {
   clearCaptionRows: $("#clearCaptionRows"),
   captionAutoFillTemplate: $("#captionAutoFillTemplate"),
   autoFillCaptionRows: $("#autoFillCaptionRows"),
+  bulkInputCaptionPrompts: $("#bulkInputCaptionPrompts"),
+  bulkPromptModal: $("#bulkPromptModal"),
+  bulkPromptTitle: $("#bulkPromptTitle"),
+  bulkPromptHint: $("#bulkPromptHint"),
+  bulkPromptText: $("#bulkPromptText"),
+  bulkPromptCount: $("#bulkPromptCount"),
+  closeBulkPrompts: $("#closeBulkPrompts"),
+  cancelBulkPrompts: $("#cancelBulkPrompts"),
+  applyBulkPrompts: $("#applyBulkPrompts"),
   // 进度
   progressWrap:  $("#progressWrap"),
   progressFill:  $("#progressFill"),
@@ -1431,7 +1479,7 @@ function getVisibleBlockingOverlays() {
     .filter(inst => inst.isOpen())
     .map(inst => inst.wrapper.querySelector(".custom-select-list"))
     .filter(Boolean);
-  return [dom.settingsModal, dom.historyModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
+  return [dom.settingsModal, dom.historyModal, dom.bulkPromptModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
     .filter(isOverlayVisible);
 }
 
@@ -3500,6 +3548,142 @@ dom.autoFillCaptionRows.addEventListener("click", async () => {
   });
   const label = CAPTION_AUTO_FILL_TEMPLATE_LABELS[dom.captionAutoFillTemplate?.value || "numbered-bubble"] || "当前模板";
   showStatus(`已按「${label}」填写 ${rows.length} 张图片`, "success");
+});
+
+// ─── 批量提示词：每行严格占一个位置，内部空行不能过滤，否则后续图片会错位。 ───
+let bulkPromptMode = "comic";
+
+function parseBulkPromptLines(value) {
+  const normalized = String(value ?? "").replace(/\r\n?/g, "\n");
+  if (!normalized) return [];
+  const lines = normalized.split("\n");
+  // 粘贴文本常带一个结尾换行；只移除这一个，额外空行仍视为用户明确保留的位置。
+  if (lines.length > 1 && lines.at(-1) === "") lines.pop();
+  return lines;
+}
+
+function getBulkPromptRows(mode = bulkPromptMode) {
+  return mode === "caption"
+    ? $$(".caption-row", dom.captionTbody)
+    : $$(".panel-row", dom.panelTbody);
+}
+
+function getBulkPromptInput(row, mode = bulkPromptMode) {
+  return mode === "caption" ? row.querySelector(".caption-text") : row.querySelector("textarea");
+}
+
+function bulkPromptUnit(mode = bulkPromptMode) {
+  if (currentLanguage === "en") return mode === "caption" ? "images" : "panels";
+  if (currentLanguage === "ja") return mode === "caption" ? "枚の画像" : "コマ";
+  if (currentLanguage === "ko") return mode === "caption" ? "이미지" : "콘티";
+  if (currentLanguage === "zh-Hant") return mode === "caption" ? "張圖片" : "個分鏡";
+  return mode === "caption" ? "张图片" : "个分镜";
+}
+
+function updateBulkPromptCount() {
+  if (!dom.bulkPromptCount) return;
+  const lines = parseBulkPromptLines(dom.bulkPromptText?.value).length;
+  const rows = getBulkPromptRows().length;
+  dom.bulkPromptCount.textContent = interpolate(cleanText("bulkPromptCount"), {
+    lines,
+    rows,
+    unit: bulkPromptUnit(),
+  });
+  dom.bulkPromptCount.classList.toggle("is-warning", bulkPromptMode === "caption" && lines > rows);
+}
+
+function updateBulkPromptDialogLanguage() {
+  if (!dom.bulkPromptModal) return;
+  const isCaption = bulkPromptMode === "caption";
+  dom.bulkPromptTitle.textContent = cleanText(isCaption ? "bulkCaptionTitle" : "bulkComicTitle");
+  dom.bulkPromptHint.textContent = cleanText(isCaption ? "bulkCaptionHint" : "bulkComicHint");
+  dom.bulkPromptText.placeholder = cleanText("bulkPromptPlaceholder");
+  dom.cancelBulkPrompts.textContent = cleanText("cancel");
+  setButtonText(dom.applyBulkPrompts, "spark", "applyBulkPrompts");
+  updateBulkPromptCount();
+}
+
+function openBulkPromptDialog(mode) {
+  bulkPromptMode = mode === "caption" ? "caption" : "comic";
+  dom.bulkPromptText.value = "";
+  dom.bulkPromptCount.classList.remove("is-error", "is-warning");
+  updateBulkPromptDialogLanguage();
+  openModal(dom.bulkPromptModal);
+  requestAnimationFrame(() => dom.bulkPromptText.focus());
+}
+
+function setBulkPromptDialogError(message) {
+  dom.bulkPromptCount.textContent = message;
+  dom.bulkPromptCount.classList.add("is-error");
+}
+
+async function applyBulkPromptLines() {
+  const lines = parseBulkPromptLines(dom.bulkPromptText.value);
+  if (!lines.length || !lines.some(line => line.trim())) {
+    setBulkPromptDialogError(cleanText("noBulkPrompts"));
+    return;
+  }
+  if (bulkPromptMode === "comic" && lines.length > 100) {
+    setBulkPromptDialogError(cleanText("tooManyComicPrompts"));
+    return;
+  }
+
+  let rows = getBulkPromptRows();
+  if (bulkPromptMode === "caption" && rows.length === 0) {
+    setBulkPromptDialogError(cleanText("noCaptionImages"));
+    return;
+  }
+  if (bulkPromptMode === "caption" && lines.length > rows.length) {
+    setBulkPromptDialogError(interpolate(cleanText("tooManyCaptionPrompts"), { lines: lines.length, rows: rows.length }));
+    return;
+  }
+  if (bulkPromptMode === "comic" && lines.length > rows.length) {
+    await setPanelCount(lines.length);
+    rows = getBulkPromptRows();
+  }
+
+  const targetRows = rows.slice(0, lines.length);
+  const wouldOverwrite = targetRows.some((row, index) => {
+    const current = getBulkPromptInput(row)?.value || "";
+    return current.trim() && current !== lines[index];
+  });
+  if (wouldOverwrite && !(await askConfirm(cleanText("overwriteBulkPrompts")))) return;
+
+  targetRows.forEach((row, index) => {
+    const input = getBulkPromptInput(row);
+    input.value = lines[index];
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  const remaining = Math.max(0, rows.length - lines.length);
+  let message = interpolate(cleanText("bulkPromptsApplied"), { count: targetRows.length });
+  if (remaining) {
+    message += interpolate(cleanText("bulkPromptsRemaining"), { count: remaining, unit: bulkPromptUnit() });
+  }
+  closeModal(dom.bulkPromptModal);
+  showStatus(message, "success");
+}
+
+dom.bulkInputPanelPrompts?.addEventListener("click", () => openBulkPromptDialog("comic"));
+dom.bulkInputCaptionPrompts?.addEventListener("click", () => openBulkPromptDialog("caption"));
+dom.bulkPromptText?.addEventListener("input", () => {
+  dom.bulkPromptCount.classList.remove("is-error");
+  updateBulkPromptCount();
+});
+dom.applyBulkPrompts?.addEventListener("click", () => void applyBulkPromptLines());
+[dom.closeBulkPrompts, dom.cancelBulkPrompts].forEach(button => {
+  button?.addEventListener("click", () => closeModal(dom.bulkPromptModal));
+});
+dom.bulkPromptModal?.addEventListener("click", event => {
+  if (event.target === dom.bulkPromptModal) closeModal(dom.bulkPromptModal);
+});
+dom.bulkPromptModal?.addEventListener("keydown", event => {
+  if (event.key === "Escape") closeModal(dom.bulkPromptModal);
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    void applyBulkPromptLines();
+  }
 });
 
 function collectPanels() {

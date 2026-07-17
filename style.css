@@ -1017,6 +1017,28 @@ select.custom-select-native {
   padding: 18px;
 }
 .modal-card-wide { width: min(980px, 100%); }
+.bulk-prompt-card { width: min(680px, 100%); }
+.bulk-prompt-field textarea {
+  width: 100%;
+  min-height: 240px;
+  max-height: min(48vh, 440px);
+  resize: vertical;
+  line-height: 1.6;
+}
+.bulk-prompt-summary {
+  min-height: 22px;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+.bulk-prompt-summary.is-warning { color: var(--warning); }
+.bulk-prompt-summary.is-error { color: var(--error); }
+.bulk-prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
 .modal-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   margin-bottom: 16px;

@@ -2682,6 +2682,158 @@ async function testCaptionAutoFill(cdp) {
     "Confirming the overwrite and supplying a custom template should fill each row using that template with {n} substituted.", result);
 }
 
+async function testOrderedBulkPromptInput(cdp) {
+  logStep("Ordered bulk prompt input maps one line per comic panel/caption image, preserves blank positions, expands comic panels, and refuses caption overflow");
+  await loadFresh(cdp, "ordered-bulk-prompts");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    document.querySelector('[data-mode="comic"]').click();
+    await sleep(60);
+    document.getElementById("panelCount").value = "2";
+    document.getElementById("createPanels").click();
+    await sleep(60);
+    document.getElementById("bulkInputPanelPrompts").click();
+    await sleep(30);
+    const comicModalOpened = !document.getElementById("bulkPromptModal").classList.contains("hidden");
+    const bulkText = document.getElementById("bulkPromptText");
+    bulkText.value = "镜头一\\n\\n镜头三\\n镜头四\\n";
+    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
+    const comicCountBeforeApply = document.getElementById("bulkPromptCount").textContent;
+    document.getElementById("applyBulkPrompts").click();
+    await sleep(100);
+    const comicPrompts = [...document.querySelectorAll("#panelTbody textarea")].map(el => el.value);
+
+    document.querySelector('[data-mode="caption"]').click();
+    await sleep(60);
+    async function makeImageFile(name, color) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 3; canvas.height = 3;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 3, 3);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      return new File([blob], name, { type: "image/png" });
+    }
+    const dt = new DataTransfer();
+    dt.items.add(await makeImageFile("caption-1.png", "#f33"));
+    dt.items.add(await makeImageFile("caption-2.png", "#3f3"));
+    dt.items.add(await makeImageFile("caption-3.png", "#33f"));
+    const upload = document.getElementById("captionBulkInput");
+    upload.files = dt.files;
+    upload.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(250);
+
+    document.getElementById("bulkInputCaptionPrompts").click();
+    await sleep(30);
+    bulkText.value = "文字一\\n文字二\\n文字三\\n多余文字";
+    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("applyBulkPrompts").click();
+    await sleep(60);
+    const overflowStayedOpen = !document.getElementById("bulkPromptModal").classList.contains("hidden");
+    const overflowMessage = document.getElementById("bulkPromptCount").textContent;
+    const afterRejectedOverflow = [...document.querySelectorAll(".caption-text")].map(el => el.value);
+
+    bulkText.value = "文字一\\n文字二";
+    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("applyBulkPrompts").click();
+    await sleep(80);
+    const captionPrompts = [...document.querySelectorAll(".caption-text")].map(el => el.value);
+    const statusAfterPartial = document.getElementById("status").textContent;
+
+    document.getElementById("bulkInputCaptionPrompts").click();
+    await sleep(30);
+    bulkText.value = "覆盖一";
+    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("applyBulkPrompts").click();
+    const start = Date.now();
+    let ask = null;
+    while (Date.now() - start < 1500) {
+      ask = document.querySelector(".ask-dialog-overlay");
+      if (ask) break;
+      await sleep(20);
+    }
+    const overwriteAsked = !!ask;
+    ask?.querySelector(".ask-dialog-cancel")?.click();
+    await sleep(50);
+    const afterDeclinedOverwrite = document.querySelector(".caption-text").value;
+    document.getElementById("cancelBulkPrompts").click();
+
+    return {
+      comicModalOpened,
+      comicCountBeforeApply,
+      comicPrompts,
+      overflowStayedOpen,
+      overflowMessage,
+      afterRejectedOverflow,
+      captionPrompts,
+      statusAfterPartial,
+      overwriteAsked,
+      afterDeclinedOverwrite,
+    };
+  })()`, true);
+
+  assertQa(result.comicModalOpened, "The comic bulk-prompt button should open the shared dialog.", result);
+  assertQa(result.comicCountBeforeApply.includes("4") && result.comicCountBeforeApply.includes("2"), "The dialog should show live input-line and current-row counts before applying.", result);
+  assertQa(JSON.stringify(result.comicPrompts) === JSON.stringify(["镜头一", "", "镜头三", "镜头四"]), "Comic bulk input should expand to four panels and preserve the internal blank line as panel 2.", result);
+  assertQa(result.overflowStayedOpen && result.overflowMessage.includes("4") && result.overflowMessage.includes("3"), "Caption bulk input must keep the dialog open and explain when prompts outnumber uploaded images.", result);
+  assertQa(result.afterRejectedOverflow.every(value => value === ""), "Rejected caption overflow must not partially mutate any rows.", result);
+  assertQa(JSON.stringify(result.captionPrompts) === JSON.stringify(["文字一", "文字二", ""]), "A shorter caption list should update only matching images and leave the remaining image unchanged.", result);
+  assertQa(result.statusAfterPartial.includes("2") && result.statusAfterPartial.includes("1"), "Partial caption application should explicitly report applied and unchanged counts.", result);
+  assertQa(result.overwriteAsked && result.afterDeclinedOverwrite === "文字一", "Existing prompt text must require confirmation and remain unchanged when overwrite is declined.", result);
+
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  try {
+    await loadFresh(cdp, "ordered-bulk-prompts-mobile");
+    const mobileLayout = await cdp.eval(`(async () => {
+      document.querySelector('[data-mode="comic"]').click();
+      await new Promise(r => setTimeout(r, 50));
+      document.getElementById("bulkInputPanelPrompts").click();
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const card = document.querySelector("#bulkPromptModal .modal-card").getBoundingClientRect();
+      const textarea = document.getElementById("bulkPromptText").getBoundingClientRect();
+      const actions = document.querySelector("#bulkPromptModal .bulk-prompt-actions").getBoundingClientRect();
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        card: { left: card.left, top: card.top, right: card.right, bottom: card.bottom },
+        textarea: { left: textarea.left, right: textarea.right, height: textarea.height },
+        actions: { left: actions.left, right: actions.right, bottom: actions.bottom },
+        bodyOverflow: document.body.style.overflow,
+      };
+    })()`, true);
+    const tolerance = 1;
+    assertQa(
+      mobileLayout.card.left >= -tolerance && mobileLayout.card.top >= -tolerance
+        && mobileLayout.card.right <= mobileLayout.viewport.width + tolerance
+        && mobileLayout.card.bottom <= mobileLayout.viewport.height + tolerance,
+      "The bulk-prompt modal card must remain fully inside a 390x844 mobile viewport.",
+      mobileLayout,
+    );
+    assertQa(
+      mobileLayout.textarea.left >= mobileLayout.card.left - tolerance
+        && mobileLayout.textarea.right <= mobileLayout.card.right + tolerance
+        && mobileLayout.textarea.height >= 180,
+      "The bulk textarea must stay inside the modal and remain comfortably editable on mobile.",
+      mobileLayout,
+    );
+    assertQa(
+      mobileLayout.actions.left >= mobileLayout.card.left - tolerance
+        && mobileLayout.actions.right <= mobileLayout.card.right + tolerance
+        && mobileLayout.actions.bottom <= mobileLayout.card.bottom + tolerance
+        && mobileLayout.bodyOverflow === "hidden",
+      "Mobile modal actions must stay visible and opening the modal must lock background scrolling.",
+      mobileLayout,
+    );
+  } finally {
+    await cdp.send("Emulation.clearDeviceMetricsOverride");
+  }
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -3267,7 +3419,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.18" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === "1.3.19" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,
@@ -3304,6 +3456,7 @@ async function main() {
     await testCustomSelects(cdp);
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
+    await testOrderedBulkPromptInput(cdp);
     await testUploadDebounceWindow(cdp);
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);

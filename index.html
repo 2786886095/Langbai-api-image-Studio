@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260715-1-3-18">
+  <link rel="stylesheet" href="style.css?v=20260717-1-3-19">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -233,6 +233,7 @@
           <div class="section-header">
             <span><span class="ui-icon ui-icon-comic"></span> 分镜列表</span>
             <div class="section-actions">
+              <button type="button" id="bulkInputPanelPrompts" class="btn btn-sm"><span class="ui-icon ui-icon-file"></span> 批量输入提示词</button>
               <button type="button" id="addPanel" class="btn btn-sm"><span class="ui-icon ui-icon-plus"></span> 添加分镜</button>
               <button type="button" id="clearPanels" class="btn btn-sm btn-danger">清空</button>
             </div>
@@ -284,6 +285,7 @@
           <div class="section-header">
             <span><span class="ui-icon ui-icon-bubble"></span> 嵌字列表</span>
             <div class="section-actions">
+              <button type="button" id="bulkInputCaptionPrompts" class="btn btn-sm"><span class="ui-icon ui-icon-file"></span> 批量输入提示词</button>
               <button type="button" id="clearCaptionRows" class="btn btn-sm btn-danger">清空</button>
             </div>
           </div>
@@ -375,6 +377,27 @@
     </div>
   </div>
 
+  <!-- 漫画分镜 / 嵌字共用的批量提示词弹层 -->
+  <div class="modal hidden" id="bulkPromptModal" role="dialog" aria-modal="true" aria-labelledby="bulkPromptTitle">
+    <div class="modal-card bulk-prompt-card" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="bulkPromptTitle">批量输入分镜提示词</h2>
+          <p class="field-hint" id="bulkPromptHint">每行一条，按顺序对应分镜；空行也会占据一个位置。</p>
+        </div>
+        <button type="button" class="icon-btn" id="closeBulkPrompts" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+      </div>
+      <label class="field bulk-prompt-field">
+        <textarea id="bulkPromptText" rows="12" placeholder="第 1 条提示词&#10;第 2 条提示词&#10;第 3 条提示词"></textarea>
+      </label>
+      <div class="bulk-prompt-summary" id="bulkPromptCount" role="status" aria-live="polite">输入 0 行 / 当前 0 个分镜</div>
+      <div class="modal-actions bulk-prompt-actions">
+        <button type="button" id="cancelBulkPrompts" class="btn">取消</button>
+        <button type="button" id="applyBulkPrompts" class="btn btn-primary"><span class="ui-icon ui-icon-spark"></span> 按顺序填入</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 设置弹层 -->
   <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="modal-card" tabindex="-1">
@@ -453,7 +476,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.3.18</strong>
+            <strong id="currentVersionLabel">v1.3.19</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -543,6 +566,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260715-1-3-18"></script>
+  <script src="app.js?v=20260717-1-3-19"></script>
 </body>
 </html>
