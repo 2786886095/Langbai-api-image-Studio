@@ -24,14 +24,14 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.21", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.21\+45$/m);
-assert.match(html, /v1\.3\.21/);
-assert.match(html, /20260717-1-3-21/g);
-assert.match(sw, /ai-image-generator-1-3-21-20260717/);
+assert.equal(version, "1.3.22", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.22\+46$/m);
+assert.match(html, /v1\.3\.22/);
+assert.match(html, /20260719-1-3-22/g);
+assert.match(sw, /ai-image-generator-1-3-22-20260719/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,21,45/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.21"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,22,46/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.22"/);
 
 for (const file of ["app.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
   assert.equal(

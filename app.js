@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.21";
+const APP_VERSION = "1.3.22";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -274,7 +274,6 @@ const CLEAN_LOCALES = {
     bulkComicHint: "每行一条，按顺序对应分镜；空行也会占据一个位置。", bulkCaptionHint: "每行一条，按图片名称顺序对应；空行也会占据一个位置。",
     bulkPromptPlaceholder: "第 1 条提示词\n第 2 条提示词\n第 3 条提示词", bulkPromptCount: "输入 {lines} 行 / 当前 {rows} {unit}",
     applyBulkPrompts: "按顺序填入", cancel: "取消", noBulkPrompts: "请至少输入一条非空提示词", noCaptionImages: "请先批量上传图片",
-    tooManyComicPrompts: "一次最多输入 100 条分镜提示词",
     tooManyCaptionPrompts: "提示词有 {lines} 条，但当前只有 {rows} 张图片。请删除多出的提示词或继续上传图片。",
     overwriteBulkPrompts: "对应位置已有内容，确定按批量输入覆盖吗？", bulkPromptsApplied: "已按顺序填写 {count} 条提示词", bulkPromptsRemaining: "，另有 {count} {unit}保持不变",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜", cancelGeneration: "取消生成",
@@ -346,7 +345,6 @@ const CLEAN_LOCALES = {
     bulkComicHint: "每行一條，依序對應分鏡；空行也會保留一個位置。", bulkCaptionHint: "每行一條，依圖片名稱順序對應；空行也會保留一個位置。",
     bulkPromptPlaceholder: "第 1 條提示詞\n第 2 條提示詞\n第 3 條提示詞", bulkPromptCount: "輸入 {lines} 行 / 目前 {rows} {unit}",
     applyBulkPrompts: "依序填入", cancel: "取消", noBulkPrompts: "請至少輸入一條非空提示詞", noCaptionImages: "請先批次上傳圖片",
-    tooManyComicPrompts: "一次最多輸入 100 條分鏡提示詞",
     tooManyCaptionPrompts: "提示詞有 {lines} 條，但目前只有 {rows} 張圖片。請刪除多出的提示詞或繼續上傳圖片。",
     overwriteBulkPrompts: "對應位置已有內容，確定依批次輸入覆蓋嗎？", bulkPromptsApplied: "已依序填寫 {count} 條提示詞", bulkPromptsRemaining: "，另有 {count} {unit}保持不變",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡", cancelGeneration: "取消生成",
@@ -418,7 +416,6 @@ const CLEAN_LOCALES = {
     bulkComicHint: "One prompt per line, matched to panels in order. Blank lines keep their position.", bulkCaptionHint: "One prompt per line, matched by image filename order. Blank lines keep their position.",
     bulkPromptPlaceholder: "Prompt 1\nPrompt 2\nPrompt 3", bulkPromptCount: "{lines} lines / {rows} {unit}",
     applyBulkPrompts: "Apply in Order", cancel: "Cancel", noBulkPrompts: "Enter at least one non-empty prompt", noCaptionImages: "Upload images first",
-    tooManyComicPrompts: "Up to 100 panel prompts can be entered at once",
     tooManyCaptionPrompts: "There are {lines} prompts but only {rows} images. Remove extra prompts or upload more images.",
     overwriteBulkPrompts: "Some matching rows already contain text. Overwrite them?", bulkPromptsApplied: "Applied {count} prompts in order", bulkPromptsRemaining: "; {count} {unit} left unchanged",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels", cancelGeneration: "Cancel Generation",
@@ -490,7 +487,6 @@ const CLEAN_LOCALES = {
     bulkComicHint: "1行に1件、コマ順に対応します。空行も位置として保持されます。", bulkCaptionHint: "1行に1件、画像ファイル名順に対応します。空行も位置として保持されます。",
     bulkPromptPlaceholder: "プロンプト 1\nプロンプト 2\nプロンプト 3", bulkPromptCount: "入力 {lines} 行 / 現在 {rows} {unit}",
     applyBulkPrompts: "順番に入力", cancel: "キャンセル", noBulkPrompts: "空でないプロンプトを1件以上入力してください", noCaptionImages: "先に画像を一括アップロードしてください",
-    tooManyComicPrompts: "一度に入力できるコマプロンプトは100件までです",
     tooManyCaptionPrompts: "プロンプトは {lines} 件ですが、画像は {rows} 枚です。余分なプロンプトを削除するか画像を追加してください。",
     overwriteBulkPrompts: "対応する行に内容があります。上書きしますか？", bulkPromptsApplied: "{count} 件のプロンプトを順番に入力しました", bulkPromptsRemaining: "、残り {count} {unit}は変更していません",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成", cancelGeneration: "生成をキャンセル",
@@ -562,7 +558,6 @@ const CLEAN_LOCALES = {
     bulkComicHint: "한 줄에 하나씩 콘티 순서대로 대응합니다. 빈 줄도 위치를 유지합니다.", bulkCaptionHint: "한 줄에 하나씩 이미지 파일명 순서대로 대응합니다. 빈 줄도 위치를 유지합니다.",
     bulkPromptPlaceholder: "프롬프트 1\n프롬프트 2\n프롬프트 3", bulkPromptCount: "입력 {lines}줄 / 현재 {rows}개 {unit}",
     applyBulkPrompts: "순서대로 입력", cancel: "취소", noBulkPrompts: "비어 있지 않은 프롬프트를 하나 이상 입력하세요", noCaptionImages: "먼저 이미지를 일괄 업로드하세요",
-    tooManyComicPrompts: "콘티 프롬프트는 한 번에 최대 100개까지 입력할 수 있습니다",
     tooManyCaptionPrompts: "프롬프트는 {lines}개지만 이미지는 {rows}장뿐입니다. 초과 프롬프트를 삭제하거나 이미지를 더 업로드하세요.",
     overwriteBulkPrompts: "대응 위치에 기존 내용이 있습니다. 덮어쓸까요?", bulkPromptsApplied: "프롬프트 {count}개를 순서대로 입력했습니다", bulkPromptsRemaining: ", 나머지 {count}개 {unit}은 변경하지 않았습니다",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성", cancelGeneration: "생성 취소",
@@ -2944,10 +2939,10 @@ const MAX_REFERENCE_FILES = 100;
 const MAX_REFERENCE_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_REFERENCE_TOTAL_BYTES = 250 * 1024 * 1024;
 
-function validateImageImport(files, existingCount = 0) {
+function validateImageImport(files, existingCount = 0, { maxFiles = MAX_REFERENCE_FILES } = {}) {
   const imageFiles = [...files].filter(file => file?.type?.startsWith("image/"));
-  if (existingCount + imageFiles.length > MAX_REFERENCE_FILES) {
-    throw new Error(`参考图最多 ${MAX_REFERENCE_FILES} 张，当前选择会达到 ${existingCount + imageFiles.length} 张`);
+  if (Number.isFinite(maxFiles) && existingCount + imageFiles.length > maxFiles) {
+    throw new Error(`参考图最多 ${maxFiles} 张，当前选择会达到 ${existingCount + imageFiles.length} 张`);
   }
   const oversized = imageFiles.find(file => Number(file.size || 0) > MAX_REFERENCE_FILE_BYTES);
   if (oversized) throw new Error(`${oversized.name || "图片"} 超过单张 25 MB 限制`);
@@ -3260,7 +3255,7 @@ function applyPanelRowImage(row, ref) {
   imgClear.classList.remove("hidden");
 }
 
-function addPanelRow(prefilledRef = null) {
+function addPanelRow(prefilledRef = null, { syncCount = true } = {}) {
   panelCounter++;
   const clone = panelRowTemplate.content.cloneNode(true);
   const row = clone.querySelector(".panel-row");
@@ -3325,7 +3320,7 @@ function addPanelRow(prefilledRef = null) {
   if (prefilledRef) applyPanelRowImage(row, prefilledRef);
 
   dom.panelTbody.appendChild(row);
-  syncPanelCountInput();
+  if (syncCount) syncPanelCountInput();
   return row;
 }
 
@@ -3358,11 +3353,11 @@ function getPanelRetryCount(row) {
 function getRequestedPanelCount() {
   const raw = Number(dom.panelCount?.value);
   if (!Number.isFinite(raw)) return 1;
-  return Math.min(100, Math.max(1, Math.floor(raw)));
+  return Math.max(1, Math.floor(raw));
 }
 
 async function setPanelCount(targetCount) {
-  const target = Math.min(100, Math.max(1, Math.floor(Number(targetCount) || 1)));
+  const target = Math.max(1, Math.floor(Number(targetCount) || 1));
   const rows = $$(".panel-row", dom.panelTbody);
   const current = rows.length;
 
@@ -3373,7 +3368,11 @@ async function setPanelCount(targetCount) {
   }
 
   if (target > current) {
-    for (let i = current; i < target; i++) addPanelRow();
+    for (let i = current; i < target; i++) {
+      addPanelRow(null, { syncCount: false });
+      if ((i - current + 1) % 100 === 0) await new Promise(requestAnimationFrame);
+    }
+    syncPanelCountInput();
     showStatus(`已创建 ${target} 个分镜`, "success");
     return;
   }
@@ -3402,7 +3401,7 @@ dom.panelCount?.addEventListener("keydown", e => {
   }
 });
 
-dom.addPanel.addEventListener("click", addPanelRow);
+dom.addPanel.addEventListener("click", () => addPanelRow());
 dom.clearPanels.addEventListener("click", async () => {
   if (dom.panelTbody.children.length === 0 && !abortController) return;
   if (await askConfirm("确定清空所有分镜？")) {
@@ -3644,11 +3643,6 @@ async function applyBulkPromptLines() {
     setBulkPromptDialogError(cleanText("noBulkPrompts"));
     return;
   }
-  if (bulkPromptMode === "comic" && lines.length > 100) {
-    setBulkPromptDialogError(cleanText("tooManyComicPrompts"));
-    return;
-  }
-
   let rows = getBulkPromptRows();
   if (bulkPromptMode === "caption" && rows.length === 0) {
     setBulkPromptDialogError(cleanText("noCaptionImages"));
@@ -3800,7 +3794,7 @@ function addCaptionRow(prefilledRef = null) {
 
 async function addCaptionRowsFromFiles(fileList) {
   try {
-    const imageFiles = validateImageImport(fileList, dom.captionTbody.children.length);
+    const imageFiles = validateImageImport(fileList, dom.captionTbody.children.length, { maxFiles: Infinity });
     if (imageFiles.length === 0) return;
     const refs = sortReferencesByName(await mapWithConcurrency(imageFiles, 4, readImageReference));
     refs.forEach(ref => addCaptionRow(ref));

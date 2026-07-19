@@ -8,7 +8,7 @@ const { spawn } = require("child_process");
 
 const projectRoot = path.resolve(__dirname, "..");
 const host = "127.0.0.1";
-const appPort = 8765;
+const appPort = Number(process.env.AIGEN_QA_APP_PORT) || 8765;
 const debugPort = Number(process.env.AIGEN_QA_DEBUG_PORT) || (19000 + (process.pid % 20000));
 const appUrl = `http://${host}:${appPort}/index.html`;
 const edgeProfile = path.join(path.dirname(projectRoot), `aigen-edge-qa-${process.pid}`);
@@ -3041,6 +3041,64 @@ async function testOrderedBulkPromptInput(cdp) {
   }
 }
 
+async function testBulkPromptInputBeyondOneHundred(cdp) {
+  logStep("Comic and caption bulk prompt workflows accept more than 100 ordered entries without an application hard limit");
+  await loadFresh(cdp, "bulk-prompts-over-100");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const total = 105;
+    const prompts = Array.from({ length: total }, (_, index) => "批量提示词 " + (index + 1));
+
+    document.querySelector('[data-mode="comic"]').click();
+    await sleep(40);
+    openBulkPromptDialog("comic");
+    dom.bulkPromptText.value = prompts.join("\\n");
+    await applyBulkPromptLines();
+    const comicRows = [...document.querySelectorAll("#panelTbody .panel-row")];
+    const comic = {
+      count: comicRows.length,
+      inputCount: document.getElementById("panelCount").value,
+      first: comicRows[0]?.querySelector("textarea")?.value || "",
+      last: comicRows.at(-1)?.querySelector("textarea")?.value || "",
+    };
+
+    document.querySelector('[data-mode="caption"]').click();
+    await sleep(40);
+    dom.captionTbody.innerHTML = "";
+    captionRowCounter = 0;
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    for (let index = 0; index < total; index++) {
+      addCaptionRow({ dataUrl: png, fileName: "caption-" + String(index + 1).padStart(3, "0") + ".png" });
+    }
+    openBulkPromptDialog("caption");
+    dom.bulkPromptText.value = prompts.join("\\n");
+    await applyBulkPromptLines();
+    const captionRows = [...document.querySelectorAll("#captionTbody .caption-row")];
+    const caption = {
+      count: captionRows.length,
+      first: captionRows[0]?.querySelector(".caption-text")?.value || "",
+      last: captionRows.at(-1)?.querySelector(".caption-text")?.value || "",
+    };
+
+    const files = Array.from({ length: total }, (_, index) => new File(
+      [new Uint8Array([index % 255])],
+      "caption-" + index + ".png",
+      { type: "image/png" },
+    ));
+    let globalReferenceRejected = false;
+    try { validateImageImport(files, 0); } catch { globalReferenceRejected = true; }
+    const captionImportCount = validateImageImport(files, 0, { maxFiles: Infinity }).length;
+    return { total, comic, caption, globalReferenceRejected, captionImportCount };
+  })()`, true);
+
+  assertQa(result.comic.count === result.total && result.comic.inputCount === String(result.total), "Comic bulk input must auto-create every panel beyond the former 100-panel cap.", result);
+  assertQa(result.comic.first === "批量提示词 1" && result.comic.last === `批量提示词 ${result.total}`, "Comic bulk prompts must preserve ordering beyond 100 entries.", result);
+  assertQa(result.caption.count === result.total && result.caption.first === "批量提示词 1" && result.caption.last === `批量提示词 ${result.total}`, "Caption bulk prompts must map beyond 100 imported images without truncation.", result);
+  assertQa(result.captionImportCount === result.total, "Caption image import must not retain the shared 100-reference hard limit.", result);
+  assertQa(result.globalReferenceRejected, "Removing the caption limit must not allow an unlimited number of global references in a single generation request.", result);
+}
+
 async function testAndroidUpdateRedirect(cdp) {
   logStep("Android update check should redirect to GitHub release page, not install in-app");
   await cdp.send("Emulation.setUserAgentOverride", {
@@ -3626,7 +3684,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.21" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === "1.3.22" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,
@@ -3664,6 +3722,7 @@ async function main() {
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
     await testOrderedBulkPromptInput(cdp);
+    await testBulkPromptInputBeyondOneHundred(cdp);
     await testUploadDebounceWindow(cdp);
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);

@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.21
+# Codex / Claude Handoff: AI 图片生成器 v1.3.22
 
 更新时间：2026-07-17
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,18 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.21+45`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.22+46`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.22 增量功能
+
+- 移除漫画分镜数量输入、批量分镜提示词的 100 条硬上限；批量输入多少行就自动扩展到多少个分镜。
+- 大批量创建每 100 行主动让出一次渲染帧，避免一次性创建大量 DOM 行时界面长期无响应。
+- 嵌字模式允许导入超过 100 张图片并按顺序填入同数量提示词；仍保留图片数量一一对应、单张 25 MB 和单批 250 MB 校验。
+- 全局参考图仍限制 100 张，避免一次生图请求携带无限参考图；该限制与嵌字批量图片已拆分。
+- 回归覆盖 105 条漫画提示词和 105 条嵌字提示词，确认首尾顺序、数量和不截断。
 
 ## v1.3.21 增量功能
 
@@ -31,7 +39,7 @@
 
 - 漫画分镜与嵌字模式新增共用的“批量输入提示词”弹窗。
 - 每行一条提示词，严格按分镜顺序或图片名称顺序映射；内部空行保留位置，避免后续内容错位。
-- 漫画提示词多于现有分镜时自动扩展分镜，最多 100 条。
+- 漫画提示词多于现有分镜时自动扩展分镜；从 v1.3.22 起不再设置数量硬上限。
 - 嵌字提示词多于图片时阻止应用并显示数量差异；少于图片时只更新前面的对应项，其余保持不变。
 - 覆盖已有内容前使用跨端页面确认框；支持 `Ctrl/Cmd + Enter` 应用、Esc 关闭、焦点陷阱和弹层滚动隔离。
 - 五种语言均已补齐按钮、说明、计数和错误提示；浏览器回归覆盖空行、扩展、溢出、局部填写和拒绝覆盖。
@@ -152,9 +160,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.21"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.22"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.21` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.22` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -170,5 +178,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.21 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.22 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
