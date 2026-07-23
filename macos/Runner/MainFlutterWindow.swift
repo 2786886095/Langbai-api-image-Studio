@@ -132,6 +132,21 @@ class MainFlutterWindow: NSWindow {
     return String(source.components(separatedBy: invalid).joined(separator: "_").prefix(180))
   }
 
+  private func collisionSafeFileURL(directory: URL, fileName: String) -> URL {
+    let desired = directory.appendingPathComponent(fileName, isDirectory: false)
+    if !FileManager.default.fileExists(atPath: desired.path) { return desired }
+    let value = fileName as NSString
+    let ext = value.pathExtension
+    let stem = value.deletingPathExtension
+    var copy = 1
+    while true {
+      let candidateName = ext.isEmpty ? "\(stem)（\(copy)）" : "\(stem)（\(copy)）.\(ext)"
+      let candidate = directory.appendingPathComponent(candidateName, isDirectory: false)
+      if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+      copy += 1
+    }
+  }
+
   private func saveFile(arguments: [String: Any], result: @escaping FlutterResult) {
     let kind = normalizedKind(arguments["kind"] as? String)
     let fileName = sanitizeFileName(
@@ -141,6 +156,10 @@ class MainFlutterWindow: NSWindow {
     let folder = sanitizeFileName(arguments["folder"] as? String ?? "", fallback: "")
     guard let data = Data(base64Encoded: arguments["base64"] as? String ?? "") else {
       result(FlutterError(code: "invalid_data", message: "Invalid base64 file data.", details: nil))
+      return
+    }
+    guard !data.isEmpty else {
+      result(FlutterError(code: "empty_file", message: "Cannot save an empty file.", details: nil))
       return
     }
 
@@ -157,7 +176,7 @@ class MainFlutterWindow: NSWindow {
           attributes: nil
         )
       }
-      let target = directory.appendingPathComponent(fileName, isDirectory: false)
+      let target = collisionSafeFileURL(directory: directory, fileName: fileName)
       try data.write(to: target, options: .atomic)
       result(target.path)
     } catch {

@@ -687,10 +687,43 @@ class WindowsWebShell extends StatefulWidget {
 /// it can be unit-tested without needing a real WebviewController.
 bool isDegenerateWindowSize(Size size) => size.width < 2 || size.height < 2;
 
+String collisionSafeFileName(
+  String desiredName,
+  bool Function(String candidate) exists,
+) {
+  if (!exists(desiredName)) return desiredName;
+  final dot = desiredName.lastIndexOf('.');
+  final hasExtension = dot > 0;
+  final stem = hasExtension ? desiredName.substring(0, dot) : desiredName;
+  final extension = hasExtension ? desiredName.substring(dot) : '';
+  var copy = 1;
+  while (true) {
+    final candidate = '$stem（$copy）$extension';
+    if (!exists(candidate)) return candidate;
+    copy++;
+  }
+}
+
+class _WindowsFileTransfer {
+  _WindowsFileTransfer({
+    required this.tempFile,
+    required this.kind,
+    required this.fileName,
+    required this.folder,
+  });
+
+  final File tempFile;
+  final String kind;
+  final String fileName;
+  final String folder;
+  int bytesWritten = 0;
+}
+
 class _WindowsWebShellState extends State<WindowsWebShell>
     with WidgetsBindingObserver {
   final _controller = windows_webview.WebviewController();
   final _subscriptions = <StreamSubscription<dynamic>>[];
+  final _pendingFileTransfers = <String, _WindowsFileTransfer>{};
 
   bool _isReady = false;
   bool _isWindowSizeDegenerate = false;
@@ -858,6 +891,20 @@ class _WindowsWebShellState extends State<WindowsWebShell>
             payload['fileName']?.toString() ?? 'download.bin',
             payload['base64']?.toString() ?? '',
             payload['folder']?.toString() ?? '',
+          );
+          break;
+        case 'saveFileBegin':
+          result = await _beginWindowsFileTransfer(payload);
+          break;
+        case 'saveFileChunk':
+          result = await _appendWindowsFileTransfer(payload);
+          break;
+        case 'saveFileCommit':
+          result = await _commitWindowsFileTransfer(payload);
+          break;
+        case 'saveFileAbort':
+          result = await _abortWindowsFileTransfer(
+            payload['transferId']?.toString() ?? '',
           );
           break;
         case 'downloadUpdate':
@@ -1093,6 +1140,29 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     String encoded, [
     String folder = '',
   ]) async {
+    final encodedValue = encoded.trim();
+    if (encodedValue.isEmpty) {
+      throw PlatformException(
+        code: 'empty_file',
+        message: 'Cannot save an empty file.',
+      );
+    }
+    late final Uint8List bytes;
+    try {
+      bytes = base64Decode(encodedValue);
+    } on FormatException {
+      throw PlatformException(
+        code: 'invalid_data',
+        message: 'Invalid base64 file data.',
+      );
+    }
+    return _saveWindowsBytes(kind, fileName, bytes, folder);
+  }
+
+  Future<Directory> _resolveWindowsSaveDirectory(
+    String kind,
+    String folder,
+  ) async {
     final baseDir = await _ensureWindowsDownloadDir(kind);
     var dir = baseDir;
     final trimmedFolder = folder.trim();
@@ -1103,10 +1173,173 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         await Directory(dir).create(recursive: true);
       }
     }
+    return Directory(dir);
+  }
+
+  Future<String> _saveWindowsBytes(
+    String kind,
+    String fileName,
+    List<int> bytes, [
+    String folder = '',
+  ]) async {
+    if (bytes.isEmpty) {
+      throw PlatformException(
+        code: 'empty_file',
+        message: 'Cannot save an empty file.',
+      );
+    }
+    final directory = await _resolveWindowsSaveDirectory(kind, folder);
     final safeName = _sanitizeWindowsFileName(fileName);
-    final file = File([dir, safeName].join(Platform.pathSeparator));
-    await file.writeAsBytes(base64Decode(encoded), flush: true);
+    final uniqueName = collisionSafeFileName(
+      safeName,
+      (candidate) => File([
+        directory.path,
+        candidate,
+      ].join(Platform.pathSeparator))
+          .existsSync(),
+    );
+    final file = File([
+      directory.path,
+      uniqueName,
+    ].join(Platform.pathSeparator));
+    await file.writeAsBytes(bytes, flush: true);
+    if (!await file.exists() || await file.length() != bytes.length) {
+      await file.delete().catchError((_) => file);
+      throw PlatformException(
+        code: 'incomplete_write',
+        message: 'Saved file size does not match the source data.',
+      );
+    }
     return file.path;
+  }
+
+  String _windowsTransferId(Map<String, dynamic> payload) {
+    final id = payload['transferId']?.toString() ?? '';
+    if (!RegExp(r'^file_[A-Za-z0-9_-]{1,120}$').hasMatch(id)) {
+      throw PlatformException(
+        code: 'invalid_transfer',
+        message: 'Invalid file transfer id.',
+      );
+    }
+    return id;
+  }
+
+  Future<bool> _beginWindowsFileTransfer(Map<String, dynamic> payload) async {
+    final id = _windowsTransferId(payload);
+    await _abortWindowsFileTransfer(id);
+    final tempFile = File([
+      Directory.systemTemp.path,
+      'ai-image-generator-$id.part',
+    ].join(Platform.pathSeparator));
+    await tempFile.parent.create(recursive: true);
+    await tempFile.writeAsBytes(const <int>[], flush: true);
+    _pendingFileTransfers[id] = _WindowsFileTransfer(
+      tempFile: tempFile,
+      kind: payload['kind']?.toString() ?? 'images',
+      fileName: payload['fileName']?.toString() ?? 'download.bin',
+      folder: payload['folder']?.toString() ?? '',
+    );
+    return true;
+  }
+
+  Future<int> _appendWindowsFileTransfer(Map<String, dynamic> payload) async {
+    final id = _windowsTransferId(payload);
+    final transfer = _pendingFileTransfers[id];
+    if (transfer == null) {
+      throw PlatformException(
+        code: 'missing_transfer',
+        message: 'File transfer was not started.',
+      );
+    }
+    final encoded = payload['chunk']?.toString() ?? '';
+    if (encoded.isEmpty || encoded.length > 384 * 1024) {
+      throw PlatformException(
+        code: 'invalid_chunk',
+        message: 'File chunk is empty or too large.',
+      );
+    }
+    late final Uint8List bytes;
+    try {
+      bytes = base64Decode(encoded);
+    } on FormatException {
+      throw PlatformException(
+        code: 'invalid_chunk',
+        message: 'File chunk is not valid base64.',
+      );
+    }
+    if (bytes.isEmpty) {
+      throw PlatformException(
+        code: 'empty_chunk',
+        message: 'Decoded file chunk is empty.',
+      );
+    }
+    await transfer.tempFile.writeAsBytes(
+      bytes,
+      mode: FileMode.append,
+      flush: true,
+    );
+    transfer.bytesWritten += bytes.length;
+    return transfer.bytesWritten;
+  }
+
+  Future<String> _commitWindowsFileTransfer(
+    Map<String, dynamic> payload,
+  ) async {
+    final id = _windowsTransferId(payload);
+    final transfer = _pendingFileTransfers.remove(id);
+    if (transfer == null) {
+      throw PlatformException(
+        code: 'missing_transfer',
+        message: 'File transfer was not started.',
+      );
+    }
+    try {
+      final length = await transfer.tempFile.length();
+      if (length <= 0 || length != transfer.bytesWritten) {
+        throw PlatformException(
+          code: 'incomplete_transfer',
+          message: 'File transfer is empty or incomplete.',
+        );
+      }
+      final directory = await _resolveWindowsSaveDirectory(
+        transfer.kind,
+        transfer.folder,
+      );
+      final safeName = _sanitizeWindowsFileName(transfer.fileName);
+      final uniqueName = collisionSafeFileName(
+        safeName,
+        (candidate) => File([
+          directory.path,
+          candidate,
+        ].join(Platform.pathSeparator))
+            .existsSync(),
+      );
+      final target = File([
+        directory.path,
+        uniqueName,
+      ].join(Platform.pathSeparator));
+      await transfer.tempFile.copy(target.path);
+      if (!await target.exists() || await target.length() != length) {
+        if (await target.exists()) await target.delete();
+        throw PlatformException(
+          code: 'incomplete_write',
+          message: 'Saved file size does not match the transferred data.',
+        );
+      }
+      return target.path;
+    } finally {
+      if (await transfer.tempFile.exists()) {
+        await transfer.tempFile.delete();
+      }
+    }
+  }
+
+  Future<bool> _abortWindowsFileTransfer(String id) async {
+    final transfer = _pendingFileTransfers.remove(id);
+    if (transfer != null && await transfer.tempFile.exists()) {
+      await transfer.tempFile.delete();
+    }
+    return true;
   }
 
   // 更新安装包是 Inno Setup 生成的 Setup.exe：下载后直接静默运行它即可，
@@ -1204,6 +1437,11 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    for (final transfer in _pendingFileTransfers.values) {
+      unawaited(
+          transfer.tempFile.delete().catchError((_) => transfer.tempFile));
+    }
+    _pendingFileTransfers.clear();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }

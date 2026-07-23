@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.22";
+const APP_VERSION = "1.3.23";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -280,7 +280,7 @@ const CLEAN_LOCALES = {
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…", projectExportName: "项目 / 文件夹名称（可选）…",
     downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
-    imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录",
+    imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录", imageAskEveryTime: "每次保存图片时询问路径", zipAskEveryTime: "每次保存 ZIP 时询问路径", pathModeHint: "未勾选时使用上方保存目录；勾选后每次保存都会重新选择一次目录。", textSelectAll: "全选", textCut: "剪切", textCopy: "复制", textPaste: "粘贴",
     historyTitle: "生图记录", historyHint: "漫画与嵌字任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", imageCacheTitle: "图片临时缓存", cacheRetentionDays: "自动清理天数", cacheRetentionHint: "生成成功后立即缓存在应用内部，避免中转图片链接过期；只有打包 ZIP 或保存到文件夹时才会写入所选目录。", clearGeneratedCache: "立即清理缓存", cacheAutoHint: "缓存会在应用启动和生成新图片时自动清理。", cacheCleared: "已清理 {count} 张缓存图片", cacheCleanupFailed: "缓存清理失败：{reason}", autoRetry: "自动重试", globalRetries: "全局重试次数",
@@ -351,7 +351,7 @@ const CLEAN_LOCALES = {
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…", projectExportName: "專案 / 資料夾名稱（可選）…",
     downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
-    imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄",
+    imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄", imageAskEveryTime: "每次儲存圖片時詢問路徑", zipAskEveryTime: "每次儲存 ZIP 時詢問路徑", pathModeHint: "未勾選時使用上方儲存目錄；勾選後每次儲存都會重新選擇一次目錄。", textSelectAll: "全選", textCut: "剪下", textCopy: "複製", textPaste: "貼上",
     historyTitle: "生圖記錄", historyHint: "漫畫與嵌字工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", imageCacheTitle: "圖片暫存快取", cacheRetentionDays: "自動清理天數", cacheRetentionHint: "生成成功後會立即快取在應用程式內，避免中轉圖片連結過期；只有打包 ZIP 或儲存到資料夾時才會寫入所選目錄。", clearGeneratedCache: "立即清理快取", cacheAutoHint: "快取會在應用程式啟動和生成新圖片時自動清理。", cacheCleared: "已清理 {count} 張快取圖片", cacheCleanupFailed: "快取清理失敗：{reason}", autoRetry: "自動重試", globalRetries: "全域重試次數",
@@ -422,7 +422,7 @@ const CLEAN_LOCALES = {
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...", projectExportName: "Project / folder name (optional)...",
     downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
-    imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder",
+    imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder", imageAskEveryTime: "Ask where to save each image", zipAskEveryTime: "Ask where to save each ZIP", pathModeHint: "When unchecked, the saved folder above is used. When checked, a folder is requested for every save.", textSelectAll: "Select all", textCut: "Cut", textCopy: "Copy", textPaste: "Paste",
     historyTitle: "Generation History", historyHint: "Comic and caption jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", imageCacheTitle: "Temporary image cache", cacheRetentionDays: "Auto-clean after days", cacheRetentionHint: "Successful generations are cached inside the app immediately so relay URLs cannot expire first. Files are written to your chosen folder only when you package a ZIP or save to a folder.", clearGeneratedCache: "Clear cache now", cacheAutoHint: "The cache is cleaned automatically on app launch and after new images are generated.", cacheCleared: "Cleared {count} cached images", cacheCleanupFailed: "Cache cleanup failed: {reason}", autoRetry: "Auto Retry", globalRetries: "Global retries",
@@ -493,7 +493,7 @@ const CLEAN_LOCALES = {
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...", projectExportName: "プロジェクト / フォルダー名（任意）...",
     downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
-    imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択",
+    imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択", imageAskEveryTime: "画像保存時に毎回保存先を確認", zipAskEveryTime: "ZIP 保存時に毎回保存先を確認", pathModeHint: "未選択の場合は上の保存先を使用します。選択すると保存のたびにフォルダーを確認します。", textSelectAll: "すべて選択", textCut: "切り取り", textCopy: "コピー", textPaste: "貼り付け",
     historyTitle: "生成履歴", historyHint: "漫画と文字入れはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", imageCacheTitle: "画像一時キャッシュ", cacheRetentionDays: "自動削除までの日数", cacheRetentionHint: "中継画像 URL の期限切れを防ぐため、生成成功後すぐにアプリ内へキャッシュします。選択したフォルダーへ書き込むのは ZIP 作成またはフォルダー保存時だけです。", clearGeneratedCache: "今すぐキャッシュを削除", cacheAutoHint: "キャッシュはアプリ起動時と新しい画像の生成後に自動整理されます。", cacheCleared: "{count} 件のキャッシュ画像を削除しました", cacheCleanupFailed: "キャッシュの整理に失敗しました：{reason}", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
@@ -564,7 +564,7 @@ const CLEAN_LOCALES = {
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...", projectExportName: "프로젝트 / 폴더 이름(선택)...",
     downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
-    imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택",
+    imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택", imageAskEveryTime: "이미지를 저장할 때마다 경로 묻기", zipAskEveryTime: "ZIP을 저장할 때마다 경로 묻기", pathModeHint: "선택하지 않으면 위의 저장 폴더를 사용합니다. 선택하면 저장할 때마다 폴더를 다시 묻습니다.", textSelectAll: "전체 선택", textCut: "잘라내기", textCopy: "복사", textPaste: "붙여넣기",
     historyTitle: "생성 기록", historyHint: "만화와 캡션 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", imageCacheTitle: "이미지 임시 캐시", cacheRetentionDays: "자동 정리 일수", cacheRetentionHint: "중계 이미지 URL 만료를 막기 위해 생성 성공 즉시 앱 내부에 캐시합니다. 선택한 폴더에는 ZIP 패키징 또는 폴더 저장을 실행할 때만 파일을 씁니다.", clearGeneratedCache: "지금 캐시 정리", cacheAutoHint: "캐시는 앱 시작 시와 새 이미지 생성 후 자동으로 정리됩니다.", cacheCleared: "캐시 이미지 {count}개를 정리했습니다", cacheCleanupFailed: "캐시 정리 실패: {reason}", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
@@ -887,6 +887,14 @@ function applyCleanLanguage() {
   setText(".download-settings h3", "downloadPaths");
   setText(".download-settings .setting-row:nth-of-type(1) strong", "imageSaveFolder");
   setText(".download-settings .setting-row:nth-of-type(2) strong", "zipSaveFolder");
+  setText(".download-settings .path-mode-option:nth-of-type(1) span", "imageAskEveryTime");
+  setText(".download-settings .path-mode-option:nth-of-type(2) span", "zipAskEveryTime");
+  setText(".download-settings > .field-hint:last-child", "pathModeHint");
+  const textMenuLabels = { selectAll: "textSelectAll", cut: "textCut", copy: "textCopy", paste: "textPaste" };
+  Object.entries(textMenuLabels).forEach(([action, key]) => {
+    const button = dom.textContextMenu?.querySelector(`[data-text-action="${action}"]`);
+    if (button) button.textContent = cleanText(key);
+  });
   setText(".history-settings h3", "historyTitle");
   setText(".history-settings .checkbox-field span", "autoSaveHistory");
   setText(".history-settings .field span", "maxRecords");
@@ -1170,6 +1178,9 @@ const dom = {
   settingsChooseZipDir:   $("#settingsChooseZipDir"),
   settingsImageDirLabel:  $("#settingsImageDirLabel"),
   settingsZipDirLabel:    $("#settingsZipDirLabel"),
+  imageAskEveryTime: $("#imageAskEveryTime"),
+  zipAskEveryTime: $("#zipAskEveryTime"),
+  textContextMenu: $("#textContextMenu"),
   settingsChooseInstallDir: $("#settingsChooseInstallDir"),
   settingsResetInstallDir:  $("#settingsResetInstallDir"),
   settingsInstallDirLabel:  $("#settingsInstallDirLabel"),
@@ -2022,13 +2033,15 @@ function loadSettings() {
       historyEnabled: true,
       historyLimit: 100,
       cacheRetentionDays: 7,
+      imageAskEveryTime: false,
+      zipAskEveryTime: false,
       retryCount: 3,
       desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE,
       desktopProxyCustomUrl: "",
       ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")
     };
   } catch {
-    return { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, retryCount: 3, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
+    return { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, retryCount: 3, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
   }
 }
 
@@ -2037,6 +2050,8 @@ function saveSettings(next = {}) {
   const merged = { ...current, ...next };
   merged.historyLimit = Math.min(500, Math.max(20, Number(merged.historyLimit) || 100));
   merged.cacheRetentionDays = Math.min(365, Math.max(1, Math.round(Number(merged.cacheRetentionDays) || 7)));
+  merged.imageAskEveryTime = merged.imageAskEveryTime === true;
+  merged.zipAskEveryTime = merged.zipAskEveryTime === true;
   merged.retryCount = clampRetryCount(merged.retryCount);
   merged.desktopProxyMode = normalizeDesktopProxyMode(merged.desktopProxyMode);
   merged.desktopProxyCustomUrl = String(merged.desktopProxyCustomUrl || "").trim();
@@ -2049,6 +2064,8 @@ function applySettings(settings = loadSettings()) {
   if (dom.historyEnabled) dom.historyEnabled.checked = settings.historyEnabled !== false;
   if (dom.historyLimit) dom.historyLimit.value = String(settings.historyLimit || 100);
   if (dom.cacheRetentionDays) dom.cacheRetentionDays.value = String(settings.cacheRetentionDays || 7);
+  if (dom.imageAskEveryTime) dom.imageAskEveryTime.checked = settings.imageAskEveryTime === true;
+  if (dom.zipAskEveryTime) dom.zipAskEveryTime.checked = settings.zipAskEveryTime === true;
   if (dom.retryCount) dom.retryCount.value = String(clampRetryCount(settings.retryCount));
   if (dom.desktopProxyMode) dom.desktopProxyMode.value = normalizeDesktopProxyMode(settings.desktopProxyMode);
   if (dom.desktopProxyCustomUrl) dom.desktopProxyCustomUrl.value = String(settings.desktopProxyCustomUrl || "");
@@ -2347,6 +2364,8 @@ dom.cacheRetentionDays?.addEventListener("change", () => {
   saveSettings({ cacheRetentionDays: dom.cacheRetentionDays.value });
   void cleanupGeneratedImageCache({ updateStatus: true });
 });
+dom.imageAskEveryTime?.addEventListener("change", () => saveSettings({ imageAskEveryTime: dom.imageAskEveryTime.checked }));
+dom.zipAskEveryTime?.addEventListener("change", () => saveSettings({ zipAskEveryTime: dom.zipAskEveryTime.checked }));
 dom.clearGeneratedCache?.addEventListener("click", () => void clearGeneratedImageCacheFromSettings());
 dom.retryCount?.addEventListener("change", () => saveSettings({ retryCount: dom.retryCount.value }));
 dom.desktopProxyMode?.addEventListener("change", () => {
@@ -2361,8 +2380,113 @@ dom.testDesktopProxy?.addEventListener("click", () => void testDesktopProxy());
 dom.failedRetryCount?.addEventListener("input", () => { dom.failedRetryCount.dataset.edited = "true"; });
 dom.failedRetryCount?.addEventListener("change", getFailedRetryCount);
 dom.retryFailedAll?.addEventListener("click", retryAllFailedResults);
+
+let textContextTarget = null;
+
+function isPromptTextTarget(target) {
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return false;
+  if (target.disabled || target.readOnly) return false;
+  return target.matches("#prompt, #bulkPromptText") || !!target.closest("#panelTbody, #captionTbody");
+}
+
+function closeTextContextMenu() {
+  dom.textContextMenu?.classList.add("hidden");
+  textContextTarget = null;
+}
+
+function openTextContextMenu(target, x, y) {
+  if (!dom.textContextMenu) return;
+  textContextTarget = target;
+  dom.textContextMenu.classList.remove("hidden");
+  dom.textContextMenu.style.left = "0px";
+  dom.textContextMenu.style.top = "0px";
+  requestAnimationFrame(() => {
+    if (!dom.textContextMenu || dom.textContextMenu.classList.contains("hidden")) return;
+    const rect = dom.textContextMenu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
+    const top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8));
+    dom.textContextMenu.style.left = `${left}px`;
+    dom.textContextMenu.style.top = `${top}px`;
+    dom.textContextMenu.querySelector("button")?.focus({ preventScroll: true });
+  });
+}
+
+function dispatchTextEdit(target) {
+  target.dispatchEvent(new Event("input", { bubbles: true }));
+  target.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+async function writeTextClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    const copied = document.execCommand("copy");
+    helper.remove();
+    if (!copied) throw new Error("无法访问系统剪贴板");
+  }
+}
+
+async function runTextContextAction(action) {
+  const target = textContextTarget;
+  if (!target?.isConnected) return closeTextContextMenu();
+  const start = Number.isFinite(target.selectionStart) ? target.selectionStart : 0;
+  const end = Number.isFinite(target.selectionEnd) ? target.selectionEnd : start;
+  const selected = target.value.slice(start, end);
+  try {
+    if (action === "selectAll") {
+      target.focus();
+      target.select();
+      return;
+    }
+    if (action === "copy") {
+      await writeTextClipboard(selected);
+      return;
+    }
+    if (action === "cut") {
+      await writeTextClipboard(selected);
+      target.setRangeText("", start, end, "end");
+      dispatchTextEdit(target);
+      return;
+    }
+    if (action === "paste") {
+      if (!navigator.clipboard?.readText) throw new Error("当前系统不允许读取剪贴板");
+      const pasted = await navigator.clipboard.readText();
+      target.setRangeText(pasted, start, end, "end");
+      dispatchTextEdit(target);
+    }
+  } catch (err) {
+    showStatus(`剪贴板操作失败：${err.message || err}`, "error");
+  } finally {
+    closeTextContextMenu();
+  }
+}
+
+document.addEventListener("contextmenu", e => {
+  if (!isPromptTextTarget(e.target)) return;
+  e.preventDefault();
+  openTextContextMenu(e.target, e.clientX, e.clientY);
+});
+dom.textContextMenu?.addEventListener("click", e => {
+  const button = e.target.closest("[data-text-action]");
+  if (!button) return;
+  void runTextContextAction(button.dataset.textAction);
+});
+document.addEventListener("pointerdown", e => {
+  if (!dom.textContextMenu?.classList.contains("hidden") && !dom.textContextMenu.contains(e.target)) closeTextContextMenu();
+}, true);
+window.addEventListener("resize", closeTextContextMenu);
+document.addEventListener("scroll", closeTextContextMenu, true);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
+  closeTextContextMenu();
   closeModal(dom.settingsModal);
   closeModal(dom.historyModal);
 });
@@ -6438,8 +6562,10 @@ dom.clearHistory?.addEventListener("click", async () => {
 
 const nativeDownload = (() => {
   let seq = 1;
+  let transferSeq = 1;
   const pending = new Map();
   const dirs = { images: "", zips: "" };
+  const WINDOWS_FILE_CHUNK_SIZE = 256 * 1024;
 
   function available() {
     return typeof FlutterDownload !== "undefined" && FlutterDownload.postMessage;
@@ -6552,8 +6678,31 @@ const nativeDownload = (() => {
     openExternal(url) {
       return request("openExternal", { url });
     },
-    saveFile(kind, fileName, mimeType, base64, folder = "") {
-      return request("saveFile", { kind, fileName, mimeType, base64, folder });
+    async saveFile(kind, fileName, mimeType, base64, folder = "") {
+      const encoded = String(base64 || "");
+      if (!encoded) throw new Error("保存失败：文件内容为空");
+
+      // webview_windows sends bridge messages as JSON strings. A complete ZIP
+      // can exceed the practical message size and arrive truncated or empty, so
+      // every Windows ZIP (and any other large file) is streamed in bounded,
+      // base64-aligned chunks instead of one oversized message.
+      if (isNativeWindowsWebview() && (kind === "zips" || encoded.length > WINDOWS_FILE_CHUNK_SIZE)) {
+        const transferId = `file_${Date.now()}_${transferSeq++}`;
+        await request("saveFileBegin", { transferId, kind, fileName, mimeType, folder });
+        try {
+          for (let offset = 0; offset < encoded.length; offset += WINDOWS_FILE_CHUNK_SIZE) {
+            await request("saveFileChunk", {
+              transferId,
+              chunk: encoded.slice(offset, offset + WINDOWS_FILE_CHUNK_SIZE),
+            });
+          }
+          return await request("saveFileCommit", { transferId }, 15 * 60 * 1000);
+        } catch (err) {
+          request("saveFileAbort", { transferId }).catch(() => {});
+          throw err;
+        }
+      }
+      return request("saveFile", { kind, fileName, mimeType, base64: encoded, folder });
     },
     downloadUpdate(url, fileName, install, platform, expectedSha256 = "") {
       return request("downloadUpdate", withDesktopProxyPayload({
@@ -6835,6 +6984,23 @@ function sanitizeFilePart(value, fallback = "item") {
   return clean || fallback;
 }
 
+function makeUniqueArchiveName(name, usedNames) {
+  const normalized = String(name || "file").replace(/\\/g, "/");
+  const slash = normalized.lastIndexOf("/");
+  const directory = slash >= 0 ? normalized.slice(0, slash + 1) : "";
+  const fileName = slash >= 0 ? normalized.slice(slash + 1) : normalized;
+  const dot = fileName.lastIndexOf(".");
+  const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+  const extension = dot > 0 ? fileName.slice(dot) : "";
+  let candidate = normalized;
+  let copy = 1;
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${directory}${stem}（${copy++}）${extension}`;
+  }
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+}
+
 function formatProjectFolderTimestamp(date = new Date()) {
   const pad = value => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
@@ -6959,6 +7125,7 @@ function promptsTextForExport(images, meta = {}) {
 
 async function buildImagesZip(images, meta = {}) {
   const entries = [];
+  const usedNames = new Set();
   const exported = [];
   const failures = [];
   const folder = sanitizeFilePart(meta.folder || "images", "images");
@@ -6981,7 +7148,7 @@ async function buildImagesZip(images, meta = {}) {
       const bytes = await blobToBytes(blob);
       const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
       const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
-      const filename = `${folder}/panel-${panelId}.${ext}`;
+      const filename = makeUniqueArchiveName(`${folder}/panel-${panelId}.${ext}`, usedNames);
       entries.push({ name: filename, data: bytes });
       exported.push({ ...image, filename });
     } catch (err) {
@@ -6989,9 +7156,9 @@ async function buildImagesZip(images, meta = {}) {
     }
   }
 
-  entries.push({ name: `${folder}/prompts.txt`, data: encodeUtf8(promptsTextForExport(exported.length ? exported : images, meta)) });
+  entries.push({ name: makeUniqueArchiveName(`${folder}/prompts.txt`, usedNames), data: encodeUtf8(promptsTextForExport(exported.length ? exported : images, meta)) });
   entries.push({
-    name: `${folder}/project.json`,
+    name: makeUniqueArchiveName(`${folder}/project.json`, usedNames),
     data: encodeUtf8(JSON.stringify({
       title: meta.title || "",
       mode: meta.mode || currentMode,
@@ -7005,7 +7172,7 @@ async function buildImagesZip(images, meta = {}) {
       failures,
     }, null, 2)),
   });
-  if (failures.length) entries.push({ name: `${folder}/download-errors.txt`, data: encodeUtf8(failures.join("\n")) });
+  if (failures.length) entries.push({ name: makeUniqueArchiveName(`${folder}/download-errors.txt`, usedNames), data: encodeUtf8(failures.join("\n")) });
   if (!exported.length && failures.length) throw new Error(failures.join("; "));
 
   setDownloadProgress(72, cleanText("compressing"));
@@ -7054,7 +7221,9 @@ async function openExternalUrl(url) {
 async function saveOrDownloadBlob(blob, filename, mimeType, kind, knownBase64 = "") {
   if (nativeDownload.available()) {
     setDownloadProgress(88, "等待选择/写入目录…");
-    if (!nativeDownload.dirs[kind]) {
+    const settings = loadSettings();
+    const askEveryTime = kind === "zips" ? settings.zipAskEveryTime === true : settings.imageAskEveryTime === true;
+    if (askEveryTime || !nativeDownload.dirs[kind]) {
       await nativeDownload.chooseDir(kind);
     }
     setDownloadProgress(94, "正在保存到本地…");
@@ -7186,7 +7355,7 @@ async function saveProjectResultsToFolder() {
   setDownloadProgress(2, cleanText("savingToFolder"));
 
   try {
-    if (!nativeDownload.dirs.images) {
+    if (loadSettings().imageAskEveryTime === true || !nativeDownload.dirs.images) {
       await nativeDownload.chooseDir("images");
     }
     const folder = buildProjectFolderName(isCaption ? "caption" : "comic");

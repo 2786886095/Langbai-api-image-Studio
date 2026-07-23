@@ -2925,3 +2925,37 @@ main.result-panel .result-actions .btn {
 .ask-dialog-actions .btn {
   min-width: 84px;
 }
+
+.path-mode-option {
+  margin-top: -2px;
+}
+
+.text-context-menu {
+  position: fixed;
+  z-index: 1800;
+  display: grid;
+  min-width: 132px;
+  padding: 5px;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 7px;
+  background: var(--surface-elevated, var(--surface));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.text-context-menu button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.text-context-menu button:hover,
+.text-context-menu button:focus-visible {
+  outline: 0;
+  background: var(--surface-hover, var(--surface-2));
+}

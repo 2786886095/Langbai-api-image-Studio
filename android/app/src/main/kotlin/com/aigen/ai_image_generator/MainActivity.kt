@@ -225,15 +225,20 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-            val safeName = sanitizeFileName(fileName)
-            targetDir.findFile(safeName)?.delete()
-            val file = targetDir.createFile(mimeType, safeName)
-            if (file == null) {
-                result.error("create_failed", "Cannot create $safeName.", null)
+            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            if (bytes.isEmpty()) {
+                result.error("empty_file", "Cannot save an empty file.", null)
                 return
             }
 
-            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            val safeName = sanitizeFileName(fileName)
+            val uniqueName = collisionSafeFileName(targetDir, safeName)
+            val file = targetDir.createFile(mimeType, uniqueName)
+            if (file == null) {
+                result.error("create_failed", "Cannot create $uniqueName.", null)
+                return
+            }
+
             contentResolver.openOutputStream(file.uri, "w").use { stream ->
                 if (stream == null) {
                     result.error("open_failed", "Cannot open output stream.", null)
@@ -244,6 +249,20 @@ class MainActivity : FlutterActivity() {
             result.success(file.uri.toString())
         } catch (e: Exception) {
             result.error("save_failed", e.message, null)
+        }
+    }
+
+    private fun collisionSafeFileName(directory: DocumentFile, desiredName: String): String {
+        if (directory.findFile(desiredName) == null) return desiredName
+        val dot = desiredName.lastIndexOf('.')
+        val hasExtension = dot > 0
+        val stem = if (hasExtension) desiredName.substring(0, dot) else desiredName
+        val extension = if (hasExtension) desiredName.substring(dot) else ""
+        var copy = 1
+        while (true) {
+            val candidate = "$stem（$copy）$extension"
+            if (directory.findFile(candidate) == null) return candidate
+            copy++
         }
     }
 

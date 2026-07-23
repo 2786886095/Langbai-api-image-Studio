@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260719-1-3-22">
+  <link rel="stylesheet" href="style.css?v=20260724-1-3-23">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -416,6 +416,10 @@
             </div>
             <button type="button" id="settingsChooseImageDir" class="btn btn-sm">选择目录</button>
           </div>
+          <label class="checkbox-field path-mode-option">
+            <input type="checkbox" id="imageAskEveryTime">
+            <span>每次保存图片时询问路径</span>
+          </label>
           <div class="setting-row">
             <div>
               <strong>压缩包保存目录</strong>
@@ -423,6 +427,11 @@
             </div>
             <button type="button" id="settingsChooseZipDir" class="btn btn-sm">选择目录</button>
           </div>
+          <label class="checkbox-field path-mode-option">
+            <input type="checkbox" id="zipAskEveryTime">
+            <span>每次保存 ZIP 时询问路径</span>
+          </label>
+          <p class="field-hint">未勾选时使用上方保存目录；勾选后每次保存都会重新选择一次目录。</p>
         </section>
 
         <section class="settings-section history-settings">
@@ -487,7 +496,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.3.22</strong>
+            <strong id="currentVersionLabel">v1.3.23</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -537,6 +546,13 @@
     </div>
   </div>
 
+  <div id="textContextMenu" class="text-context-menu hidden" role="menu" aria-label="文本编辑菜单">
+    <button type="button" role="menuitem" data-text-action="selectAll">全选</button>
+    <button type="button" role="menuitem" data-text-action="cut">剪切</button>
+    <button type="button" role="menuitem" data-text-action="copy">复制</button>
+    <button type="button" role="menuitem" data-text-action="paste">粘贴</button>
+  </div>
+
   <!-- 隐藏的模板：分镜行 -->
   <template id="panelRowTemplate">
     <tr class="panel-row">
@@ -577,6 +593,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260719-1-3-22"></script>
+  <script src="app.js?v=20260724-1-3-23"></script>
 </body>
 </html>

@@ -137,6 +137,21 @@ import UIKit
     return String(sanitized.prefix(180))
   }
 
+  private func collisionSafeFileURL(directory: URL, fileName: String) -> URL {
+    let desired = directory.appendingPathComponent(fileName, isDirectory: false)
+    if !FileManager.default.fileExists(atPath: desired.path) { return desired }
+    let value = fileName as NSString
+    let ext = value.pathExtension
+    let stem = value.deletingPathExtension
+    var copy = 1
+    while true {
+      let candidateName = ext.isEmpty ? "\(stem)（\(copy)）" : "\(stem)（\(copy)）.\(ext)"
+      let candidate = directory.appendingPathComponent(candidateName, isDirectory: false)
+      if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+      copy += 1
+    }
+  }
+
   private func saveFile(arguments: [String: Any], result: @escaping FlutterResult) {
     let kind = arguments["kind"] as? String ?? "images"
     let fileName = sanitizeFileName(
@@ -149,6 +164,10 @@ import UIKit
       result(FlutterError(code: "invalid_data", message: "Invalid base64 file data.", details: nil))
       return
     }
+    guard !data.isEmpty else {
+      result(FlutterError(code: "empty_file", message: "Cannot save an empty file.", details: nil))
+      return
+    }
 
     do {
       let root = try resolveDirectory(kind)
@@ -159,7 +178,7 @@ import UIKit
         directory.appendPathComponent(folder, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
       }
-      let target = directory.appendingPathComponent(fileName, isDirectory: false)
+      let target = collisionSafeFileURL(directory: directory, fileName: fileName)
       try data.write(to: target, options: .atomic)
       result(target.absoluteString)
     } catch {

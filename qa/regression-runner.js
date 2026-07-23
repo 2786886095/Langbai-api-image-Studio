@@ -3576,6 +3576,92 @@ async function testNativeDownloadTimeoutOptOut(cdp) {
   assertQa(result.cancelCalls.length >= 2 && result.cancelCalls.every(call => /^req_/.test(call.targetId || "")), "Timeout and AbortSignal paths must tell the native layer which in-flight request id to close, not only reject the JavaScript promise.", result);
 }
 
+async function testSavePathsTextMenuAndWindowsZipChunks(cdp) {
+  logStep("Save path modes, prompt context menu, ZIP name uniqueness, and Windows chunked ZIP bridge");
+  await loadFresh(cdp, "save-paths-text-menu-zip-chunks");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    window.__AI_GEN_NATIVE_PLATFORM = "windows";
+    const calls = [];
+    const chunks = [];
+    let clipboardText = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async value => { clipboardText = String(value); },
+        readText: async () => clipboardText,
+      },
+    });
+    window.FlutterDownload = {
+      postMessage(raw) {
+        const payload = JSON.parse(raw);
+        calls.push(payload);
+        if (payload.action === "chooseDir") {
+          const next = { ...nativeDownload.dirs, [payload.kind]: "C:/QA/" + payload.kind };
+          window.AiGenAndroidBridge.setDirs(next);
+        }
+        if (payload.action === "saveFileChunk") chunks.push(payload.chunk);
+        const response = payload.action === "saveFileCommit"
+          ? "C:/QA/zips/result.zip"
+          : payload.action === "saveFile"
+            ? "C:/QA/images/panel.png"
+            : true;
+        setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, response), 0);
+      }
+    };
+
+    saveSettings({ imageAskEveryTime: true, zipAskEveryTime: true });
+    await saveOrDownloadBlob(new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" }), "panel.png", "image/png", "images");
+    const zipBytes = new Uint8Array(420000);
+    for (let i = 0; i < zipBytes.length; i++) zipBytes[i] = i % 251;
+    await saveOrDownloadBlob(new Blob([zipBytes], { type: "application/zip" }), "project.zip", "application/zip", "zips");
+
+    const prompt = document.getElementById("prompt");
+    prompt.value = "alpha beta";
+    prompt.setSelectionRange(0, 5);
+    prompt.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: innerWidth + 100, clientY: innerHeight + 100 }));
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const menuRect = document.getElementById("textContextMenu").getBoundingClientRect();
+    document.querySelector('[data-text-action="copy"]').click();
+    await new Promise(r => setTimeout(r, 20));
+    prompt.setSelectionRange(6, 10);
+    prompt.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 30 }));
+    clipboardText = "GAMMA";
+    document.querySelector('[data-text-action="paste"]').click();
+    await new Promise(r => setTimeout(r, 20));
+
+    const used = new Set(["images/panel.png", "images/panel（1）.png", "images/panel（2）.png"]);
+    const uniqueArchiveName = makeUniqueArchiveName("images/panel.png", used);
+    const reconstructed = chunks.join("");
+    return {
+      chooseKinds: calls.filter(call => call.action === "chooseDir").map(call => call.kind),
+      actions: calls.map(call => call.action),
+      chunkCount: chunks.length,
+      maxChunk: Math.max(0, ...chunks.map(chunk => chunk.length)),
+      reconstructedBytes: atob(reconstructed).length,
+      promptValue: prompt.value,
+      copied: clipboardText,
+      menuInsideViewport: menuRect.right <= innerWidth && menuRect.bottom <= innerHeight && menuRect.left >= 0 && menuRect.top >= 0,
+      settings: loadSettings(),
+      uniqueArchiveName,
+    };
+  })()`, true);
+
+  assertQa(result.chooseKinds.filter(kind => kind === "images").length === 1 && result.chooseKinds.filter(kind => kind === "zips").length === 1, "Image and ZIP ask-every-time modes must independently request their directory once per save operation.", result);
+  assertQa(
+    result.actions.includes("saveFileBegin")
+      && result.actions.includes("saveFileChunk")
+      && result.actions.includes("saveFileCommit")
+      && result.actions.filter(action => action === "saveFile").length === 1,
+    "Windows ZIP files must use begin/chunk/commit while the preceding small image remains the only one-message saveFile call.",
+    result,
+  );
+  assertQa(result.chunkCount >= 2 && result.maxChunk <= 256 * 1024 && result.reconstructedBytes === 420000, "Chunked ZIP transport must preserve every byte and keep bridge messages bounded.", result);
+  assertQa(result.promptValue === "alpha GAMMA" && result.menuInsideViewport, "Prompt right-click paste must edit the target and keep the menu inside the viewport.", result);
+  assertQa(result.settings.imageAskEveryTime === true && result.settings.zipAskEveryTime === true, "Image and ZIP path modes must persist independently.", result);
+  assertQa(result.uniqueArchiveName === "images/panel（3）.png", "ZIP entry collisions must keep incrementing beyond （1） and （2）.", result);
+}
+
 async function testNativeSecureApiKeyMigration(cdp) {
   logStep("Native shells migrate API keys into system secure storage and redact localStorage without losing the active key");
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -3684,7 +3770,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.22" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === "1.3.23" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,
@@ -3740,6 +3826,7 @@ async function main() {
     await testDesktopProxyControls(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
+    await testSavePathsTextMenuAndWindowsZipChunks(cdp);
     await testNativeSecureApiKeyMigration(cdp);
     await testPwaOfflineCache(cdp);
     await testUpdateControls(cdp);
