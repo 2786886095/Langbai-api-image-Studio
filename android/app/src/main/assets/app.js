@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.25";
+const APP_VERSION = "1.3.26";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -284,7 +284,11 @@ const CLEAN_LOCALES = {
     historyTitle: "生图记录", historyHint: "漫画与嵌字任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", imageCacheTitle: "图片临时缓存", cacheRetentionDays: "自动清理天数", cacheRetentionHint: "生成成功后立即缓存在应用内部，避免中转图片链接过期；只有打包 ZIP 或保存到文件夹时才会写入所选目录。", clearGeneratedCache: "立即清理缓存", cacheAutoHint: "缓存会在应用启动和生成新图片时自动清理。", cacheCleared: "已清理 {count} 张缓存图片", cacheCleanupFailed: "缓存清理失败：{reason}", autoRetry: "自动重试", globalRetries: "全局重试次数",
-    retryHint: "只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
+    retryHint: "通用 API 只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
+    grsaiSubmit504Retries: "GrsAI 提交 504 重试次数", grsaiSubmit504Interval: "GrsAI 提交 504 间隔（秒）",
+    grsaiSubmit504Hint: "仅用于 GrsAI 首次提交返回 HTTP 504；自动重提可能偶尔生成重复图片。次数设为 0 可关闭。",
+    grsaiSubmit504Waiting: "GrsAI 提交返回 HTTP 504，{seconds} 秒后进行第 {retryIndex}/{maxRetries} 次重试…",
+    grsaiSubmit504Exhausted: "HTTP 504：GrsAI 提交请求仍然超时，已完成 {count} 次自动重试。任务可能已经提交，请先在 GrsAI 后台确认，再决定是否手动重试。",
     restoreProject: "恢复项目", downloadProject: "导出项目", viewPrompts: "查看提示词与分镜",
     globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目", captionImageCol: "图片", captionBubbleCol: "气泡文字",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
@@ -355,7 +359,11 @@ const CLEAN_LOCALES = {
     historyTitle: "生圖記錄", historyHint: "漫畫與嵌字工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", imageCacheTitle: "圖片暫存快取", cacheRetentionDays: "自動清理天數", cacheRetentionHint: "生成成功後會立即快取在應用程式內，避免中轉圖片連結過期；只有打包 ZIP 或儲存到資料夾時才會寫入所選目錄。", clearGeneratedCache: "立即清理快取", cacheAutoHint: "快取會在應用程式啟動和生成新圖片時自動清理。", cacheCleared: "已清理 {count} 張快取圖片", cacheCleanupFailed: "快取清理失敗：{reason}", autoRetry: "自動重試", globalRetries: "全域重試次數",
-    retryHint: "只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
+    retryHint: "通用 API 只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
+    grsaiSubmit504Retries: "GrsAI 提交 504 重試次數", grsaiSubmit504Interval: "GrsAI 提交 504 間隔（秒）",
+    grsaiSubmit504Hint: "僅用於 GrsAI 首次提交回傳 HTTP 504；自動重提偶爾可能生成重複圖片。次數設為 0 可關閉。",
+    grsaiSubmit504Waiting: "GrsAI 提交回傳 HTTP 504，{seconds} 秒後進行第 {retryIndex}/{maxRetries} 次重試…",
+    grsaiSubmit504Exhausted: "HTTP 504：GrsAI 提交請求仍然逾時，已完成 {count} 次自動重試。任務可能已提交，請先在 GrsAI 後台確認，再決定是否手動重試。",
     restoreProject: "恢復專案", downloadProject: "匯出專案", viewPrompts: "查看提示詞與分鏡",
     globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案", captionImageCol: "圖片", captionBubbleCol: "氣泡文字",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
@@ -426,7 +434,11 @@ const CLEAN_LOCALES = {
     historyTitle: "Generation History", historyHint: "Comic and caption jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", imageCacheTitle: "Temporary image cache", cacheRetentionDays: "Auto-clean after days", cacheRetentionHint: "Successful generations are cached inside the app immediately so relay URLs cannot expire first. Files are written to your chosen folder only when you package a ZIP or save to a folder.", clearGeneratedCache: "Clear cache now", cacheAutoHint: "The cache is cleaned automatically on app launch and after new images are generated.", cacheCleared: "Cleared {count} cached images", cacheCleanupFailed: "Cache cleanup failed: {reason}", autoRetry: "Auto Retry", globalRetries: "Global retries",
-    retryHint: "Only HTTP 400 retries automatically. 0 disables auto retry. Per-panel retries override this.",
+    retryHint: "For generic APIs, only HTTP 400 retries automatically. 0 disables it. Per-panel retries override this.",
+    grsaiSubmit504Retries: "GrsAI submit 504 retries", grsaiSubmit504Interval: "GrsAI submit 504 interval (seconds)",
+    grsaiSubmit504Hint: "Used only when the initial GrsAI submission returns HTTP 504. Resubmitting can occasionally create duplicate images. Set retries to 0 to disable.",
+    grsaiSubmit504Waiting: "GrsAI submission returned HTTP 504. Retry {retryIndex}/{maxRetries} in {seconds} seconds…",
+    grsaiSubmit504Exhausted: "HTTP 504: The GrsAI submission still timed out after {count} automatic retries. The task may have been submitted; check the GrsAI dashboard before retrying manually.",
     restoreProject: "Restore Project", downloadProject: "Export Project", viewPrompts: "View prompts and panels",
     globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project", captionImageCol: "Image", captionBubbleCol: "Bubble Text",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
@@ -497,7 +509,11 @@ const CLEAN_LOCALES = {
     historyTitle: "生成履歴", historyHint: "漫画と文字入れはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", imageCacheTitle: "画像一時キャッシュ", cacheRetentionDays: "自動削除までの日数", cacheRetentionHint: "中継画像 URL の期限切れを防ぐため、生成成功後すぐにアプリ内へキャッシュします。選択したフォルダーへ書き込むのは ZIP 作成またはフォルダー保存時だけです。", clearGeneratedCache: "今すぐキャッシュを削除", cacheAutoHint: "キャッシュはアプリ起動時と新しい画像の生成後に自動整理されます。", cacheCleared: "{count} 件のキャッシュ画像を削除しました", cacheCleanupFailed: "キャッシュの整理に失敗しました：{reason}", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
-    retryHint: "HTTP 400 の場合のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
+    retryHint: "汎用 API は HTTP 400 の場合のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
+    grsaiSubmit504Retries: "GrsAI 送信 504 の再試行回数", grsaiSubmit504Interval: "GrsAI 送信 504 の間隔（秒）",
+    grsaiSubmit504Hint: "GrsAI の初回送信が HTTP 504 を返した場合だけ使用します。再送により重複画像が生成される場合があります。0 で無効化します。",
+    grsaiSubmit504Waiting: "GrsAI 送信が HTTP 504 を返しました。{seconds} 秒後に {retryIndex}/{maxRetries} 回目を再試行します…",
+    grsaiSubmit504Exhausted: "HTTP 504：GrsAI 送信は {count} 回の自動再試行後もタイムアウトしました。タスクが送信済みの可能性があるため、手動再試行の前に GrsAI ダッシュボードを確認してください。",
     restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", viewPrompts: "プロンプトとコマを見る",
     globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト", captionImageCol: "画像", captionBubbleCol: "吹き出しテキスト",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
@@ -568,7 +584,11 @@ const CLEAN_LOCALES = {
     historyTitle: "생성 기록", historyHint: "만화와 캡션 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", imageCacheTitle: "이미지 임시 캐시", cacheRetentionDays: "자동 정리 일수", cacheRetentionHint: "중계 이미지 URL 만료를 막기 위해 생성 성공 즉시 앱 내부에 캐시합니다. 선택한 폴더에는 ZIP 패키징 또는 폴더 저장을 실행할 때만 파일을 씁니다.", clearGeneratedCache: "지금 캐시 정리", cacheAutoHint: "캐시는 앱 시작 시와 새 이미지 생성 후 자동으로 정리됩니다.", cacheCleared: "캐시 이미지 {count}개를 정리했습니다", cacheCleanupFailed: "캐시 정리 실패: {reason}", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
-    retryHint: "HTTP 400인 경우에만 자동 재시도합니다. 0은 비활성화입니다. 콘티별 설정이 우선합니다.",
+    retryHint: "일반 API는 HTTP 400인 경우에만 자동 재시도합니다. 0은 비활성화이며 콘티별 설정이 우선합니다.",
+    grsaiSubmit504Retries: "GrsAI 제출 504 재시도 횟수", grsaiSubmit504Interval: "GrsAI 제출 504 간격(초)",
+    grsaiSubmit504Hint: "GrsAI 최초 제출이 HTTP 504를 반환할 때만 사용합니다. 재제출로 중복 이미지가 생성될 수 있습니다. 0으로 비활성화합니다.",
+    grsaiSubmit504Waiting: "GrsAI 제출이 HTTP 504를 반환했습니다. {seconds}초 후 {retryIndex}/{maxRetries}번째 재시도를 진행합니다…",
+    grsaiSubmit504Exhausted: "HTTP 504: GrsAI 제출이 {count}회의 자동 재시도 후에도 시간 초과되었습니다. 작업이 제출되었을 수 있으므로 수동 재시도 전에 GrsAI 대시보드를 확인하세요.",
     restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", viewPrompts: "프롬프트와 콘티 보기",
     globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트", captionImageCol: "이미지", captionBubbleCol: "말풍선 텍스트",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
@@ -905,8 +925,11 @@ function applyCleanLanguage() {
   if (dom.clearGeneratedCache) dom.clearGeneratedCache.textContent = cleanText("clearGeneratedCache");
   if (dom.generatedCacheStatus && !dom.generatedCacheStatus.dataset.customStatus) dom.generatedCacheStatus.textContent = cleanText("cacheAutoHint");
   setText(".retry-settings h3", "autoRetry");
-  setText(".retry-settings .field span", "globalRetries");
-  setText(".retry-settings .field-hint", "retryHint");
+  setText("#globalRetryLabel", "globalRetries");
+  setText("#retryHint", "retryHint");
+  setText("#grsaiSubmit504RetryLabel", "grsaiSubmit504Retries");
+  setText("#grsaiSubmit504IntervalLabel", "grsaiSubmit504Interval");
+  setText("#grsaiSubmit504Hint", "grsaiSubmit504Hint");
   setText(".proxy-settings h3", "desktopProxyTitle");
   setText(".proxy-settings .field:nth-of-type(1) span", "desktopProxyMode");
   setText(".proxy-settings .field:nth-of-type(2) span", "desktopProxyCustomUrl");
@@ -1192,6 +1215,8 @@ const dom = {
   clearGeneratedCache: $("#clearGeneratedCache"),
   generatedCacheStatus: $("#generatedCacheStatus"),
   retryCount:     $("#retryCount"),
+  grsaiSubmit504RetryCount: $("#grsaiSubmit504RetryCount"),
+  grsaiSubmit504RetryInterval: $("#grsaiSubmit504RetryInterval"),
   desktopProxyMode: $("#desktopProxyMode"),
   desktopProxyCustomUrl: $("#desktopProxyCustomUrl"),
   testDesktopProxy: $("#testDesktopProxy"),
@@ -2036,12 +2061,14 @@ function loadSettings() {
       imageAskEveryTime: false,
       zipAskEveryTime: false,
       retryCount: 3,
+      grsaiSubmit504RetryCount: 2,
+      grsaiSubmit504RetryInterval: 30,
       desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE,
       desktopProxyCustomUrl: "",
       ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")
     };
   } catch {
-    return { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, retryCount: 3, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
+    return { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, retryCount: 3, grsaiSubmit504RetryCount: 2, grsaiSubmit504RetryInterval: 30, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
   }
 }
 
@@ -2053,6 +2080,8 @@ function saveSettings(next = {}) {
   merged.imageAskEveryTime = merged.imageAskEveryTime === true;
   merged.zipAskEveryTime = merged.zipAskEveryTime === true;
   merged.retryCount = clampRetryCount(merged.retryCount);
+  merged.grsaiSubmit504RetryCount = clampRetryCount(merged.grsaiSubmit504RetryCount, 2);
+  merged.grsaiSubmit504RetryInterval = clampGrsaiSubmit504RetryInterval(merged.grsaiSubmit504RetryInterval);
   merged.desktopProxyMode = normalizeDesktopProxyMode(merged.desktopProxyMode);
   merged.desktopProxyCustomUrl = String(merged.desktopProxyCustomUrl || "").trim();
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
@@ -2067,6 +2096,8 @@ function applySettings(settings = loadSettings()) {
   if (dom.imageAskEveryTime) dom.imageAskEveryTime.checked = settings.imageAskEveryTime === true;
   if (dom.zipAskEveryTime) dom.zipAskEveryTime.checked = settings.zipAskEveryTime === true;
   if (dom.retryCount) dom.retryCount.value = String(clampRetryCount(settings.retryCount));
+  if (dom.grsaiSubmit504RetryCount) dom.grsaiSubmit504RetryCount.value = String(clampRetryCount(settings.grsaiSubmit504RetryCount, 2));
+  if (dom.grsaiSubmit504RetryInterval) dom.grsaiSubmit504RetryInterval.value = String(clampGrsaiSubmit504RetryInterval(settings.grsaiSubmit504RetryInterval));
   if (dom.desktopProxyMode) dom.desktopProxyMode.value = normalizeDesktopProxyMode(settings.desktopProxyMode);
   if (dom.desktopProxyCustomUrl) dom.desktopProxyCustomUrl.value = String(settings.desktopProxyCustomUrl || "");
   updateDesktopProxyUi(settings);
@@ -2254,6 +2285,20 @@ function getFocusableElements(container) {
   ) || [])].filter(el => !el.closest(".hidden") && getComputedStyle(el).visibility !== "hidden");
 }
 
+function clampGrsaiSubmit504RetryInterval(value, fallback = 30) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(600, Math.max(1, Math.floor(num)));
+}
+
+function getGrsaiSubmit504RetryPolicy() {
+  const settings = loadSettings();
+  return {
+    maxRetries: clampRetryCount(settings.grsaiSubmit504RetryCount, 2),
+    intervalSeconds: clampGrsaiSubmit504RetryInterval(settings.grsaiSubmit504RetryInterval),
+  };
+}
+
 function trapOverlayFocus(event, overlay) {
   if (event.key !== "Tab" || !overlay) return;
   const focusable = getFocusableElements(overlay);
@@ -2368,6 +2413,8 @@ dom.imageAskEveryTime?.addEventListener("change", () => saveSettings({ imageAskE
 dom.zipAskEveryTime?.addEventListener("change", () => saveSettings({ zipAskEveryTime: dom.zipAskEveryTime.checked }));
 dom.clearGeneratedCache?.addEventListener("click", () => void clearGeneratedImageCacheFromSettings());
 dom.retryCount?.addEventListener("change", () => saveSettings({ retryCount: dom.retryCount.value }));
+dom.grsaiSubmit504RetryCount?.addEventListener("change", () => saveSettings({ grsaiSubmit504RetryCount: dom.grsaiSubmit504RetryCount.value }));
+dom.grsaiSubmit504RetryInterval?.addEventListener("change", () => saveSettings({ grsaiSubmit504RetryInterval: dom.grsaiSubmit504RetryInterval.value }));
 dom.desktopProxyMode?.addEventListener("change", () => {
   dom.desktopProxyStatus && (dom.desktopProxyStatus.dataset.customStatus = "");
   saveSettings({ desktopProxyMode: dom.desktopProxyMode.value });
@@ -4155,13 +4202,30 @@ registerAdapter({
 
     const t0 = Date.now();
     let res;
-    try {
-      res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
-    } catch (err) {
-      if (/HTTP\s*504\b/i.test(String(err?.message || err || ""))) {
-        throw new Error("HTTP 504：GrsAI 提交请求超时。任务可能已经提交，但服务端没有返回任务 ID；为避免重复扣费，软件不会自动重复提交。请稍后在 GrsAI 后台确认，或再手动重试。");
+    const submit504Policy = getGrsaiSubmit504RetryPolicy();
+    let submit504Retries = 0;
+    while (true) {
+      throwIfAborted(signal);
+      try {
+        res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
+        break;
+      } catch (err) {
+        if (!/HTTP\s*504\b/i.test(String(err?.message || err || ""))) throw err;
+        if (submit504Retries >= submit504Policy.maxRetries) {
+          throw new Error(interpolate(cleanText("grsaiSubmit504Exhausted"), { count: submit504Retries }));
+        }
+        submit504Retries++;
+        for (let remainingSeconds = submit504Policy.intervalSeconds; remainingSeconds > 0; remainingSeconds--) {
+          options.onSubmit504Retry?.({
+            retryIndex: submit504Retries,
+            maxRetries: submit504Policy.maxRetries,
+            intervalSeconds: submit504Policy.intervalSeconds,
+            remainingSeconds,
+            error: err,
+          });
+          await sleep(1000, signal);
+        }
       }
-      throw err;
     }
     let data = res;
     console.log(`GrsAI /api/generate 响应 (${Date.now() - t0}ms):`, data.status);
@@ -4420,7 +4484,19 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
       if (hasRef) console.warn("⚠ 无适配器匹配 + 有参考图：参考图将被忽略，仅走 generations 端点");
       return apiFetch(url, apiKey, { model, prompt, n, size: finalSize, response_format: "b64_json" }, { signal, nativeTimeoutMs: null });
     }
-    return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, { signal });
+    return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
+      signal,
+      onSubmit504Retry: ({ retryIndex, maxRetries, intervalSeconds, remainingSeconds }) => {
+        showStatus(interpolate(cleanText("grsaiSubmit504Waiting"), {
+          seconds: remainingSeconds,
+          retryIndex,
+          maxRetries,
+        }), "info");
+        if (remainingSeconds === intervalSeconds) {
+          options.onRetryAttempt?.({ retryIndex, maxRetries, statusLabel: "HTTP 504" });
+        }
+      },
+    });
   }, {
     signal,
     maxRetries,

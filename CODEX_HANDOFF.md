@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.25
+# Codex / Claude Handoff: AI 图片生成器 v1.3.26
 
 更新时间：2026-07-24
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,19 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.25+49`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.26+50`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.26 增量功能
+
+- 设置的“自动重试”区域新增 GrsAI 首次提交 HTTP 504 专用重试次数与间隔；默认 2 次、30 秒，范围分别为 0～10 次和 1～600 秒。
+- 仅选择 GrsAI 提供商时启用该策略；通用 API 仍严格保持只有 HTTP 400 自动重试。
+- 每次提交 504 后逐秒显示剩余等待时间和当前重试轮次；单卡取消、全部取消会立即中断等待。
+- 后续任一提交成功会立刻停止 504 重试并进入原有同步结果或任务 ID 轮询流程。
+- 达到上限后明确提示任务可能已经提交，提醒先检查 GrsAI 后台，避免继续无边界重提。
+- 五语言、设置持久化及回归测试已补齐；测试覆盖前两次 504、第三次成功，以及连续 504 恰好执行配置次数后停止。
 
 ## v1.3.25 增量修复
 

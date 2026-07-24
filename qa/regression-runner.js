@@ -3446,6 +3446,7 @@ async function testGrsaiOfficialAdapter(cdp) {
       set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
       set("apiKey", "sk-grsai");
       set("proxyEndpoint", "");
+      saveSettings({ grsaiSubmit504RetryCount: 2, grsaiSubmit504RetryInterval: 1 });
       loadGrsaiModels();
       const modelOptions = [...document.querySelectorAll("#modelChoices option")].filter(o => o.value).map(item => item.textContent.trim());
 
@@ -3454,8 +3455,15 @@ async function testGrsaiOfficialAdapter(cdp) {
         if (urlText.includes("/v1/api/generate")) {
           const body = JSON.parse(opts.body || "{}");
           calls.push({ url: urlText, body, auth: headerValue(opts.headers) });
+          const promptAttempts = calls.filter(call => call.body.prompt === body.prompt).length;
           if (body.prompt === "submit504 prompt") {
             return new Response("<html><head><title>504 Gateway Time-out</title></head><body><h1>504 Gateway Time-out</h1></body></html>", {
+              status: 504,
+              headers: { "Content-Type": "text/html" }
+            });
+          }
+          if (body.prompt === "submit504 recover prompt" && promptAttempts <= 2) {
+            return new Response("<html><head><title>504 Gateway Time-out</title></head></html>", {
               status: 504,
               headers: { "Content-Type": "text/html" }
             });
@@ -3520,6 +3528,15 @@ async function testGrsaiOfficialAdapter(cdp) {
       const gpt = await callImageAPI("gpt prompt", "2048x2048", 1, "GrsAI gpt", { maxRetries: 0 });
       set("model", "nano-banana-2");
       const asyncResult = await callImageAPI("async prompt", "1536x1024", 1, "GrsAI async", { maxRetries: 0 });
+      const submit504RetryRounds = [];
+      const recovered504 = await callImageAPI("submit504 recover prompt", "1024x1024", 1, "GrsAI submit 504 recovery", {
+        maxRetries: 0,
+        onRetryAttempt: info => submit504RetryRounds.push({
+          retryIndex: info.retryIndex,
+          maxRetries: info.maxRetries,
+          statusLabel: info.statusLabel,
+        }),
+      });
       let submit504Error = "";
       try {
         await callImageAPI("submit504 prompt", "1024x1024", 1, "GrsAI submit 504", { maxRetries: 3 });
@@ -3547,7 +3564,10 @@ async function testGrsaiOfficialAdapter(cdp) {
         gptUrl: gpt?.data?.[0]?.url || "",
         asyncUrl: asyncResult?.data?.[0]?.url || "",
         asyncPolls,
+        recovered504Url: recovered504?.data?.[0]?.url || "",
+        submit504RetryRounds,
         submit504Error,
+        retrySettings: loadSettings(),
         poll400Error,
         customProvider: document.getElementById("apiProvider").value,
         customGenericOk: !!customGeneric?.data?.[0]?.b64_json,
@@ -3570,8 +3590,11 @@ async function testGrsaiOfficialAdapter(cdp) {
   assertQa(result.nanoUrl.includes("nano-banana-2-4k-cl") && result.gptUrl.includes("gpt-image-2-vip"), "GrsAI synchronous success responses should return image URLs.", result);
   assertQa(asyncCall && result.asyncUrl === "https://img.test/final.png" && result.resultCalls.some(call => call.url.includes("/v1/api/result?id=task-ok")), "GrsAI running responses should poll /v1/api/result until succeeded.", result);
   assertQa(result.asyncPolls === 3, "A GrsAI result-poll HTTP 504 should back off and continue querying the same task instead of failing or submitting a new task.", result);
-  assertQa(/HTTP 504/.test(result.submit504Error) && /不会自动重复提交/.test(result.submit504Error), "A GrsAI submit HTTP 504 should explain the uncertain task state and must not be blindly retried.", result);
-  assertQa(result.calls.filter(call => call.body.prompt === "submit504 prompt").length === 1, "A GrsAI submit HTTP 504 must make exactly one POST even when the global HTTP-400 retry count is nonzero.", result);
+  assertQa(result.calls.filter(call => call.body.prompt === "submit504 recover prompt").length === 3 && result.recovered504Url, "GrsAI submit HTTP 504 should wait and retry up to the configured count, then stop immediately when a later submission succeeds.", result);
+  assertQa(JSON.stringify(result.submit504RetryRounds) === JSON.stringify([{ retryIndex: 1, maxRetries: 2, statusLabel: "HTTP 504" }, { retryIndex: 2, maxRetries: 2, statusLabel: "HTTP 504" }]), "Each GrsAI submit 504 retry should report its current round on the result card.", result);
+  assertQa(/HTTP 504/.test(result.submit504Error) && /2|two/i.test(result.submit504Error), "An exhausted GrsAI submit 504 sequence should explain that the configured retries were used and the task may already exist.", result);
+  assertQa(result.calls.filter(call => call.body.prompt === "submit504 prompt").length === 3, "Two configured GrsAI submit 504 retries must produce exactly three POST attempts including the original request.", result);
+  assertQa(result.retrySettings.grsaiSubmit504RetryCount === 2 && result.retrySettings.grsaiSubmit504RetryInterval === 1, "GrsAI submit 504 retry count and interval must persist independently from the generic HTTP-400 retry count.", result);
   assertQa(/HTTP 400/.test(result.poll400Error) && /quota exhausted/.test(result.poll400Error), "GrsAI polling HTTP 400 should preserve the official error reason.", result);
   assertQa(result.customProvider === "custom" && result.customGenericOk, "Custom API selection should remain custom even on a GrsAI domain.", result);
   assertQa(result.genericCalls.length === 1 && result.genericCalls[0].url.includes("/v1/images/generations"), "Custom API selection should use the generic OpenAI-compatible route, not the GrsAI /v1/api/generate route.", result);
