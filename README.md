@@ -10,13 +10,16 @@
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
 - 软件内可选三种 API：`官方 API`、`GrsAI 生图 API`、`自定义 API`
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
-- 只有选择 `GrsAI 生图 API` 时才使用 GrsAI 官方 `/v1/api/generate` 协议；选择 `官方 API` / `自定义 API` 时优先按 OpenAI 兼容通用协议调用
+- 选择 `官方 API` 时使用 OpenAI 官方 `https://api.openai.com/v1` Image API，可单独设置 `low / medium / high / auto` 质量、背景、PNG/JPEG/WebP、压缩、审核强度和参考图保真度；这些参数随官方 API 配置保存
+- 官方模型检测只保留 OpenAI 的 GPT Image 模型；检测失败时会保留内置官方列表并显示失败原因，不会混入 GrsAI 的 VIP/CL 等中转站模型
+- 只有选择 `GrsAI 生图 API` 时才使用 GrsAI `/v1/api/generate` + `/v1/api/result` 异步协议和 504 提交重试；GrsAI 参数不会进入官方/自定义请求
+- 选择 `自定义 API` 时按 OpenAI 兼容的 `generations / edits` 基础协议调用，不附加 OpenAI 官方或 GrsAI 专属字段
 - 账号、套餐、网站侧配置请用浏览器打开网站处理，软件内不跳转网站
 
 ## ✨ 功能
 
 - **三种工作流**：单图生成 + 漫画分镜批量生成 + 参考图气泡嵌字
-- **多平台 API 适配**：GrsAI 官方 generate/result、OpenAI 通用（generations / edits）等
+- **多平台 API 适配**：OpenAI 官方 Image API、GrsAI generate/result、OpenAI 兼容 generations/edits 等
 - 参考图上传 / TXT 导入 / 自定义分辨率 / 有限并发控制
 - **生图历史**（漫画按「项目」保存）、失败一键重试、可调重试次数
 - **ZIP 打包导出**（桌面浏览器 + 安卓 SAF 目录授权）

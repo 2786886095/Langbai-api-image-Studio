@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260724-1-3-28">
+  <link rel="stylesheet" href="style.css?v=20260725-1-3-29">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -102,10 +102,6 @@
             <label class="field" id="apiEndpointField">
               <span>API 地址</span>
               <input type="url" id="apiEndpoint" placeholder="https://grsai.dakka.com.cn/v1/api/generate">
-              <small class="field-hint grsai-tip">
-                <span>推荐生图中转网站：https://grsai.com/zh</span>
-                <button type="button" id="useGrsaiEndpoint" class="btn btn-xs">填入 GrsAI 地址</button>
-              </small>
             </label>
             <label class="field">
               <span>API Key</span>
@@ -123,6 +119,120 @@
               </div>
               <select id="modelChoices" class="custom-select-native" tabindex="-1" aria-hidden="true"></select>
             </label>
+
+            <section class="provider-panel provider-panel-official hidden" id="officialProviderPanel" aria-labelledby="officialProviderTitle">
+              <div class="provider-panel-head">
+                <span class="provider-badge provider-badge-openai">OpenAI</span>
+                <div>
+                  <h3 id="officialProviderTitle">官方图像参数</h3>
+                  <p id="officialProviderHint">仅发送给 OpenAI 官方 Image API，并随当前官方 API 配置保存。</p>
+                </div>
+              </div>
+
+              <div class="provider-option provider-option-wide">
+                <div class="provider-option-copy">
+                  <strong id="officialQualityLabel">输出质量</strong>
+                  <small id="officialQualityHint">自动会平衡速度与细节；低适合草稿，中适合日常，高适合最终成图。</small>
+                </div>
+                <div class="provider-segments provider-segments-four" data-provider-control="officialQuality" role="group" aria-labelledby="officialQualityLabel">
+                  <button type="button" data-value="auto">自动</button>
+                  <button type="button" data-value="low">低</button>
+                  <button type="button" data-value="medium">中</button>
+                  <button type="button" data-value="high">高</button>
+                </div>
+                <input type="hidden" id="officialQuality" value="auto">
+              </div>
+
+              <div class="provider-options-grid">
+                <div class="provider-option">
+                  <div class="provider-option-copy">
+                    <strong id="officialBackgroundLabel">背景</strong>
+                    <small id="officialBackgroundHint">透明背景适合贴纸与素材；gpt-image-2 暂不支持透明。</small>
+                  </div>
+                  <div class="provider-segments" data-provider-control="officialBackground" role="group" aria-labelledby="officialBackgroundLabel">
+                    <button type="button" data-value="auto">自动</button>
+                    <button type="button" data-value="opaque">不透明</button>
+                    <button type="button" data-value="transparent">透明</button>
+                  </div>
+                  <input type="hidden" id="officialBackground" value="auto">
+                </div>
+
+                <div class="provider-option">
+                  <div class="provider-option-copy">
+                    <strong id="officialOutputFormatLabel">输出格式</strong>
+                    <small id="officialOutputFormatHint">PNG 无损；JPEG 更快；WebP 通常体积更小且支持透明。</small>
+                  </div>
+                  <div class="provider-segments" data-provider-control="officialOutputFormat" role="group" aria-labelledby="officialOutputFormatLabel">
+                    <button type="button" data-value="png">PNG</button>
+                    <button type="button" data-value="jpeg">JPEG</button>
+                    <button type="button" data-value="webp">WebP</button>
+                  </div>
+                  <input type="hidden" id="officialOutputFormat" value="png">
+                </div>
+
+                <div class="provider-option provider-option-wide hidden" id="officialCompressionField">
+                  <div class="provider-option-copy provider-option-copy-inline">
+                    <div>
+                      <strong id="officialCompressionLabel">压缩质量</strong>
+                      <small id="officialCompressionHint">仅用于 JPEG/WebP；数值越低文件越小，细节损失越明显。</small>
+                    </div>
+                    <output id="officialCompressionValue" for="officialOutputCompression">100</output>
+                  </div>
+                  <input type="range" id="officialOutputCompression" min="0" max="100" step="1" value="100">
+                </div>
+
+                <div class="provider-option">
+                  <div class="provider-option-copy">
+                    <strong id="officialModerationLabel">内容审核强度</strong>
+                    <small id="officialModerationHint">自动使用标准过滤；低会减少限制，但仍受官方内容政策约束。</small>
+                  </div>
+                  <div class="provider-segments provider-segments-two" data-provider-control="officialModeration" role="group" aria-labelledby="officialModerationLabel">
+                    <button type="button" data-value="auto">自动</button>
+                    <button type="button" data-value="low">低</button>
+                  </div>
+                  <input type="hidden" id="officialModeration" value="auto">
+                </div>
+
+                <div class="provider-option" id="officialInputFidelityField">
+                  <div class="provider-option-copy">
+                    <strong id="officialInputFidelityLabel">参考图保真度</strong>
+                    <small id="officialInputFidelityHint">仅编辑/参考图生效；高保真更重视人物、风格和细节一致性，成本可能更高。</small>
+                  </div>
+                  <div class="provider-segments provider-segments-two" data-provider-control="officialInputFidelity" role="group" aria-labelledby="officialInputFidelityLabel">
+                    <button type="button" data-value="low">低</button>
+                    <button type="button" data-value="high">高</button>
+                  </div>
+                  <input type="hidden" id="officialInputFidelity" value="low">
+                </div>
+              </div>
+              <p class="provider-capability-note" id="officialCapabilityNote" role="status">选择模型后会显示该模型的尺寸、透明背景和参考图能力。</p>
+            </section>
+
+            <section class="provider-panel provider-panel-grsai" id="grsaiProviderPanel" aria-labelledby="grsaiProviderTitle">
+              <div class="provider-panel-head">
+                <span class="provider-badge provider-badge-grsai">GrsAI</span>
+                <div>
+                  <h3 id="grsaiProviderTitle">GrsAI 中转协议</h3>
+                  <p id="grsaiProviderHint">使用独立的 generate/result 任务协议；OpenAI 官方质量、格式和背景参数不会发送到这里。</p>
+                </div>
+              </div>
+              <div class="provider-facts">
+                <span id="grsaiNodeHint">国内节点 · 异步任务轮询 · 返回图片 URL</span>
+                <span id="grsaiWebsite">推荐管理网站：https://grsai.com/zh</span>
+              </div>
+              <button type="button" id="useGrsaiEndpoint" class="btn btn-xs"><span class="ui-icon ui-icon-spark"></span> 填入 GrsAI 地址</button>
+            </section>
+
+            <section class="provider-panel provider-panel-custom hidden" id="customProviderPanel" aria-labelledby="customProviderTitle">
+              <div class="provider-panel-head">
+                <span class="provider-badge">API</span>
+                <div>
+                  <h3 id="customProviderTitle">通用兼容模式</h3>
+                  <p id="customProviderHint">按 OpenAI 兼容的 generations/edits 请求发送基础参数；不会附加 OpenAI 官方或 GrsAI 专属字段。</p>
+                </div>
+              </div>
+            </section>
+
             <label class="field" id="proxyEndpointField">
               <span>浏览器 CORS 转发地址 <em class="optional">(可选，仅用于 HTML 浏览器端)</em></span>
               <input type="url" id="proxyEndpoint" placeholder="http://127.0.0.1:8787/proxy?token=启动时显示的令牌">
@@ -466,6 +576,10 @@
             <input type="number" id="retryCount" min="0" max="10" step="1" value="3">
           </label>
           <p class="field-hint" id="retryHint">通用 API 只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。</p>
+        </section>
+
+        <section class="settings-section retry-settings grsai-only-settings hidden" id="grsaiRetrySettings">
+          <h3 id="grsaiRetryTitle">GrsAI 提交重试</h3>
           <label class="field">
             <span id="grsaiSubmit504RetryLabel">GrsAI 提交 504 重试次数</span>
             <input type="number" id="grsaiSubmit504RetryCount" min="0" max="10" step="1" value="2">
@@ -506,7 +620,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.3.28</strong>
+            <strong id="currentVersionLabel">v1.3.29</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -603,6 +717,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260724-1-3-28"></script>
+  <script src="app.js?v=20260725-1-3-29"></script>
 </body>
 </html>

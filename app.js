@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.28";
+const APP_VERSION = "1.3.29";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -247,6 +247,7 @@ const CLEAN_LOCALES = {
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
+    officialPanelTitle: "官方图像参数", officialPanelHint: "仅发送给 OpenAI 官方 Image API，并随当前官方 API 配置保存。", officialQuality: "输出质量", officialQualityHint: "自动会平衡速度与细节；低适合草稿，中适合日常，高适合最终成图。", optionAuto: "自动", optionLow: "低", optionMedium: "中", optionHigh: "高", officialBackground: "背景", officialBackgroundHint: "透明背景适合贴纸与素材；gpt-image-2 暂不支持透明。", optionOpaque: "不透明", optionTransparent: "透明", officialOutputFormat: "输出格式", officialOutputFormatHint: "PNG 无损；JPEG 更快；WebP 通常体积更小且支持透明。", officialCompression: "压缩质量", officialCompressionHint: "仅用于 JPEG/WebP；数值越低文件越小，细节损失越明显。", officialModeration: "内容审核强度", officialModerationHint: "自动使用标准过滤；低会减少限制，但仍受官方内容政策约束。", officialInputFidelity: "参考图保真度", officialInputFidelityHint: "仅编辑/参考图生效；高保真更重视人物、风格和细节一致性，成本可能更高。", officialCapabilityDefault: "选择模型后会显示该模型的尺寸、透明背景和参考图能力。", officialCapabilityGptImage2: "gpt-image-2 支持符合约束的自定义尺寸；暂不支持透明背景；参考图固定使用高保真。", officialCapabilityMini: "gpt-image-1-mini 支持标准三种尺寸与透明背景，但不支持调整参考图保真度。", officialCapabilityLegacy: "该模型支持标准三种尺寸；透明背景请使用 PNG/WebP；参考图可选择低/高保真。", grsaiPanelTitle: "GrsAI 中转协议", grsaiPanelHint: "使用独立的 generate/result 任务协议；OpenAI 官方质量、格式和背景参数不会发送到这里。", grsaiNodeHint: "国内节点 · 异步任务轮询 · 返回图片 URL", grsaiWebsiteLabel: "推荐管理网站：https://grsai.com/zh", customPanelTitle: "通用兼容模式", customPanelHint: "按 OpenAI 兼容的 generations/edits 请求发送基础参数；不会附加 OpenAI 官方或 GrsAI 专属字段。", grsaiRetryTitle: "GrsAI 提交重试", officialModelsDetected: "已检测到 {count} 个可用的 OpenAI 官方生图模型", officialModelsFallback: "无法读取官方模型列表，已加载内置官方生图模型：{reason}", officialModelsNoMatch: "当前 Key 的模型列表中没有识别到官方生图模型，已加载内置列表", officialModelAuthFailed: "OpenAI API Key 无效、无权限或项目未获模型访问权限",
     model: "模型", detect: "检测", proxy: "浏览器 CORS 转发地址", saveConfig: "保存配置",
     modelChoicesPlaceholder: "从检测到的模型中选择…",
     desktopProxyTitle: "电脑端网络代理", desktopProxyMode: "代理模式", desktopProxyCustomUrl: "自定义代理地址",
@@ -322,6 +323,7 @@ const CLEAN_LOCALES = {
     savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
     apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
     apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
+    officialPanelTitle: "官方圖像參數", officialPanelHint: "僅傳送至 OpenAI 官方 Image API，並隨目前的官方 API 設定儲存。", officialQuality: "輸出品質", officialQualityHint: "自動會平衡速度與細節；低適合草稿，中適合日常，高適合最終成圖。", optionAuto: "自動", optionLow: "低", optionMedium: "中", optionHigh: "高", officialBackground: "背景", officialBackgroundHint: "透明背景適合貼圖與素材；gpt-image-2 暫不支援透明。", optionOpaque: "不透明", optionTransparent: "透明", officialOutputFormat: "輸出格式", officialOutputFormatHint: "PNG 無損；JPEG 更快；WebP 通常較小且支援透明。", officialCompression: "壓縮品質", officialCompressionHint: "僅用於 JPEG/WebP；數值越低檔案越小，細節損失越明顯。", officialModeration: "內容審核強度", officialModerationHint: "自動使用標準過濾；低會減少限制，但仍受官方內容政策約束。", officialInputFidelity: "參考圖保真度", officialInputFidelityHint: "僅編輯/參考圖生效；高保真更重視人物、風格與細節一致性，成本可能更高。", officialCapabilityDefault: "選擇模型後會顯示該模型的尺寸、透明背景與參考圖能力。", officialCapabilityGptImage2: "gpt-image-2 支援符合約束的自訂尺寸；暫不支援透明背景；參考圖固定使用高保真。", officialCapabilityMini: "gpt-image-1-mini 支援標準三種尺寸與透明背景，但不支援調整參考圖保真度。", officialCapabilityLegacy: "此模型支援標準三種尺寸；透明背景請使用 PNG/WebP；參考圖可選擇低/高保真。", grsaiPanelTitle: "GrsAI 中轉協議", grsaiPanelHint: "使用獨立的 generate/result 任務協議；OpenAI 官方品質、格式與背景參數不會傳送到這裡。", grsaiNodeHint: "國內節點 · 非同步任務輪詢 · 回傳圖片 URL", grsaiWebsiteLabel: "推薦管理網站：https://grsai.com/zh", customPanelTitle: "通用相容模式", customPanelHint: "依 OpenAI 相容的 generations/edits 請求傳送基礎參數；不會附加 OpenAI 官方或 GrsAI 專屬欄位。", grsaiRetryTitle: "GrsAI 提交重試", officialModelsDetected: "已偵測到 {count} 個可用的 OpenAI 官方生圖模型", officialModelsFallback: "無法讀取官方模型清單，已載入內建官方生圖模型：{reason}", officialModelsNoMatch: "目前 Key 的模型清單中未辨識到官方生圖模型，已載入內建清單", officialModelAuthFailed: "OpenAI API Key 無效、無權限或專案尚未取得模型存取權",
     model: "模型", detect: "偵測", proxy: "瀏覽器 CORS 轉發位址", saveConfig: "儲存設定",
     modelChoicesPlaceholder: "從偵測到的模型中選擇…",
     desktopProxyTitle: "桌面端網路代理", desktopProxyMode: "代理模式", desktopProxyCustomUrl: "自訂代理位址",
@@ -397,6 +399,7 @@ const CLEAN_LOCALES = {
     savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
     apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
+    officialPanelTitle: "Official image options", officialPanelHint: "Sent only to the official OpenAI Image API and saved with this official API profile.", officialQuality: "Output quality", officialQualityHint: "Auto balances speed and detail; Low is for drafts, Medium for everyday work, and High for final assets.", optionAuto: "Auto", optionLow: "Low", optionMedium: "Medium", optionHigh: "High", officialBackground: "Background", officialBackgroundHint: "Transparent is useful for stickers and assets; gpt-image-2 does not currently support it.", optionOpaque: "Opaque", optionTransparent: "Transparent", officialOutputFormat: "Output format", officialOutputFormatHint: "PNG is lossless; JPEG is faster; WebP is usually smaller and supports transparency.", officialCompression: "Compression quality", officialCompressionHint: "JPEG/WebP only. Lower values make smaller files with more visible detail loss.", officialModeration: "Moderation level", officialModerationHint: "Auto uses standard filtering. Low is less restrictive but still follows OpenAI policy.", officialInputFidelity: "Input fidelity", officialInputFidelityHint: "Used only for edits/reference images. High better preserves people, style, and details and may cost more.", officialCapabilityDefault: "Select a model to see its size, transparency, and reference-image capabilities.", officialCapabilityGptImage2: "gpt-image-2 supports constrained custom sizes, does not support transparency, and always processes references at high fidelity.", officialCapabilityMini: "gpt-image-1-mini supports the three standard sizes and transparency, but input fidelity cannot be changed.", officialCapabilityLegacy: "This model supports the three standard sizes. Use PNG/WebP for transparency; reference fidelity can be Low or High.", grsaiPanelTitle: "GrsAI relay protocol", grsaiPanelHint: "Uses its own generate/result task protocol. Official OpenAI quality, format, and background fields are never sent here.", grsaiNodeHint: "China node · asynchronous polling · image URL output", grsaiWebsiteLabel: "Management site: https://grsai.com/zh", customPanelTitle: "Generic compatibility mode", customPanelHint: "Sends core fields through OpenAI-compatible generations/edits requests without OpenAI-official or GrsAI-specific fields.", grsaiRetryTitle: "GrsAI submission retries", officialModelsDetected: "Detected {count} available official OpenAI image models", officialModelsFallback: "Could not read the official model list. Built-in official image models were loaded: {reason}", officialModelsNoMatch: "No official image model was recognized for this key. The built-in list was loaded.", officialModelAuthFailed: "The OpenAI API key is invalid, unauthorized, or the project lacks model access",
     model: "Model", detect: "Detect", proxy: "Browser CORS proxy URL", saveConfig: "Save config",
     modelChoicesPlaceholder: "Choose from detected models...",
     desktopProxyTitle: "Desktop Network Proxy", desktopProxyMode: "Proxy mode", desktopProxyCustomUrl: "Custom proxy URL",
@@ -472,6 +475,7 @@ const CLEAN_LOCALES = {
     savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
     apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
+    officialPanelTitle: "公式画像パラメータ", officialPanelHint: "OpenAI 公式 Image API にのみ送信され、現在の公式 API 設定と一緒に保存されます。", officialQuality: "出力品質", officialQualityHint: "自動は速度と詳細を調整します。低は下書き、中は通常、高は最終素材向けです。", optionAuto: "自動", optionLow: "低", optionMedium: "中", optionHigh: "高", officialBackground: "背景", officialBackgroundHint: "透明は素材作成に便利ですが、gpt-image-2 は現在対応していません。", optionOpaque: "不透明", optionTransparent: "透明", officialOutputFormat: "出力形式", officialOutputFormatHint: "PNG は可逆、JPEG は高速、WebP は小さく透明にも対応します。", officialCompression: "圧縮品質", officialCompressionHint: "JPEG/WebP のみ。値を下げると小さくなりますが詳細が失われます。", officialModeration: "審査強度", officialModerationHint: "自動は標準フィルタ、低は制限を緩めますが公式ポリシーは適用されます。", officialInputFidelity: "参照画像の忠実度", officialInputFidelityHint: "編集/参照画像でのみ有効。高は人物・スタイル・詳細を保ちやすく、コストが上がる場合があります。", officialCapabilityDefault: "モデルを選択するとサイズ、透明背景、参照画像の能力を表示します。", officialCapabilityGptImage2: "gpt-image-2 は条件内のカスタムサイズに対応し、透明背景は非対応、参照画像は常に高忠実度です。", officialCapabilityMini: "gpt-image-1-mini は標準 3 サイズと透明背景に対応しますが、忠実度は変更できません。", officialCapabilityLegacy: "標準 3 サイズに対応します。透明背景は PNG/WebP を使用し、参照忠実度は低/高から選べます。", grsaiPanelTitle: "GrsAI 中継プロトコル", grsaiPanelHint: "独自の generate/result タスク方式を使用し、OpenAI 公式の品質・形式・背景は送信しません。", grsaiNodeHint: "中国ノード・非同期ポーリング・画像 URL 出力", grsaiWebsiteLabel: "管理サイト：https://grsai.com/zh", customPanelTitle: "汎用互換モード", customPanelHint: "OpenAI 互換 generations/edits の基本項目のみ送信し、公式または GrsAI 専用項目は追加しません。", grsaiRetryTitle: "GrsAI 送信再試行", officialModelsDetected: "利用可能な OpenAI 公式画像モデルを {count} 件検出しました", officialModelsFallback: "公式モデル一覧を取得できないため、内蔵モデルを読み込みました：{reason}", officialModelsNoMatch: "この Key では公式画像モデルを認識できなかったため、内蔵一覧を読み込みました", officialModelAuthFailed: "OpenAI API Key が無効、権限不足、またはプロジェクトにモデルアクセス権がありません",
     model: "モデル", detect: "検出", proxy: "ブラウザ CORS 転送 URL", saveConfig: "設定を保存",
     modelChoicesPlaceholder: "検出したモデルから選択…",
     desktopProxyTitle: "デスクトップネットワークプロキシ", desktopProxyMode: "プロキシモード", desktopProxyCustomUrl: "カスタムプロキシ URL",
@@ -547,6 +551,7 @@ const CLEAN_LOCALES = {
     savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
     apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
+    officialPanelTitle: "공식 이미지 옵션", officialPanelHint: "OpenAI 공식 Image API에만 전송되며 현재 공식 API 설정과 함께 저장됩니다.", officialQuality: "출력 품질", officialQualityHint: "자동은 속도와 세부 묘사를 조절합니다. 낮음은 초안, 중간은 일반 작업, 높음은 최종 결과에 적합합니다.", optionAuto: "자동", optionLow: "낮음", optionMedium: "중간", optionHigh: "높음", officialBackground: "배경", officialBackgroundHint: "투명 배경은 스티커와 소재에 유용하지만 gpt-image-2는 현재 지원하지 않습니다.", optionOpaque: "불투명", optionTransparent: "투명", officialOutputFormat: "출력 형식", officialOutputFormatHint: "PNG는 무손실, JPEG는 빠르며 WebP는 보통 더 작고 투명을 지원합니다.", officialCompression: "압축 품질", officialCompressionHint: "JPEG/WebP 전용입니다. 값이 낮을수록 파일은 작아지고 세부 손실이 커집니다.", officialModeration: "콘텐츠 심사 강도", officialModerationHint: "자동은 표준 필터를 사용합니다. 낮음은 제한이 적지만 공식 정책은 계속 적용됩니다.", officialInputFidelity: "참고 이미지 충실도", officialInputFidelityHint: "편집/참고 이미지에서만 적용됩니다. 높음은 인물, 스타일, 세부를 더 잘 보존하며 비용이 늘 수 있습니다.", officialCapabilityDefault: "모델을 선택하면 크기, 투명 배경 및 참고 이미지 기능을 표시합니다.", officialCapabilityGptImage2: "gpt-image-2는 조건을 만족하는 사용자 크기를 지원하고 투명 배경은 지원하지 않으며 참고 이미지를 항상 높은 충실도로 처리합니다.", officialCapabilityMini: "gpt-image-1-mini는 표준 3가지 크기와 투명 배경을 지원하지만 충실도를 변경할 수 없습니다.", officialCapabilityLegacy: "표준 3가지 크기를 지원합니다. 투명 배경은 PNG/WebP를 사용하고 참고 충실도는 낮음/높음으로 선택할 수 있습니다.", grsaiPanelTitle: "GrsAI 중계 프로토콜", grsaiPanelHint: "독립적인 generate/result 작업 프로토콜을 사용하며 OpenAI 공식 품질, 형식, 배경 필드는 전송하지 않습니다.", grsaiNodeHint: "중국 노드 · 비동기 폴링 · 이미지 URL 출력", grsaiWebsiteLabel: "관리 사이트: https://grsai.com/zh", customPanelTitle: "일반 호환 모드", customPanelHint: "OpenAI 호환 generations/edits 기본 필드만 전송하며 공식 또는 GrsAI 전용 필드는 추가하지 않습니다.", grsaiRetryTitle: "GrsAI 제출 재시도", officialModelsDetected: "사용 가능한 OpenAI 공식 이미지 모델 {count}개를 감지했습니다", officialModelsFallback: "공식 모델 목록을 읽지 못해 내장 공식 이미지 모델을 불러왔습니다: {reason}", officialModelsNoMatch: "이 Key의 모델 목록에서 공식 이미지 모델을 찾지 못해 내장 목록을 불러왔습니다", officialModelAuthFailed: "OpenAI API Key가 잘못되었거나 권한이 없거나 프로젝트에 모델 접근 권한이 없습니다",
     model: "모델", detect: "감지", proxy: "브라우저 CORS 프록시 URL", saveConfig: "설정 저장",
     modelChoicesPlaceholder: "감지된 모델에서 선택...",
     desktopProxyTitle: "데스크톱 네트워크 프록시", desktopProxyMode: "프록시 모드", desktopProxyCustomUrl: "사용자 프록시 URL",
@@ -836,6 +841,9 @@ function applyCleanLanguage() {
   setButtonText(dom.saveConfig, "save", "saveConfig");
   setButtonText(dom.openApiConfig, "settings", "connectApi");
   setButtonText(dom.quickDetectModels, "search", "apiDetect");
+  updateProviderOptionsLanguage();
+  updateApiProviderHint(dom.apiProvider?.value || "custom");
+  updateProviderPanelVisibility(dom.apiProvider?.value || "custom");
   updateApiQuickState();
 
   $$(".mode-tab", dom.modeTabs).forEach(tab => {
@@ -1109,6 +1117,19 @@ const dom = {
   apiQuickMeta:  $("#apiQuickMeta"),
   openApiConfig: $("#openApiConfig"),
   quickDetectModels: $("#quickDetectModels"),
+  officialProviderPanel: $("#officialProviderPanel"),
+  grsaiProviderPanel: $("#grsaiProviderPanel"),
+  customProviderPanel: $("#customProviderPanel"),
+  officialQuality: $("#officialQuality"),
+  officialBackground: $("#officialBackground"),
+  officialOutputFormat: $("#officialOutputFormat"),
+  officialOutputCompression: $("#officialOutputCompression"),
+  officialCompressionField: $("#officialCompressionField"),
+  officialCompressionValue: $("#officialCompressionValue"),
+  officialModeration: $("#officialModeration"),
+  officialInputFidelity: $("#officialInputFidelity"),
+  officialInputFidelityField: $("#officialInputFidelityField"),
+  officialCapabilityNote: $("#officialCapabilityNote"),
   // 模式
   inputPanel:    $(".input-panel"),
   modeTabs:      $("#modeTabs"),
@@ -1220,6 +1241,7 @@ const dom = {
   retryCount:     $("#retryCount"),
   grsaiSubmit504RetryCount: $("#grsaiSubmit504RetryCount"),
   grsaiSubmit504RetryInterval: $("#grsaiSubmit504RetryInterval"),
+  grsaiRetrySettings: $("#grsaiRetrySettings"),
   desktopProxyMode: $("#desktopProxyMode"),
   desktopProxyCustomUrl: $("#desktopProxyCustomUrl"),
   testDesktopProxy: $("#testDesktopProxy"),
@@ -1591,6 +1613,145 @@ const API_PROVIDER_PRESETS = {
   grsai: { endpoint: GRSAI_API_ENDPOINT, labelKey: "grsaiImageApi" },
   custom: { endpoint: "", labelKey: "customApi" },
 };
+const OPENAI_OFFICIAL_IMAGE_MODELS = Object.freeze([
+  "gpt-image-2",
+  "gpt-image-1.5",
+  "gpt-image-1",
+  "gpt-image-1-mini",
+]);
+const OFFICIAL_IMAGE_OPTION_DEFAULTS = Object.freeze({
+  quality: "auto",
+  background: "auto",
+  outputFormat: "png",
+  outputCompression: 100,
+  moderation: "auto",
+  inputFidelity: "low",
+});
+
+function isOpenAiOfficialImageModelId(value) {
+  const id = String(value || "").trim();
+  return /^(?:gpt-image-2|gpt-image-1\.5|gpt-image-1-mini|gpt-image-1)(?:-\d{4}-\d{2}-\d{2})?$/i.test(id);
+}
+
+function officialImageModelFamily(value) {
+  const id = String(value || "").trim().toLowerCase();
+  if (!isOpenAiOfficialImageModelId(id)) return "";
+  if (id.startsWith("gpt-image-2")) return "gpt-image-2";
+  if (id.startsWith("gpt-image-1.5")) return "gpt-image-1.5";
+  if (id.startsWith("gpt-image-1-mini")) return "gpt-image-1-mini";
+  return "gpt-image-1";
+}
+
+function normalizeOfficialImageOptions(value = {}) {
+  const pick = (candidate, allowed, fallback) => allowed.includes(candidate) ? candidate : fallback;
+  return {
+    quality: pick(value.quality, ["auto", "low", "medium", "high"], OFFICIAL_IMAGE_OPTION_DEFAULTS.quality),
+    background: pick(value.background, ["auto", "opaque", "transparent"], OFFICIAL_IMAGE_OPTION_DEFAULTS.background),
+    outputFormat: pick(value.outputFormat || value.output_format, ["png", "jpeg", "webp"], OFFICIAL_IMAGE_OPTION_DEFAULTS.outputFormat),
+    outputCompression: Math.min(100, Math.max(0, Math.round(Number(value.outputCompression ?? value.output_compression ?? OFFICIAL_IMAGE_OPTION_DEFAULTS.outputCompression) || 0))),
+    moderation: pick(value.moderation, ["auto", "low"], OFFICIAL_IMAGE_OPTION_DEFAULTS.moderation),
+    inputFidelity: pick(value.inputFidelity || value.input_fidelity, ["low", "high"], OFFICIAL_IMAGE_OPTION_DEFAULTS.inputFidelity),
+  };
+}
+
+function getOfficialImageOptions() {
+  return normalizeOfficialImageOptions({
+    quality: dom.officialQuality?.value,
+    background: dom.officialBackground?.value,
+    outputFormat: dom.officialOutputFormat?.value,
+    outputCompression: dom.officialOutputCompression?.value,
+    moderation: dom.officialModeration?.value,
+    inputFidelity: dom.officialInputFidelity?.value,
+  });
+}
+
+function setProviderSegmentValue(controlId, value) {
+  const input = dom[controlId];
+  if (input) input.value = value;
+  const group = document.querySelector(`[data-provider-control="${controlId}"]`);
+  group?.querySelectorAll("button[data-value]").forEach(button => {
+    const selected = button.dataset.value === value;
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+    button.classList.toggle("active", selected);
+  });
+}
+
+function applyOfficialImageOptions(value = {}) {
+  const options = normalizeOfficialImageOptions(value);
+  setProviderSegmentValue("officialQuality", options.quality);
+  setProviderSegmentValue("officialBackground", options.background);
+  setProviderSegmentValue("officialOutputFormat", options.outputFormat);
+  setProviderSegmentValue("officialModeration", options.moderation);
+  setProviderSegmentValue("officialInputFidelity", options.inputFidelity);
+  if (dom.officialOutputCompression) dom.officialOutputCompression.value = String(options.outputCompression);
+  if (dom.officialCompressionValue) dom.officialCompressionValue.textContent = String(options.outputCompression);
+  updateOfficialOptionAvailability();
+}
+
+function updateOfficialOptionAvailability() {
+  const model = String(dom.model?.value || "gpt-image-2").trim().toLowerCase();
+  const family = officialImageModelFamily(model);
+  const isGptImage2 = family === "gpt-image-2";
+  const isMini = family === "gpt-image-1-mini";
+  const transparent = document.querySelector('[data-provider-control="officialBackground"] button[data-value="transparent"]');
+  if (transparent) transparent.disabled = isGptImage2;
+  if (isGptImage2 && dom.officialBackground?.value === "transparent") {
+    setProviderSegmentValue("officialBackground", "auto");
+  }
+  const jpeg = document.querySelector('[data-provider-control="officialOutputFormat"] button[data-value="jpeg"]');
+  if (jpeg) jpeg.disabled = dom.officialBackground?.value === "transparent";
+  const fidelityDisabled = isGptImage2 || isMini;
+  dom.officialInputFidelityField?.classList.toggle("is-disabled", fidelityDisabled);
+  document.querySelectorAll('[data-provider-control="officialInputFidelity"] button').forEach(button => {
+    button.disabled = fidelityDisabled;
+  });
+  if (isGptImage2) setProviderSegmentValue("officialInputFidelity", "high");
+  else if (isMini) setProviderSegmentValue("officialInputFidelity", "low");
+
+  if (dom.officialBackground?.value === "transparent" && dom.officialOutputFormat?.value === "jpeg") {
+    setProviderSegmentValue("officialOutputFormat", "png");
+  }
+  const compressed = ["jpeg", "webp"].includes(dom.officialOutputFormat?.value);
+  dom.officialCompressionField?.classList.toggle("hidden", !compressed);
+  if (dom.officialCapabilityNote) {
+    const key = isGptImage2 ? "officialCapabilityGptImage2" : isMini ? "officialCapabilityMini" : model ? "officialCapabilityLegacy" : "officialCapabilityDefault";
+    dom.officialCapabilityNote.textContent = cleanText(key);
+  }
+}
+
+function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "custom") {
+  dom.officialProviderPanel?.classList.toggle("hidden", provider !== "official");
+  dom.grsaiProviderPanel?.classList.toggle("hidden", provider !== "grsai");
+  dom.customProviderPanel?.classList.toggle("hidden", provider !== "custom");
+  dom.grsaiRetrySettings?.classList.toggle("hidden", provider !== "grsai");
+  if (provider === "official") updateOfficialOptionAvailability();
+}
+
+function updateProviderOptionsLanguage() {
+  const textKeys = {
+    officialProviderTitle: "officialPanelTitle", officialProviderHint: "officialPanelHint",
+    officialQualityLabel: "officialQuality", officialQualityHint: "officialQualityHint",
+    officialBackgroundLabel: "officialBackground", officialBackgroundHint: "officialBackgroundHint",
+    officialOutputFormatLabel: "officialOutputFormat", officialOutputFormatHint: "officialOutputFormatHint",
+    officialCompressionLabel: "officialCompression", officialCompressionHint: "officialCompressionHint",
+    officialModerationLabel: "officialModeration", officialModerationHint: "officialModerationHint",
+    officialInputFidelityLabel: "officialInputFidelity", officialInputFidelityHint: "officialInputFidelityHint",
+    grsaiProviderTitle: "grsaiPanelTitle", grsaiProviderHint: "grsaiPanelHint", grsaiNodeHint: "grsaiNodeHint",
+    grsaiWebsite: "grsaiWebsiteLabel", customProviderTitle: "customPanelTitle", customProviderHint: "customPanelHint",
+    grsaiRetryTitle: "grsaiRetryTitle",
+  };
+  Object.entries(textKeys).forEach(([id, key]) => setText(`#${id}`, key));
+  const optionKeys = { auto: "optionAuto", low: "optionLow", medium: "optionMedium", high: "optionHigh", opaque: "optionOpaque", transparent: "optionTransparent" };
+  document.querySelectorAll(".provider-segments button[data-value]").forEach(button => {
+    const key = optionKeys[button.dataset.value];
+    if (key) button.textContent = cleanText(key);
+  });
+  document.querySelectorAll('[data-provider-control="officialOutputFormat"] button').forEach(button => {
+    button.textContent = button.dataset.value === "jpeg" ? "JPEG" : button.dataset.value.toUpperCase();
+  });
+  setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
+  updateOfficialOptionAvailability();
+}
 
 function loadConfig() {
   try {
@@ -1669,6 +1830,7 @@ function normalizeApiConfig(config = {}) {
     apiKey: config.apiKey || "",
     hasSecureKey: config.hasSecureKey === true,
     model: config.model || "",
+    officialImageOptions: apiProvider === "official" ? normalizeOfficialImageOptions(config.officialImageOptions) : undefined,
     proxyEndpoint: config.proxyEndpoint || "",
     platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(endpoint) || cleanText("customApi"),
   };
@@ -1739,6 +1901,7 @@ function applyApiProvider(provider = "custom", options = {}) {
     dom.apiEndpoint.placeholder = preset.endpoint || "https://your-api.example.com/v1/images/generations";
   }
   updateApiProviderHint(next);
+  updateProviderPanelVisibility(next);
   updateApiQuickState();
 }
 
@@ -1761,8 +1924,11 @@ function applyConfig(cfg) {
     }, 0);
   }
   if (cfg.model)    dom.model.value = cfg.model;
+  applyOfficialImageOptions(cfg.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
   if (cfg.proxyEndpoint) dom.proxyEndpoint.value = cfg.proxyEndpoint;
   if (!cfg.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
+  if (!cfg.model && provider === "official") dom.model.value = "gpt-image-2";
+  updateOfficialOptionAvailability();
   updateApiQuickState();
 }
 
@@ -1777,6 +1943,7 @@ function currentApiConfig(name = loadConfig().name || "") {
     endpoint,
     apiKey: dom.apiKey.value.trim(),
     model: dom.model.value.trim(),
+    officialImageOptions: provider === "official" ? getOfficialImageOptions() : undefined,
     proxyEndpoint: dom.proxyEndpoint.value.trim(),
     platform: (findAdapter(endpoint, provider) || {}).name || "未知",
   };
@@ -2003,13 +2170,47 @@ dom.apiProvider?.addEventListener("change", () => {
     loadGrsaiModels();
     dom.model.placeholder = "点击输入或检测选择模型";
   } else if (provider === "official") {
-    dom.model.placeholder = "gpt-image-2";
+    loadOfficialModels();
+  } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
+    dom.model.value = "";
   }
   if (dom.apiEndpoint.value.trim() || dom.apiKey.value.trim()) {
     saveConfig(currentApiConfig());
   }
   updateApiQuickState();
 });
+
+function persistCurrentProviderOptions() {
+  const cfg = currentApiConfig();
+  saveConfig(cfg);
+  const selectedId = dom.savedApis.value;
+  if (!selectedId) return;
+  const apis = loadAllApis();
+  const index = findSavedApiIndex(selectedId, apis);
+  if (index < 0) return;
+  cfg.id = apis[index].id;
+  cfg.name = apis[index].name;
+  apis[index] = cfg;
+  saveAllApis(apis);
+  renderSavedApis();
+  dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+}
+
+document.querySelectorAll(".provider-segments[data-provider-control]").forEach(group => {
+  group.addEventListener("click", event => {
+    const button = event.target.closest("button[data-value]");
+    if (!button || button.disabled) return;
+    const controlId = group.dataset.providerControl;
+    setProviderSegmentValue(controlId, button.dataset.value);
+    updateOfficialOptionAvailability();
+    persistCurrentProviderOptions();
+  });
+});
+
+dom.officialOutputCompression?.addEventListener("input", () => {
+  if (dom.officialCompressionValue) dom.officialCompressionValue.textContent = dom.officialOutputCompression.value;
+});
+dom.officialOutputCompression?.addEventListener("change", persistCurrentProviderOptions);
 
 dom.openApiConfig?.addEventListener("click", () => {
   keepApiConfigVisible();
@@ -2874,7 +3075,7 @@ function setModelChoices(models = [], options = {}) {
   }
   dom.modelChoices.appendChild(new Option(cleanText("modelChoicesPlaceholder"), ""));
   ids.slice(0, options.limit || 80).forEach(id => {
-    dom.modelChoices.appendChild(new Option(id + priceLabel(id), id));
+    dom.modelChoices.appendChild(new Option(id + (options.showPrices === false ? "" : priceLabel(id)), id));
   });
   dom.modelChoices.value = "";
   dom.model?.classList.add("has-model-choices");
@@ -2898,9 +3099,22 @@ function loadGrsaiModels() {
   updateApiQuickState();
 }
 
+function loadOfficialModels(models = OPENAI_OFFICIAL_IMAGE_MODELS) {
+  const ids = [...new Set((models || []).filter(isOpenAiOfficialImageModelId))];
+  const choices = ids.length ? ids : [...OPENAI_OFFICIAL_IMAGE_MODELS];
+  const current = dom.model.value.trim();
+  setModelChoices(choices, { showPrices: false });
+  dom.model.value = choices.includes(current) ? current : (choices.includes("gpt-image-2") ? "gpt-image-2" : choices[0] || "gpt-image-2");
+  dom.model.placeholder = `已加载 ${choices.length} 个 OpenAI 官方生图模型，点击选择`;
+  updateOfficialOptionAvailability();
+  updateApiQuickState();
+  return choices;
+}
+
 // 模型变更时提示价格 + 自动更新已保存配置
 dom.model.addEventListener("change", () => {
   const m = dom.model.value.trim();
+  updateOfficialOptionAvailability();
   if (KNOWN_PRICES[m]) showStatus(`已选: ${m} · ${KNOWN_PRICES[m]}`, "info");
   const selectedId = dom.savedApis.value;
   if (selectedId) {
@@ -2943,6 +3157,8 @@ dom.apiEndpoint.addEventListener("change", () => {
   if (provider === "grsai") {
     loadGrsaiModels();
     dom.model.placeholder = "点击输入或检测选择模型";
+  } else if (provider === "official") {
+    loadOfficialModels();
   } else if (/jeniya\.top/.test(ep)) {
     dom.model.placeholder = "点击输入或检测选择模型";
   } else {
@@ -4084,11 +4300,14 @@ function registerAdapter(adapter) { adapters.push(adapter); }
 function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProvider(endpoint)) {
   const url = String(endpoint || "").toLowerCase();
   const selectedProvider = API_PROVIDER_PRESETS[provider] ? provider : "custom";
+  if (selectedProvider === "official") {
+    return adapters.find(a => a.provider === "official") || null;
+  }
   if (selectedProvider === "grsai") {
     return adapters.find(a => a.provider === "grsai") || null;
   }
   for (const a of adapters) {
-    if (a.provider === "grsai") continue;
+    if (a.provider) continue;
     if (a.detect(url)) return a;
   }
   return null;
@@ -4296,6 +4515,159 @@ registerAdapter({
       throw new Error("GrsAI 返回成功但无图片 URL");
     }
     throw new Error(`GrsAI 生成失败: ${grsaiStatusError(data)}`);
+  },
+});
+
+// ═══════════════════════════════════════════════════════════
+//  OpenAI 官方 Image API 适配器
+// ═══════════════════════════════════════════════════════════
+
+function validateOfficialImageSize(model, size) {
+  const family = officialImageModelFamily(model);
+  const normalizedSize = String(size || "").toLowerCase();
+  if (normalizedSize === "auto") return;
+  const match = normalizedSize.match(/^(\d+)x(\d+)$/);
+  if (!match) {
+    throw new Error(`OpenAI 图片尺寸无效：${size}。请选择预设尺寸，或输入“宽x高”（例如 2048x1152）。`);
+  }
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (family === "gpt-image-2") {
+    const pixels = width * height;
+    const ratio = Math.max(width, height) / Math.min(width, height);
+    if (width > 3840 || height > 3840 || width % 16 !== 0 || height % 16 !== 0 || ratio > 3 || pixels < 655360 || pixels > 8294400) {
+      throw new Error("OpenAI gpt-image-2 尺寸无效：边长需不超过 3840 且为 16 的倍数，长短边比不超过 3:1，总像素需在 655,360 到 8,294,400 之间。");
+    }
+    return;
+  }
+  if (!["1024x1024", "1024x1536", "1536x1024"].includes(normalizedSize)) {
+    throw new Error(`${model} 仅支持 1024x1024、1024x1536 或 1536x1024；自定义尺寸请改用 gpt-image-2。`);
+  }
+}
+
+function buildOfficialImageRequestOptions(model, size, hasRef) {
+  validateOfficialImageSize(model, size);
+  const selected = getOfficialImageOptions();
+  const family = officialImageModelFamily(model);
+  const options = {
+    quality: selected.quality,
+    background: family === "gpt-image-2" && selected.background === "transparent" ? "auto" : selected.background,
+    output_format: selected.outputFormat,
+    moderation: selected.moderation,
+  };
+  if (["jpeg", "webp"].includes(selected.outputFormat)) {
+    options.output_compression = selected.outputCompression;
+  }
+  if (hasRef && family !== "gpt-image-2" && family !== "gpt-image-1-mini") {
+    options.input_fidelity = selected.inputFidelity;
+  }
+  if (options.background === "transparent" && options.output_format === "jpeg") {
+    options.output_format = "png";
+    delete options.output_compression;
+  }
+  return options;
+}
+
+function decorateOfficialImageResponse(data, outputFormat) {
+  const mimeType = outputFormat === "jpeg" ? "image/jpeg" : outputFormat === "webp" ? "image/webp" : "image/png";
+  if (Array.isArray(data?.data)) {
+    data.data = data.data.map(item => item && typeof item === "object" ? { ...item, mime_type: item.mime_type || mimeType } : item);
+  }
+  return data;
+}
+
+async function readOfficialApiError(response) {
+  const text = await response.text().catch(() => "");
+  try {
+    const data = JSON.parse(text);
+    return data?.error?.message || data?.message || text.slice(0, 300);
+  } catch {
+    return text.slice(0, 300) || `HTTP ${response.status}`;
+  }
+}
+
+registerAdapter({
+  name: "OpenAI Official",
+  provider: "official",
+  detect(url) { return /api\.openai\.com/.test(url); },
+  sizeFormat: "pixel",
+  supportsReference: true,
+  concurrency: 5,
+
+  async fetchModels(_endpoint, apiKey) {
+    let response;
+    try {
+      response = await smartFetch("https://api.openai.com/v1/models", {
+        headers: { "Authorization": `Bearer ${apiKey}` },
+        nativeTimeoutMs: 30000,
+      });
+    } catch (err) {
+      loadOfficialModels();
+      showStatus(interpolate(cleanText("officialModelsFallback"), { reason: err.message || err }), "error");
+      return;
+    }
+    if (response.status === 401 || response.status === 403) {
+      const reason = await readOfficialApiError(response);
+      loadOfficialModels();
+      showStatus(interpolate(cleanText("officialModelsFallback"), { reason: `${cleanText("officialModelAuthFailed")} · ${reason}` }), "error");
+      return;
+    }
+    if (!response.ok) {
+      const reason = await readOfficialApiError(response);
+      loadOfficialModels();
+      showStatus(interpolate(cleanText("officialModelsFallback"), { reason: `HTTP ${response.status} · ${reason}` }), "error");
+      return;
+    }
+    const data = await response.json().catch(() => ({}));
+    const ids = [...new Set((Array.isArray(data.data) ? data.data : [])
+      .map(item => String(item?.id || ""))
+      .filter(isOpenAiOfficialImageModelId))]
+      .sort((a, b) => {
+        const ai = OPENAI_OFFICIAL_IMAGE_MODELS.indexOf(a);
+        const bi = OPENAI_OFFICIAL_IMAGE_MODELS.indexOf(b);
+        return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi) || a.localeCompare(b);
+      });
+    if (!ids.length) {
+      loadOfficialModels();
+      showStatus(cleanText("officialModelsNoMatch"), "info");
+      return;
+    }
+    const choices = loadOfficialModels(ids);
+    showStatus(interpolate(cleanText("officialModelsDetected"), { count: choices.length }), "success");
+  },
+
+  async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
+    const signal = options.signal;
+    throwIfAborted(signal);
+    const officialOptions = buildOfficialImageRequestOptions(model, size, hasRef);
+    if (!hasRef || refs.length === 0) {
+      const url = normalizeApiUrl(endpoint, "images/generations");
+      const data = await apiFetch(url, apiKey, { model, prompt, n, size, ...officialOptions }, { signal, nativeTimeoutMs: null });
+      return decorateOfficialImageResponse(data, officialOptions.output_format);
+    }
+
+    const url = normalizeApiUrl(endpoint, "images/edits");
+    const form = new FormData();
+    form.append("model", model);
+    form.append("prompt", prompt);
+    form.append("n", String(n));
+    form.append("size", size);
+    Object.entries(officialOptions).forEach(([key, value]) => form.append(key, String(value)));
+    refs.forEach((ref, index) => {
+      form.append("image[]", dataUrlToBlob(ref.dataUrl), ref.fileName || `reference-${index + 1}.png`);
+    });
+    const response = await smartFetch(url, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}` },
+      body: form,
+      signal,
+      nativeTimeoutMs: null,
+    });
+    if (!response.ok) {
+      const reason = await readOfficialApiError(response);
+      throw new Error(`OpenAI 图片编辑失败 (HTTP ${response.status})：${reason}`);
+    }
+    return decorateOfficialImageResponse(await response.json(), officialOptions.output_format);
   },
 });
 
@@ -4808,10 +5180,18 @@ async function apiFetch(url, apiKey, body, options = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    let jsonSummary = "";
+    try {
+      const payload = JSON.parse(errorText);
+      const apiError = payload?.error && typeof payload.error === "object" ? payload.error : payload;
+      const message = apiError?.message || apiError?.error || payload?.message || "";
+      const code = apiError?.code || payload?.code || "";
+      if (message) jsonSummary = `${code ? `[${code}] ` : ""}${typeof message === "string" ? message : JSON.stringify(message)}`;
+    } catch {}
     const titleMatch = errorText.match(/<title[^>]*>([^<]*)<\/title>/i);
     const headingMatch = errorText.match(/<h1[^>]*>([^<]*)<\/h1>/i);
     const plainText = errorText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    const summary = (titleMatch?.[1] || headingMatch?.[1] || plainText || response.statusText || "请求失败").trim();
+    const summary = (jsonSummary || titleMatch?.[1] || headingMatch?.[1] || plainText || response.statusText || "请求失败").trim();
     throw new Error(`HTTP ${response.status}: ${summary.slice(0, 300)}`);
   }
 
@@ -5341,7 +5721,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   let imageUrl = null;
   if (item) {
     if (item.url) imageUrl = item.url;
-    else if (item.b64_json) imageUrl = `data:image/png;base64,${item.b64_json}`;
+    else if (item.b64_json) imageUrl = `data:${item.mime_type || "image/png"};base64,${item.b64_json}`;
   }
   if (!imageUrl) {
     markPlaceholderFailed(card, panelId, "API 未返回图片数据", options.retryContext);
@@ -7522,7 +7902,6 @@ async function buildImagesZip(images, meta = {}) {
 async function downloadImage(imageSource, index, fallbackUrl = "") {
   try {
     setDownloadProgress(3, "准备下载图片…");
-    const filename = `panel-${index}.png`;
     // imageSource 可以是生成时缓存的 Blob（远程生图 URL 约 2 小时被删，本地字节才可靠），
     // 也可以是 data:/blob:/https: 字符串。
     const blob = imageSource instanceof Blob
@@ -7533,8 +7912,9 @@ async function downloadImage(imageSource, index, fallbackUrl = "") {
     const knownBase64 = typeof imageSource === "string" && imageSource.startsWith("data:")
       ? imageSource.split(",")[1]
       : "";
+    const filename = `panel-${index}.${imageExtFromBlob(imageSource, blob)}`;
     await saveOrDownloadBlob(blob, filename, blob.type || "image/png", "images", knownBase64);
-    setDownloadProgress(100, `下载成功：panel-${index}.png`, true);
+    setDownloadProgress(100, `下载成功：${filename}`, true);
   } catch (err) {
     hideDownloadProgress();
     showStatus(`下载失败: ${err.message || err}`, "error");

@@ -3656,6 +3656,172 @@ async function testDesktopProxyControls(cdp) {
   assertQa(result.customDisabledAfterInvalid === false, "Custom proxy input should remain editable in custom mode.", result);
 }
 
+async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
+  logStep("OpenAI official provider has dedicated saved options, detects only official image models, sends the current Image API fields, and never leaks them into GrsAI");
+  await loadFresh(cdp, "openai-official-provider");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    const originalFetch = window.fetch.bind(window);
+    const requests = [];
+    let modelMode = "success";
+    window.fetch = async (url, opts = {}) => {
+      const target = String(url);
+      if (target === "https://api.openai.com/v1/models") {
+        if (modelMode === "auth") {
+          return new Response(JSON.stringify({ error: { message: "invalid project key" } }), {
+            status: 401, headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ data: [
+          { id: "gpt-4.1" }, { id: "gpt-image-1-mini" }, { id: "gpt-image-2-2026-04-21" }, { id: "gpt-image-2-vip" }
+        ] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (target.includes("api.openai.com/v1/images/generations")) {
+        requests.push({ kind: "official-generation", body: JSON.parse(opts.body || "{}") });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target.includes("api.openai.com/v1/images/edits")) {
+        const fields = {};
+        for (const [name, value] of opts.body.entries()) {
+          fields[name] = value instanceof Blob ? { type: value.type, size: value.size } : String(value);
+        }
+        requests.push({ kind: "official-edit", body: fields });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target.includes("grsai.dakka.com.cn/v1/api/generate")) {
+        requests.push({ kind: "grsai", body: JSON.parse(opts.body || "{}") });
+        return new Response(JSON.stringify({ status: "succeeded", results: [{ url: "https://images.example.test/result.png" }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(url, opts);
+    };
+
+    applyApiProvider("official", { forceEndpoint: true });
+    dom.apiProvider.value = "official";
+    dom.apiKey.value = "sk-official-test";
+    dom.model.value = "gpt-image-1.5";
+    setProviderSegmentValue("officialQuality", "high");
+    setProviderSegmentValue("officialBackground", "opaque");
+    setProviderSegmentValue("officialOutputFormat", "webp");
+    dom.officialOutputCompression.value = "72";
+    setProviderSegmentValue("officialModeration", "low");
+    setProviderSegmentValue("officialInputFidelity", "high");
+    updateOfficialOptionAvailability();
+
+    const profile = currentApiConfig("official-profile");
+    saveConfig(profile);
+    applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
+    applyConfig(loadConfig());
+    const restored = getOfficialImageOptions();
+    const visibility = {
+      official: !dom.officialProviderPanel.classList.contains("hidden"),
+      grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
+      custom: !dom.customProviderPanel.classList.contains("hidden"),
+      grsaiRetry: !dom.grsaiRetrySettings.classList.contains("hidden"),
+    };
+
+    const generation = await callImageAPI("official generation", "1024x1024", 1, "official", { references: [], maxRetries: 0 });
+    const reference = { dataUrl: "data:image/png;base64," + tinyPng, fileName: "reference.png", width: 1024, height: 1024 };
+    const edit = await callImageAPI("official edit", "1024x1024", 1, "official edit", { references: [reference], maxRetries: 0 });
+
+    await detectModelsForAdapter();
+    const detectedModels = Array.from(dom.modelChoices.options).map(option => option.value).filter(Boolean);
+    const detectedStatus = dom.status.textContent;
+    modelMode = "auth";
+    await detectModelsForAdapter();
+    const fallbackModels = Array.from(dom.modelChoices.options).map(option => option.value).filter(Boolean);
+    const fallbackStatus = dom.status.textContent;
+
+    dom.model.value = "gpt-image-2-2026-04-21";
+    updateOfficialOptionAvailability();
+    const gpt2Capabilities = {
+      transparentDisabled: document.querySelector('[data-provider-control="officialBackground"] button[data-value="transparent"]').disabled,
+      fidelityDisabled: Array.from(document.querySelectorAll('[data-provider-control="officialInputFidelity"] button')).every(button => button.disabled),
+      note: dom.officialCapabilityNote.textContent,
+    };
+    dom.model.value = "gpt-image-1.5";
+    updateOfficialOptionAvailability();
+    const legacyCapabilities = {
+      transparentEnabled: !document.querySelector('[data-provider-control="officialBackground"] button[data-value="transparent"]').disabled,
+      fidelityEnabled: Array.from(document.querySelectorAll('[data-provider-control="officialInputFidelity"] button')).every(button => !button.disabled),
+    };
+    let invalidSizeError = "";
+    dom.model.value = "gpt-image-2";
+    try {
+      await callImageAPI("invalid size", "not-a-size", 1, "official invalid size", { references: [], maxRetries: 0 });
+    } catch (err) {
+      invalidSizeError = err.message || String(err);
+    }
+
+    applyApiProvider("grsai", { forceEndpoint: true });
+    dom.apiProvider.value = "grsai";
+    dom.apiKey.value = "sk-grsai-test";
+    dom.model.value = "gpt-image-2";
+    await callImageAPI("grsai generation", "1024x1024", 1, "grsai", { references: [], maxRetries: 0 });
+    const grsaiVisibility = {
+      official: !dom.officialProviderPanel.classList.contains("hidden"),
+      grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
+      grsaiRetry: !dom.grsaiRetrySettings.classList.contains("hidden"),
+    };
+
+    window.fetch = originalFetch;
+    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, grsaiVisibility };
+  })()`, true);
+
+  const generated = result.requests.find(item => item.kind === "official-generation")?.body || {};
+  const edited = result.requests.find(item => item.kind === "official-edit")?.body || {};
+  const grsai = result.requests.find(item => item.kind === "grsai")?.body || {};
+  assertQa(result.visibility.official && !result.visibility.grsai && !result.visibility.custom && !result.visibility.grsaiRetry, "Official provider must show only the official option panel and hide GrsAI-specific UI, including its 504 settings.", result);
+  assertQa(result.restored.quality === "high" && result.restored.background === "opaque" && result.restored.outputFormat === "webp" && result.restored.outputCompression === 72 && result.restored.moderation === "low" && result.restored.inputFidelity === "high", "Official output options must persist with the active official API profile.", result);
+  assertQa(generated.quality === "high" && generated.background === "opaque" && generated.output_format === "webp" && generated.output_compression === 72 && generated.moderation === "low" && !("input_fidelity" in generated) && !("response_format" in generated), "Official generations must send supported Image API fields and omit edit-only or legacy response_format fields.", result);
+  assertQa(edited.quality === "high" && edited.background === "opaque" && edited.output_format === "webp" && edited.output_compression === "72" && edited.moderation === "low" && edited.input_fidelity === "high" && edited["image[]"]?.size > 0, "Official edits must send the dedicated options and reference image as multipart fields.", result);
+  assertQa(result.generation.data[0].mime_type === "image/webp" && result.edit.data[0].mime_type === "image/webp", "Official base64 responses must retain the requested MIME type instead of always being mislabeled PNG.", result);
+  assertQa(result.detectedModels.join(",") === "gpt-image-1-mini,gpt-image-2-2026-04-21" && /2/.test(result.detectedStatus), "Official model detection must retain official dated snapshots while filtering non-image models and GrsAI-only aliases.", result);
+  assertQa(result.fallbackModels.includes("gpt-image-2") && result.fallbackModels.includes("gpt-image-1.5") && result.fallbackModels.includes("gpt-image-1-mini") && /invalid project key|无效|invalid|権限|권한/i.test(result.fallbackStatus), "Official model detection failures must keep the built-in official list and display the real authorization reason.", result);
+  assertQa(result.gpt2Capabilities.transparentDisabled && result.gpt2Capabilities.fidelityDisabled && /gpt-image-2/.test(result.gpt2Capabilities.note) && result.legacyCapabilities.transparentEnabled && result.legacyCapabilities.fidelityEnabled, "Official controls must react to model capabilities, especially gpt-image-2 transparency/fidelity restrictions.", result);
+  assertQa(/尺寸|size|2048x1152/i.test(result.invalidSizeError), "Official custom sizes must be validated before a request instead of silently falling back to 1024x1024.", result);
+  assertQa(result.grsaiVisibility.grsai && result.grsaiVisibility.grsaiRetry && !result.grsaiVisibility.official, "Switching to GrsAI must hide official controls and reveal only GrsAI-specific UI.", result);
+  assertQa(grsai.model === "gpt-image-2" && grsai.aspectRatio === "1024x1024" && grsai.replyType === "json" && !("quality" in grsai) && !("background" in grsai) && !("output_format" in grsai) && !("moderation" in grsai) && !("input_fidelity" in grsai), "GrsAI requests must never receive OpenAI-official output fields.", result);
+}
+
+async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
+  logStep("OpenAI official provider controls remain readable and scrollable in the narrow desktop panel and on mobile");
+  const viewports = [
+    { name: "desktop", width: 1365, height: 768, mobile: false },
+    { name: "mobile", width: 390, height: 844, mobile: true },
+  ];
+  for (const viewport of viewports) {
+    await loadFresh(cdp, `official-layout-${viewport.name}`, viewport);
+    const result = await cdp.eval(`(() => {
+      applyApiProvider("official", { forceEndpoint: true });
+      applyLanguage("en");
+      dom.configSection.open = true;
+      const panel = dom.officialProviderPanel;
+      const grid = panel.querySelector(".provider-options-grid");
+      const buttons = Array.from(panel.querySelectorAll(".provider-segments button"));
+      const panelRect = panel.getBoundingClientRect();
+      const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        panel: { left: panelRect.left, right: panelRect.right, width: panelRect.width, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
+        input: { left: inputRect.left, right: inputRect.right, width: inputRect.width, scrollHeight: document.querySelector(".input-panel").scrollHeight, clientHeight: document.querySelector(".input-panel").clientHeight },
+        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length,
+        buttonOverflow: buttons.map(button => ({ text: button.textContent.trim(), scrollWidth: button.scrollWidth, clientWidth: button.clientWidth })).filter(item => item.scrollWidth > item.clientWidth + 1),
+        bodyHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    })()`);
+    assertQa(result.columns === 1, "Official options should use a readable single-column layout inside the narrow settings panel.", { viewport, result });
+    assertQa(result.panel.scrollWidth <= result.panel.clientWidth + 1 && result.buttonOverflow.length === 0, "Official option labels and segmented buttons must not overflow their controls.", { viewport, result });
+    assertQa(result.panel.left >= result.input.left - 1 && result.panel.right <= result.input.right + 1 && !result.bodyHorizontalOverflow, "The official provider panel must remain inside the app viewport without horizontal page overflow.", { viewport, result });
+  }
+}
+
 async function testGrsaiOfficialAdapter(cdp) {
   logStep("GrsAI official generate/result adapter behavior");
   await loadFresh(cdp, "grsai-official");
@@ -3678,6 +3844,7 @@ async function testGrsaiOfficialAdapter(cdp) {
 
     try {
       sleep = async () => {};
+      set("apiProvider", "grsai");
       set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
       set("apiKey", "sk-grsai");
       set("proxyEndpoint", "");
@@ -4178,6 +4345,8 @@ async function main() {
     await testCardRetryAttemptDisplayAndStop(cdp);
     await testCancelDuringFirstAttempt(cdp);
     await testDesktopProxyControls(cdp);
+    await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
+    await testOpenAiOfficialProviderResponsiveLayout(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
     await testSavePathsTextMenuAndWindowsZipChunks(cdp);

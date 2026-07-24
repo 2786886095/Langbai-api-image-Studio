@@ -1,15 +1,24 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.28
+# Codex / Claude Handoff: AI 图片生成器 v1.3.29
 
-更新时间：2026-07-24
+更新时间：2026-07-25
 项目路径：`F:\AI\agent\图像生成`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.28+52`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.29+53`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.29 增量功能
+
+- OpenAI 官方 API 与 GrsAI/自定义协议彻底拆分：官方模式固定走 `api.openai.com/v1/images/generations|edits`，GrsAI 的模型别名、任务轮询和 504 设置不再进入官方模式。
+- 官方模式新增专属参数面板：质量、背景、输出格式、JPEG/WebP 压缩、审核强度、参考图保真度；所有说明已覆盖简繁英日韩，并随当前官方 API 配置保存。
+- `gpt-image-2`（含官方日期快照）按官方约束支持自定义尺寸、禁止透明背景、参考图固定高保真；旧模型使用标准三种尺寸并按能力启用保真度。
+- 官方模型检测只接收 GPT Image 官方别名/日期快照，过滤 GrsAI 的 VIP/CL/VT/4K 别名；401、403、网络错误或无匹配模型时保留内置官方列表并显示真实原因。
+- 官方返回的 PNG/JPEG/WebP Base64 会保留正确 MIME 和下载扩展名；JSON API 错误优先提取 message/code，不再把整段对象直接显示给用户。
+- 回归新增官方生成、参考图编辑、参数持久化、供应商隔离、模型快照、错误回退、非法尺寸拦截，以及桌面窄栏/移动端无横向溢出检查。
 
 ## v1.3.28 增量修复
 
@@ -200,9 +209,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.28"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.29"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.28` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.29` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -218,5 +227,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.28 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.29 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
