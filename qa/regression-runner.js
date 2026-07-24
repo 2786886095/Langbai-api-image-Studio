@@ -1924,6 +1924,83 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
 }
 
+async function testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp) {
+  logStep("Retry-all-failed marks cards beyond the provider concurrency limit as queued, keeps their positions current, and restores them on cancellation");
+  await loadFresh(cdp, "retry-all-queued-state");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiEndpoint", "https://api.example.test/v1/images/generations");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    document.getElementById("apiProvider").value = "custom";
+
+    const grid = document.getElementById("resultGrid");
+    grid.innerHTML = "";
+    grid.classList.remove("hidden");
+    document.getElementById("resultToolbar").classList.remove("hidden");
+    for (let i = 1; i <= 12; i++) {
+      const prompt = "queued retry prompt " + i;
+      const card = addResultPlaceholder(i, prompt, {
+        mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
+      });
+      markPlaceholderFailed(card, i, "HTTP 504: failure " + i, {
+        mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
+      });
+    }
+
+    const originalFetch = window.fetch.bind(window);
+    let calls = 0;
+    window.fetch = async (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      calls++;
+      return new Promise((resolve, reject) => {
+        const abort = () => reject(new DOMException("Aborted", "AbortError"));
+        if (opts.signal?.aborted) abort();
+        else opts.signal?.addEventListener("abort", abort, { once: true });
+      });
+    };
+
+    const button = document.getElementById("retryFailedAll");
+    button.click();
+    const start = Date.now();
+    while (Date.now() - start < 2000 && calls < 10) await sleep(20);
+    const queuedCards = Array.from(document.querySelectorAll(".result-item.is-retry-queued"));
+    const during = {
+      calls,
+      loading: document.querySelectorAll(".result-item[data-status='loading']").length,
+      queued: queuedCards.length,
+      positions: queuedCards.map(card => card.dataset.queuePosition),
+      labels: queuedCards.map(card => card.querySelector(".retry-queue-position")?.textContent || ""),
+      unsentHintCount: queuedCards.filter(card => card.textContent.includes(cleanText("retryQueuedHint"))).length,
+      failedReasons: queuedCards.map(card => card.title),
+    };
+
+    button.click();
+    const cancelStart = Date.now();
+    while (Date.now() - cancelStart < 2500 && retryAllFailedRun) await sleep(20);
+    const afterCancel = {
+      failed: document.querySelectorAll(".result-item.is-failed").length,
+      queued: document.querySelectorAll(".result-item.is-retry-queued").length,
+      failure11: document.querySelector(".result-item[data-panel-id='11']")?.dataset.errorMessage || "",
+      failure12: document.querySelector(".result-item[data-panel-id='12']")?.dataset.errorMessage || "",
+    };
+    window.fetch = originalFetch;
+    return { during, afterCancel };
+  })()`, true);
+
+  assertQa(result.during.calls === 10 && result.during.loading === 10 && result.during.queued === 2, "Retry-all must start only the provider concurrency limit and visibly mark every remaining card as queued.", result);
+  assertQa(result.during.positions.join(",") === "1,2" && result.during.labels.every((label, index) => label.includes(String(index + 1))), "Queued retry cards must show stable, sequential queue positions.", result);
+  assertQa(result.during.unsentHintCount === 2 && result.during.failedReasons.every(reason => /HTTP 504/.test(reason)), "Queued cards must say that no request has been sent yet while preserving the original failure reason.", result);
+  assertQa(result.afterCancel.failed === 12 && result.afterCancel.queued === 0 && /failure 11/.test(result.afterCancel.failure11) && /failure 12/.test(result.afterCancel.failure12), "Cancelling retry-all must restore queued cards and their original failure reasons.", result);
+}
+
 async function testRetryAllFailedCanCancelAndRestart(cdp) {
   logStep("Retry-all-failed stays visible, cancels hung requests, releases its lock, and can immediately start a fresh retry round");
   await loadFresh(cdp, "retry-all-cancel-restart");
@@ -3936,6 +4013,7 @@ async function main() {
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp);
     await testRetryAllFailedCanCancelAndRestart(cdp);
     await testCardRetryAttemptDisplayAndStop(cdp);
     await testCancelDuringFirstAttempt(cdp);

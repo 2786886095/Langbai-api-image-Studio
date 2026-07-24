@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.26
+# Codex / Claude Handoff: AI 图片生成器 v1.3.27
 
 更新时间：2026-07-24
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,17 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.26+50`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.27+51`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.27 增量修复
+
+- “全部失败重试”超过供应商并发上限时，尚未发出请求的卡片会立即显示“等待重试（队列第 N 个）”，不再继续伪装成普通失败卡。
+- 每个排队卡明确说明请求尚未发送，并保留原始失败原因；前序任务结束后队列位置实时前移，轮到时自动切换为“正在重试生成”。
+- 取消全部重试会恢复所有尚未开始的排队卡及其原失败原因，不留下错误的排队样式或位置数据。
+- 浏览器回归新增 12 张失败卡、并发上限 10 的专项覆盖，验证 10 张请求中、2 张排队、队列编号以及取消恢复。
 
 ## v1.3.26 增量功能
 
@@ -185,9 +192,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.22"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.27"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.22` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.27` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -203,5 +210,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.22 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.27 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

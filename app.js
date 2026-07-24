@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.26";
+const APP_VERSION = "1.3.27";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -296,7 +296,7 @@ const CLEAN_LOCALES = {
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
     download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "取消",
     failReason: "失败原因", retryFailedAll: "全部失败重试", cancelRetryFailedAll: "取消全部重试", cancellingRetryFailedAll: "正在取消全部重试", failedRetryCount: "失败重试次数", noFailedToRetry: "没有可重试的失败分镜",
-    retryFailedAllStarted: "正在重试 {count} 个失败项", retryFailedAllCancelled: "已取消全部失败重试，可再次点击重试",
+    retryFailedAllStarted: "正在重试 {count} 个失败项", retryFailedAllCancelled: "已取消全部失败重试，可再次点击重试", retryQueued: "等待重试（队列第 {position} 个）", retryQueuedHint: "尚未发送请求，前面的任务完成后会自动开始",
     softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
     checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装", openReleasePage: "打开发布页",
     updateInitialHint: "可从 GitHub Releases 检测新版。Windows 可校验后覆盖安装；macOS 会下载并打开更新包；安卓和 iOS 会用系统浏览器打开发布页。",
@@ -371,7 +371,7 @@ const CLEAN_LOCALES = {
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
     download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "取消",
     failReason: "失敗原因", retryFailedAll: "全部失敗重試", cancelRetryFailedAll: "取消全部重試", cancellingRetryFailedAll: "正在取消全部重試", failedRetryCount: "失敗重試次數", noFailedToRetry: "沒有可重試的失敗分鏡",
-    retryFailedAllStarted: "正在重試 {count} 個失敗項目", retryFailedAllCancelled: "已取消全部失敗重試，可再次點擊重試",
+    retryFailedAllStarted: "正在重試 {count} 個失敗項目", retryFailedAllCancelled: "已取消全部失敗重試，可再次點擊重試", retryQueued: "等待重試（佇列第 {position} 個）", retryQueuedHint: "尚未送出請求，前面的工作完成後會自動開始",
     softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
     checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝", openReleasePage: "開啟發布頁",
     updateInitialHint: "可從 GitHub Releases 檢測新版。Windows 可在驗證後覆蓋安裝；macOS 會下載並開啟更新包；Android 與 iOS 會以系統瀏覽器開啟發布頁。",
@@ -446,7 +446,7 @@ const CLEAN_LOCALES = {
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
     download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Cancel",
     failReason: "Failure reason", retryFailedAll: "Retry all failed", cancelRetryFailedAll: "Cancel all retries", cancellingRetryFailedAll: "Cancelling all retries", failedRetryCount: "Failed retry attempts", noFailedToRetry: "No failed panels to retry",
-    retryFailedAllStarted: "Retrying {count} failed items", retryFailedAllCancelled: "All failed retries cancelled. You can retry again.",
+    retryFailedAllStarted: "Retrying {count} failed items", retryFailedAllCancelled: "All failed retries cancelled. You can retry again.", retryQueued: "Waiting to retry (queue position {position})", retryQueuedHint: "The request has not been sent yet. It will start automatically when an earlier task finishes.",
     softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
     checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install", openReleasePage: "Open release page",
     updateInitialHint: "Checks GitHub Releases for a new version. Windows can verify and replace the installation; macOS downloads and opens the update package; Android and iOS open the release page in the system browser.",
@@ -521,7 +521,7 @@ const CLEAN_LOCALES = {
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
     download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "キャンセル",
     failReason: "失敗理由", retryFailedAll: "失敗分を再試行", cancelRetryFailedAll: "すべての再試行をキャンセル", cancellingRetryFailedAll: "すべての再試行をキャンセル中", failedRetryCount: "失敗時の再試行回数", noFailedToRetry: "再試行できる失敗コマはありません",
-    retryFailedAllStarted: "{count} 件の失敗項目を再試行中", retryFailedAllCancelled: "失敗項目の再試行をキャンセルしました。再度実行できます。",
+    retryFailedAllStarted: "{count} 件の失敗項目を再試行中", retryFailedAllCancelled: "失敗項目の再試行をキャンセルしました。再度実行できます。", retryQueued: "再試行待ち（キュー {position} 番）", retryQueuedHint: "まだリクエストは送信されていません。前の処理が終わると自動的に開始します。",
     softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
     checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール", openReleasePage: "リリースページを開く",
     updateInitialHint: "GitHub Releases から新しいバージョンを確認します。Windows は検証後にインストール先を更新し、macOS は更新パッケージをダウンロードして開き、Android と iOS はシステムブラウザでリリースページを開きます。",
@@ -596,7 +596,7 @@ const CLEAN_LOCALES = {
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
     download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "취소",
     failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", cancelRetryFailedAll: "모든 재시도 취소", cancellingRetryFailedAll: "모든 재시도 취소 중", failedRetryCount: "실패 재시도 횟수", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
-    retryFailedAllStarted: "실패 항목 {count}개 재시도 중", retryFailedAllCancelled: "실패 항목 재시도를 모두 취소했습니다. 다시 시도할 수 있습니다.",
+    retryFailedAllStarted: "실패 항목 {count}개 재시도 중", retryFailedAllCancelled: "실패 항목 재시도를 모두 취소했습니다. 다시 시도할 수 있습니다.", retryQueued: "재시도 대기 중 (대기열 {position}번)", retryQueuedHint: "아직 요청을 보내지 않았습니다. 앞선 작업이 끝나면 자동으로 시작합니다.",
     softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
     checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치", openReleasePage: "릴리스 페이지 열기",
     updateInitialHint: "GitHub Releases에서 새 버전을 확인합니다. Windows는 검증 후 설치를 교체하고, macOS는 업데이트 패키지를 내려받아 열며, Android와 iOS는 시스템 브라우저에서 릴리스 페이지를 엽니다.",
@@ -5339,9 +5339,11 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   const originalImageUrl = item?.originalUrl || options.originalImageUrl ||
     (!/^(?:idb|cache):\/\//.test(String(imageUrl)) ? imageUrl : "");
 
-  card.classList.remove("is-failed");
+  card.classList.remove("is-failed", "is-retry-queued");
   delete card.dataset.failed;
   delete card.dataset.errorMessage;
+  delete card.dataset.queuePosition;
+  delete card._retryQueuedSnapshot;
   card.dataset.status = "success";
   card.style.borderColor = "";
   card.title = "";
@@ -5533,10 +5535,13 @@ function releaseCardImageCache(card) {
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   const message = String(errMsg || "生成失败");
   setRetryContext(card, panelId, { ...(card._retryContext || {}), ...(retryContext || {}) });
+  card.classList.remove("is-retry-queued");
   card.classList.add("is-failed");
   card.dataset.failed = "true";
   card.dataset.status = "failed";
   card.dataset.errorMessage = message;
+  delete card.dataset.queuePosition;
+  delete card._retryQueuedSnapshot;
   delete card._zipImage;
   releaseCardImageCache(card);
   card.innerHTML = `
@@ -5576,6 +5581,54 @@ function setRetryFailedButtonText(count = getFailedResultCards().length) {
   dom.retryFailedAll.innerHTML = `${icon("retry")} ${cleanText("retryFailedAll")}${suffix}`;
 }
 
+function renderRetryQueued(card, position) {
+  if (!card?.isConnected) return;
+  const context = card._retryContext || {};
+  const panelId = context.panelId || card.dataset.panelId || "重试";
+  const message = String(card.dataset.errorMessage || "生成失败");
+  if (!card._retryQueuedSnapshot) {
+    card._retryQueuedSnapshot = {
+      panelId,
+      message,
+      context: { ...context },
+    };
+  }
+  card.classList.add("is-failed", "is-retry-queued");
+  card.dataset.failed = "true";
+  card.dataset.status = "queued";
+  card.dataset.queuePosition = String(position);
+  card.style.borderColor = "";
+  card.title = message;
+  card.innerHTML = `
+    <div class="panel-label">${escapeHtml(tr(`分镜 ${panelId}`))}</div>
+    <div class="result-media result-media-queued">
+      <span class="ui-icon ui-icon-retry retry-queued-icon" aria-hidden="true"></span>
+      <strong class="retry-queue-position">${escapeHtml(interpolate(cleanText("retryQueued"), { position }))}</strong>
+      <small>${escapeHtml(cleanText("retryQueuedHint"))}</small>
+    </div>
+    <div class="result-actions retry-queued-error" title="${escapeHtml(message)}">
+      <span>${escapeHtml(message.slice(0, 160))}</span>
+    </div>`;
+}
+
+function refreshRetryQueuePositions(run) {
+  if (!run) return;
+  run.pendingCards = run.pendingCards.filter(card => card?.isConnected);
+  run.pendingCards.forEach((card, index) => {
+    const position = index + 1;
+    if (card.dataset.status !== "queued") renderRetryQueued(card, position);
+    card.dataset.queuePosition = String(position);
+    const label = card.querySelector(".retry-queue-position");
+    if (label) label.textContent = interpolate(cleanText("retryQueued"), { position });
+  });
+}
+
+function restoreQueuedRetryCard(card) {
+  const snapshot = card?._retryQueuedSnapshot;
+  if (!card?.isConnected || !snapshot) return;
+  markPlaceholderFailed(card, snapshot.panelId, snapshot.message, snapshot.context);
+}
+
 function enqueueFailedCardsForRetryRun(run, cards = getFailedResultCards()) {
   if (!run || run.cancelRequested || run.finished) return 0;
   let added = 0;
@@ -5587,6 +5640,7 @@ function enqueueFailedCardsForRetryRun(run, cards = getFailedResultCards()) {
     added++;
   });
   if (added > 0) {
+    refreshRetryQueuePositions(run);
     if (run.idleTimer !== null) {
       clearTimeout(run.idleTimer);
       run.idleTimer = null;
@@ -5629,7 +5683,8 @@ function cancelRetryAllFailedRun({ announce = true } = {}) {
   if (!run.cancelRequested) {
     run.cancelRequested = true;
     run.cards.forEach(card => card._cardRetryAbortController?.abort());
-    run.pendingCards.length = 0;
+    const queuedCards = run.pendingCards.splice(0);
+    queuedCards.forEach(restoreQueuedRetryCard);
     if (run.idleTimer !== null) {
       clearTimeout(run.idleTimer);
       run.idleTimer = null;
@@ -5658,6 +5713,7 @@ function executeRetryAllFailedRun(run, retryCount) {
 
       while (!run.cancelRequested && run.activeCount < concurrency && run.pendingCards.length > 0) {
         const card = run.pendingCards.shift();
+        refreshRetryQueuePositions(run);
         run.activeCount++;
         void (async () => {
           let result = null;
@@ -5795,9 +5851,11 @@ async function editRetryContext(context) {
 }
 
 function renderRetryLoading(card, panelId, promptText) {
-  card.classList.remove("is-failed");
+  card.classList.remove("is-failed", "is-retry-queued");
   delete card.dataset.failed;
   delete card.dataset.errorMessage;
+  delete card.dataset.queuePosition;
+  delete card._retryQueuedSnapshot;
   delete card._zipImage;
   releaseCardImageCache(card);
   card.dataset.status = "loading";

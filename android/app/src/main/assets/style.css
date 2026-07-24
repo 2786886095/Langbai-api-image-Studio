@@ -2269,6 +2269,58 @@ main.result-panel .result-item.is-failed:hover {
   border-color: rgba(239, 68, 68, 0.95);
 }
 
+main.result-panel .result-item.is-retry-queued,
+main.result-panel .result-item.is-retry-queued:hover {
+  border-color: color-mix(in srgb, var(--warning) 72%, transparent);
+}
+
+main.result-panel .result-media-queued {
+  min-height: 0;
+  color: var(--text2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 18px;
+  background:
+    linear-gradient(45deg, color-mix(in srgb, var(--warning) 6%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--warning) 6%, transparent) 75%),
+    color-mix(in srgb, var(--warning) 5%, var(--surface));
+  background-size: 18px 18px;
+}
+
+main.result-panel .retry-queued-icon {
+  color: var(--warning);
+  width: 24px;
+  height: 24px;
+}
+
+main.result-panel .result-media-queued strong {
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+main.result-panel .result-media-queued small {
+  max-width: 28em;
+  color: var(--text2);
+  line-height: 1.45;
+}
+
+main.result-panel .retry-queued-error {
+  min-width: 0;
+  color: var(--text2);
+  font-size: 0.72rem;
+  padding: 8px 10px;
+}
+
+main.result-panel .retry-queued-error span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 main.result-panel .result-error {
   width: 100%;
   height: 100%;
