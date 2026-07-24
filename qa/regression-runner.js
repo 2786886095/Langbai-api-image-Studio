@@ -1843,7 +1843,7 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(!resultGrid.before.failToolsHidden && resultGrid.before.failedCount === 4, "Failed-result toolbar should appear when failures exist.", resultGrid);
   assertQa(resultGrid.before.firstReason.includes("mocked failure reason") && resultGrid.before.minMediaHeight >= 170, "Failed cards should show their reason inside a stable media area.", resultGrid);
   assertQa(resultGrid.after.failedCount === 0 && resultGrid.after.imageCount === 24 && resultGrid.after.retryToolsHidden, "Retry all failed should replace failed cards and hide the failed toolbar.", resultGrid);
-  assertQa(resultGrid.after.calls.length === 4 && resultGrid.after.retryCounts.every(count => count === 2), "Retry all failed should use the toolbar retry count for each failed panel.", resultGrid);
+  assertQa(resultGrid.after.calls.length === 4 && resultGrid.after.retryCounts.every(count => count === 0), "Retry-all should make one API submission per queue round instead of multiplying the toolbar's additional-round count inside each request.", resultGrid);
   assertQa(resultGrid.after.progressVisibleDuringRetry, "Retry-all-failed must show the progress bar while it runs — otherwise a long retry batch (native call timeouts are now up to 15 minutes) looks frozen with no feedback.", resultGrid);
   assertQa(resultGrid.after.progressReachedTotal, "Retry-all-failed's progress bar must reach done === total (\"4/4\") once every card has settled.", resultGrid);
   assertQa(resultGrid.after.progressHiddenAfterDelay, "The progress bar should hide itself again a few seconds after retry-all-failed finishes, not stay on screen forever.", resultGrid);
@@ -1922,6 +1922,164 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(menuBad.length === 0, "Language menu button should open and apply a selected language.", menuBad);
   const themeBad = i18n.filter(group => group.theme.before === group.theme.after);
   assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
+}
+
+async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
+  logStep("Retry-all gives each card one base attempt plus the configured additional attempts, requeues repeated failures fairly, and stops immediately after success");
+  await loadFresh(cdp, "retry-all-repeat-until-limit");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiEndpoint", "https://api.example.test/v1/images/generations");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    set("failedRetryCount", "2");
+    document.getElementById("apiProvider").value = "custom";
+
+    const grid = document.getElementById("resultGrid");
+    grid.innerHTML = "";
+    grid.classList.remove("hidden");
+    document.getElementById("resultToolbar").classList.remove("hidden");
+    ["eventual success", "always fails"].forEach((prompt, index) => {
+      const panelId = index + 1;
+      const card = addResultPlaceholder(panelId, prompt, {
+        mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
+      });
+      markPlaceholderFailed(card, panelId, "initial failure", {
+        mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
+      });
+    });
+
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    const originalFetch = window.fetch.bind(window);
+    const calls = { success: 0, failure: 0 };
+    const rounds = { success: [], failure: [] };
+    window.fetch = async (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      let body = {};
+      try { body = JSON.parse(opts.body || "{}"); } catch {}
+      const successCard = String(body.prompt || "").includes("eventual success");
+      const key = successCard ? "success" : "failure";
+      const panelId = successCard ? "1" : "2";
+      calls[key]++;
+      rounds[key].push(document.querySelector(".result-item[data-panel-id='" + panelId + "']")?.dataset.retryAttempt || "");
+      await sleep(20);
+      if (successCard && calls.success === 1) {
+        return new Response(JSON.stringify({ data: [] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (successCard && calls.success === 3) {
+        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: { message: "still failed" } }), {
+        status: 500, headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    document.getElementById("retryFailedAll").click();
+    const start = Date.now();
+    while (Date.now() - start < 5000 && retryAllFailedRun) await sleep(20);
+    const final = {
+      calls,
+      rounds,
+      images: document.querySelectorAll(".result-item img").length,
+      failed: document.querySelectorAll(".result-item.is-failed").length,
+      successAttempt: document.querySelector(".result-item[data-panel-id='1']")?.dataset.retryAttempt,
+      failureAttempt: document.querySelector(".result-item[data-panel-id='2']")?.dataset.retryAttempt,
+      failureMessage: document.querySelector(".result-item[data-panel-id='2']")?.dataset.errorMessage || "",
+      status: document.getElementById("status").textContent,
+    };
+    window.fetch = originalFetch;
+    return final;
+  })()`, true);
+
+  assertQa(result.calls.success === 3 && result.calls.failure === 3, "Two additional attempts must mean at most three total submissions per card.", result);
+  assertQa(result.rounds.success.join(",") === "1,2,3" && result.rounds.failure.join(",") === "1,2,3", "Every repeated submission must expose the current retry-all round on its own card.", result);
+  assertQa(result.images === 1 && result.failed === 1 && result.successAttempt === "3" && result.failureAttempt === "3", "A successful card must leave the queue immediately while a card that exhausts all rounds remains failed.", result);
+  assertQa(/still failed/.test(result.failureMessage), "The exhausted card must preserve the final API failure reason.", result);
+}
+
+async function testRetryAllFailedManualSupplementButton(cdp) {
+  logStep("Retry-all keeps a manual supplement button available as a fallback scanner for failed cards missed by automatic collection");
+  await loadFresh(cdp, "retry-all-manual-supplement");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiEndpoint", "https://api.example.test/v1/images/generations");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    set("failedRetryCount", "0");
+    document.getElementById("apiProvider").value = "custom";
+    const grid = document.getElementById("resultGrid");
+    grid.innerHTML = "";
+    grid.classList.remove("hidden");
+    document.getElementById("resultToolbar").classList.remove("hidden");
+
+    const first = addResultPlaceholder(1, "first tracked failure", {
+      mode: "comic", panelPrompt: "first tracked failure", prompt: "first tracked failure", size: "1024x1024", retryCount: 0,
+    });
+    markPlaceholderFailed(first, 1, "initial failure", first._retryContext);
+    const originalFetch = window.fetch.bind(window);
+    let calls = 0;
+    window.fetch = async (url, opts = {}) => {
+      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
+      calls++;
+      return new Promise((resolve, reject) => {
+        opts.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      });
+    };
+
+    const retryButton = document.getElementById("retryFailedAll");
+    const supplement = document.getElementById("enqueueRemainingFailed");
+    retryButton.click();
+    while (calls < 1) await sleep(10);
+
+    // Simulate an exceptional UI path that creates a failed card without calling
+    // updateFailedRetryTools(); the manual scanner must still be usable.
+    const missed = addResultPlaceholder(2, "manually discovered failure", {
+      mode: "comic", panelPrompt: "manually discovered failure", prompt: "manually discovered failure", size: "1024x1024", retryCount: 0,
+    });
+    missed.classList.add("is-failed");
+    missed.dataset.failed = "true";
+    missed.dataset.status = "failed";
+    missed.dataset.errorMessage = "missed failure";
+    const before = {
+      visible: !supplement.classList.contains("hidden"),
+      enabled: !supplement.disabled,
+      tracked: retryAllFailedRun?.cards.length || 0,
+    };
+    supplement.click();
+    const start = Date.now();
+    while (Date.now() - start < 1500 && calls < 2) await sleep(10);
+    const after = {
+      calls,
+      tracked: retryAllFailedRun?.cards.length || 0,
+      missedStarted: missed.dataset.status === "loading",
+      status: document.getElementById("status").textContent,
+    };
+    retryButton.click();
+    while (retryAllFailedRun) await sleep(10);
+    window.fetch = originalFetch;
+    return { before, after };
+  })()`, true);
+
+  assertQa(result.before.visible && result.before.enabled && result.before.tracked === 1, "The supplement button must remain visible and clickable throughout an active retry-all run, even when the latest automatic scan found zero omissions.", result);
+  assertQa(result.after.calls === 2 && result.after.tracked === 2 && result.after.missedStarted, "Clicking the supplement button must scan and start every untracked failed card exactly once.", result);
 }
 
 async function testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp) {
@@ -4013,6 +4171,8 @@ async function main() {
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp);
+    await testRetryAllFailedManualSupplementButton(cdp);
     await testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp);
     await testRetryAllFailedCanCancelAndRestart(cdp);
     await testCardRetryAttemptDisplayAndStop(cdp);

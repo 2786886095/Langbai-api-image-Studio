@@ -899,11 +899,17 @@ select.custom-select-native {
   flex-direction: column;
   gap: 8px;
 }
-.retry-attempt-label {
+.retry-attempt-label,
+.bulk-retry-round-label {
   font-size: 0.72rem;
   color: var(--text2);
   text-align: center;
   padding: 0 10px;
+}
+
+.bulk-retry-round-label {
+  color: var(--warning);
+  font-weight: 700;
 }
 .stop-card-retry {
   padding: 4px 10px;
@@ -2184,6 +2190,7 @@ main.result-panel .result-toolbar {
 
 main.result-panel .retry-failed-tools {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -2307,6 +2314,12 @@ main.result-panel .result-media-queued small {
   line-height: 1.45;
 }
 
+main.result-panel .retry-queue-round {
+  color: var(--warning);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
 main.result-panel .retry-queued-error {
   min-width: 0;
   color: var(--text2);
@@ -2376,11 +2389,15 @@ main.result-panel .result-actions {
 
   main.result-panel .retry-failed-tools {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
   main.result-panel .retry-failed-count {
-    flex: 1 1 auto;
+    flex: 1 1 100%;
+  }
+
+  main.result-panel .retry-failed-tools .btn {
+    flex: 1 1 10rem;
   }
 }
 
