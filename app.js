@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.29";
+const APP_VERSION = "1.3.30";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -980,6 +980,7 @@ function applyCleanLanguage() {
   setText("#historyModal .modal-header .field-hint", "historyHint");
   setAttr("#historySearch", "placeholder", "searchHistory");
   if (dom.refreshHistory) dom.refreshHistory.textContent = cleanText("refresh");
+  updateOfficialCostSummary();
 }
 
 function applyLanguage(lang) {
@@ -1130,6 +1131,13 @@ const dom = {
   officialInputFidelity: $("#officialInputFidelity"),
   officialInputFidelityField: $("#officialInputFidelityField"),
   officialCapabilityNote: $("#officialCapabilityNote"),
+  officialCostSummary: $("#officialCostSummary"),
+  officialCostLabel: $("#officialCostLabel"),
+  officialEstimatedCost: $("#officialEstimatedCost"),
+  officialCostBreakdown: $("#officialCostBreakdown"),
+  officialRateStatus: $("#officialRateStatus"),
+  officialPricingLink: $("#officialPricingLink"),
+  refreshOfficialRate: $("#refreshOfficialRate"),
   // 模式
   inputPanel:    $(".input-panel"),
   modeTabs:      $("#modeTabs"),
@@ -1627,6 +1635,289 @@ const OFFICIAL_IMAGE_OPTION_DEFAULTS = Object.freeze({
   moderation: "auto",
   inputFidelity: "low",
 });
+const USD_CNY_RATE_KEY = "ai_image_gen_usd_cny_rate_v1";
+const USD_CNY_RATE_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY?providers=ECB";
+const OPENAI_PRICING_URL = "https://developers.openai.com/api/docs/pricing";
+const USD_CNY_FALLBACK_RATE = 6.77;
+const USD_CNY_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const GPT_IMAGE_2_TOKEN_USD_PER_MILLION = Object.freeze({ textInput: 5, imageInput: 8, imageOutput: 30 });
+const GPT_IMAGE_2_OUTPUT_USD = Object.freeze({
+  "1024x1024": Object.freeze({ low: 0.006, medium: 0.053, high: 0.211 }),
+  "1024x1536": Object.freeze({ low: 0.005, medium: 0.041, high: 0.165 }),
+  "1536x1024": Object.freeze({ low: 0.005, medium: 0.041, high: 0.165 }),
+});
+const OFFICIAL_COST_LOCALES = Object.freeze({
+  "zh-CN": {
+    estimatedLabel: "预计图片输出费用", calculating: "正在计算…", actualCost: "实际费用", refreshRate: "刷新汇率",
+    outputOnly: "仅含图片输出，不含提示词、参考图和重试费用", customPending: "{count} 张自定义尺寸将在生成后按实际 Token 计费",
+    rateDaily: "USD/CNY {rate} · ECB {date}", rateFallback: "USD/CNY {rate} · 备用汇率", rateStale: "USD/CNY {rate} · 上次更新 {date}",
+    rateUpdating: "正在更新 USD/CNY…", rateUpdated: "汇率已更新：1 USD = {rate} CNY", rateFailed: "汇率更新失败，继续使用上次结果：{reason}",
+    tokens: "输入 {input} / 输出 {output} Token", estimateUnavailable: "生成后显示实际费用", estimateCount: "{count} 张 · {quality}", officialPricing: "官方价格",
+  },
+  "zh-Hant": {
+    estimatedLabel: "預估圖片輸出費用", calculating: "正在計算…", actualCost: "實際費用", refreshRate: "重新整理匯率",
+    outputOnly: "僅含圖片輸出，不含提示詞、參考圖與重試費用", customPending: "{count} 張自訂尺寸將在生成後依實際 Token 計費",
+    rateDaily: "USD/CNY {rate} · ECB {date}", rateFallback: "USD/CNY {rate} · 備用匯率", rateStale: "USD/CNY {rate} · 上次更新 {date}",
+    rateUpdating: "正在更新 USD/CNY…", rateUpdated: "匯率已更新：1 USD = {rate} CNY", rateFailed: "匯率更新失敗，繼續使用上次結果：{reason}",
+    tokens: "輸入 {input} / 輸出 {output} Token", estimateUnavailable: "生成後顯示實際費用", estimateCount: "{count} 張 · {quality}", officialPricing: "官方價格",
+  },
+  en: {
+    estimatedLabel: "Estimated image output", calculating: "Calculating…", actualCost: "Actual cost", refreshRate: "Refresh exchange rate",
+    outputOnly: "Image output only; excludes prompt, reference-image, and retry costs", customPending: "{count} custom-size image(s) will be priced from actual tokens after generation",
+    rateDaily: "USD/CNY {rate} · ECB {date}", rateFallback: "USD/CNY {rate} · fallback rate", rateStale: "USD/CNY {rate} · last update {date}",
+    rateUpdating: "Updating USD/CNY…", rateUpdated: "Exchange rate updated: 1 USD = {rate} CNY", rateFailed: "Exchange-rate update failed; using the last result: {reason}",
+    tokens: "Input {input} / output {output} tokens", estimateUnavailable: "Actual cost shown after generation", estimateCount: "{count} image(s) · {quality}", officialPricing: "Official pricing",
+  },
+  ja: {
+    estimatedLabel: "画像出力の予想料金", calculating: "計算中…", actualCost: "実際の料金", refreshRate: "為替レートを更新",
+    outputOnly: "画像出力のみ。プロンプト、参照画像、再試行の料金は含みません", customPending: "カスタムサイズ {count} 枚は生成後に実 Token で計算します",
+    rateDaily: "USD/CNY {rate} · ECB {date}", rateFallback: "USD/CNY {rate} · 予備レート", rateStale: "USD/CNY {rate} · 最終更新 {date}",
+    rateUpdating: "USD/CNY を更新中…", rateUpdated: "為替レート更新：1 USD = {rate} CNY", rateFailed: "為替更新に失敗したため前回値を使用します：{reason}",
+    tokens: "入力 {input} / 出力 {output} Token", estimateUnavailable: "生成後に実料金を表示", estimateCount: "{count} 枚 · {quality}", officialPricing: "公式料金",
+  },
+  ko: {
+    estimatedLabel: "예상 이미지 출력 비용", calculating: "계산 중…", actualCost: "실제 비용", refreshRate: "환율 새로고침",
+    outputOnly: "이미지 출력 비용만 포함하며 프롬프트, 참고 이미지, 재시도 비용은 제외", customPending: "사용자 크기 {count}장은 생성 후 실제 토큰으로 계산됩니다",
+    rateDaily: "USD/CNY {rate} · ECB {date}", rateFallback: "USD/CNY {rate} · 예비 환율", rateStale: "USD/CNY {rate} · 마지막 업데이트 {date}",
+    rateUpdating: "USD/CNY 업데이트 중…", rateUpdated: "환율 업데이트: 1 USD = {rate} CNY", rateFailed: "환율 업데이트 실패, 이전 값을 사용합니다: {reason}",
+    tokens: "입력 {input} / 출력 {output} 토큰", estimateUnavailable: "생성 후 실제 비용 표시", estimateCount: "{count}장 · {quality}", officialPricing: "공식 요금",
+  },
+});
+let officialRateRefreshPromise = null;
+let officialCostUpdateTimer = null;
+
+function officialCostText(key, vars = {}) {
+  const table = OFFICIAL_COST_LOCALES[currentLanguage] || OFFICIAL_COST_LOCALES["zh-CN"];
+  return interpolate(table[key] || OFFICIAL_COST_LOCALES["zh-CN"][key] || key, vars);
+}
+
+function loadUsdCnyRateState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(USD_CNY_RATE_KEY) || "{}");
+    const rate = Number(saved.rate);
+    if (Number.isFinite(rate) && rate >= 4 && rate <= 10) return { ...saved, rate };
+  } catch {}
+  return { rate: USD_CNY_FALLBACK_RATE, rateDate: "", fetchedAt: 0, source: "fallback" };
+}
+
+function formatCny(value, prefix = "") {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "-";
+  return `${prefix}¥${amount.toLocaleString(localeTagForCurrentLanguage(), { minimumFractionDigits: amount < 1 ? 3 : 2, maximumFractionDigits: amount < 1 ? 4 : 2 })}`;
+}
+
+function formatUsd(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "-";
+  return `$${amount.toFixed(amount < 0.01 ? 5 : 4)}`;
+}
+
+function formatTokenCount(value) {
+  return Math.max(0, Math.round(Number(value) || 0)).toLocaleString(localeTagForCurrentLanguage());
+}
+
+function getOfficialEstimateItems() {
+  try {
+    if (currentMode === "comic") {
+      const panels = collectPanels();
+      const ready = panels.filter(panel => String(panel.prompt || "").trim());
+      return (ready.length ? ready : panels).map(panel => panel.size || getSelectedSize());
+    }
+    if (currentMode === "caption") {
+      const rows = collectCaptionRows();
+      const ready = rows.filter(row => row.reference && String(row.captionText || "").trim());
+      return (ready.length ? ready : rows).map(row => row.reference?.width && row.reference?.height
+        ? `${row.reference.width}x${row.reference.height}`
+        : getSelectedSize());
+    }
+  } catch {}
+  const count = Math.max(1, Math.min(10, Number(dom.nImages?.value) || 1));
+  return Array.from({ length: count }, () => getSelectedSize());
+}
+
+function getOfficialOutputUsdRange(size, quality) {
+  const table = GPT_IMAGE_2_OUTPUT_USD[String(size || "").toLowerCase()];
+  if (!table) return null;
+  if (quality === "auto") return { min: table.low, max: table.high };
+  const value = table[quality];
+  return Number.isFinite(value) ? { min: value, max: value } : null;
+}
+
+function updateOfficialRateStatus(state = loadUsdCnyRateState(), overrideText = "") {
+  if (!dom.officialRateStatus) return;
+  if (overrideText) {
+    dom.officialRateStatus.textContent = overrideText;
+    return;
+  }
+  const rate = Number(state.rate).toFixed(4);
+  if (state.source === "fallback" || !state.rateDate) {
+    dom.officialRateStatus.textContent = officialCostText("rateFallback", { rate });
+  } else if (Date.now() - Number(state.fetchedAt || 0) > USD_CNY_REFRESH_INTERVAL_MS * 2) {
+    dom.officialRateStatus.textContent = officialCostText("rateStale", { rate, date: state.rateDate });
+  } else {
+    dom.officialRateStatus.textContent = officialCostText("rateDaily", { rate, date: state.rateDate });
+  }
+}
+
+function updateOfficialCostSummary() {
+  if (!dom.officialCostSummary) return;
+  const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
+  const visible = provider === "official" && officialImageModelFamily(dom.model?.value || "gpt-image-2") === "gpt-image-2";
+  dom.officialCostSummary.classList.toggle("hidden", !visible);
+  if (!visible) return;
+
+  const rateState = loadUsdCnyRateState();
+  const quality = getOfficialImageOptions().quality;
+  const items = getOfficialEstimateItems();
+  let minUsd = 0;
+  let maxUsd = 0;
+  let unknown = 0;
+  items.forEach(size => {
+    const range = getOfficialOutputUsdRange(size, quality);
+    if (!range) { unknown++; return; }
+    minUsd += range.min;
+    maxUsd += range.max;
+  });
+
+  dom.officialCostLabel.textContent = officialCostText("estimatedLabel");
+  const qualityLabel = quality === "auto" ? cleanText("optionAuto") : cleanText(`option${quality[0].toUpperCase()}${quality.slice(1)}`);
+  if (items.length && unknown < items.length) {
+    const minCny = minUsd * rateState.rate;
+    const maxCny = maxUsd * rateState.rate;
+    dom.officialEstimatedCost.textContent = Math.abs(maxCny - minCny) < 0.00005
+      ? formatCny(minCny)
+      : `${formatCny(minCny)}–${formatCny(maxCny)}`;
+  } else {
+    dom.officialEstimatedCost.textContent = officialCostText("estimateUnavailable");
+  }
+  const lines = [officialCostText("estimateCount", { count: items.length || 1, quality: qualityLabel }), officialCostText("outputOnly")];
+  if (unknown) lines.push(officialCostText("customPending", { count: unknown }));
+  dom.officialCostBreakdown.textContent = lines.join(" · ");
+  updateOfficialRateStatus(rateState);
+  if (dom.refreshOfficialRate) {
+    dom.refreshOfficialRate.title = officialCostText("refreshRate");
+    dom.refreshOfficialRate.setAttribute("aria-label", officialCostText("refreshRate"));
+  }
+  if (dom.officialPricingLink) {
+    dom.officialPricingLink.innerHTML = `${icon("web")}<span>${officialCostText("officialPricing")}</span>`;
+    dom.officialPricingLink.title = officialCostText("officialPricing");
+  }
+}
+
+function scheduleOfficialCostSummaryUpdate() {
+  clearTimeout(officialCostUpdateTimer);
+  officialCostUpdateTimer = setTimeout(updateOfficialCostSummary, 40);
+}
+
+async function refreshUsdCnyRate({ force = false, announce = false } = {}) {
+  const cached = loadUsdCnyRateState();
+  if (!force && cached.source !== "fallback" && Date.now() - Number(cached.fetchedAt || 0) < USD_CNY_REFRESH_INTERVAL_MS) {
+    updateOfficialCostSummary();
+    return cached;
+  }
+  if (officialRateRefreshPromise) return officialRateRefreshPromise;
+  officialRateRefreshPromise = (async () => {
+    dom.refreshOfficialRate?.classList.add("is-loading");
+    if (dom.refreshOfficialRate) dom.refreshOfficialRate.disabled = true;
+    updateOfficialRateStatus(cached, officialCostText("rateUpdating"));
+    try {
+      const response = await smartFetch(USD_CNY_RATE_URL, {
+        headers: { "Accept": "application/json" },
+        nativeTimeoutMs: 15000,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      const rate = Number(payload?.rate);
+      if (!Number.isFinite(rate) || rate < 4 || rate > 10) throw new Error("USD/CNY rate is invalid");
+      const next = {
+        rate,
+        rateDate: String(payload.date || new Date().toISOString().slice(0, 10)),
+        fetchedAt: Date.now(),
+        source: "ECB/Frankfurter",
+      };
+      localStorage.setItem(USD_CNY_RATE_KEY, JSON.stringify(next));
+      updateOfficialCostSummary();
+      if (announce) showStatus(officialCostText("rateUpdated", { rate: rate.toFixed(4) }), "success");
+      return next;
+    } catch (err) {
+      updateOfficialCostSummary();
+      if (announce) showStatus(officialCostText("rateFailed", { reason: err.message || err }), "error");
+      return cached;
+    } finally {
+      dom.refreshOfficialRate?.classList.remove("is-loading");
+      if (dom.refreshOfficialRate) dom.refreshOfficialRate.disabled = false;
+      officialRateRefreshPromise = null;
+    }
+  })();
+  return officialRateRefreshPromise;
+}
+
+function normalizeOfficialUsage(data) {
+  const raw = data?.usage;
+  if (!raw || typeof raw !== "object") return null;
+  const inputDetails = raw.input_tokens_details || {};
+  const outputDetails = raw.output_tokens_details || {};
+  const textInputTokens = Math.max(0, Number(inputDetails.text_tokens) || 0);
+  const imageInputTokens = Math.max(0, Number(inputDetails.image_tokens) || 0);
+  const inputTokens = Math.max(0, Number(raw.input_tokens) || textInputTokens + imageInputTokens);
+  const outputTokens = Math.max(0, Number(outputDetails.image_tokens) || Number(raw.output_tokens) || 0);
+  if (!inputTokens && !outputTokens) return null;
+  return {
+    inputTokens: Math.round(inputTokens),
+    textInputTokens: Math.round(textInputTokens),
+    imageInputTokens: Math.round(imageInputTokens),
+    outputTokens: Math.round(outputTokens),
+    totalTokens: Math.round(Number(raw.total_tokens) || inputTokens + outputTokens),
+  };
+}
+
+function buildOfficialBilling(data) {
+  if (officialImageModelFamily(data?._officialModel) !== "gpt-image-2") return null;
+  const usage = normalizeOfficialUsage(data);
+  if (!usage) return null;
+  const unclassifiedInputTokens = Math.max(0, usage.inputTokens - usage.textInputTokens - usage.imageInputTokens);
+  let textInputTokens = usage.textInputTokens;
+  let imageInputTokens = usage.imageInputTokens;
+  if (unclassifiedInputTokens && data?._officialHasReference === false) textInputTokens += unclassifiedInputTokens;
+  const unknownInputTokens = data?._officialHasReference === false ? 0 : unclassifiedInputTokens;
+  const usd = (
+    textInputTokens * GPT_IMAGE_2_TOKEN_USD_PER_MILLION.textInput
+    + imageInputTokens * GPT_IMAGE_2_TOKEN_USD_PER_MILLION.imageInput
+    + usage.outputTokens * GPT_IMAGE_2_TOKEN_USD_PER_MILLION.imageOutput
+  ) / 1_000_000;
+  const rateState = loadUsdCnyRateState();
+  return {
+    usage,
+    usd,
+    cny: usd * rateState.rate,
+    exchangeRate: rateState.rate,
+    rateDate: rateState.rateDate || "",
+    rateSource: rateState.source || "fallback",
+    approximate: unknownInputTokens > 0,
+    unknownInputTokens,
+  };
+}
+
+function renderResultBilling(card, billing) {
+  if (!card || !billing?.usage || !Number.isFinite(Number(billing.cny))) return;
+  const meta = document.createElement("div");
+  meta.className = "result-cost-meta";
+  const value = document.createElement("strong");
+  value.textContent = `${officialCostText("actualCost")} ${formatCny(billing.cny, billing.approximate ? "≥" : "")}`;
+  const tokens = document.createElement("span");
+  tokens.textContent = officialCostText("tokens", {
+    input: formatTokenCount(billing.usage.inputTokens),
+    output: formatTokenCount(billing.usage.outputTokens),
+  });
+  meta.title = `${formatUsd(billing.usd)} · USD/CNY ${Number(billing.exchangeRate).toFixed(4)}${billing.rateDate ? ` · ${billing.rateDate}` : ""}`;
+  meta.append(value, tokens);
+  card.appendChild(meta);
+}
+
+function sumBillingCny(items = []) {
+  const values = items.map(item => Number(item?.billing?.cny)).filter(Number.isFinite);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
 
 function isOpenAiOfficialImageModelId(value) {
   const id = String(value || "").trim();
@@ -1903,6 +2194,7 @@ function applyApiProvider(provider = "custom", options = {}) {
   updateApiProviderHint(next);
   updateProviderPanelVisibility(next);
   updateApiQuickState();
+  updateOfficialCostSummary();
 }
 
 function applyConfig(cfg) {
@@ -2178,6 +2470,8 @@ dom.apiProvider?.addEventListener("change", () => {
     saveConfig(currentApiConfig());
   }
   updateApiQuickState();
+  scheduleOfficialCostSummaryUpdate();
+  if (provider === "official") void refreshUsdCnyRate({ force: false, announce: false });
 });
 
 function persistCurrentProviderOptions() {
@@ -2204,6 +2498,7 @@ document.querySelectorAll(".provider-segments[data-provider-control]").forEach(g
     setProviderSegmentValue(controlId, button.dataset.value);
     updateOfficialOptionAvailability();
     persistCurrentProviderOptions();
+    scheduleOfficialCostSummaryUpdate();
   });
 });
 
@@ -2211,6 +2506,26 @@ dom.officialOutputCompression?.addEventListener("input", () => {
   if (dom.officialCompressionValue) dom.officialCompressionValue.textContent = dom.officialOutputCompression.value;
 });
 dom.officialOutputCompression?.addEventListener("change", persistCurrentProviderOptions);
+dom.refreshOfficialRate?.addEventListener("click", () => {
+  void refreshUsdCnyRate({ force: true, announce: true });
+});
+dom.officialPricingLink?.addEventListener("click", () => {
+  void openExternalUrl(OPENAI_PRICING_URL);
+});
+
+// 尺寸、数量、分镜和质量都可能改变官方图片输出费用。使用委托监听，兼容动态创建的分镜行。
+document.addEventListener("input", () => {
+  if (!dom.officialCostSummary?.classList.contains("hidden")) scheduleOfficialCostSummaryUpdate();
+});
+document.addEventListener("change", () => {
+  if (!dom.officialCostSummary?.classList.contains("hidden")) scheduleOfficialCostSummaryUpdate();
+});
+document.addEventListener("click", event => {
+  if (dom.officialCostSummary?.classList.contains("hidden")) return;
+  if (event.target.closest(".size-options, #comicPanelSection, #captionSection, #nImagesField, .provider-panel-official")) {
+    scheduleOfficialCostSummaryUpdate();
+  }
+});
 
 dom.openApiConfig?.addEventListener("click", () => {
   keepApiConfigVisible();
@@ -3108,6 +3423,7 @@ function loadOfficialModels(models = OPENAI_OFFICIAL_IMAGE_MODELS) {
   dom.model.placeholder = `已加载 ${choices.length} 个 OpenAI 官方生图模型，点击选择`;
   updateOfficialOptionAvailability();
   updateApiQuickState();
+  scheduleOfficialCostSummaryUpdate();
   return choices;
 }
 
@@ -3131,6 +3447,7 @@ dom.model.addEventListener("change", () => {
     saveConfig(currentApiConfig());
   }
   updateApiQuickState();
+  scheduleOfficialCostSummaryUpdate();
 });
 
 // ─── 检测模型（适配器路由）─────────────────────────────────
@@ -3249,6 +3566,7 @@ function switchMode(mode) {
   }
 
   applyCleanLanguage();
+  scheduleOfficialCostSummaryUpdate();
   clearStatus();
 }
 
@@ -4568,10 +4886,14 @@ function buildOfficialImageRequestOptions(model, size, hasRef) {
   return options;
 }
 
-function decorateOfficialImageResponse(data, outputFormat) {
+function decorateOfficialImageResponse(data, outputFormat, model = "", hasReference = false) {
   const mimeType = outputFormat === "jpeg" ? "image/jpeg" : outputFormat === "webp" ? "image/webp" : "image/png";
   if (Array.isArray(data?.data)) {
     data.data = data.data.map(item => item && typeof item === "object" ? { ...item, mime_type: item.mime_type || mimeType } : item);
+  }
+  if (data && typeof data === "object") {
+    data._officialModel = model;
+    data._officialHasReference = !!hasReference;
   }
   return data;
 }
@@ -4643,7 +4965,7 @@ registerAdapter({
     if (!hasRef || refs.length === 0) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       const data = await apiFetch(url, apiKey, { model, prompt, n, size, ...officialOptions }, { signal, nativeTimeoutMs: null });
-      return decorateOfficialImageResponse(data, officialOptions.output_format);
+      return decorateOfficialImageResponse(data, officialOptions.output_format, model, false);
     }
 
     const url = normalizeApiUrl(endpoint, "images/edits");
@@ -4667,7 +4989,7 @@ registerAdapter({
       const reason = await readOfficialApiError(response);
       throw new Error(`OpenAI 图片编辑失败 (HTTP ${response.status})：${reason}`);
     }
-    return decorateOfficialImageResponse(await response.json(), officialOptions.output_format);
+    return decorateOfficialImageResponse(await response.json(), officialOptions.output_format, model, true);
   },
 });
 
@@ -5849,6 +6171,8 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   const recordPrompt = options.recordPrompt
     ?? (isProjectContext ? getPanelOnlyPrompt(options.retryContext, options.retryContext?.globalPrompt || "") : prompt);
   const fullPrompt = options.fullPrompt || options.retryContext?.fullPrompt || (recordPrompt !== prompt ? prompt : "");
+  const billing = options.billing || buildOfficialBilling(data);
+  const usage = options.usage || billing?.usage || normalizeOfficialUsage(data);
 
   card._zipImage = {
     url: imageUrl,
@@ -5857,6 +6181,8 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     prompt: recordPrompt,
     panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
     fullPrompt,
+    billing,
+    usage,
   };
 
   // 中转站的生图 URL 存活期很短（实测约 2 小时后服务端删图），页面上 <img> 靠浏览器
@@ -5883,6 +6209,8 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
       return null;
     });
 
+  renderResultBilling(card, billing);
+
   const actions = document.createElement("div");
   actions.className = "result-actions";
   actions.append(
@@ -5907,6 +6235,8 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     imageUrl,
     originalUrl: originalImageUrl,
     retryCount: options.retryContext?.retryCount ?? getGlobalRetryCount(),
+    billing,
+    usage,
     _cachePromise: card._imageCachePromise,
     _cacheKey: card._generatedCacheKey,
   };
@@ -6798,6 +7128,8 @@ async function updateComicHistoryPanel(projectId, panelId, record) {
     originalUrl: record.originalUrl || record.imageUrl,
     retryCount: record.retryCount ?? project.images[idx].retryCount,
     size: record.size || project.images[idx].size,
+    billing: record.billing || null,
+    usage: record.usage || null,
   };
   if (idx === 0) {
     project.imageUrl = project.images[0].imageUrl;
@@ -6951,7 +7283,8 @@ function createHistoryProjectCard(item, images, thumbnail) {
   title.textContent = item.title || `${projectType} · ${images.length}`;
   const sub = document.createElement("div");
   sub.className = "history-sub";
-  sub.textContent = `${formatTime(item.createdAt)} · ${projectType} · ${images.length} · ${item.model || "-"}`;
+  const totalCost = sumBillingCny(images);
+  sub.textContent = `${formatTime(item.createdAt)} · ${projectType} · ${images.length} · ${item.model || "-"}${totalCost !== null ? ` · ${formatCny(totalCost)}` : ""}`;
 
   const details = document.createElement("details");
   details.className = "history-project-details";
@@ -7036,7 +7369,7 @@ function createHistoryCard(item) {
   prompt.title = item.prompt || "";
   const sub = document.createElement("div");
   sub.className = "history-sub";
-  sub.textContent = `${formatTime(item.createdAt)} · ${item.model || "-"} · ${item.size || "-"}`;
+  sub.textContent = `${formatTime(item.createdAt)} · ${item.model || "-"} · ${item.size || "-"}${item.billing ? ` · ${formatCny(item.billing.cny)}` : ""}`;
   meta.append(prompt);
   const longPrompt = prompt.title || promptText;
   addPromptCollapseToggle(meta, prompt, longPrompt);
@@ -7186,6 +7519,8 @@ function restoreHistoryItem(item) {
         recordPrompt: panelPrompt,
         fullPrompt,
         size: image.size || item.size,
+        billing: image.billing || null,
+        usage: image.usage || null,
         retryContext: {
           mode: item.mode || "comic",
           globalPrompt: item.globalPrompt || "",
@@ -7210,6 +7545,8 @@ function restoreHistoryItem(item) {
   replacePlaceholder(card, item.panelId || "历史", data, item.prompt || "", {
     skipHistory: true,
     size: item.size,
+    billing: item.billing || null,
+    usage: item.usage || null,
     retryContext: {
       mode: item.mode || currentMode,
       prompt: item.prompt || "",
@@ -8223,4 +8560,8 @@ initI18n();
 registerServiceWorker();
 initManualWheelScrollFix();
 void cleanupGeneratedImageCache().catch(err => console.warn("启动时清理生成图片缓存失败", err));
+updateOfficialCostSummary();
+if ((dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "official") {
+  setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);
+}
 setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);

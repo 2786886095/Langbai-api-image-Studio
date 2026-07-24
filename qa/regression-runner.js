@@ -3665,8 +3665,15 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
     const originalFetch = window.fetch.bind(window);
     const requests = [];
     let modelMode = "success";
+    let rateMode = "success";
     window.fetch = async (url, opts = {}) => {
       const target = String(url);
+      if (target.includes("api.frankfurter.dev/v2/rate/USD/CNY")) {
+        if (rateMode === "failure") throw new Error("rate service offline");
+        return new Response(JSON.stringify({ date: "2026-07-24", base: "USD", quote: "CNY", rate: 6.7722 }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
       if (target === "https://api.openai.com/v1/models") {
         if (modelMode === "auth") {
           return new Response(JSON.stringify({ error: { message: "invalid project key" } }), {
@@ -3679,7 +3686,10 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
       }
       if (target.includes("api.openai.com/v1/images/generations")) {
         requests.push({ kind: "official-generation", body: JSON.parse(opts.body || "{}") });
-        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
+        return new Response(JSON.stringify({
+          data: [{ b64_json: tinyPng }],
+          usage: { input_tokens: 150, input_tokens_details: { text_tokens: 150, image_tokens: 0 }, output_tokens: 1056, total_tokens: 1206 },
+        }), {
           status: 200, headers: { "Content-Type": "application/json" },
         });
       }
@@ -3689,7 +3699,10 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
           fields[name] = value instanceof Blob ? { type: value.type, size: value.size } : String(value);
         }
         requests.push({ kind: "official-edit", body: fields });
-        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
+        return new Response(JSON.stringify({
+          data: [{ b64_json: tinyPng }],
+          usage: { input_tokens: 150, input_tokens_details: { text_tokens: 100, image_tokens: 50 }, output_tokens: 1056, total_tokens: 1206 },
+        }), {
           status: 200, headers: { "Content-Type": "application/json" },
         });
       }
@@ -3759,6 +3772,44 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
       invalidSizeError = err.message || String(err);
     }
 
+    localStorage.setItem(USD_CNY_RATE_KEY, JSON.stringify({ rate: 6.77, rateDate: "2026-07-23", fetchedAt: Date.now(), source: "ECB/Frankfurter" }));
+    switchMode("single");
+    document.querySelector('input[name="size"][value="1024x1024"]').checked = true;
+    dom.nImages.value = "2";
+    setProviderSegmentValue("officialQuality", "high");
+    updateOfficialCostSummary();
+    const estimate = {
+      hidden: dom.officialCostSummary.classList.contains("hidden"),
+      value: dom.officialEstimatedCost.textContent,
+      detail: dom.officialCostBreakdown.textContent,
+      rate: dom.officialRateStatus.textContent,
+    };
+    setProviderSegmentValue("officialQuality", "auto");
+    updateOfficialCostSummary();
+    const autoEstimate = dom.officialEstimatedCost.textContent;
+    document.querySelector('input[name="size"][value="custom"]').checked = true;
+    dom.customWidth.value = "2048";
+    dom.customHeight.value = "1152";
+    updateOfficialCostSummary();
+    const customEstimate = { value: dom.officialEstimatedCost.textContent, detail: dom.officialCostBreakdown.textContent };
+    document.querySelector('input[name="size"][value="1024x1024"]').checked = true;
+    setProviderSegmentValue("officialQuality", "high");
+    const gpt2Generation = await callImageAPI("gpt-image-2 billing", "1024x1024", 1, "official billing", { references: [], maxRetries: 0 });
+    const billingCard = document.createElement("div");
+    billingCard.className = "result-item";
+    dom.resultGrid.appendChild(billingCard);
+    const billingRecord = replacePlaceholder(billingCard, "billing", gpt2Generation, "gpt-image-2 billing", { skipHistory: true, size: "1024x1024" });
+    const billing = billingRecord.billing;
+    const cardCostText = billingCard.querySelector(".result-cost-meta")?.textContent || "";
+    await saveGenerationRecord(billingRecord);
+    const storedBilling = loadHistory().find(item => item.id === billingRecord.id)?.billing || null;
+
+    localStorage.removeItem(USD_CNY_RATE_KEY);
+    const refreshedRate = await refreshUsdCnyRate({ force: true, announce: false });
+    rateMode = "failure";
+    const cachedAfterFailure = await refreshUsdCnyRate({ force: true, announce: false });
+    const storedRate = JSON.parse(localStorage.getItem(USD_CNY_RATE_KEY) || "{}");
+
     applyApiProvider("grsai", { forceEndpoint: true });
     dom.apiProvider.value = "grsai";
     dom.apiKey.value = "sk-grsai-test";
@@ -3768,10 +3819,11 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
       official: !dom.officialProviderPanel.classList.contains("hidden"),
       grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
       grsaiRetry: !dom.grsaiRetrySettings.classList.contains("hidden"),
+      costHidden: dom.officialCostSummary.classList.contains("hidden"),
     };
 
     window.fetch = originalFetch;
-    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, grsaiVisibility };
+    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, estimate, autoEstimate, customEstimate, gpt2Generation, billing, cardCostText, storedBilling, refreshedRate, cachedAfterFailure, storedRate, grsaiVisibility };
   })()`, true);
 
   const generated = result.requests.find(item => item.kind === "official-generation")?.body || {};
@@ -3782,11 +3834,17 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
   assertQa(generated.quality === "high" && generated.background === "opaque" && generated.output_format === "webp" && generated.output_compression === 72 && generated.moderation === "low" && !("input_fidelity" in generated) && !("response_format" in generated), "Official generations must send supported Image API fields and omit edit-only or legacy response_format fields.", result);
   assertQa(edited.quality === "high" && edited.background === "opaque" && edited.output_format === "webp" && edited.output_compression === "72" && edited.moderation === "low" && edited.input_fidelity === "high" && edited["image[]"]?.size > 0, "Official edits must send the dedicated options and reference image as multipart fields.", result);
   assertQa(result.generation.data[0].mime_type === "image/webp" && result.edit.data[0].mime_type === "image/webp", "Official base64 responses must retain the requested MIME type instead of always being mislabeled PNG.", result);
+  assertQa(result.gpt2Generation._officialModel === "gpt-image-2" && result.gpt2Generation._officialHasReference === false, "Official responses must retain model/reference metadata for precise post-generation billing.", result);
+  assertQa(!result.estimate.hidden && /2\.85|2\.86/.test(result.estimate.value) && /2/.test(result.estimate.detail) && /6\.7700/.test(result.estimate.rate), "gpt-image-2 should show a two-image high-quality RMB estimate from the cached rate before generation.", result);
+  assertQa(/[–-]/.test(result.autoEstimate) && /生成后|actual|生成後|生成後|생성 후/i.test(result.customEstimate.value + result.customEstimate.detail), "Auto quality should show a price range while custom sizes should defer to actual token usage instead of inventing a fixed estimate.", result);
+  assertQa(Math.abs(result.billing.usd - 0.03243) < 0.0000001 && Math.abs(result.billing.cny - 0.2195511) < 0.0000001 && /实际费用|Actual cost|實際費用|実際|실제/.test(result.cardCostText), "Actual gpt-image-2 usage must be converted from official token prices into USD and RMB on the result card.", result);
+  assertQa(Math.abs(result.storedBilling.cny - result.billing.cny) < 0.0000001, "Actual usage billing must persist in image history instead of disappearing after reload.", result);
+  assertQa(result.refreshedRate.rate === 6.7722 && result.refreshedRate.rateDate === "2026-07-24" && result.cachedAfterFailure.rate === 6.7722 && result.storedRate.rate === 6.7722, "The ECB/Frankfurter refresh must cache the latest daily USD/CNY rate and retain it when the next refresh fails.", result);
   assertQa(result.detectedModels.join(",") === "gpt-image-1-mini,gpt-image-2-2026-04-21" && /2/.test(result.detectedStatus), "Official model detection must retain official dated snapshots while filtering non-image models and GrsAI-only aliases.", result);
   assertQa(result.fallbackModels.includes("gpt-image-2") && result.fallbackModels.includes("gpt-image-1.5") && result.fallbackModels.includes("gpt-image-1-mini") && /invalid project key|无效|invalid|権限|권한/i.test(result.fallbackStatus), "Official model detection failures must keep the built-in official list and display the real authorization reason.", result);
   assertQa(result.gpt2Capabilities.transparentDisabled && result.gpt2Capabilities.fidelityDisabled && /gpt-image-2/.test(result.gpt2Capabilities.note) && result.legacyCapabilities.transparentEnabled && result.legacyCapabilities.fidelityEnabled, "Official controls must react to model capabilities, especially gpt-image-2 transparency/fidelity restrictions.", result);
   assertQa(/尺寸|size|2048x1152/i.test(result.invalidSizeError), "Official custom sizes must be validated before a request instead of silently falling back to 1024x1024.", result);
-  assertQa(result.grsaiVisibility.grsai && result.grsaiVisibility.grsaiRetry && !result.grsaiVisibility.official, "Switching to GrsAI must hide official controls and reveal only GrsAI-specific UI.", result);
+  assertQa(result.grsaiVisibility.grsai && result.grsaiVisibility.grsaiRetry && !result.grsaiVisibility.official && result.grsaiVisibility.costHidden, "Switching to GrsAI must hide official controls and the OpenAI-only cost summary.", result);
   assertQa(grsai.model === "gpt-image-2" && grsai.aspectRatio === "1024x1024" && grsai.replyType === "json" && !("quality" in grsai) && !("background" in grsai) && !("output_format" in grsai) && !("moderation" in grsai) && !("input_fidelity" in grsai), "GrsAI requests must never receive OpenAI-official output fields.", result);
 }
 
@@ -3800,16 +3858,20 @@ async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
     await loadFresh(cdp, `official-layout-${viewport.name}`, viewport);
     const result = await cdp.eval(`(() => {
       applyApiProvider("official", { forceEndpoint: true });
+      dom.model.value = "gpt-image-2";
+      updateOfficialCostSummary();
       applyLanguage("en");
       dom.configSection.open = true;
       const panel = dom.officialProviderPanel;
       const grid = panel.querySelector(".provider-options-grid");
       const buttons = Array.from(panel.querySelectorAll(".provider-segments button"));
       const panelRect = panel.getBoundingClientRect();
+      const costRect = dom.officialCostSummary.getBoundingClientRect();
       const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
       return {
         viewport: { width: innerWidth, height: innerHeight },
         panel: { left: panelRect.left, right: panelRect.right, width: panelRect.width, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
+        cost: { left: costRect.left, right: costRect.right, width: costRect.width, scrollWidth: dom.officialCostSummary.scrollWidth, clientWidth: dom.officialCostSummary.clientWidth },
         input: { left: inputRect.left, right: inputRect.right, width: inputRect.width, scrollHeight: document.querySelector(".input-panel").scrollHeight, clientHeight: document.querySelector(".input-panel").clientHeight },
         columns: getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length,
         buttonOverflow: buttons.map(button => ({ text: button.textContent.trim(), scrollWidth: button.scrollWidth, clientWidth: button.clientWidth })).filter(item => item.scrollWidth > item.clientWidth + 1),
@@ -3819,6 +3881,7 @@ async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
     assertQa(result.columns === 1, "Official options should use a readable single-column layout inside the narrow settings panel.", { viewport, result });
     assertQa(result.panel.scrollWidth <= result.panel.clientWidth + 1 && result.buttonOverflow.length === 0, "Official option labels and segmented buttons must not overflow their controls.", { viewport, result });
     assertQa(result.panel.left >= result.input.left - 1 && result.panel.right <= result.input.right + 1 && !result.bodyHorizontalOverflow, "The official provider panel must remain inside the app viewport without horizontal page overflow.", { viewport, result });
+    assertQa(result.cost.left >= result.input.left - 1 && result.cost.right <= result.input.right + 1 && result.cost.scrollWidth <= result.cost.clientWidth + 1, "The OpenAI cost summary must remain readable without overflowing desktop or mobile layouts.", { viewport, result });
   }
 }
 

@@ -24,17 +24,18 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.29", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.29\+53$/m);
-assert.match(html, /v1\.3\.29/);
-assert.match(html, /20260725-1-3-29/g);
-assert.match(sw, /ai-image-generator-1-3-29-20260725/);
+assert.equal(version, "1.3.30", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.30\+54$/m);
+assert.match(html, /v1\.3\.30/);
+assert.match(html, /20260725-1-3-30/g);
+assert.match(sw, /ai-image-generator-1-3-30-20260725/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,29,53/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.29"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,30,54/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.30"/);
 for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",
+  "officialCostSummary", "officialEstimatedCost", "officialRateStatus", "officialPricingLink", "refreshOfficialRate",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing provider-specific control: ${id}`);
@@ -44,6 +45,9 @@ assert.match(app, /provider:\s*"grsai"/);
 assert.ok(app.includes("gpt-image-2|gpt-image-1\\.5|gpt-image-1-mini"), "Official model aliases/snapshots must be matched explicitly");
 assert.match(app, /output_compression/);
 assert.match(app, /input_fidelity/);
+assert.match(app, /api\.frankfurter\.dev\/v2\/rate\/USD\/CNY\?providers=ECB/);
+assert.match(app, /GPT_IMAGE_2_TOKEN_USD_PER_MILLION/);
+assert.match(app, /buildOfficialBilling/);
 assert.match(app, /enqueueFailedCardsForRetryRun/);
 assert.match(app, /seenCards:\s*new Set\(\)/);
 assert.match(html, /id="grsaiSubmit504RetryCount"/);

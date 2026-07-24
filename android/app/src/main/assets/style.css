@@ -492,6 +492,78 @@ details[open] .config-toggle::before { content: '▼ '; }
 
 .provider-panel-grsai .btn { align-self: flex-start; }
 
+.official-cost-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #16a085 38%, var(--border));
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #16a085 6%, var(--surface));
+}
+
+.official-cost-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+  align-items: baseline;
+}
+
+.official-cost-main > span {
+  color: var(--text2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.official-cost-main > strong {
+  color: color-mix(in srgb, #35c5a0 82%, var(--text));
+  font-size: 0.94rem;
+  text-align: right;
+}
+
+.official-cost-main > small {
+  grid-column: 1 / -1;
+  color: var(--text2);
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.official-rate-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  color: var(--text2);
+  font-size: 0.64rem;
+}
+
+.official-rate-row .btn:not(.icon-only) {
+  min-height: 28px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.official-rate-row > span:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.official-rate-row .icon-only {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+
+.official-rate-row .is-loading .ui-icon { animation: spin 0.9s linear infinite; }
+
 .config-section[open] {
   overflow: visible;
   position: relative;
@@ -1199,6 +1271,31 @@ select.custom-select-native {
   max-height: min(48vh, 440px);
   resize: vertical;
   line-height: 1.6;
+}
+
+.result-cost-meta {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.result-cost-meta strong {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, #35c5a0 82%, var(--text));
+  font-size: 0.76rem;
+}
+
+.result-cost-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 .bulk-prompt-summary {
   min-height: 22px;
@@ -2552,6 +2649,8 @@ main.result-panel .result-actions {
 }
 
 @media (max-width: 760px) {
+  .official-cost-summary { grid-template-columns: minmax(0, 1fr); }
+  .official-rate-row { justify-content: space-between; }
   .provider-option-wide { grid-column: auto; }
   .provider-segments { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .provider-segments-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }

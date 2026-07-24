@@ -12,6 +12,8 @@
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
 - 选择 `官方 API` 时使用 OpenAI 官方 `https://api.openai.com/v1` Image API，可单独设置 `low / medium / high / auto` 质量、背景、PNG/JPEG/WebP、压缩、审核强度和参考图保真度；这些参数随官方 API 配置保存
 - 官方模型检测只保留 OpenAI 的 GPT Image 模型；检测失败时会保留内置官方列表并显示失败原因，不会混入 GrsAI 的 VIP/CL 等中转站模型
+- `gpt-image-2` 会在生成前按尺寸、质量和张数显示人民币图片输出估价；生成后若官方响应包含 `usage`，结果卡和历史记录会保存实际 Token 与人民币费用
+- USD/CNY 使用 Frankfurter 提供的 ECB 每日参考汇率，最多每 6 小时自动更新一次；失败时使用上次成功值，无缓存时明确回退到 `6.77`，也可手动刷新或用系统浏览器查看 OpenAI 官方最新价格
 - 只有选择 `GrsAI 生图 API` 时才使用 GrsAI `/v1/api/generate` + `/v1/api/result` 异步协议和 504 提交重试；GrsAI 参数不会进入官方/自定义请求
 - 选择 `自定义 API` 时按 OpenAI 兼容的 `generations / edits` 基础协议调用，不附加 OpenAI 官方或 GrsAI 专属字段
 - 账号、套餐、网站侧配置请用浏览器打开网站处理，软件内不跳转网站
