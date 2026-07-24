@@ -1,15 +1,23 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.22
+# Codex / Claude Handoff: AI 图片生成器 v1.3.24
 
-更新时间：2026-07-17
+更新时间：2026-07-24
 项目路径：`F:\AI\agent\图像生成`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.22+46`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.24+48`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.24 增量修复
+
+- GrsAI 已取得任务 ID 后，结果查询若暂时返回 HTTP 504，会对同一个任务执行 2～30 秒指数退避并继续查询，不会重新提交生图任务。
+- GrsAI 首次提交若返回 HTTP 504，不会自动重提：官方统一接口没有提供幂等键或按请求找回任务的能力，盲目重提可能重复扣费；界面会明确说明这一点。
+- HTML 网关错误会提取标题/正文摘要，不再把整段 nginx HTML 原样显示给用户。
+- 原生软件的远程图片预览不再把整张 Base64 一次塞进 WebView；Dart 原生层暂存字节，JS 通过不超过 192 KiB 的分块逐步读取并组装 Blob，完成或失败后释放传输。
+- 回归新增 GrsAI 轮询 504 恢复、首次提交 504 不重复 POST、原生图片分块逐字节重组和传输释放检查。
 
 ## v1.3.22 增量功能
 
@@ -167,7 +175,7 @@ node qa\regression-runner.js
 
 ## 不要误改
 
-- 不要把自动重试扩大到非 HTTP 400。
+- 不要把生图 POST 自动重试扩大到非 HTTP 400；GrsAI 已有任务 ID 后的结果查询 GET 遇到 504 可安全续查，这是特例。
 - 不要把气泡嵌字或漫画历史拆成一张张图片。
 - 不要恢复项目时自动塞回参考图。
 - 不要把自绘下拉改回原生 `<select>`；旧 `webview_windows` 的离屏渲染无法可靠显示原生下拉弹层。

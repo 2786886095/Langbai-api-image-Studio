@@ -24,14 +24,14 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.23", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.23\+47$/m);
-assert.match(html, /v1\.3\.23/);
-assert.match(html, /20260724-1-3-23/g);
-assert.match(sw, /ai-image-generator-1-3-23-20260724/);
+assert.equal(version, "1.3.24", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.24\+48$/m);
+assert.match(html, /v1\.3\.24/);
+assert.match(html, /20260724-1-3-24/g);
+assert.match(sw, /ai-image-generator-1-3-24-20260724/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,23,47/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.23"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,24,48/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.24"/);
 
 for (const file of ["app.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
   assert.equal(
@@ -43,6 +43,9 @@ for (const file of ["app.js", "index.html", "style.css", "sw.js", "manifest.webm
 
 assert.doesNotMatch(app, /HTTP\\s\*\(400\|502|400\/502\/503\/504/);
 assert.match(app, /return \/HTTP\\s\*400\\b\/i\.test\(msg\)/);
+assert.match(app, /pollResp\.status === 504/);
+assert.match(app, /responseType:\s*"chunkedBase64"/);
+assert.match(dartMain, /nativeFetchBlobChunk/);
 assert.match(app, /expectedSha256/);
 assert.match(app, /nativeTimeoutMs:\s*null/);
 assert.match(app, /imageUrlToBlobWithFallback/);

@@ -12,6 +12,8 @@ const appPort = Number(process.env.AIGEN_QA_APP_PORT) || 8765;
 const debugPort = Number(process.env.AIGEN_QA_DEBUG_PORT) || (19000 + (process.pid % 20000));
 const appUrl = `http://${host}:${appPort}/index.html`;
 const edgeProfile = path.join(path.dirname(projectRoot), `aigen-edge-qa-${process.pid}`);
+const expectedAppVersion = fs.readFileSync(path.join(projectRoot, "app.js"), "utf8")
+  .match(/const APP_VERSION = "([^"]+)";/)?.[1] || "";
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -1639,6 +1641,64 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(reload.before !== reload.after && reload.blobPreview && reload.zipBlobSize > 0, "Failed image reload should fetch image bytes and switch preview to a local blob URL.", reload);
   assertQa(reload.fetchCalls >= 2 && !reload.errorState, "Reload should recover from direct preview failure using the same byte-fetch path as download.", reload);
   assertQa(reload.directByteFetches === 0 && reload.proxyTargets.length >= 2 && reload.proxyTargets.every(url => url.includes("mock-preview-image.png")), "Browser image-byte reload must use the configured CORS proxy instead of retrying a blocked direct fetch.", reload);
+
+  const nativePreviewChunks = await cdp.eval(`(async () => {
+    const previousBridge = window.FlutterDownload;
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const source = Uint8Array.from(atob(png), c => c.charCodeAt(0));
+    const calls = [];
+    window.FlutterDownload = {
+      postMessage(raw) {
+        const payload = JSON.parse(raw);
+        calls.push(payload);
+        queueMicrotask(() => {
+          if (payload.action === "nativeFetch") {
+            window.AiGenAndroidBridge.resolve(payload.id, {
+              status: 200,
+              headers: { "content-type": "image/png" },
+              transferId: "qa-image-transfer",
+              byteLength: source.length,
+              chunkSize: 7,
+            });
+            return;
+          }
+          if (payload.action === "nativeFetchBlobChunk") {
+            const end = Math.min(source.length, payload.offset + payload.length);
+            let binary = "";
+            for (const byte of source.slice(payload.offset, end)) binary += String.fromCharCode(byte);
+            window.AiGenAndroidBridge.resolve(payload.id, {
+              base64: btoa(binary),
+              nextOffset: end,
+              done: end >= source.length,
+            });
+            return;
+          }
+          if (payload.action === "nativeFetchBlobRelease") {
+            window.AiGenAndroidBridge.resolve(payload.id, true);
+          }
+        });
+      }
+    };
+    try {
+      const result = await nativeDownload.nativeFetchBlob("https://img.test/large-preview.png");
+      const bytes = new Uint8Array(await result.blob.arrayBuffer());
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return {
+        byteLength: bytes.length,
+        matches: bytes.length === source.length && bytes.every((value, index) => value === source[index]),
+        type: result.blob.type,
+        actions: calls.map(call => call.action),
+        responseType: calls.find(call => call.action === "nativeFetch")?.responseType || "",
+        maxRequestedChunk: Math.max(0, ...calls.filter(call => call.action === "nativeFetchBlobChunk").map(call => call.length || 0)),
+      };
+    } finally {
+      if (previousBridge === undefined) delete window.FlutterDownload;
+      else window.FlutterDownload = previousBridge;
+    }
+  })()`, true);
+  assertQa(nativePreviewChunks.matches && nativePreviewChunks.type === "image/png", "Native preview reload should reconstruct the exact image bytes from bounded bridge chunks.", nativePreviewChunks);
+  assertQa(nativePreviewChunks.responseType === "chunkedBase64" && nativePreviewChunks.actions.filter(action => action === "nativeFetchBlobChunk").length > 1, "Native preview reload must request multiple bounded chunks instead of one oversized Base64 bridge message.", nativePreviewChunks);
+  assertQa(nativePreviewChunks.actions.at(-1) === "nativeFetchBlobRelease" && nativePreviewChunks.maxRequestedChunk <= 192 * 1024, "Native preview chunks must be released and remain within the bridge-safe size.", nativePreviewChunks);
 
   const resultGrid = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -3384,6 +3444,12 @@ async function testGrsaiOfficialAdapter(cdp) {
         if (urlText.includes("/v1/api/generate")) {
           const body = JSON.parse(opts.body || "{}");
           calls.push({ url: urlText, body, auth: headerValue(opts.headers) });
+          if (body.prompt === "submit504 prompt") {
+            return new Response("<html><head><title>504 Gateway Time-out</title></head><body><h1>504 Gateway Time-out</h1></body></html>", {
+              status: 504,
+              headers: { "Content-Type": "text/html" }
+            });
+          }
           if (body.prompt === "async prompt") {
             return new Response(JSON.stringify({ id: "task-ok", status: "running", progress: 10 }), {
               status: 200,
@@ -3418,7 +3484,13 @@ async function testGrsaiOfficialAdapter(cdp) {
             });
           }
           asyncPolls++;
-          const body = asyncPolls === 1
+          if (asyncPolls === 1) {
+            return new Response("<html><head><title>504 Gateway Time-out</title></head></html>", {
+              status: 504,
+              headers: { "Content-Type": "text/html" }
+            });
+          }
+          const body = asyncPolls === 2
             ? { id: "task-ok", status: "running", progress: 55 }
             : { id: "task-ok", status: "succeeded", progress: 100, results: [{ url: "https://img.test/final.png" }] };
           return new Response(JSON.stringify(body), {
@@ -3438,6 +3510,12 @@ async function testGrsaiOfficialAdapter(cdp) {
       const gpt = await callImageAPI("gpt prompt", "2048x2048", 1, "GrsAI gpt", { maxRetries: 0 });
       set("model", "nano-banana-2");
       const asyncResult = await callImageAPI("async prompt", "1536x1024", 1, "GrsAI async", { maxRetries: 0 });
+      let submit504Error = "";
+      try {
+        await callImageAPI("submit504 prompt", "1024x1024", 1, "GrsAI submit 504", { maxRetries: 3 });
+      } catch (err) {
+        submit504Error = err.message || String(err);
+      }
       set("model", "nano-banana");
       let poll400Error = "";
       try {
@@ -3458,6 +3536,8 @@ async function testGrsaiOfficialAdapter(cdp) {
         nanoUrl: nano?.data?.[0]?.url || "",
         gptUrl: gpt?.data?.[0]?.url || "",
         asyncUrl: asyncResult?.data?.[0]?.url || "",
+        asyncPolls,
+        submit504Error,
         poll400Error,
         customProvider: document.getElementById("apiProvider").value,
         customGenericOk: !!customGeneric?.data?.[0]?.b64_json,
@@ -3479,6 +3559,9 @@ async function testGrsaiOfficialAdapter(cdp) {
   assertQa(gptCall?.body.aspectRatio === "2048x2048" && !("imageSize" in gptCall.body), "GrsAI gpt-image payload should send pixel aspectRatio and omit nano imageSize.", result);
   assertQa(result.nanoUrl.includes("nano-banana-2-4k-cl") && result.gptUrl.includes("gpt-image-2-vip"), "GrsAI synchronous success responses should return image URLs.", result);
   assertQa(asyncCall && result.asyncUrl === "https://img.test/final.png" && result.resultCalls.some(call => call.url.includes("/v1/api/result?id=task-ok")), "GrsAI running responses should poll /v1/api/result until succeeded.", result);
+  assertQa(result.asyncPolls === 3, "A GrsAI result-poll HTTP 504 should back off and continue querying the same task instead of failing or submitting a new task.", result);
+  assertQa(/HTTP 504/.test(result.submit504Error) && /不会自动重复提交/.test(result.submit504Error), "A GrsAI submit HTTP 504 should explain the uncertain task state and must not be blindly retried.", result);
+  assertQa(result.calls.filter(call => call.body.prompt === "submit504 prompt").length === 1, "A GrsAI submit HTTP 504 must make exactly one POST even when the global HTTP-400 retry count is nonzero.", result);
   assertQa(/HTTP 400/.test(result.poll400Error) && /quota exhausted/.test(result.poll400Error), "GrsAI polling HTTP 400 should preserve the official error reason.", result);
   assertQa(result.customProvider === "custom" && result.customGenericOk, "Custom API selection should remain custom even on a GrsAI domain.", result);
   assertQa(result.genericCalls.length === 1 && result.genericCalls[0].url.includes("/v1/images/generations"), "Custom API selection should use the generic OpenAI-compatible route, not the GrsAI /v1/api/generate route.", result);
@@ -3770,7 +3853,7 @@ async function testPwaOfflineCache(cdp) {
       if (result?.version && result.hasGenerateButton && result.controlled) break;
       await sleep(100);
     }
-    assertQa(result?.version === "1.3.23" && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
+    assertQa(result?.version === expectedAppVersion && result.hasGenerateButton && result.controlled, "The PWA must load its versioned scripts and UI from cache while offline.", result);
   } finally {
     await cdp.send("Network.emulateNetworkConditions", {
       offline: false,

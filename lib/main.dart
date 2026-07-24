@@ -147,6 +147,56 @@ bool _isDesktopPlatform() =>
 
 final Map<String, HttpClient> _activeNetworkClients = <String, HttpClient>{};
 final Set<String> _cancelledNetworkRequests = <String>{};
+const int _nativeFetchBridgeChunkSize = 192 * 1024;
+
+class _NativeFetchTransfer {
+  _NativeFetchTransfer(this.bytes) : createdAt = DateTime.now();
+
+  final Uint8List bytes;
+  final DateTime createdAt;
+}
+
+final Map<String, _NativeFetchTransfer> _nativeFetchTransfers =
+    <String, _NativeFetchTransfer>{};
+
+void _cleanupNativeFetchTransfers() {
+  final cutoff = DateTime.now().subtract(const Duration(minutes: 10));
+  _nativeFetchTransfers.removeWhere(
+    (_, transfer) => transfer.createdAt.isBefore(cutoff),
+  );
+}
+
+Map<String, Object?> _readNativeFetchChunk(Map<String, dynamic> payload) {
+  final transferId = payload['transferId']?.toString() ?? '';
+  final transfer = _nativeFetchTransfers[transferId];
+  if (transfer == null) {
+    throw PlatformException(
+      code: 'missing_fetch_transfer',
+      message: 'Image transfer has expired. Please reload the image.',
+    );
+  }
+  final offset = int.tryParse(payload['offset']?.toString() ?? '') ?? 0;
+  if (offset < 0 || offset > transfer.bytes.length) {
+    throw PlatformException(
+      code: 'invalid_fetch_offset',
+      message: 'Image transfer offset is invalid.',
+    );
+  }
+  final requested = int.tryParse(payload['length']?.toString() ?? '') ??
+      _nativeFetchBridgeChunkSize;
+  final length = requested.clamp(1, _nativeFetchBridgeChunkSize).toInt();
+  final end = (offset + length).clamp(offset, transfer.bytes.length).toInt();
+  return <String, Object?>{
+    'base64': base64Encode(transfer.bytes.sublist(offset, end)),
+    'nextOffset': end,
+    'done': end >= transfer.bytes.length,
+  };
+}
+
+bool _releaseNativeFetchTransfer(Map<String, dynamic> payload) {
+  final transferId = payload['transferId']?.toString() ?? '';
+  return _nativeFetchTransfers.remove(transferId) != null;
+}
 
 void _cancelNetworkRequest(String requestId) {
   if (requestId.isEmpty) return;
@@ -284,7 +334,15 @@ Future<Map<String, Object?>> _nativeFetch(
       'status': response.statusCode,
       'headers': responseHeaders,
     };
-    if (responseType == 'base64') {
+    if (responseType == 'chunkedBase64') {
+      _cleanupNativeFetchTransfers();
+      final transferId =
+          'fetch_${DateTime.now().microsecondsSinceEpoch}_${responseBytes.length}';
+      _nativeFetchTransfers[transferId] = _NativeFetchTransfer(responseBytes);
+      result['transferId'] = transferId;
+      result['byteLength'] = responseBytes.length;
+      result['chunkSize'] = _nativeFetchBridgeChunkSize;
+    } else if (responseType == 'base64') {
       result['base64'] = base64Encode(responseBytes);
     } else {
       result['body'] = utf8.decode(responseBytes, allowMalformed: true);
@@ -550,6 +608,12 @@ class _MobileWebShellState extends State<MobileWebShell>
           break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
+          break;
+        case 'nativeFetchBlobChunk':
+          result = _readNativeFetchChunk(payload);
+          break;
+        case 'nativeFetchBlobRelease':
+          result = _releaseNativeFetchTransfer(payload);
           break;
         case 'openExternal':
           final url = payload['url']?.toString() ?? '';
@@ -917,6 +981,12 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           break;
         case 'nativeFetch':
           result = await _nativeFetch(payload);
+          break;
+        case 'nativeFetchBlobChunk':
+          result = _readNativeFetchChunk(payload);
+          break;
+        case 'nativeFetchBlobRelease':
+          result = _releaseNativeFetchTransfer(payload);
           break;
         case 'openExternal':
           result = await _openSystemExternalUrl(

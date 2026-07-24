@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.23";
+const APP_VERSION = "1.3.24";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2770,6 +2770,7 @@ const GRSAI_OFFICIAL_MODELS = Object.freeze([
   ...GRSAI_NANO_BANANA_MODELS,
 ]);
 const GRSAI_POLL_INTERVAL_MS = 2000;
+const GRSAI_POLL_GATEWAY_DELAY_MAX_MS = 30000;
 
 const KNOWN_PRICES = {
   "gpt-image-2": "¥0.03/张", "gpt-image-2-vip": "¥0.065/张",
@@ -4153,7 +4154,15 @@ registerAdapter({
     console.log(`GrsAI 请求: model=${model} size=${size} hasRef=${hasRef} refs=${refs.length}`);
 
     const t0 = Date.now();
-    let res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
+    let res;
+    try {
+      res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
+    } catch (err) {
+      if (/HTTP\s*504\b/i.test(String(err?.message || err || ""))) {
+        throw new Error("HTTP 504：GrsAI 提交请求超时。任务可能已经提交，但服务端没有返回任务 ID；为避免重复扣费，软件不会自动重复提交。请稍后在 GrsAI 后台确认，或再手动重试。");
+      }
+      throw err;
+    }
     let data = res;
     console.log(`GrsAI /api/generate 响应 (${Date.now() - t0}ms):`, data.status);
 
@@ -4169,16 +4178,30 @@ registerAdapter({
       // 这个循环本身很轻量（每 2 秒一次的状态查询，不是持续占用一个大请求），唯一的退出方式
       // 是拿到终态（succeeded/failed/violation）或者用户主动点"停止生成"（signal 触发 abort，
       // sleep()/smartFetch() 都会据此抛出，从这里往外冒泡）。
+      let gatewayTimeouts = 0;
+      let nextPollDelay = GRSAI_POLL_INTERVAL_MS;
       while (true) {
-        await sleep(GRSAI_POLL_INTERVAL_MS, signal);
+        await sleep(nextPollDelay, signal);
+        nextPollDelay = GRSAI_POLL_INTERVAL_MS;
         const pollResp = await smartFetch(`${base}/v1/api/result?id=${taskId}`, {
           headers: { "Authorization": `Bearer ${apiKey}` },
           signal,
         });
         res = await grsaiReadJsonResponse(pollResp);
         if (!pollResp.ok) {
+          if (pollResp.status === 504) {
+            gatewayTimeouts++;
+            const delay = Math.min(
+              GRSAI_POLL_GATEWAY_DELAY_MAX_MS,
+              2000 * Math.pow(2, Math.min(gatewayTimeouts - 1, 4)),
+            );
+            showStatus(`GrsAI 查询暂时返回 HTTP 504，${Math.ceil(delay / 1000)} 秒后继续查询（第 ${gatewayTimeouts} 次）…`, "info");
+            nextPollDelay = delay;
+            continue;
+          }
           throw new Error(`轮询失败 HTTP ${pollResp.status}: ${grsaiStatusError(res)}`);
         }
+        gatewayTimeouts = 0;
         data = res;
         if (data.progress != null) showStatus(`GrsAI 生成中… ${data.progress}%`, "info");
         if (data.status === "succeeded") { clearStatus(); console.log(`GrsAI 完成 (${Date.now() - t0}ms)`); break; }
@@ -4697,7 +4720,11 @@ async function apiFetch(url, apiKey, body, options = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 300)}`);
+    const titleMatch = errorText.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const headingMatch = errorText.match(/<h1[^>]*>([^<]*)<\/h1>/i);
+    const plainText = errorText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const summary = (titleMatch?.[1] || headingMatch?.[1] || plainText || response.statusText || "请求失败").trim();
+    throw new Error(`HTTP ${response.status}: ${summary.slice(0, 300)}`);
   }
 
   const ct = response.headers.get("content-type") || "";
@@ -6672,8 +6699,41 @@ const nativeDownload = (() => {
     nativeFetchPayload(payload, timeoutMs, signal) {
       return request("nativeFetch", withDesktopProxyPayload(payload), timeoutMs, signal);
     },
-    nativeFetchBlob(url) {
-      return request("nativeFetch", withDesktopProxyPayload({ url, method: "GET", responseType: "base64" }));
+    async nativeFetchBlob(url) {
+      const meta = await request("nativeFetch", withDesktopProxyPayload({
+        url,
+        method: "GET",
+        responseType: "chunkedBase64",
+      }));
+      const transferId = String(meta?.transferId || "");
+      if (!transferId) throw new Error("原生图片读取未返回传输编号");
+      const byteLength = Math.max(0, Number(meta?.byteLength) || 0);
+      const chunkSize = Math.max(1, Math.min(192 * 1024, Number(meta?.chunkSize) || 192 * 1024));
+      const chunks = [];
+      let offset = 0;
+      try {
+        const status = Number(meta?.status || 0);
+        if (status < 200 || status >= 300) return meta;
+        while (offset < byteLength) {
+          const part = await request("nativeFetchBlobChunk", {
+            transferId,
+            offset,
+            length: Math.min(chunkSize, byteLength - offset),
+          });
+          const bytes = base64ToBytes(part?.base64 || "");
+          const nextOffset = Number(part?.nextOffset);
+          if (!bytes.length || !Number.isFinite(nextOffset) || nextOffset <= offset) {
+            throw new Error("原生图片分块传输中断");
+          }
+          chunks.push(bytes);
+          offset = nextOffset;
+        }
+        const headers = meta?.headers || {};
+        const type = headers["content-type"] || headers["Content-Type"] || "application/octet-stream";
+        return { ...meta, blob: new Blob(chunks, { type }) };
+      } finally {
+        request("nativeFetchBlobRelease", { transferId }).catch(() => {});
+      }
     },
     openExternal(url) {
       return request("openExternal", { url });
@@ -6958,7 +7018,10 @@ async function imageUrlToBlob(url, onProgress) {
     if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
     const headers = result?.headers || {};
     const type = headers["content-type"] || headers["Content-Type"] || "image/png";
-    const blob = await normalizeImageBlob(new Blob([base64ToBytes(result.base64 || "")], { type }));
+    const sourceBlob = result?.blob instanceof Blob
+      ? result.blob
+      : new Blob([base64ToBytes(result?.base64 || "")], { type });
+    const blob = await normalizeImageBlob(sourceBlob);
     onProgress?.(100, blob.size, blob.size);
     return blob;
   }
