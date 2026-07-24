@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.24";
+const APP_VERSION = "1.3.25";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -5500,7 +5500,36 @@ function setRetryFailedButtonText(count = getFailedResultCards().length) {
   dom.retryFailedAll.innerHTML = `${icon("retry")} ${cleanText("retryFailedAll")}${suffix}`;
 }
 
+function enqueueFailedCardsForRetryRun(run, cards = getFailedResultCards()) {
+  if (!run || run.cancelRequested || run.finished) return 0;
+  let added = 0;
+  cards.forEach(card => {
+    if (!card?.isConnected || run.seenCards.has(card)) return;
+    run.seenCards.add(card);
+    run.cards.push(card);
+    run.pendingCards.push(card);
+    added++;
+  });
+  if (added > 0) {
+    if (run.idleTimer !== null) {
+      clearTimeout(run.idleTimer);
+      run.idleTimer = null;
+    }
+    if (run.started) {
+      showStatus(interpolate(cleanText("retryFailedAllStarted"), { count: run.cards.length }), "info");
+    }
+    run.pump?.();
+  }
+  return added;
+}
+
 function updateFailedRetryTools() {
+  if (retryAllFailedRun) {
+    // “全部失败重试”运行期间，其他生成任务仍可能继续产生新的失败卡。
+    // 这里在每次失败卡状态刷新时把新卡加入当前动态队列；seenCards 保证
+    // 同一张卡本轮最多处理一次，避免重试后仍失败时形成无限循环。
+    enqueueFailedCardsForRetryRun(retryAllFailedRun);
+  }
   const count = getFailedResultCards().length;
   const hasActiveRun = !!retryAllFailedRun;
   dom.retryFailedTools?.classList.toggle("hidden", count === 0 && !hasActiveRun);
@@ -5523,12 +5552,75 @@ function cancelRetryAllFailedRun({ announce = true } = {}) {
   run.suppressCompletionStatus ||= !announce;
   if (!run.cancelRequested) {
     run.cancelRequested = true;
-    run.controller.abort();
     run.cards.forEach(card => card._cardRetryAbortController?.abort());
+    run.pendingCards.length = 0;
+    if (run.idleTimer !== null) {
+      clearTimeout(run.idleTimer);
+      run.idleTimer = null;
+    }
+    run.pump?.();
   }
   if (announce) showStatus(cleanText("cancellingRetryFailedAll"), "info");
   updateFailedRetryTools();
   return true;
+}
+
+function executeRetryAllFailedRun(run, retryCount) {
+  const concurrency = getProviderConcurrency();
+  return new Promise(resolve => {
+    const finish = () => {
+      if (run.finished) return;
+      run.finished = true;
+      if (run.idleTimer !== null) clearTimeout(run.idleTimer);
+      run.idleTimer = null;
+      resolve();
+    };
+
+    run.pump = () => {
+      if (run.finished) return;
+      if (run.cancelRequested) run.pendingCards.length = 0;
+
+      while (!run.cancelRequested && run.activeCount < concurrency && run.pendingCards.length > 0) {
+        const card = run.pendingCards.shift();
+        run.activeCount++;
+        void (async () => {
+          let result = null;
+          try {
+            if (card?.isConnected && card.classList.contains("is-failed")) {
+              result = await retryResultCard(card, false, { retryCountOverride: retryCount, quiet: true });
+            }
+            if (result === true) run.ok++;
+            else if (result === false) run.failed++;
+          } catch {
+            run.failed++;
+          } finally {
+            run.done++;
+            run.activeCount--;
+            updateProgress(run.done, Math.max(run.done, run.cards.length), run.done >= run.cards.length ? "✅" : "⏳");
+            updateFailedRetryTools();
+            run.pump();
+          }
+        })();
+      }
+
+      if (run.activeCount !== 0 || run.pendingCards.length !== 0) return;
+      if (run.cancelRequested) {
+        finish();
+        return;
+      }
+      // 留出一个短暂空闲窗口，接住与最后一个重试几乎同时落下的新失败卡。
+      // 更晚出现的失败卡会在 finally 释放全局锁后显示为下一轮可重试项。
+      if (run.idleTimer === null) {
+        run.idleTimer = setTimeout(() => {
+          run.idleTimer = null;
+          if (run.activeCount === 0 && run.pendingCards.length === 0) finish();
+          else run.pump();
+        }, 150);
+      }
+    };
+
+    run.pump();
+  });
 }
 
 async function retryAllFailedResults() {
@@ -5545,52 +5637,38 @@ async function retryAllFailedResults() {
 
   const retryCount = getFailedRetryCount();
   const run = {
-    cards: [...cards],
-    controller: new AbortController(),
+    cards: [],
+    pendingCards: [],
+    seenCards: new Set(),
+    activeCount: 0,
+    done: 0,
+    ok: 0,
+    failed: 0,
+    idleTimer: null,
+    pump: null,
+    finished: false,
+    started: false,
     cancelRequested: false,
     suppressCompletionStatus: false,
   };
   retryAllFailedRun = run;
+  enqueueFailedCardsForRetryRun(run, cards);
   updateFailedRetryTools();
-  showStatus(interpolate(cleanText("retryFailedAllStarted"), { count: cards.length }), "info");
+  showStatus(interpolate(cleanText("retryFailedAllStarted"), { count: run.cards.length }), "info");
+  run.started = true;
 
   // 超时被放宽到 15 分钟后，单张卡片重试失败前可能要等很久——如果整个过程完全没有中间反馈，
   // 按钮从点击到重新可用之间会显得像卡死了。复用批量生成同一套 #progressWrap/updateProgress
   // 进度条，让"已完成 done/total"实时可见，而不是干等一个不会变化的按钮文字。
-  const total = cards.length;
-  let done = 0;
   dom.progressWrap.classList.remove("hidden");
-  updateProgress(0, total, "⏳");
+  updateProgress(0, run.cards.length, "⏳");
 
-  let ok = 0;
-  let failed = 0;
   try {
-    // 与批量生成保持同样的并发度；串行会让后面的卡片等前一张生完才开始，
-    // 看起来像"只重试了一个"。
-    const tasks = cards.map(card => async () => {
-      if (run.controller.signal.aborted) return null;
-      let result = null;
-      if (card.isConnected && card.classList.contains("is-failed")) {
-        result = await retryResultCard(card, false, { retryCountOverride: retryCount, quiet: true });
-      }
-      done++;
-      updateProgress(done, total, done >= total ? "✅" : "⏳");
-      return result;
-    });
-    const settled = await concurrentLimitSettled(tasks, getProviderConcurrency(), run.controller.signal);
-    for (const result of settled) {
-      if (result.status === "fulfilled") {
-        if (result.value === null) continue;
-        if (result.value) ok++;
-        else failed++;
-      } else {
-        failed++;
-      }
-    }
+    await executeRetryAllFailedRun(run, retryCount);
     if (run.cancelRequested && !run.suppressCompletionStatus) {
       showStatus(cleanText("retryFailedAllCancelled"), "info");
     } else if (!run.cancelRequested) {
-      showStatus(failed > 0 ? `重试完成：${ok} 成功 / ${failed} 失败` : `已重试成功 ${ok} 个失败分镜`, failed > 0 ? "error" : "success");
+      showStatus(run.failed > 0 ? `重试完成：${run.ok} 成功 / ${run.failed} 失败` : `已重试成功 ${run.ok} 个失败分镜`, run.failed > 0 ? "error" : "success");
     }
   } finally {
     if (retryAllFailedRun === run) {

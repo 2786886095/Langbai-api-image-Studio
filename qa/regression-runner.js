@@ -1980,19 +1980,29 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     button.click();
     const start = Date.now();
     while (Date.now() - start < 2000 && hangingCalls < 2) await sleep(20);
+    const latePrompt = "late retry prompt";
+    const lateCard = addResultPlaceholder(3, latePrompt, {
+      mode: "comic", panelPrompt: latePrompt, prompt: latePrompt, size: "1024x1024", retryCount: 0,
+    });
+    markPlaceholderFailed(lateCard, 3, "HTTP 400: late failure", {
+      mode: "comic", panelPrompt: latePrompt, prompt: latePrompt, size: "1024x1024", retryCount: 0,
+    });
+    const lateStart = Date.now();
+    while (Date.now() - lateStart < 2000 && hangingCalls < 3) await sleep(20);
     const during = {
       calls: hangingCalls,
       toolsVisible: !tools.classList.contains("hidden"),
       buttonEnabled: !button.disabled,
       buttonText: button.textContent,
       loadingCards: document.querySelectorAll(".result-item[data-status='loading']").length,
+      trackedCards: retryAllFailedRun?.cards?.length || 0,
       status: document.getElementById("status").textContent,
     };
 
     button.click();
     const cancelStart = Date.now();
     while (Date.now() - cancelStart < 2000) {
-      if (document.querySelectorAll(".result-item.is-failed").length === 2 && !button.disabled) break;
+      if (document.querySelectorAll(".result-item.is-failed").length === 3 && !button.disabled) break;
       await sleep(20);
     }
     const afterCancel = {
@@ -2016,7 +2026,7 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     button.click();
     const restartStart = Date.now();
     while (Date.now() - restartStart < 3000) {
-      if (document.querySelectorAll(".result-item img").length === 2) break;
+      if (document.querySelectorAll(".result-item img").length === 3 && !retryAllFailedRun) break;
       await sleep(20);
     }
     const afterRestart = {
@@ -2061,12 +2071,12 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     return { during, afterCancel, afterRestart, afterClear };
   })()`, true);
 
-  assertQa(result.during.calls === 2 && result.during.loadingCards === 2, "Retry all should start every failed card instead of silently ignoring the click.", result);
+  assertQa(result.during.calls === 3 && result.during.loadingCards === 3 && result.during.trackedCards === 3, "A failure that appears while retry-all is running must join the active dynamic queue instead of being stranded behind the global lock.", result);
+  assertQa(result.during.status.includes("3"), "Retry-all status must update its total when a newly failed card joins the active queue.", result);
   assertQa(result.during.toolsVisible && result.during.buttonEnabled && /取消|cancel/i.test(result.during.buttonText), "While retry requests are pending, the toolbar must stay visible and turn into an enabled cancel control.", result);
-  assertQa(result.during.status.includes("2"), "Starting retry all should immediately show how many failed items are being retried.", result);
-  assertQa(result.afterCancel.failedCards === 2 && result.afterCancel.toolsVisible && result.afterCancel.buttonEnabled, "Cancelling hung retries must restore failed cards and release the global retry lock.", result);
+  assertQa(result.afterCancel.failedCards === 3 && result.afterCancel.toolsVisible && result.afterCancel.buttonEnabled, "Cancelling hung retries must restore initial and newly queued failed cards and release the global retry lock.", result);
   assertQa(/全部失败重试|retry all failed/i.test(result.afterCancel.buttonText) && /可再次|again/i.test(result.afterCancel.status), "After cancellation, the control and status should clearly say retrying is available again.", result);
-  assertQa(result.afterRestart.calls === 2 && result.afterRestart.images === 2 && result.afterRestart.failedCards === 0 && result.afterRestart.toolsHidden, "A fresh retry-all round after cancellation must run normally and replace every failed card.", result);
+  assertQa(result.afterRestart.calls === 3 && result.afterRestart.images === 3 && result.afterRestart.failedCards === 0 && result.afterRestart.toolsHidden, "A fresh retry-all round after cancellation must run normally and replace every failed card.", result);
   assertQa(result.afterClear.clearAbortObserved && result.afterClear.toolsVisible && result.afterClear.buttonEnabled && /全部失败重试|retry all failed/i.test(result.afterClear.buttonText), "Clearing results during a hung retry-all round must abort it, release the old lock, and leave future failed cards retryable.", result);
 }
 
