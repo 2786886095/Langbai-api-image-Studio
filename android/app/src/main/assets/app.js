@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.31";
+const APP_VERSION = "1.3.32";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -243,7 +243,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜 · 气泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
-    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
+    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地 GPT", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
+    opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
+    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "使用本机 ChatGPT/Codex 登录转发生图；仅连接 127.0.0.1，不使用电脑端代理。", opencodexQuality: "输出质量", opencodexQualityHint: "草稿适合快速试错，标准平衡速度与细节，高质量适合最终成图。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", opencodexFacts: "JSON 图片协议 · gpt-image-2 · 最多并发 5 · 单次超时 620 秒", opencodexCapability: "参考图会转换为 Data URL 数组；参考图保真度自动为高，不发送格式、压缩、审核或 input_fidelity 参数。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}",
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
@@ -319,7 +321,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡 · 氣泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
-    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
+    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機 GPT", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
+    opencodexHint: "使用本機 OpenCodex 的 ChatGPT 登入轉發生圖；本機佔位密鑰不會傳送給 OpenAI，實際額度類型由 ChatGPT 上游決定。",
+    opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "使用本機 ChatGPT/Codex 登入轉發生圖；僅連線 127.0.0.1，不使用電腦端代理。", opencodexQuality: "輸出品質", opencodexQualityHint: "草稿適合快速試錯，標準平衡速度與細節，高品質適合最終成圖。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", opencodexFacts: "JSON 圖片協議 · gpt-image-2 · 最多並行 5 · 單次逾時 620 秒", opencodexCapability: "參考圖會轉為 Data URL 陣列；參考圖保真度自動為高，不傳送格式、壓縮、審核或 input_fidelity 參數。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}",
     savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
     apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
     apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
@@ -395,7 +399,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI Image Generator", subtitle: "Single images · Comic panels · Speech bubbles",
     web: "Web/PWA", desktop: "Desktop", android: "Android",
     create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
-    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
+    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "Local OpenCodex GPT", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
+    opencodexHint: "Routes images through the local OpenCodex ChatGPT login. The placeholder key is never sent to OpenAI; ChatGPT determines the actual quota category.",
+    opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Routes images through the local ChatGPT/Codex login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", opencodexQuality: "Output quality", opencodexQualityHint: "Draft is for quick iteration, Standard balances speed and detail, and High quality is for final images.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", opencodexFacts: "JSON image protocol · gpt-image-2 · up to 5 concurrent requests · 620-second timeout", opencodexCapability: "References are sent as a Data URL array with automatic high fidelity. Format, compression, moderation, and input_fidelity are omitted.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}",
     savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
     apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
@@ -471,7 +477,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画コマ · 吹き出し文字",
     web: "Web/PWA", desktop: "デスクトップ", android: "Android",
     create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
-    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
+    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "ローカル OpenCodex GPT", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
+    opencodexHint: "ローカル OpenCodex の ChatGPT ログイン経由で画像を生成します。プレースホルダーキーは OpenAI に送信されず、実際の利用枠は ChatGPT 側で決まります。",
+    opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex ログインで画像を生成します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", opencodexQuality: "出力品質", opencodexQualityHint: "下書きは試行、標準は速度と詳細の両立、高品質は最終画像向けです。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", opencodexFacts: "JSON 画像プロトコル · gpt-image-2 · 最大同時 5 件 · 620 秒タイムアウト", opencodexCapability: "参照画像は Data URL 配列で送信し、忠実度は自動的に高になります。形式、圧縮、審査、input_fidelity は送信しません。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}",
     savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
     apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
@@ -547,7 +555,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 컷 · 말풍선 문구",
     web: "Web/PWA", desktop: "데스크톱", android: "Android",
     create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
-    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
+    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "로컬 OpenCodex GPT", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
+    opencodexHint: "로컬 OpenCodex의 ChatGPT 로그인으로 이미지를 생성합니다. 자리표시자 키는 OpenAI로 전송되지 않으며 실제 사용 한도는 ChatGPT에서 결정합니다.",
+    opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 로그인으로 이미지를 생성합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", opencodexQuality: "출력 품질", opencodexQualityHint: "초안은 빠른 시도, 표준은 속도와 세부 묘사의 균형, 고품질은 최종 이미지에 적합합니다.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", opencodexFacts: "JSON 이미지 프로토콜 · gpt-image-2 · 최대 동시 5개 · 620초 제한", opencodexCapability: "참고 이미지는 Data URL 배열로 전송되며 충실도는 자동으로 높음입니다. 형식, 압축, 심사, input_fidelity는 전송하지 않습니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}",
     savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
     apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
@@ -815,6 +825,7 @@ function applyCleanLanguage() {
   setText("#apiProviderField > span", "apiProvider");
   const providerLabels = {
     official: "officialApi",
+    opencodex: "opencodexApi",
     grsai: "grsaiImageApi",
     custom: "customApi",
   };
@@ -1119,8 +1130,13 @@ const dom = {
   openApiConfig: $("#openApiConfig"),
   quickDetectModels: $("#quickDetectModels"),
   officialProviderPanel: $("#officialProviderPanel"),
+  openCodexProviderPanel: $("#openCodexProviderPanel"),
   grsaiProviderPanel: $("#grsaiProviderPanel"),
   customProviderPanel: $("#customProviderPanel"),
+  openCodexQuality: $("#openCodexQuality"),
+  openCodexBackground: $("#openCodexBackground"),
+  testOpenCodexHealth: $("#testOpenCodexHealth"),
+  openCodexHealthStatus: $("#openCodexHealthStatus"),
   officialQuality: $("#officialQuality"),
   officialBackground: $("#officialBackground"),
   officialOutputFormat: $("#officialOutputFormat"),
@@ -1614,10 +1630,16 @@ installGlobalWheelScrollBridge();
 const STORAGE_KEY = "ai_image_gen_config";
 const DEFAULT_API_KEY = "ai_image_gen_default_api_id";
 const OFFICIAL_API_ENDPOINT = "https://api.openai.com/v1/images/generations";
+const OPENCODEX_API_ENDPOINT = "http://127.0.0.1:10100/v1/images/generations";
+const OPENCODEX_HEALTH_URL = "http://127.0.0.1:10100/healthz";
+const OPENCODEX_PLACEHOLDER_KEY = "opencodex-local-only";
+const OPENCODEX_REQUEST_TIMEOUT_MS = 620000;
+const OPENCODEX_HEALTH_CACHE_MS = 30000;
 const GRSAI_SITE_URL = "https://grsai.com/zh";
 const GRSAI_API_ENDPOINT = "https://grsai.dakka.com.cn/v1/api/generate";
 const API_PROVIDER_PRESETS = {
   official: { endpoint: OFFICIAL_API_ENDPOINT, labelKey: "officialApi" },
+  opencodex: { endpoint: OPENCODEX_API_ENDPOINT, labelKey: "opencodexApi" },
   grsai: { endpoint: GRSAI_API_ENDPOINT, labelKey: "grsaiImageApi" },
   custom: { endpoint: "", labelKey: "customApi" },
 };
@@ -1634,6 +1656,10 @@ const OFFICIAL_IMAGE_OPTION_DEFAULTS = Object.freeze({
   outputCompression: 100,
   moderation: "auto",
   inputFidelity: "low",
+});
+const OPENCODEX_IMAGE_OPTION_DEFAULTS = Object.freeze({
+  quality: "auto",
+  background: "auto",
 });
 const USD_CNY_RATE_KEY = "ai_image_gen_usd_cny_rate_v1";
 const USD_CNY_RATE_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY?providers=ECB";
@@ -1979,6 +2005,26 @@ function applyOfficialImageOptions(value = {}) {
   updateOfficialOptionAvailability();
 }
 
+function normalizeOpenCodexImageOptions(value = {}) {
+  return {
+    quality: ["auto", "low", "medium", "high"].includes(value.quality) ? value.quality : OPENCODEX_IMAGE_OPTION_DEFAULTS.quality,
+    background: ["auto", "opaque"].includes(value.background) ? value.background : OPENCODEX_IMAGE_OPTION_DEFAULTS.background,
+  };
+}
+
+function getOpenCodexImageOptions() {
+  return normalizeOpenCodexImageOptions({
+    quality: dom.openCodexQuality?.value,
+    background: dom.openCodexBackground?.value,
+  });
+}
+
+function applyOpenCodexImageOptions(value = {}) {
+  const options = normalizeOpenCodexImageOptions(value);
+  setProviderSegmentValue("openCodexQuality", options.quality);
+  setProviderSegmentValue("openCodexBackground", options.background);
+}
+
 function updateOfficialOptionAvailability() {
   const model = String(dom.model?.value || "gpt-image-2").trim().toLowerCase();
   const family = officialImageModelFamily(model);
@@ -2012,6 +2058,7 @@ function updateOfficialOptionAvailability() {
 
 function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "custom") {
   dom.officialProviderPanel?.classList.toggle("hidden", provider !== "official");
+  dom.openCodexProviderPanel?.classList.toggle("hidden", provider !== "opencodex");
   dom.grsaiProviderPanel?.classList.toggle("hidden", provider !== "grsai");
   dom.customProviderPanel?.classList.toggle("hidden", provider !== "custom");
   dom.grsaiRetrySettings?.classList.toggle("hidden", provider !== "grsai");
@@ -2027,6 +2074,10 @@ function updateProviderOptionsLanguage() {
     officialCompressionLabel: "officialCompression", officialCompressionHint: "officialCompressionHint",
     officialModerationLabel: "officialModeration", officialModerationHint: "officialModerationHint",
     officialInputFidelityLabel: "officialInputFidelity", officialInputFidelityHint: "officialInputFidelityHint",
+    openCodexProviderTitle: "opencodexPanelTitle", openCodexProviderHint: "opencodexPanelHint",
+    openCodexQualityLabel: "opencodexQuality", openCodexQualityHint: "opencodexQualityHint",
+    openCodexBackgroundLabel: "opencodexBackground", openCodexBackgroundHint: "opencodexBackgroundHint",
+    openCodexFacts: "opencodexFacts", openCodexCapabilityNote: "opencodexCapability",
     grsaiProviderTitle: "grsaiPanelTitle", grsaiProviderHint: "grsaiPanelHint", grsaiNodeHint: "grsaiNodeHint",
     grsaiWebsite: "grsaiWebsiteLabel", customProviderTitle: "customPanelTitle", customProviderHint: "customPanelHint",
     grsaiRetryTitle: "grsaiRetryTitle",
@@ -2040,15 +2091,100 @@ function updateProviderOptionsLanguage() {
   document.querySelectorAll('[data-provider-control="officialOutputFormat"] button').forEach(button => {
     button.textContent = button.dataset.value === "jpeg" ? "JPEG" : button.dataset.value.toUpperCase();
   });
+  const openCodexQualityLabels = {
+    "zh-CN": { auto: "自动", low: "草稿", medium: "标准", high: "高质量" },
+    "zh-Hant": { auto: "自動", low: "草稿", medium: "標準", high: "高品質" },
+    en: { auto: "Auto", low: "Draft", medium: "Standard", high: "High quality" },
+    ja: { auto: "自動", low: "下書き", medium: "標準", high: "高品質" },
+    ko: { auto: "자동", low: "초안", medium: "표준", high: "고품질" },
+  }[currentLanguage] || {};
+  document.querySelectorAll('[data-provider-control="openCodexQuality"] button[data-value]').forEach(button => {
+    button.textContent = openCodexQualityLabels[button.dataset.value] || button.dataset.value;
+  });
+  setButtonText(dom.testOpenCodexHealth, "refresh", "opencodexHealthCheck");
   setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
   updateOfficialOptionAvailability();
+  setOpenCodexHealthState(openCodexHealthState, openCodexHealthDetail);
+}
+
+let openCodexHealthState = "idle";
+let openCodexHealthCheckedAt = 0;
+let openCodexHealthVersion = "";
+let openCodexHealthDetail = "";
+let openCodexHealthPromise = null;
+
+function isOpenCodexSelected() {
+  return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "opencodex";
+}
+
+function setOpenCodexHealthState(state, detail = "") {
+  openCodexHealthState = state;
+  openCodexHealthDetail = detail;
+  if (dom.openCodexHealthStatus) {
+    dom.openCodexHealthStatus.dataset.state = state;
+    const text = state === "checking"
+      ? cleanText("opencodexHealthChecking")
+      : state === "ready"
+        ? interpolate(cleanText("opencodexHealthReady"), { version: openCodexHealthVersion || detail || "OK" })
+        : state === "error"
+          ? interpolate(cleanText("opencodexHealthFailed"), { reason: detail || "OpenCodex" })
+          : cleanText("opencodexHealthIdle");
+    dom.openCodexHealthStatus.textContent = text;
+  }
+  syncOpenCodexGenerateAvailability();
+}
+
+function syncOpenCodexGenerateAvailability() {
+  if (!dom.generateBtn || dom.generateBtn.classList.contains("is-cancel")) return;
+  dom.generateBtn.disabled = isOpenCodexSelected() && openCodexHealthState !== "ready";
+}
+
+async function checkOpenCodexHealth({ announce = false, force = true } = {}) {
+  if (!isOpenCodexSelected()) return true;
+  if (!force && openCodexHealthState === "ready" && Date.now() - openCodexHealthCheckedAt < OPENCODEX_HEALTH_CACHE_MS) {
+    syncOpenCodexGenerateAvailability();
+    return true;
+  }
+  if (openCodexHealthPromise) return openCodexHealthPromise;
+  setOpenCodexHealthState("checking");
+  if (dom.testOpenCodexHealth) dom.testOpenCodexHealth.disabled = true;
+  openCodexHealthPromise = (async () => {
+    try {
+      const response = await smartFetch(OPENCODEX_HEALTH_URL, {
+        headers: { "Accept": "application/json" },
+        nativeTimeoutMs: 5000,
+        forceDirectProxy: true,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json().catch(() => ({}));
+      if (payload?.status && payload.status !== "ok") throw new Error(payload.message || payload.status);
+      openCodexHealthVersion = String(payload?.version || "OK");
+      openCodexHealthCheckedAt = Date.now();
+      setOpenCodexHealthState("ready");
+      if (announce) showStatus(interpolate(cleanText("opencodexHealthReady"), { version: openCodexHealthVersion }), "success");
+      return true;
+    } catch (err) {
+      openCodexHealthVersion = "";
+      openCodexHealthCheckedAt = 0;
+      const reason = err?.message === "Failed to fetch"
+        ? "OpenCodex 未启动；请先启动 OpenCodex，或执行 ocx ensure"
+        : String(err?.message || err || "OpenCodex");
+      setOpenCodexHealthState("error", reason);
+      if (announce) showStatus(interpolate(cleanText("opencodexHealthFailed"), { reason }), "error");
+      return false;
+    } finally {
+      if (dom.testOpenCodexHealth) dom.testOpenCodexHealth.disabled = false;
+      openCodexHealthPromise = null;
+    }
+  })();
+  return openCodexHealthPromise;
 }
 
 function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const saved = raw ? JSON.parse(raw) : {};
-    if (saved?.endpoint) return saved;
+    if (saved?.endpoint) return normalizeApiConfig(saved);
     return getDefaultApiConfig() || saved || {};
   } catch {
     return getDefaultApiConfig() || {};
@@ -2089,7 +2225,7 @@ function redactStoredApiKey(storageKey, id) {
 }
 
 function persistApiKeySecurely(config, storageKey) {
-  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey) return;
+  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey || config.apiProvider === "opencodex") return;
   const id = config.id;
   const secretName = secureApiKeyName(id);
   const previous = secureApiKeyWriteChains.get(secretName) || Promise.resolve();
@@ -2121,16 +2257,21 @@ function makeApiId() {
 
 function normalizeApiConfig(config = {}) {
   const endpoint = String(config.endpoint || "").trim();
-  const apiProvider = config.apiProvider || config.provider || inferApiProvider(endpoint);
+  const inferredProvider = inferApiProvider(endpoint);
+  const configuredProvider = config.apiProvider || config.provider || inferredProvider;
+  const apiProvider = configuredProvider === "custom" && inferredProvider === "opencodex"
+    ? "opencodex"
+    : configuredProvider;
   return {
     id: config.id || makeApiId(),
     name: config.name || readableEndpoint(endpoint) || cleanText("manualApi"),
     apiProvider,
-    endpoint,
-    apiKey: config.apiKey || "",
-    hasSecureKey: config.hasSecureKey === true,
-    model: config.model || "",
+    endpoint: apiProvider === "opencodex" ? OPENCODEX_API_ENDPOINT : endpoint,
+    apiKey: apiProvider === "opencodex" ? OPENCODEX_PLACEHOLDER_KEY : (config.apiKey || ""),
+    hasSecureKey: apiProvider === "opencodex" ? false : config.hasSecureKey === true,
+    model: apiProvider === "opencodex" ? "gpt-image-2" : (config.model || ""),
     officialImageOptions: apiProvider === "official" ? normalizeOfficialImageOptions(config.officialImageOptions) : undefined,
+    openCodexImageOptions: apiProvider === "opencodex" ? normalizeOpenCodexImageOptions(config.openCodexImageOptions) : undefined,
     proxyEndpoint: config.proxyEndpoint || "",
     platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(endpoint) || cleanText("customApi"),
   };
@@ -2163,6 +2304,7 @@ function getDefaultApiConfig() {
 
 function inferApiProvider(endpoint = "") {
   const ep = String(endpoint).toLowerCase();
+  if (/^https?:\/\/(?:127\.0\.0\.1|localhost):10100(?:\/|$)/.test(ep)) return "opencodex";
   if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) return "grsai";
   if (/api\.openai\.com/.test(ep)) return "official";
   return "custom";
@@ -2181,6 +2323,7 @@ function updateApiProviderHint(provider = dom.apiProvider?.value || "custom") {
   if (!$("#apiProviderHint")) return;
   const hints = {
     official: `${cleanText("officialApi")} · ${OFFICIAL_API_ENDPOINT}`,
+    opencodex: `${cleanText("opencodexApi")} · ${OPENCODEX_API_ENDPOINT}`,
     grsai: cleanText("apiProviderHint"),
     custom: `${cleanText("customApi")} · ${cleanText("apiUrl")}`,
   };
@@ -2200,10 +2343,17 @@ function applyApiProvider(provider = "custom", options = {}) {
     dom.apiEndpoint.readOnly = next !== "custom";
     dom.apiEndpoint.placeholder = preset.endpoint || "https://your-api.example.com/v1/images/generations";
   }
+  if (next === "opencodex") {
+    if (options.forceEndpoint || !dom.apiKey?.value.trim()) dom.apiKey.value = OPENCODEX_PLACEHOLDER_KEY;
+    if (options.forceEndpoint || !dom.model?.value.trim()) dom.model.value = "gpt-image-2";
+  }
+  if (dom.apiKey) dom.apiKey.readOnly = next === "opencodex";
+  if (dom.model) dom.model.readOnly = next === "opencodex";
   updateApiProviderHint(next);
   updateProviderPanelVisibility(next);
   updateApiQuickState();
   updateOfficialCostSummary();
+  syncOpenCodexGenerateAvailability();
 }
 
 function applyConfig(cfg) {
@@ -2227,9 +2377,16 @@ function applyConfig(cfg) {
   }
   dom.model.value = cfg.model || "";
   applyOfficialImageOptions(cfg.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
+  applyOpenCodexImageOptions(cfg.openCodexImageOptions || OPENCODEX_IMAGE_OPTION_DEFAULTS);
   dom.proxyEndpoint.value = cfg.proxyEndpoint || "";
   if (!cfg.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
   if (!cfg.model && provider === "official") dom.model.value = "gpt-image-2";
+  if (provider === "opencodex") {
+    dom.apiKey.value = OPENCODEX_PLACEHOLDER_KEY;
+    dom.model.value = "gpt-image-2";
+    setOpenCodexHealthState("idle");
+    setTimeout(() => void checkOpenCodexHealth({ announce: false, force: true }), 0);
+  }
   updateOfficialOptionAvailability();
   updateApiQuickState();
 }
@@ -2266,6 +2423,7 @@ function currentApiConfig(name = "", options = {}) {
     hasSecureKey: !apiKey && identitySource?.hasSecureKey === true,
     model: dom.model.value.trim(),
     officialImageOptions: provider === "official" ? getOfficialImageOptions() : undefined,
+    openCodexImageOptions: provider === "opencodex" ? getOpenCodexImageOptions() : undefined,
     proxyEndpoint: dom.proxyEndpoint.value.trim(),
     platform: (findAdapter(endpoint, provider) || {}).name || "未知",
   };
@@ -2324,6 +2482,7 @@ function loadAllApis() {
     let migrated = false;
     const normalized = raw.map(item => {
       if (!item?.id) migrated = true;
+      if ((item?.apiProvider || item?.provider) === "custom" && inferApiProvider(item?.endpoint || "") === "opencodex") migrated = true;
       return normalizeApiConfig(item);
     });
     if (migrated) localStorage.setItem(STORAGE_APIS, JSON.stringify(normalized));
@@ -2499,6 +2658,7 @@ function detachSavedApiProfile({ clearKey = true } = {}) {
   if (clearKey && dom.apiKey) dom.apiKey.value = "";
   if (dom.proxyEndpoint) dom.proxyEndpoint.value = "";
   applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
+  applyOpenCodexImageOptions(OPENCODEX_IMAGE_OPTION_DEFAULTS);
 }
 
 dom.apiProvider?.addEventListener("change", () => {
@@ -2510,6 +2670,11 @@ dom.apiProvider?.addEventListener("change", () => {
     dom.model.placeholder = "点击输入或检测选择模型";
   } else if (provider === "official") {
     loadOfficialModels();
+  } else if (provider === "opencodex") {
+    setModelChoices(["gpt-image-2"]);
+    dom.model.value = "gpt-image-2";
+    setOpenCodexHealthState("idle");
+    void checkOpenCodexHealth({ announce: true, force: true });
   } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
     dom.model.value = "";
   }
@@ -2551,6 +2716,9 @@ dom.officialOutputCompression?.addEventListener("input", () => {
   if (dom.officialCompressionValue) dom.officialCompressionValue.textContent = dom.officialOutputCompression.value;
 });
 dom.officialOutputCompression?.addEventListener("change", persistCurrentProviderOptions);
+dom.testOpenCodexHealth?.addEventListener("click", () => {
+  void checkOpenCodexHealth({ announce: true, force: true });
+});
 dom.refreshOfficialRate?.addEventListener("click", () => {
   void refreshUsdCnyRate({ force: true, announce: true });
 });
@@ -2728,7 +2896,7 @@ function getDesktopProxyPayload(options = {}) {
 }
 
 function withDesktopProxyPayload(payload = {}, options = {}) {
-  return { ...payload, ...getDesktopProxyPayload({ validate: options.validate !== false }) };
+  return { ...getDesktopProxyPayload({ validate: options.validate !== false }), ...payload };
 }
 
 function setDesktopProxyStatus(message, type = "info", custom = true) {
@@ -4610,6 +4778,7 @@ function resetGenerateButton() {
   dom.generateBtn.disabled = false;
   dom.generateBtn.classList.remove("is-cancel");
   setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : currentMode === "caption" ? "generateAllCaptions" : "generateImage");
+  syncOpenCodexGenerateAvailability();
 }
 
 function beginGeneration() {
@@ -4659,6 +4828,9 @@ function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProv
   if (selectedProvider === "official") {
     return adapters.find(a => a.provider === "official") || null;
   }
+  if (selectedProvider === "opencodex") {
+    return adapters.find(a => a.provider === "opencodex") || null;
+  }
   if (selectedProvider === "grsai") {
     return adapters.find(a => a.provider === "grsai") || null;
   }
@@ -4668,6 +4840,71 @@ function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProv
   }
   return null;
 }
+
+registerAdapter({
+  name: "OpenCodex 本地 GPT",
+  provider: "opencodex",
+  sizeFormat: "pixel",
+  supportsReference: true,
+  concurrency: 5,
+
+  async fetchModels() {
+    if (!(await checkOpenCodexHealth({ announce: false, force: true }))) {
+      throw new Error("OpenCodex 本地服务未启动。请先启动 OpenCodex，或执行 ocx ensure。");
+    }
+    setModelChoices(["gpt-image-2"]);
+    dom.model.value = "gpt-image-2";
+    showStatus("OpenCodex · gpt-image-2", "success");
+  },
+
+  async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
+    const signal = options.signal;
+    throwIfAborted(signal);
+    if (!(await checkOpenCodexHealth({ announce: false, force: false }))) {
+      throw new Error("OpenCodex 本地服务未启动。请先启动 OpenCodex，或执行 ocx ensure。");
+    }
+    validateOfficialImageSize("gpt-image-2", size);
+    const selected = getOpenCodexImageOptions();
+    const body = {
+      model: "gpt-image-2",
+      prompt,
+      size,
+      quality: selected.quality,
+      background: selected.background,
+      n: 1,
+    };
+    const url = normalizeApiUrl(endpoint, hasRef && refs.length ? "images/edits" : "images/generations");
+    if (hasRef && refs.length) {
+      body.images = refs.map(ref => ({ image_url: ref.dataUrl }));
+    }
+    try {
+      return await apiFetch(url, OPENCODEX_PLACEHOLDER_KEY, body, {
+        signal,
+        nativeTimeoutMs: OPENCODEX_REQUEST_TIMEOUT_MS,
+        forceDirectProxy: true,
+      });
+    } catch (err) {
+      const message = String(err?.message || err || "");
+      if (/HTTP\s*499\b/i.test(message)) throw createAbortError();
+      const guidance = /HTTP\s*400\b/i.test(message)
+        ? "请求参数不受支持，请检查尺寸、提示词或参考图。"
+        : /HTTP\s*401\b/i.test(message)
+          ? "ChatGPT/Codex 授权已失效，请检查 ocx status 或重新登录。"
+          : /HTTP\s*409\b/i.test(message)
+            ? "账号或任务状态已失效，请重新开始任务后再试。"
+            : /HTTP\s*413\b/i.test(message)
+              ? "参考图请求体过大，请减少图片数量或压缩图片。"
+              : /HTTP\s*429\b/i.test(message)
+                ? "ChatGPT 上游正在限流或额度冷却，请稍后手动重试。"
+                : /HTTP\s*502\b/i.test(message)
+                  ? "OpenCodex 上游连接失败，任务不会自动重发，可稍后手动重试。"
+                  : /HTTP\s*504\b/i.test(message)
+                    ? "OpenCodex 上游生成超过 600 秒，任务不会自动重发，可稍后手动重试。"
+                    : "";
+      throw new Error(guidance ? `${guidance} ${message}` : message);
+    }
+  },
+});
 
 function pixelSizeToRatio(size) {
   const exact = {
@@ -5203,7 +5440,7 @@ registerAdapter({
 
 async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", options = {}) {
   const signal = options.signal || null;
-  const maxRetries = clampRetryCount(options.maxRetries, getGlobalRetryCount());
+  const requestedMaxRetries = clampRetryCount(options.maxRetries, getGlobalRetryCount());
   throwIfAborted(signal);
   const endpoint = dom.apiEndpoint.value.trim();
   const apiKey   = dom.apiKey.value.trim();
@@ -5211,6 +5448,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   const refs     = Array.isArray(options.references) ? dedupeReferences(options.references) : referenceImages;
   const hasRef   = refs.length > 0;
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const maxRetries = provider === "opencodex" ? 0 : requestedMaxRetries;
   const adapter  = findAdapter(endpoint, provider);
 
   console.log(`callImageAPI: provider=${provider} adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
@@ -5436,8 +5674,10 @@ async function formDataToProxyFields(formData, signal = null) {
   return fields;
 }
 
-async function createProxyPayload(url, method, headers, body, signal = null) {
-  const desktopProxy = getDesktopProxyPayload({ validate: false });
+async function createProxyPayload(url, method, headers, body, signal = null, options = {}) {
+  const desktopProxy = options.forceDirectProxy
+    ? { proxyMode: "direct", proxyUrl: "" }
+    : getDesktopProxyPayload({ validate: false });
   if (body instanceof FormData) {
     return {
       url,
@@ -5456,9 +5696,11 @@ async function smartFetch(url, options = {}) {
   throwIfAborted(signal);
   const hasExplicitTimeout = Object.prototype.hasOwnProperty.call(options, "nativeTimeoutMs");
   const requestTimeoutMs = hasExplicitTimeout ? options.nativeTimeoutMs : 120000;
+  const forceDirectProxy = options.forceDirectProxy === true;
   const useNative = nativeDownload.available() && /^https?:\/\//i.test(url);
   const fetchOptions = { ...options };
   delete fetchOptions.nativeTimeoutMs;
+  delete fetchOptions.forceDirectProxy;
   let browserTimer = null;
   let browserAbort = null;
   let forwardAbort = null;
@@ -5484,7 +5726,7 @@ async function smartFetch(url, options = {}) {
 
   try {
     if (useNative) {
-      const payload = await createProxyPayload(url, method, headers, body, signal);
+      const payload = await createProxyPayload(url, method, headers, body, signal, { forceDirectProxy });
       // 生图调用显式传 null，可无限等待但仍能由 signal 手动取消；更新检查、模型检测、
       // 图片加载等普通请求使用默认 120 秒上限，避免界面永久卡在“处理中”。
       const result = await nativeDownload.nativeFetchPayload(payload, requestTimeoutMs, signal);
@@ -5496,7 +5738,7 @@ async function smartFetch(url, options = {}) {
     }
 
     const proxy = dom.proxyEndpoint?.value.trim();
-    if (proxy && /^https?:\/\//i.test(url)) {
+    if (!forceDirectProxy && proxy && /^https?:\/\//i.test(url)) {
       const payload = await createProxyPayload(url, method, headers, body, effectiveSignal);
       throwIfAborted(effectiveSignal);
       return await fetch(proxy, {
@@ -5529,6 +5771,7 @@ async function apiFetch(url, apiKey, body, options = {}) {
       body: JSON.stringify(body),
       signal: options.signal || null,
       nativeTimeoutMs: Object.prototype.hasOwnProperty.call(options, "nativeTimeoutMs") ? options.nativeTimeoutMs : 120000,
+      forceDirectProxy: options.forceDirectProxy === true,
     });
   } catch (err) {
     if (err.message === "Failed to fetch") {
@@ -5587,6 +5830,11 @@ function validateCommon() {
   return true;
 }
 
+async function validateProviderReady() {
+  if (!isOpenCodexSelected()) return true;
+  return checkOpenCodexHealth({ announce: true, force: false });
+}
+
 // ═══════════════════════════════════════════════════════════
 //  单图模式生成
 // ═══════════════════════════════════════════════════════════
@@ -5601,6 +5849,7 @@ async function generateSingle() {
   const retryCount = getGlobalRetryCount();
 
   if (!prompt) { showStatus("请输入提示词或导入 txt 文件", "error"); dom.prompt.focus(); return; }
+  if (!(await validateProviderReady())) return;
 
   const run = beginGeneration();
   clearStatus();
@@ -5695,6 +5944,7 @@ async function generateComic() {
   if (validPanels.length === 0) {
     showStatus("请至少为一个分镜填写提示词", "error"); return;
   }
+  if (!(await validateProviderReady())) return;
 
   const run = beginGeneration();
   clearStatus();
@@ -5856,6 +6106,7 @@ async function generateCaptions() {
   if (validRows.length === 0) {
     showStatus("请至少给一张图片上传图片并填写气泡文字", "error"); return;
   }
+  if (!(await validateProviderReady())) return;
 
   const run = beginGeneration();
   clearStatus();
@@ -6076,12 +6327,24 @@ function makeCardActionBtn(iconName, key, onClick) {
   return btn;
 }
 
+function inferImageMimeFromBase64(value, fallback = "image/png") {
+  try {
+    const raw = String(value || "").replace(/\s+/g, "");
+    const head = atob(raw.slice(0, 32));
+    const byte = index => head.charCodeAt(index);
+    if (byte(0) === 0x89 && byte(1) === 0x50 && byte(2) === 0x4e && byte(3) === 0x47) return "image/png";
+    if (byte(0) === 0xff && byte(1) === 0xd8 && byte(2) === 0xff) return "image/jpeg";
+    if (head.slice(0, 4) === "RIFF" && head.slice(8, 12) === "WEBP") return "image/webp";
+  } catch {}
+  return fallback;
+}
+
 function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   const item = (data.data || [])[0];
   let imageUrl = null;
   if (item) {
     if (item.url) imageUrl = item.url;
-    else if (item.b64_json) imageUrl = `data:${item.mime_type || "image/png"};base64,${item.b64_json}`;
+    else if (item.b64_json) imageUrl = `data:${item.mime_type || inferImageMimeFromBase64(item.b64_json)};base64,${item.b64_json}`;
   }
   if (!imageUrl) {
     markPlaceholderFailed(card, panelId, "API 未返回图片数据", options.retryContext);

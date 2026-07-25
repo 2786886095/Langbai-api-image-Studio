@@ -8,7 +8,9 @@
 
 - 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)（不是广告，纯粹自己感觉好用）
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
-- 软件内可选三种 API：`官方 API`、`GrsAI 生图 API`、`自定义 API`
+- 软件内可选四种 API：`官方 API`、`OpenCodex 本地 GPT`、`GrsAI 生图 API`、`自定义 API`
+- Windows 本机可直接选择 `OpenCodex 本地 GPT`：地址固定为 `http://127.0.0.1:10100/v1/images/generations`，界面使用本地占位密钥 `opencodex-local-only`，模型固定为 `gpt-image-2`
+- OpenCodex 模式复用本机 OpenCodex 保存的 ChatGPT 登录，不会把占位密钥发送给 OpenAI；上游如何计算 ChatGPT/Codex 图片额度由 OpenAI 决定，项目不承诺额度归类
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
 - 选择 `官方 API` 时使用 OpenAI 官方 `https://api.openai.com/v1` Image API，可单独设置 `low / medium / high / auto` 质量、背景、PNG/JPEG/WebP、压缩、审核强度和参考图保真度；这些参数随官方 API 配置保存
 - 官方模型检测只保留 OpenAI 的 GPT Image 模型；检测失败时会保留内置官方列表并显示失败原因，不会混入 GrsAI 的 VIP/CL 等中转站模型

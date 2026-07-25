@@ -24,24 +24,31 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.31", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.31\+55$/m);
-assert.match(html, /v1\.3\.31/);
-assert.match(html, /20260725-1-3-31/g);
-assert.match(sw, /ai-image-generator-1-3-31-20260725/);
+assert.equal(version, "1.3.32", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.32\+56$/m);
+assert.match(html, /v1\.3\.32/);
+assert.match(html, /20260725-1-3-32/g);
+assert.match(sw, /ai-image-generator-1-3-32-20260725/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,31,55/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.31"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,32,56/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.32"/);
 for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",
   "officialCostSummary", "officialEstimatedCost", "officialRateStatus", "officialPricingLink", "refreshOfficialRate",
+  "openCodexProviderPanel", "openCodexQuality", "openCodexBackground", "testOpenCodexHealth", "openCodexHealthStatus",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing provider-specific control: ${id}`);
 }
 assert.match(app, /provider:\s*"official"/);
 assert.match(app, /provider:\s*"grsai"/);
+assert.match(app, /provider:\s*"opencodex"/);
+assert.match(app, /OPENCODEX_API_ENDPOINT\s*=\s*"http:\/\/127\.0\.0\.1:10100\/v1\/images\/generations"/);
+assert.match(app, /OPENCODEX_REQUEST_TIMEOUT_MS\s*=\s*620000/);
+assert.match(html, /option value="opencodex"/);
+assert.match(app, /body\.images\s*=\s*refs\.map\(ref => \(\{\s*image_url:\s*ref\.dataUrl\s*\}\)\)/);
+assert.match(app, /forceDirectProxy:\s*true/);
 assert.ok(app.includes("gpt-image-2|gpt-image-1\\.5|gpt-image-1-mini"), "Official model aliases/snapshots must be matched explicitly");
 assert.match(app, /output_compression/);
 assert.match(app, /input_fidelity/);

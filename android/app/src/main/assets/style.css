@@ -381,6 +381,12 @@ details[open] .config-toggle::before { content: '▼ '; }
   color: var(--warning);
 }
 
+.provider-badge-opencodex {
+  border-color: color-mix(in srgb, #4f8cff 50%, var(--border));
+  background: color-mix(in srgb, #4f8cff 10%, var(--surface2));
+  color: color-mix(in srgb, #72a4ff 82%, var(--text));
+}
+
 .provider-options-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -491,6 +497,25 @@ details[open] .config-toggle::before { content: '▼ '; }
 }
 
 .provider-panel-grsai .btn { align-self: flex-start; }
+
+.opencodex-health-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.opencodex-health-status {
+  min-width: 0;
+  color: var(--text2);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.opencodex-health-status[data-state="checking"] { color: var(--warning); }
+.opencodex-health-status[data-state="ready"] { color: var(--success); }
+.opencodex-health-status[data-state="error"] { color: var(--error); }
 
 .official-cost-summary {
   display: grid;

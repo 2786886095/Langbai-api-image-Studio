@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260725-1-3-31">
+  <link rel="stylesheet" href="style.css?v=20260725-1-3-32">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -82,6 +82,7 @@
               </div>
               <select id="apiProvider" class="custom-select-native" tabindex="-1" aria-hidden="true">
                 <option value="official">官方 API</option>
+                <option value="opencodex">OpenCodex 本地 GPT</option>
                 <option value="grsai" selected>GrsAI 生图 API</option>
                 <option value="custom">自定义 API</option>
               </select>
@@ -206,6 +207,51 @@
                 </div>
               </div>
               <p class="provider-capability-note" id="officialCapabilityNote" role="status">选择模型后会显示该模型的尺寸、透明背景和参考图能力。</p>
+            </section>
+
+            <section class="provider-panel provider-panel-opencodex hidden" id="openCodexProviderPanel" aria-labelledby="openCodexProviderTitle">
+              <div class="provider-panel-head">
+                <span class="provider-badge provider-badge-opencodex">LOCAL</span>
+                <div>
+                  <h3 id="openCodexProviderTitle">OpenCodex 本地图片代理</h3>
+                  <p id="openCodexProviderHint">使用本机 ChatGPT/Codex 登录转发生图；仅连接 127.0.0.1，不使用电脑端代理。</p>
+                </div>
+              </div>
+
+              <div class="provider-option provider-option-wide">
+                <div class="provider-option-copy">
+                  <strong id="openCodexQualityLabel">输出质量</strong>
+                  <small id="openCodexQualityHint">草稿适合快速试错，标准平衡速度与细节，高质量适合最终成图。</small>
+                </div>
+                <div class="provider-segments provider-segments-four" data-provider-control="openCodexQuality" role="group" aria-labelledby="openCodexQualityLabel">
+                  <button type="button" data-value="auto">自动</button>
+                  <button type="button" data-value="low">草稿</button>
+                  <button type="button" data-value="medium">标准</button>
+                  <button type="button" data-value="high">高质量</button>
+                </div>
+                <input type="hidden" id="openCodexQuality" value="auto">
+              </div>
+
+              <div class="provider-option">
+                <div class="provider-option-copy">
+                  <strong id="openCodexBackgroundLabel">背景</strong>
+                  <small id="openCodexBackgroundHint">gpt-image-2 仅发送自动或不透明；不会发送透明背景。</small>
+                </div>
+                <div class="provider-segments provider-segments-two" data-provider-control="openCodexBackground" role="group" aria-labelledby="openCodexBackgroundLabel">
+                  <button type="button" data-value="auto">自动</button>
+                  <button type="button" data-value="opaque">不透明</button>
+                </div>
+                <input type="hidden" id="openCodexBackground" value="auto">
+              </div>
+
+              <div class="provider-facts">
+                <span id="openCodexFacts">JSON 图片协议 · gpt-image-2 · 最多并发 5 · 单次超时 620 秒</span>
+              </div>
+              <p class="provider-capability-note" id="openCodexCapabilityNote">参考图会转换为 Data URL 数组；参考图保真度自动为高，不发送格式、压缩、审核或 input_fidelity 参数。</p>
+              <div class="opencodex-health-row">
+                <button type="button" id="testOpenCodexHealth" class="btn btn-xs"><span class="ui-icon ui-icon-refresh"></span> 检测本地服务</button>
+                <span id="openCodexHealthStatus" class="opencodex-health-status" data-state="idle" role="status">尚未检测</span>
+              </div>
             </section>
 
             <section class="provider-panel provider-panel-grsai" id="grsaiProviderPanel" aria-labelledby="grsaiProviderTitle">
@@ -633,7 +679,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.3.31</strong>
+            <strong id="currentVersionLabel">v1.3.32</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -730,6 +776,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260725-1-3-31"></script>
+  <script src="app.js?v=20260725-1-3-32"></script>
 </body>
 </html>

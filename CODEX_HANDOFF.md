@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.31
+# Codex / Claude Handoff: AI 图片生成器 v1.3.32
 
 更新时间：2026-07-25
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,20 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.31+55`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.32+56`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.32 OpenCodex 本机生图适配
+
+- 新增独立的 `OpenCodex 本地 GPT` 供应商，固定连接 `http://127.0.0.1:10100`、占位密钥 `opencodex-local-only` 和模型 `gpt-image-2`，不混用官方 OpenAI multipart 或 GrsAI 任务协议。
+- 文生图与参考图编辑均发送 JSON；参考图使用 `images[].image_url` Data URL，固定单请求 `n=1`，批量任务默认最多并发 5。
+- 新增专属质量 `auto/low/medium/high`、背景 `auto/opaque` 和健康检查面板；健康检查失败时禁用生成，可通过按钮重新检测。
+- OpenCodex 的 health 和图片请求强制直连，绕过电脑端 HTTP/SOCKS 代理；健康检查超时 5 秒，图片请求客户端超时 620 秒。
+- 不发送 `response_format`、`output_format`、压缩、审核、`input_fidelity`、mask 或 stream；OpenCodex 请求不进入 HTTP 400 自动重试，失败保留给用户手动重试。
+- Base64 图片根据文件头识别 PNG/JPEG/WebP MIME，避免返回格式与保存扩展名不一致。
+- 详细契约与验收边界见 `OPENCODEX_LOCAL_IMAGE_ADAPTER.md`。
 
 ## v1.3.31 增量修复
 
@@ -226,9 +236,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.31"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.32"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.31` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.32` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -244,5 +254,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.31 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.32 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

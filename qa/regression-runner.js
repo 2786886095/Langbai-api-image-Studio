@@ -256,7 +256,7 @@ async function testCustomSelects(cdp) {
   })()`, true);
   assertQa(apiProviderFlow.initiallyHidden, "API type dropdown list should start closed.", apiProviderFlow);
   assertQa(apiProviderFlow.openNow, "Clicking the API type trigger should open the dropdown list.", apiProviderFlow);
-  assertQa(apiProviderFlow.options.length === 3, "API type dropdown should list all 3 provider options.", apiProviderFlow);
+  assertQa(apiProviderFlow.options.length === 4, "API type dropdown should list all 4 provider options.", apiProviderFlow);
   assertQa(apiProviderFlow.hitOk, "The rendered option button should be the actual real hit-test target (not obscured by anything).", apiProviderFlow);
   assertQa(apiProviderFlow.closedAfterPick, "Picking an option should close the dropdown list.", apiProviderFlow);
   assertQa(apiProviderFlow.nativeValue === "official", "Picking an option should update the underlying native select's value.", apiProviderFlow);
@@ -1396,7 +1396,6 @@ async function testSaveComicFolder(cdp) {
         setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, body), 0);
       }
     };
-
     const set = (id, value) => {
       const el = document.getElementById(id);
       el.value = value;
@@ -3663,6 +3662,12 @@ async function testDesktopProxyControls(cdp) {
         setTimeout(() => window.AiGenAndroidBridge.resolve(payload.id, body), 0);
       }
     };
+    const nativeTimeouts = [];
+    const originalNativeFetchPayload = nativeDownload.nativeFetchPayload;
+    nativeDownload.nativeFetchPayload = (payload, timeoutMs, signal) => {
+      nativeTimeouts.push({ url: payload.url, timeoutMs });
+      return originalNativeFetchPayload(payload, timeoutMs, signal);
+    };
     const waitForCall = async (count) => {
       const start = Date.now();
       while (Date.now() - start < 2000) {
@@ -3696,6 +3701,12 @@ async function testDesktopProxyControls(cdp) {
     await waitForCall(4);
     await nativeDownload.downloadUpdate("https://example.test/Setup.exe", "Setup.exe", false, "windows");
     await waitForCall(5);
+    await smartFetch("http://127.0.0.1:10100/healthz", { nativeTimeoutMs: 5000, forceDirectProxy: true });
+    await waitForCall(6);
+    await apiFetch("http://127.0.0.1:10100/v1/images/generations", "opencodex-local-only", {
+      model: "gpt-image-2", prompt: "test", size: "1024x1024", quality: "auto", background: "auto", n: 1,
+    }, { nativeTimeoutMs: 620000, forceDirectProxy: true });
+    await waitForCall(7);
 
     const payload = window.AiGenProxy.withDesktopProxyPayload({ url: "https://example.test", method: "GET" });
     await setMode("custom", "127.0.0.1:7890");
@@ -3710,6 +3721,9 @@ async function testDesktopProxyControls(cdp) {
       direct: calls[2],
       custom: calls[3],
       updateDownload: calls[4],
+      openCodexHealth: calls[5],
+      openCodexGenerate: calls[6],
+      nativeTimeouts,
       helperPayload: payload,
       invalidDidNotCall: calls.length === beforeInvalid,
       invalidStatus: document.getElementById("desktopProxyStatus").textContent,
@@ -3723,6 +3737,8 @@ async function testDesktopProxyControls(cdp) {
   assertQa(result.direct.proxyMode === "direct" && result.direct.proxyUrl === "", "Direct mode should be sent to native bridge.", result);
   assertQa(result.custom.proxyMode === "custom" && result.custom.proxyUrl === "http://127.0.0.1:7890", "Custom proxy URL should be sent to native bridge.", result);
   assertQa(result.updateDownload.action === "downloadUpdate" && result.updateDownload.proxyMode === "custom" && result.updateDownload.proxyUrl === "http://127.0.0.1:7890", "Update package downloads should use the desktop proxy payload too.", result);
+  assertQa(result.openCodexHealth.action === "nativeFetch" && result.openCodexHealth.proxyMode === "direct" && result.openCodexHealth.proxyUrl === "" && result.nativeTimeouts.some(item => item.url.endsWith("/healthz") && item.timeoutMs === 5000), "OpenCodex health checks must bypass the configured desktop proxy and use a short native timeout.", result);
+  assertQa(result.openCodexGenerate.action === "nativeFetch" && result.openCodexGenerate.proxyMode === "direct" && result.openCodexGenerate.proxyUrl === "" && result.nativeTimeouts.some(item => item.url.includes("/v1/images/generations") && item.timeoutMs === 620000), "OpenCodex image requests must bypass the desktop proxy and allow the documented 620-second client timeout.", result);
   assertQa(result.helperPayload.proxyMode === "custom" && result.helperPayload.proxyUrl === "http://127.0.0.1:7890", "Proxy helper should append proxy fields to native payloads.", result);
   assertQa(result.invalidDidNotCall && /代理|proxy|URL/i.test(result.invalidStatus), "Invalid custom proxy should show an error and avoid native requests.", result);
   assertQa(result.stored.desktopProxyMode === "custom" && result.stored.desktopProxyCustomUrl === "127.0.0.1:7890", "Desktop proxy settings should persist globally.", result);
@@ -3739,6 +3755,8 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
     const requests = [];
     let modelMode = "success";
     let rateMode = "success";
+    let openCodexHealthMode = "success";
+    let openCodexRequestMode = "success";
     window.fetch = async (url, opts = {}) => {
       const target = String(url);
       if (target.includes("api.frankfurter.dev/v2/rate/USD/CNY")) {
@@ -3782,6 +3800,28 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
       if (target.includes("grsai.dakka.com.cn/v1/api/generate")) {
         requests.push({ kind: "grsai", body: JSON.parse(opts.body || "{}") });
         return new Response(JSON.stringify({ status: "succeeded", results: [{ url: "https://images.example.test/result.png" }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target === "http://127.0.0.1:10100/healthz") {
+        requests.push({ kind: "opencodex-health" });
+        if (openCodexHealthMode === "failure") throw new Error("Failed to fetch");
+        return new Response(JSON.stringify({ status: "ok", service: "opencodex", version: "2.7.36" }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target.includes("127.0.0.1:10100/v1/images/")) {
+        requests.push({
+          kind: target.endsWith("/edits") ? "opencodex-edit" : "opencodex-generation",
+          body: JSON.parse(opts.body || "{}"),
+          auth: opts.headers?.Authorization || "",
+        });
+        if (openCodexRequestMode === "400") {
+          return new Response(JSON.stringify({ error: { message: "invalid local image request" } }), {
+            status: 400, headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
           status: 200, headers: { "Content-Type": "application/json" },
         });
       }
@@ -3895,13 +3935,59 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
       costHidden: dom.officialCostSummary.classList.contains("hidden"),
     };
 
+    applyApiProvider("opencodex", { forceEndpoint: true });
+    dom.apiProvider.value = "opencodex";
+    setProviderSegmentValue("openCodexQuality", "high");
+    setProviderSegmentValue("openCodexBackground", "opaque");
+    const openCodexProfile = currentApiConfig("local-opencodex");
+    applyOpenCodexImageOptions(OPENCODEX_IMAGE_OPTION_DEFAULTS);
+    applyConfig(openCodexProfile);
+    const restoredOpenCodexOptions = getOpenCodexImageOptions();
+    const healthReady = await checkOpenCodexHealth({ announce: false, force: true });
+    const opencodexGeneration = await callImageAPI("opencodex generation", "1024x1024", 3, "opencodex", { references: [], maxRetries: 3 });
+    const opencodexEdit = await callImageAPI("opencodex edit", "1024x1024", 2, "opencodex edit", { references: [reference], maxRetries: 3 });
+    openCodexRequestMode = "400";
+    const beforeOpenCodex400 = requests.filter(item => item.kind === "opencodex-generation").length;
+    let openCodex400Error = "";
+    try {
+      await callImageAPI("opencodex invalid", "1024x1024", 1, "opencodex invalid", { references: [], maxRetries: 3 });
+    } catch (err) {
+      openCodex400Error = err.message || String(err);
+    }
+    const openCodex400RequestCount = requests.filter(item => item.kind === "opencodex-generation").length - beforeOpenCodex400;
+    openCodexRequestMode = "success";
+    const opencodexVisibility = {
+      provider: dom.apiProvider.value,
+      endpoint: dom.apiEndpoint.value,
+      key: dom.apiKey.value,
+      model: dom.model.value,
+      official: !dom.officialProviderPanel.classList.contains("hidden"),
+      opencodex: !dom.openCodexProviderPanel.classList.contains("hidden"),
+      grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
+      custom: !dom.customProviderPanel.classList.contains("hidden"),
+      keyReadOnly: dom.apiKey.readOnly,
+      modelReadOnly: dom.model.readOnly,
+    };
+    openCodexHealthMode = "failure";
+    const healthFailed = !(await checkOpenCodexHealth({ announce: false, force: true }));
+    const generateDisabledAfterHealthFailure = dom.generateBtn.disabled;
+    openCodexHealthMode = "success";
+    await checkOpenCodexHealth({ announce: false, force: true });
+    const openCodexMimeSniff = {
+      png: inferImageMimeFromBase64("iVBORw0KGgo="),
+      jpeg: inferImageMimeFromBase64("/9j/4AAQSkY="),
+      webp: inferImageMimeFromBase64("UklGRgAAAABXRUJQ"),
+    };
+
     window.fetch = originalFetch;
-    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, estimate, autoEstimate, customEstimate, gpt2Generation, billing, cardCostText, storedBilling, refreshedRate, cachedAfterFailure, storedRate, grsaiVisibility };
+    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, estimate, autoEstimate, customEstimate, gpt2Generation, billing, cardCostText, storedBilling, refreshedRate, cachedAfterFailure, storedRate, grsaiVisibility, openCodexProfile, restoredOpenCodexOptions, healthReady, healthFailed, generateDisabledAfterHealthFailure, openCodex400Error, openCodex400RequestCount, openCodexMimeSniff, opencodexGeneration, opencodexEdit, opencodexVisibility };
   })()`, true);
 
   const generated = result.requests.find(item => item.kind === "official-generation")?.body || {};
   const edited = result.requests.find(item => item.kind === "official-edit")?.body || {};
   const grsai = result.requests.find(item => item.kind === "grsai")?.body || {};
+  const opencodexGeneration = result.requests.find(item => item.kind === "opencodex-generation") || {};
+  const opencodexEdit = result.requests.find(item => item.kind === "opencodex-edit") || {};
   assertQa(result.visibility.official && !result.visibility.grsai && !result.visibility.custom && !result.visibility.grsaiRetry, "Official provider must show only the official option panel and hide GrsAI-specific UI, including its 504 settings.", result);
   assertQa(result.restored.quality === "high" && result.restored.background === "opaque" && result.restored.outputFormat === "webp" && result.restored.outputCompression === 72 && result.restored.moderation === "low" && result.restored.inputFidelity === "high", "Official output options must persist with the active official API profile.", result);
   assertQa(generated.quality === "high" && generated.background === "opaque" && generated.output_format === "webp" && generated.output_compression === 72 && generated.moderation === "low" && !("input_fidelity" in generated) && !("response_format" in generated), "Official generations must send supported Image API fields and omit edit-only or legacy response_format fields.", result);
@@ -3919,6 +4005,13 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
   assertQa(/尺寸|size|2048x1152/i.test(result.invalidSizeError), "Official custom sizes must be validated before a request instead of silently falling back to 1024x1024.", result);
   assertQa(result.grsaiVisibility.grsai && result.grsaiVisibility.grsaiRetry && !result.grsaiVisibility.official && result.grsaiVisibility.costHidden, "Switching to GrsAI must hide official controls and the OpenAI-only cost summary.", result);
   assertQa(grsai.model === "gpt-image-2" && grsai.aspectRatio === "1024x1024" && grsai.replyType === "json" && !("quality" in grsai) && !("background" in grsai) && !("output_format" in grsai) && !("moderation" in grsai) && !("input_fidelity" in grsai), "GrsAI requests must never receive OpenAI-official output fields.", result);
+  assertQa(result.opencodexVisibility.provider === "opencodex" && result.opencodexVisibility.endpoint === "http://127.0.0.1:10100/v1/images/generations" && result.opencodexVisibility.key === "opencodex-local-only" && result.opencodexVisibility.model === "gpt-image-2" && !result.opencodexVisibility.official && result.opencodexVisibility.opencodex && !result.opencodexVisibility.grsai && !result.opencodexVisibility.custom && result.opencodexVisibility.keyReadOnly && result.opencodexVisibility.modelReadOnly, "OpenCodex must auto-fill and lock its loopback endpoint, placeholder key, model, and show only its dedicated provider panel.", result);
+  assertQa(result.openCodexProfile.openCodexImageOptions.quality === "high" && result.openCodexProfile.openCodexImageOptions.background === "opaque" && result.restoredOpenCodexOptions.quality === "high" && result.restoredOpenCodexOptions.background === "opaque", "OpenCodex quality/background must persist with its own saved profile.", result);
+  assertQa(result.healthReady && result.healthFailed && result.generateDisabledAfterHealthFailure && result.requests.filter(item => item.kind === "opencodex-health").length >= 2, "OpenCodex health checks must gate generation and expose a retryable failed state.", result);
+  assertQa(result.openCodex400RequestCount === 1 && /参数|parameter|request|invalid/i.test(result.openCodex400Error), "OpenCodex HTTP 400 errors must be explained and must not enter the app's automatic retry loop.", result);
+  assertQa(result.openCodexMimeSniff.png === "image/png" && result.openCodexMimeSniff.jpeg === "image/jpeg" && result.openCodexMimeSniff.webp === "image/webp", "OpenCodex base64 outputs must be labeled from their file signature instead of assuming every image is PNG.", result);
+  assertQa(opencodexGeneration.auth === "Bearer opencodex-local-only" && opencodexGeneration.body.model === "gpt-image-2" && opencodexGeneration.body.n === 1 && opencodexGeneration.body.quality === "high" && opencodexGeneration.body.background === "opaque" && !("images" in opencodexGeneration.body) && !("response_format" in opencodexGeneration.body) && !("output_format" in opencodexGeneration.body) && !("moderation" in opencodexGeneration.body) && !("input_fidelity" in opencodexGeneration.body), "OpenCodex generation must use its stable JSON contract, force n=1, and omit unsupported public-API fields.", result);
+  assertQa(opencodexEdit.auth === "Bearer opencodex-local-only" && opencodexEdit.body.images?.[0]?.image_url?.startsWith("data:image/png;base64,") && opencodexEdit.body.model === "gpt-image-2" && opencodexEdit.body.n === 1 && opencodexEdit.body.quality === "high" && !("input_fidelity" in opencodexEdit.body), "OpenCodex reference edits must send JSON Data URLs with automatic high fidelity instead of multipart or input_fidelity.", result);
 }
 
 async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
@@ -3955,6 +4048,22 @@ async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
     assertQa(result.panel.scrollWidth <= result.panel.clientWidth + 1 && result.buttonOverflow.length === 0, "Official option labels and segmented buttons must not overflow their controls.", { viewport, result });
     assertQa(result.panel.left >= result.input.left - 1 && result.panel.right <= result.input.right + 1 && !result.bodyHorizontalOverflow, "The official provider panel must remain inside the app viewport without horizontal page overflow.", { viewport, result });
     assertQa(result.cost.left >= result.input.left - 1 && result.cost.right <= result.input.right + 1 && result.cost.scrollWidth <= result.cost.clientWidth + 1, "The OpenAI cost summary must remain readable without overflowing desktop or mobile layouts.", { viewport, result });
+    const openCodexLayout = await cdp.eval(`(() => {
+      applyApiProvider("opencodex", { forceEndpoint: true });
+      applyLanguage("en");
+      dom.configSection.open = true;
+      const panel = dom.openCodexProviderPanel;
+      const panelRect = panel.getBoundingClientRect();
+      const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
+      const buttons = Array.from(panel.querySelectorAll(".provider-segments button"));
+      return {
+        panel: { left: panelRect.left, right: panelRect.right, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
+        input: { left: inputRect.left, right: inputRect.right },
+        buttonOverflow: buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent.trim()),
+        bodyHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    })()`);
+    assertQa(openCodexLayout.panel.left >= openCodexLayout.input.left - 1 && openCodexLayout.panel.right <= openCodexLayout.input.right + 1 && openCodexLayout.panel.scrollWidth <= openCodexLayout.panel.clientWidth + 1 && openCodexLayout.buttonOverflow.length === 0 && !openCodexLayout.bodyHorizontalOverflow, "The dedicated OpenCodex panel and quality controls must fit desktop and mobile layouts without horizontal overflow.", { viewport, openCodexLayout });
   }
 }
 
