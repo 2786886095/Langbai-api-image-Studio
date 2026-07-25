@@ -531,27 +531,6 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
     if (FAILED(hr))
       shared_result->Error("runJavascript() error");
   } else if (method_call.method_name().compare(
-                 "callDevToolsProtocolMethod") == 0) {
-    std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
-        shared_result = std::move(result);
-    auto methodName = std::get<std::string>(
-        arguments[flutter::EncodableValue("methodName")]);
-    auto parametersAsJson = std::get<std::string>(
-        arguments[flutter::EncodableValue("parametersAsJson")]);
-    const HRESULT hr = webview->callDevToolsProtocolMethod(
-        utf8ToUtf16(methodName).c_str(),
-        utf8ToUtf16(parametersAsJson).c_str(),
-        [shared_result](HRESULT callbackHr, std::string callbackResult) {
-          if (FAILED(callbackHr)) {
-            shared_result->Error(
-                "callDevToolsProtocolMethod() callback error");
-          } else {
-            shared_result->Success(flutter::EncodableValue(callbackResult));
-          }
-        });
-    if (FAILED(hr))
-      shared_result->Error("callDevToolsProtocolMethod() error");
-  } else if (method_call.method_name().compare(
                  "addScriptToExecuteOnDocumentCreated") == 0) {
     std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
         shared_result = std::move(result);

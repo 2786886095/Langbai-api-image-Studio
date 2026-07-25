@@ -1036,58 +1036,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       await File(
         '${Directory.systemTemp.path}${Platform.pathSeparator}langbai_webview_input_ready.flag',
       ).writeAsString('ready', flush: true);
-      unawaited(_runWindowsInputTestTriggerLoop(controller));
     } catch (error) {
       debugPrint('Windows WebView input self-test setup failed: $error');
       exit(5);
-    }
-  }
-
-  Future<void> _runWindowsInputTestTriggerLoop(
-    windows_webview.WinWebViewController controller,
-  ) async {
-    final trigger = File(
-      '${Directory.systemTemp.path}${Platform.pathSeparator}langbai_webview_input_trigger.flag',
-    );
-    final deadline = DateTime.now().add(const Duration(seconds: 25));
-    while (DateTime.now().isBefore(deadline)) {
-      if (await trigger.exists()) {
-        await trigger.delete();
-        try {
-          for (final type in <String>[
-            'mouseMoved',
-            'mousePressed',
-            'mouseReleased',
-          ]) {
-            await controller
-                .callDevToolsProtocolMethod(
-                  'Input.dispatchMouseEvent',
-                  jsonEncode(<String, Object>{
-                    'type': type,
-                    'x': 64,
-                    'y': 40,
-                    'button': type == 'mouseMoved' ? 'none' : 'left',
-                    'buttons': type == 'mousePressed' ? 1 : 0,
-                    'clickCount': type == 'mouseMoved' ? 0 : 1,
-                  }),
-                )
-                .timeout(const Duration(seconds: 5));
-          }
-          return;
-        } catch (error) {
-          await File(
-            '${Directory.systemTemp.path}${Platform.pathSeparator}langbai_webview_input_event.json',
-          ).writeAsString(
-            jsonEncode(<String, Object>{
-              'phase': 'devtools-error',
-              'message': error.toString(),
-            }),
-            flush: true,
-          );
-          exit(6);
-        }
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
 

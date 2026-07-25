@@ -150,8 +150,7 @@ jobs:
           $exe = Resolve-Path "build/windows/x64/runner/Release/ai_image_generator.exe"
           $readyFile = Join-Path $env:TEMP "langbai_webview_input_ready.flag"
           $eventFile = Join-Path $env:TEMP "langbai_webview_input_event.json"
-          $triggerFile = Join-Path $env:TEMP "langbai_webview_input_trigger.flag"
-          Remove-Item $readyFile, $eventFile, $triggerFile -Force -ErrorAction SilentlyContinue
+          Remove-Item $readyFile, $eventFile -Force -ErrorAction SilentlyContinue
           $process = Start-Process -FilePath $exe -ArgumentList "--windows-webview-input-self-test" -PassThru
           $readyDeadline = [DateTime]::UtcNow.AddSeconds(20)
           while ([DateTime]::UtcNow -lt $readyDeadline -and -not $process.HasExited -and -not (Test-Path $readyFile)) {
@@ -163,7 +162,6 @@ jobs:
           }
           $deadline = [DateTime]::UtcNow.AddSeconds(15)
           $loggedHitWindow = $false
-          $triggeredTrustedInput = $false
           while ([DateTime]::UtcNow -lt $deadline -and -not $process.HasExited) {
             $process.Refresh()
             if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
@@ -199,10 +197,6 @@ jobs:
                     Start-Sleep -Milliseconds 80
                     [NativeInput]::PostMessage($hitWindow, 0x0202, [UIntPtr]::Zero, $lParam) | Out-Null
                   }
-                }
-                if (-not $process.HasExited -and -not $triggeredTrustedInput) {
-                  Set-Content -LiteralPath $triggerFile -Value "dispatch" -Encoding ascii
-                  $triggeredTrustedInput = $true
                 }
               }
             }

@@ -88,14 +88,6 @@ abstract class WebviewWinFloatingPlatform extends PlatformInterface {
     throw UnimplementedError();
   }
 
-  Future<String> callDevToolsProtocolMethod(
-    int webviewId,
-    String methodName,
-    String parametersAsJson,
-  ) {
-    throw UnimplementedError();
-  }
-
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,

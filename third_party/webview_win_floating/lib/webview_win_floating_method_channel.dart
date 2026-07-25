@@ -248,23 +248,6 @@ class MethodChannelWebviewWinFloating extends WebviewWinFloatingPlatform {
   }
 
   @override
-  Future<String> callDevToolsProtocolMethod(
-    int webviewId,
-    String methodName,
-    String parametersAsJson,
-  ) async {
-    return await methodChannel.invokeMethod<String>(
-          'callDevToolsProtocolMethod',
-          {
-            'webviewId': webviewId,
-            'methodName': methodName,
-            'parametersAsJson': parametersAsJson,
-          },
-        ) ??
-        '';
-  }
-
-  @override
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,
