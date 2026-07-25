@@ -50,6 +50,7 @@ assert.match(vendoredWindowsController, /\[dx, dy, position\.dx, position\.dy\]/
 assert.match(vendoredWindowsBridge, /SetPointerButtonState\([\s\S]*\*xValue, \*yValue\)/);
 assert.match(vendoredWindowsBridge, /SetScrollDelta\(\*dx, \*dy, \*x, \*y\)/);
 assert.match(vendoredWindowsNativeWebview, /last_cursor_pos_ = point;[\s\S]*MoveFocus/);
+assert.match(vendoredWindowsNativeWebview, /GetCursorPos\(&point\)[\s\S]*ScreenToClient\(hwnd_, &point\)/);
 assert.match(vendoredWindowsWebview, /scaleChanged && _surfaceSize != null/);
 assert.match(vendoredWindowsRenderWebview, /class RenderWebview/);
 assert.match(vendoredWindowsPatches, /2ae79f8cda1c3846ea24b9c67d522162cdd8a846/);
