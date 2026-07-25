@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.34";
+const APP_VERSION = "1.3.35";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2449,7 +2449,11 @@ function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const saved = raw ? JSON.parse(raw) : {};
-    if (saved?.endpoint) return normalizeApiConfig(saved);
+    if (saved?.endpoint) {
+      const normalized = normalizeApiConfig(saved);
+      if (!saved.id) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      return normalized;
+    }
     return getDefaultApiConfig() || saved || {};
   } catch {
     return getDefaultApiConfig() || {};
@@ -2463,8 +2467,14 @@ function secureApiKeyName(id) {
   return `api_key:${String(id || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 160)}`;
 }
 
-const secureApiKeyWriteChains = new Map();
+let secureStorageOperationChain = Promise.resolve();
 let apiConfigApplySequence = 0;
+
+function queueSecureStorageOperation(operation) {
+  const next = secureStorageOperationChain.catch(() => {}).then(operation);
+  secureStorageOperationChain = next.then(() => undefined, () => undefined);
+  return next;
+}
 
 function redactStoredApiKey(storageKey, id) {
   try {
@@ -2493,14 +2503,10 @@ function persistApiKeySecurely(config, storageKey) {
   if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey || config.apiProvider === "opencodex") return;
   const id = config.id;
   const secretName = secureApiKeyName(id);
-  const previous = secureApiKeyWriteChains.get(secretName) || Promise.resolve();
-  const next = previous.catch(() => {}).then(() => nativeDownload.saveSecret(secretName, config.apiKey))
+  const next = queueSecureStorageOperation(() => nativeDownload.saveSecret(secretName, config.apiKey))
     .then(() => redactStoredApiKey(storageKey, id))
     .catch(err => console.warn("系统安全存储写入失败，暂时保留本地配置以避免 Key 丢失", err));
-  secureApiKeyWriteChains.set(secretName, next);
-  void next.finally(() => {
-    if (secureApiKeyWriteChains.get(secretName) === next) secureApiKeyWriteChains.delete(secretName);
-  });
+  void next;
 }
 
 function saveConfig(config) {
@@ -2512,7 +2518,9 @@ function clearConfig() {
   let id = "";
   try { id = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").id || ""; } catch {}
   localStorage.removeItem(STORAGE_KEY);
-  if (id && secureStorageBridgeAvailable()) void nativeDownload.deleteSecret(secureApiKeyName(id)).catch(() => {});
+  if (id && secureStorageBridgeAvailable()) {
+    void queueSecureStorageOperation(() => nativeDownload.deleteSecret(secureApiKeyName(id))).catch(() => {});
+  }
 }
 
 function makeApiId() {
@@ -2621,6 +2629,7 @@ function applyApiProvider(provider = "custom", options = {}) {
   }
   if (dom.apiKey) dom.apiKey.readOnly = next === "opencodex";
   if (dom.model) dom.model.readOnly = next === "opencodex";
+  customSelects.apiProvider?.syncLabel();
   updateApiProviderHint(next);
   updateProviderPanelVisibility(next);
   updateApiQuickState();
@@ -2639,7 +2648,7 @@ function applyConfig(cfg) {
     const expectedId = cfg.id;
     setTimeout(() => {
       if (!secureStorageBridgeAvailable()) return;
-      void nativeDownload.loadSecret(secureApiKeyName(expectedId)).then(value => {
+      void queueSecureStorageOperation(() => nativeDownload.loadSecret(secureApiKeyName(expectedId))).then(value => {
         const active = loadConfig();
         if (applySequence !== apiConfigApplySequence || active.id !== expectedId || !value || dom.apiKey.value.trim()) return;
         dom.apiKey.value = String(value);
@@ -2747,6 +2756,56 @@ function updateApiQuickState() {
 }
 
 const STORAGE_APIS = "ai_image_gen_apis";
+let apiProfileRepairNotice = null;
+
+function repairDuplicateApiConfigIds(configs = [], activeConfig = {}) {
+  const repaired = configs.map(config => ({ ...config }));
+  const groups = new Map();
+  repaired.forEach((config, index) => {
+    const secretSlot = secureApiKeyName(config.id);
+    if (!groups.has(secretSlot)) groups.set(secretSlot, []);
+    groups.get(secretSlot).push(index);
+  });
+  const resetProfiles = [];
+  const activeSecretSlot = activeConfig.id ? secureApiKeyName(activeConfig.id) : "";
+  for (const [secretSlot, indexes] of groups) {
+    if (!secretSlot || indexes.length < 2) continue;
+    const activeProvider = activeConfig.apiProvider || activeConfig.provider || inferApiProvider(activeConfig.endpoint || "");
+    const keeper = indexes.find(index => {
+      const config = repaired[index];
+      return activeSecretSlot === secretSlot
+        && apiConfigIdentityMatches(config, activeProvider, activeConfig.endpoint || "")
+        && (!activeConfig.name || config.name === activeConfig.name);
+    }) ?? indexes.find(index => activeSecretSlot === secretSlot
+      && apiConfigIdentityMatches(repaired[index], activeProvider, activeConfig.endpoint || "")) ?? indexes[0];
+    indexes.forEach(index => {
+      if (index === keeper) return;
+      const config = repaired[index];
+      config.id = makeApiId();
+      if (!config.apiKey && config.hasSecureKey) {
+        config.hasSecureKey = false;
+        resetProfiles.push(config.name || readableEndpoint(config.endpoint) || apiProviderLabel(config.apiProvider));
+      }
+    });
+  }
+  return {
+    configs: repaired,
+    changed: resetProfiles.length > 0 || repaired.some((config, index) => config.id !== configs[index]?.id),
+    resetProfiles,
+  };
+}
+
+function apiProfileRepairMessage(names = []) {
+  const count = names.length;
+  const messages = {
+    "zh-CN": `检测到旧版 API 配置共用了密钥槽，已安全拆分；请为 ${count} 个冲突配置重新填写 API Key。`,
+    "zh-Hant": `偵測到舊版 API 設定共用了金鑰槽，已安全拆分；請為 ${count} 個衝突設定重新填寫 API Key。`,
+    en: `Legacy API profiles shared one secret slot and were separated. Re-enter the API key for ${count} conflicting profile(s).`,
+    ja: `旧版 API 設定が同じ秘密鍵スロットを共有していたため分離しました。競合した ${count} 件の API Key を再入力してください。`,
+    ko: `이전 API 설정이 하나의 비밀 키 슬롯을 공유해 분리했습니다. 충돌한 ${count}개 설정의 API Key를 다시 입력하세요.`,
+  };
+  return messages[currentLanguage] || messages["zh-CN"];
+}
 
 function loadAllApis() {
   try {
@@ -2758,15 +2817,25 @@ function loadAllApis() {
       if ((item?.apiProvider || item?.provider) === "custom" && inferApiProvider(item?.endpoint || "") === "opencodex") migrated = true;
       return normalizeApiConfig(item);
     });
-    if (migrated) localStorage.setItem(STORAGE_APIS, JSON.stringify(normalized));
-    return normalized;
+    let activeConfig = {};
+    try { activeConfig = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+    const repair = repairDuplicateApiConfigIds(normalized, activeConfig);
+    if (repair.changed) {
+      migrated = true;
+      apiProfileRepairNotice = repair.resetProfiles;
+    }
+    if (migrated) localStorage.setItem(STORAGE_APIS, JSON.stringify(repair.configs));
+    return repair.configs;
   }
   catch { return []; }
 }
 function saveAllApis(list) {
   const normalized = (list || []).map(normalizeApiConfig);
-  localStorage.setItem(STORAGE_APIS, JSON.stringify(normalized));
-  normalized.forEach(config => persistApiKeySecurely(config, STORAGE_APIS));
+  let activeConfig = {};
+  try { activeConfig = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+  const repaired = repairDuplicateApiConfigIds(normalized, activeConfig).configs;
+  localStorage.setItem(STORAGE_APIS, JSON.stringify(repaired));
+  repaired.forEach(config => persistApiKeySecurely(config, STORAGE_APIS));
 }
 
 function renderSavedApis() {
@@ -2826,14 +2895,12 @@ dom.savedApis.addEventListener("change", () => {
 dom.saveConfig.addEventListener("click", async () => {
   const name = await askPrompt("给这个配置起个名字（如：huanapi / GrsAI）：", "");
   if (name === null) return;
-  const cfg = currentApiConfig(name || "未命名");
   const apis = loadAllApis();
   const selectedId = dom.savedApis.value;
   const selectedIdx = findSavedApiIndex(selectedId, apis);
+  const cfg = currentApiConfig(name || "未命名", { forceNew: selectedIdx < 0 });
   const selectedMatches = selectedIdx >= 0 && apiConfigIdentityMatches(apis[selectedIdx], cfg.apiProvider, cfg.endpoint);
-  const existIdx = selectedMatches
-    ? selectedIdx
-    : apis.findIndex(a => a.name === cfg.name && apiConfigIdentityMatches(a, cfg.apiProvider, cfg.endpoint));
+  const existIdx = selectedMatches ? selectedIdx : -1;
   if (existIdx >= 0) {
     cfg.id = apis[existIdx].id;
     apis[existIdx] = cfg;
@@ -2843,6 +2910,7 @@ dom.saveConfig.addEventListener("click", async () => {
   saveConfig(cfg);
   renderSavedApis();
   dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  customSelects.savedApis?.syncLabel();
   showStatus(`已保存: ${cfg.name} ✅`, "success");
   keepApiConfigVisible();
   updateApiQuickState();
@@ -2873,6 +2941,7 @@ dom.setDefaultApi?.addEventListener("click", () => {
   applyConfig(cfg);
   renderSavedApis();
   dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  customSelects.savedApis?.syncLabel();
   showStatus(`已设为默认 API: ${cfg.name}`, "success");
   keepApiConfigVisible();
 });
@@ -2889,7 +2958,7 @@ dom.deleteSavedApi.addEventListener("click", async () => {
   apis.splice(idx, 1);
   saveAllApis(apis);
   if (deleted?.id && secureStorageBridgeAvailable()) {
-    void nativeDownload.deleteSecret(secureApiKeyName(deleted.id)).catch(() => {});
+    void queueSecureStorageOperation(() => nativeDownload.deleteSecret(secureApiKeyName(deleted.id))).catch(() => {});
   }
   if (loadDefaultApiId() === deleted?.id) saveDefaultApiId("");
   dom.savedApis.value = "";
@@ -2917,9 +2986,17 @@ dom.deleteSavedApi.addEventListener("click", async () => {
 const config = loadConfig();
 applyConfig(config);
 renderSavedApis();
+if (apiProfileRepairNotice?.length) {
+  const repairedNames = [...apiProfileRepairNotice];
+  apiProfileRepairNotice = null;
+  setTimeout(() => showStatus(apiProfileRepairMessage(repairedNames), "error"), 150);
+}
 if (config?.id) {
   const idx = findSavedApiIndex(config.id, loadAllApis());
-  if (idx >= 0) dom.savedApis.value = String(idx);
+  if (idx >= 0) {
+    dom.savedApis.value = String(idx);
+    customSelects.savedApis?.syncLabel();
+  }
 }
 dom.configSection.open = false;
 updateApiQuickState();
@@ -2972,6 +3049,7 @@ function persistCurrentProviderOptions() {
   saveAllApis(apis);
   renderSavedApis();
   dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  customSelects.savedApis?.syncLabel();
 }
 
 document.querySelectorAll(".provider-segments[data-provider-control]").forEach(group => {
@@ -4601,6 +4679,21 @@ dom.modeTabs.addEventListener("click", (e) => {
   if (mode === currentMode) return;
   switchMode(mode);
 });
+dom.modeTabs.addEventListener("keydown", (event) => {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = $$(".mode-tab", dom.modeTabs);
+  if (!tabs.length) return;
+  event.preventDefault();
+  const currentIndex = Math.max(0, tabs.indexOf(document.activeElement));
+  const nextIndex = event.key === "Home"
+    ? 0
+    : event.key === "End"
+      ? tabs.length - 1
+      : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  const next = tabs[nextIndex];
+  switchMode(next.dataset.mode);
+  next.focus();
+});
 
 // 头部导出按钮
 $("#exportBtn")?.addEventListener("click", () => void handleExportAction());
@@ -4646,7 +4739,10 @@ function switchMode(mode) {
   currentMode = mode;
   if (abortController) stopCurrentGeneration();
   $$(".mode-tab", dom.modeTabs).forEach(t => {
-    t.classList.toggle("active", t.dataset.mode === mode);
+    const selected = t.dataset.mode === mode;
+    t.classList.toggle("active", selected);
+    t.setAttribute("aria-selected", selected ? "true" : "false");
+    t.tabIndex = selected ? 0 : -1;
   });
 
   const isComic = mode === "comic";
@@ -9151,11 +9247,16 @@ document.body.classList.toggle("no-native-download", !nativeDownload.available()
 document.body.classList.toggle("windows-native", isNativeWindowsWebview());
 document.body.classList.toggle("desktop-native", isNativeDesktopWebview());
 
+let secureStorageMigrationStarted = false;
+
 function migrateApiKeysToSecureStorage() {
-  if (!secureStorageBridgeAvailable()) return;
+  if (!secureStorageBridgeAvailable() || secureStorageMigrationStarted) return;
+  secureStorageMigrationStarted = true;
   const current = loadConfig();
+  const apis = loadAllApis().map(api => (
+    current?.id === api.id && current.apiKey ? { ...api, apiKey: current.apiKey, hasSecureKey: false } : api
+  ));
   if (current?.apiKey) saveConfig(current);
-  const apis = loadAllApis();
   if (apis.some(api => api.apiKey)) saveAllApis(apis);
   if (!dom.apiKey.value && current?.hasSecureKey) applyConfig(current);
 }

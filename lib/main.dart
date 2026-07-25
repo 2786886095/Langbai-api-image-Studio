@@ -34,7 +34,7 @@ String _validateSecretKey(Object? value) {
   return key;
 }
 
-Future<Object?> _handleSecretAction(
+Future<Object?> _performSecretAction(
   String action,
   Map<String, dynamic> payload,
 ) async {
@@ -57,6 +57,24 @@ Future<Object?> _handleSecretAction(
         message: 'Unknown secure-storage action: $action',
       );
   }
+}
+
+Future<void> _secureStorageOperationChain = Future<void>.value();
+
+Future<Object?> _handleSecretAction(
+  String action,
+  Map<String, dynamic> payload,
+) {
+  final completer = Completer<Object?>();
+  _secureStorageOperationChain =
+      _secureStorageOperationChain.catchError((Object _) {}).then((_) async {
+    try {
+      completer.complete(await _performSecretAction(action, payload));
+    } catch (error, stackTrace) {
+      completer.completeError(error, stackTrace);
+    }
+  });
+  return completer.future;
 }
 
 void main() {

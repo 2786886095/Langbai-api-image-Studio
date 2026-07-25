@@ -22,16 +22,30 @@ const macWindow = read("macos/Runner/MainFlutterWindow.swift");
 const macDebugEntitlements = read("macos/Runner/DebugProfile.entitlements");
 const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
+const vendoredWindowsWebview = read("third_party/webview_windows/lib/src/webview.dart");
+const vendoredWindowsBridge = read("third_party/webview_windows/windows/webview_bridge.cc");
+const vendoredWindowsNativeWebview = read("third_party/webview_windows/windows/webview.cc");
+const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.34", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.34\+58$/m);
-assert.match(html, /v1\.3\.34/);
-assert.match(html, /20260725-1-3-34/g);
-assert.match(sw, /ai-image-generator-1-3-34-20260725/);
+assert.equal(version, "1.3.35", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.35\+59$/m);
+assert.match(html, /v1\.3\.35/);
+assert.match(html, /20260725-1-3-35/g);
+assert.match(sw, /ai-image-generator-1-3-35-20260725/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,34,58/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.34"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,35,59/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.35"/);
+assert.match(pubspec, /webview_windows:\s*\n\s*path:\s*third_party\/webview_windows/);
+assert.match(vendoredWindowsWebview, /behavior:\s*HitTestBehavior\.translucent/);
+assert.match(vendoredWindowsWebview, /_setPointerButtonState\([\s\S]*ev\.localPosition/);
+assert.match(vendoredWindowsWebview, /_setScrollDelta\([\s\S]*signal\.localPosition/);
+assert.match(vendoredWindowsWebview, /surfaceSize\.width < 2 \|\| surfaceSize\.height < 2/);
+assert.match(vendoredWindowsBridge, /setPointerButton:[\s\S]*"x"[\s\S]*"y"/);
+assert.match(vendoredWindowsBridge, /setScrollDelta: \[double dx, double dy, double x, double y\]/);
+assert.match(vendoredWindowsNativeWebview, /SetPointerButtonState[\s\S]*last_cursor_pos_\.x[\s\S]*last_cursor_pos_\.y/);
+assert.match(windowsRunner, /wparam == SIZE_MINIMIZED/);
+assert.match(windowsRunner, /LOWORD\(wparam\) != WA_INACTIVE/);
 for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",
@@ -53,6 +67,10 @@ assert.match(app, /OPENCODEX_GPT_PRIVATE_QUALITY\s*=\s*"medium"/);
 assert.match(app, /OPENCODEX_GPT_PRIVATE_MAX_PIXELS_OBSERVED\s*=\s*1573770/);
 assert.match(app, /OPENCODEX_GPT_PRIVATE_MAX_EDGE_OBSERVED\s*=\s*2172/);
 assert.match(app, /addOpenCodexGptAspectInstruction/);
+assert.match(app, /repairDuplicateApiConfigIds/);
+assert.match(app, /queueSecureStorageOperation/);
+assert.match(app, /secureStorageMigrationStarted/);
+assert.match(dartMain, /_secureStorageOperationChain/);
 assert.match(app, /gemini-3\.1-flash-image/);
 assert.match(app, /OPENCODEX_NANO_ASPECT_RATIOS/);
 assert.match(app, /compositeInpaintPixels/);

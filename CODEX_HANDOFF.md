@@ -1,15 +1,23 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.34
+# Codex / Claude Handoff: AI 图片生成器 v1.3.35
 
 更新时间：2026-07-25
-项目路径：`F:\AI\agent\图像生成`
+项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.34+58`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.35+59`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.35 Windows 点击与 API 配置数据修复
+
+- Windows v1.3.34 可渲染页面但真实鼠标点击会失效或命中另一个控件。根因有两层：插件 `Listener` 未显式参与命中测试；按键与滚轮消息没有携带当前坐标，C++ 会复用陈旧的 `last_cursor_pos_`。当前插件已小范围内置到 `third_party/webview_windows`，补上 `HitTestBehavior.translucent`，并把坐标与按下/抬起/滚轮合并到同一次平台调用。
+- Windows 壳在最小化时不再把 Flutter 子窗口强制缩到零，WebView 也拒绝上报小于 `2x2` 的 Surface；窗口失活时不再强制抢焦点。模式标签新增方向键切换、`aria-selected` 与粘性定位。
+- 启动时检测旧版 API 配置是否共享同一 ID，或不同 ID 清洗/截断后是否落到同一个安全密钥槽。活动配置保留原 ID 与密钥槽，冲突配置获得新 ID 并停止读取歧义密钥，同时提示用户重新填写，避免把另一个供应商的 Key 静默拿来使用。
+- 新建未选中配置时强制生成新 ID；保存列表时再次执行唯一性保护；系统安全存储的读、写、删在 JS 和 Dart 两层全局串行。回归覆盖重复/碰撞 ID 的一次性迁移、稳定重载、默认配置、同供应商同名多账户和并发安全存储。
+- v1.3.35 只有在 GitHub Actions Windows 编译成功，并用该安装包做真实鼠标跨控件点击、滚轮、最小化恢复和 API 升级验证后才能发布。浏览器 `.click()` 回归不能替代这一步。
 
 ## v1.3.34 OpenCodex GPT 私有额度实测适配
 
@@ -255,9 +263,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.34"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.35"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.34` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.35` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -273,5 +281,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.34 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.35 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

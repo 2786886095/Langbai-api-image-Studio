@@ -449,6 +449,65 @@ async function testApiConfig(cdp) {
   assertQa(legacyIdentity.activeId === legacyIdentity.expectedActiveId && legacyIdentity.endpointAfterDelete.includes("same-endpoint.example"), "Deleting another redacted profile on the same endpoint must not clear the active profile.", legacyIdentity);
   assertQa(legacyIdentity.remainingIds.length === 1 && legacyIdentity.remainingIds[0] === legacyIdentity.expectedActiveId, "Only the selected non-active profile should be deleted.", legacyIdentity);
 
+  const duplicateIdentityRepair = await cdp.eval(`(() => {
+    localStorage.clear();
+    const sharedId = "legacy-shared-secret-slot";
+    const grsai = {
+      id: sharedId, name: "GrsAI old", apiProvider: "grsai",
+      endpoint: "https://grsai.dakka.com.cn/v1/api/generate", apiKey: "", hasSecureKey: true,
+      model: "gpt-image-2-vip"
+    };
+    const official = {
+      id: sharedId, name: "Official active", apiProvider: "official",
+      endpoint: "https://api.openai.com/v1/images/generations", apiKey: "", hasSecureKey: true,
+      model: "gpt-image-2"
+    };
+    localStorage.setItem(STORAGE_APIS, JSON.stringify([grsai, official]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(official));
+    localStorage.setItem(DEFAULT_API_KEY, sharedId);
+    apiProfileRepairNotice = null;
+    const first = loadAllApis();
+    const second = loadAllApis();
+    return {
+      first: first.map(item => ({ id: item.id, provider: item.apiProvider, hasSecureKey: item.hasSecureKey })),
+      secondIds: second.map(item => item.id),
+      notice: apiProfileRepairNotice,
+      stored: JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]"),
+      defaultId: localStorage.getItem(DEFAULT_API_KEY),
+    };
+  })()`, true);
+  const repairedOfficial = duplicateIdentityRepair.first.find(item => item.provider === "official");
+  const repairedGrsai = duplicateIdentityRepair.first.find(item => item.provider === "grsai");
+  assertQa(new Set(duplicateIdentityRepair.first.map(item => item.id)).size === 2 && JSON.stringify(duplicateIdentityRepair.first.map(item => item.id)) === JSON.stringify(duplicateIdentityRepair.secondIds), "Duplicate legacy API ids must be split once and remain stable on every later read.", duplicateIdentityRepair);
+  assertQa(repairedOfficial.id === "legacy-shared-secret-slot" && repairedOfficial.hasSecureKey === true && duplicateIdentityRepair.defaultId === repairedOfficial.id, "The currently active profile must keep the old secure-storage slot and default id during duplicate-id repair.", duplicateIdentityRepair);
+  assertQa(repairedGrsai.id !== repairedOfficial.id && repairedGrsai.hasSecureKey === false && duplicateIdentityRepair.notice?.length === 1, "Conflicting inactive profiles must receive new ids and stop reading an ambiguous secure key until the user re-enters it.", duplicateIdentityRepair);
+
+  const sanitizedSlotRepair = await cdp.eval(`(() => {
+    localStorage.clear();
+    const first = {
+      id: "legacy:slot", name: "Sanitized GrsAI", apiProvider: "grsai",
+      endpoint: "https://grsai.dakka.com.cn/v1/api/generate", apiKey: "", hasSecureKey: true,
+      model: "gpt-image-2-vip"
+    };
+    const active = {
+      id: "legacy?slot", name: "Sanitized Official", apiProvider: "official",
+      endpoint: "https://api.openai.com/v1/images/generations", apiKey: "", hasSecureKey: true,
+      model: "gpt-image-2"
+    };
+    localStorage.setItem(STORAGE_APIS, JSON.stringify([first, active]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(active));
+    apiProfileRepairNotice = null;
+    const repaired = loadAllApis();
+    return {
+      repaired: repaired.map(item => ({ id: item.id, provider: item.apiProvider, hasSecureKey: item.hasSecureKey })),
+      secretSlots: repaired.map(item => secureApiKeyName(item.id)),
+      notice: apiProfileRepairNotice,
+    };
+  })()`, true);
+  const activeSanitizedProfile = sanitizedSlotRepair.repaired.find(item => item.provider === "official");
+  assertQa(new Set(sanitizedSlotRepair.secretSlots).size === 2, "Different legacy ids that sanitize or truncate to the same secure-storage name must be split into unique secret slots.", sanitizedSlotRepair);
+  assertQa(activeSanitizedProfile.id === "legacy?slot" && activeSanitizedProfile.hasSecureKey === true && sanitizedSlotRepair.notice?.length === 1, "The active profile must keep an ambiguous sanitized secret slot while the inactive profile is safely detached from it.", sanitizedSlotRepair);
+
   const isolatedProfiles = await cdp.eval(`(async () => {
     localStorage.clear();
     localStorage.setItem(USD_CNY_RATE_KEY, JSON.stringify({ rate: 6.77, rateDate: "2026-07-24", fetchedAt: Date.now(), source: "ECB/Frankfurter" }));
@@ -496,6 +555,13 @@ async function testApiConfig(cdp) {
     await answerAskDialog("同名完整配置");
     await new Promise(r => setTimeout(r, 100));
 
+    set("apiProvider", "grsai");
+    set("apiKey", "sk-grsai-second-account");
+    set("model", "gpt-image-2-vip");
+    document.getElementById("saveConfig").click();
+    await answerAskDialog("同名完整配置");
+    await new Promise(r => setTimeout(r, 100));
+
     const apis = loadAllApis();
     const grsaiIndex = apis.findIndex(api => api.apiProvider === "grsai");
     const officialIndex = apis.findIndex(api => api.apiProvider === "official");
@@ -518,7 +584,7 @@ async function testApiConfig(cdp) {
     return { detachedAfterProviderSwitch, apis, grsaiIndex, officialIndex, restoredGrsai, restoredOfficial };
   })()`, true);
   assertQa(isolatedProfiles.detachedAfterProviderSwitch.selected === "" && isolatedProfiles.detachedAfterProviderSwitch.key === "", "Switching provider from a saved profile must start a new draft and must not carry the previous profile's API key.", isolatedProfiles);
-  assertQa(isolatedProfiles.apis.length === 2 && isolatedProfiles.grsaiIndex >= 0 && isolatedProfiles.officialIndex >= 0 && isolatedProfiles.apis[0].id !== isolatedProfiles.apis[1].id && isolatedProfiles.apis.every(api => api.name === "同名完整配置"), "GrsAI and official API profiles must remain two records with distinct stable ids even when the user gives them the same display name.", isolatedProfiles);
+  assertQa(isolatedProfiles.apis.length === 3 && isolatedProfiles.grsaiIndex >= 0 && isolatedProfiles.officialIndex >= 0 && new Set(isolatedProfiles.apis.map(api => api.id)).size === 3 && isolatedProfiles.apis.filter(api => api.apiProvider === "grsai").length === 2 && isolatedProfiles.apis.every(api => api.name === "同名完整配置"), "Manual save must always create a distinct profile, including two accounts with the same name, provider, and endpoint; only an explicitly selected profile may be updated.", isolatedProfiles);
   assertQa(isolatedProfiles.restoredGrsai.provider === "grsai" && isolatedProfiles.restoredGrsai.endpoint.includes("grsai.dakka.com.cn") && isolatedProfiles.restoredGrsai.key === "sk-grsai-isolated-key" && isolatedProfiles.restoredGrsai.model === "gpt-image-2-vip" && isolatedProfiles.restoredGrsai.proxy.endsWith("/grsai"), "The GrsAI profile must restore its own provider, endpoint, key, model, and browser proxy.", isolatedProfiles);
   assertQa(isolatedProfiles.restoredOfficial.provider === "official" && isolatedProfiles.restoredOfficial.endpoint.includes("api.openai.com") && isolatedProfiles.restoredOfficial.key === "sk-official-isolated-key" && isolatedProfiles.restoredOfficial.model === "gpt-image-2" && isolatedProfiles.restoredOfficial.proxy.endsWith("/official") && isolatedProfiles.restoredOfficial.quality === "high" && isolatedProfiles.restoredOfficial.outputFormat === "webp", "The official profile must restore its own key and all official-specific options without borrowing GrsAI values.", isolatedProfiles);
 
@@ -1365,12 +1431,24 @@ async function testSequentialToggleSharedAcrossModes(cdp) {
     checkbox.click();
     const checkedAfterClick = checkbox.checked;
 
-    return { singleHidden, comicHidden, nestedInNImagesField, checkedAfterClick };
+    const comicTab = document.querySelector('[data-mode="comic"]');
+    comicTab.focus();
+    comicTab.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await new Promise(r => setTimeout(r, 30));
+    const keyboardMode = document.querySelector(".mode-tab.active")?.dataset.mode;
+    const selectedStates = [...document.querySelectorAll(".mode-tab")].map(tab => ({
+      mode: tab.dataset.mode,
+      selected: tab.getAttribute("aria-selected"),
+      tabIndex: tab.tabIndex,
+    }));
+
+    return { singleHidden, comicHidden, nestedInNImagesField, checkedAfterClick, keyboardMode, selectedStates };
   })()`, true);
   assertQa(result.singleHidden === false, "Sequential/concurrent toggle should be visible in single-image mode.", result);
   assertQa(result.comicHidden === false, "Sequential/concurrent toggle should also be visible in comic mode (it used to be trapped inside the single-image-only field, so comic batches had no visible way to control it).", result);
   assertQa(result.nestedInNImagesField === false, "The toggle should live in the shared config area, not nested inside the single-image-only image-count field.", result);
   assertQa(result.checkedAfterClick === true, "Clicking the toggle should still work after being relocated.", result);
+  assertQa(result.keyboardMode === "caption" && result.selectedStates.filter(tab => tab.selected === "true" && tab.tabIndex === 0).length === 1, "Mode tabs must expose one selected tab and support arrow-key switching as a Windows input fallback.", result);
 }
 
 async function testSaveComicFolder(cdp) {
@@ -4602,15 +4680,25 @@ async function testNativeSecureApiKeyMigration(cdp) {
       window.__AI_GEN_NATIVE_PLATFORM = "windows";
       window.__secureSecrets = {};
       window.__secureCalls = [];
+      window.__secureInFlight = 0;
+      window.__secureMaxInFlight = 0;
       window.FlutterDownload = {
         postMessage(raw) {
           const payload = JSON.parse(raw);
           window.__secureCalls.push(payload);
-          let result = true;
-          if (payload.action === "saveSecret") window.__secureSecrets[payload.key] = payload.value;
-          if (payload.action === "loadSecret") result = window.__secureSecrets[payload.key] || "";
-          if (payload.action === "deleteSecret") delete window.__secureSecrets[payload.key];
-          setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
+          const isSecret = /^(?:save|load|delete)Secret$/.test(payload.action);
+          if (isSecret) {
+            window.__secureInFlight++;
+            window.__secureMaxInFlight = Math.max(window.__secureMaxInFlight, window.__secureInFlight);
+          }
+          setTimeout(() => {
+            let result = true;
+            if (payload.action === "saveSecret") window.__secureSecrets[payload.key] = payload.value;
+            if (payload.action === "loadSecret") result = window.__secureSecrets[payload.key] || "";
+            if (payload.action === "deleteSecret") delete window.__secureSecrets[payload.key];
+            if (isSecret) window.__secureInFlight--;
+            window.AiGenAndroidBridge?.resolve(payload.id, result);
+          }, isSecret ? 20 : 0);
         }
       };
     `,
@@ -4647,6 +4735,10 @@ async function testNativeSecureApiKeyMigration(cdp) {
       document.getElementById("savedApis").value = String(grsaiIndex);
       document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise(r => setTimeout(r, 120));
+      const saveCountBeforeReadyReplay = window.__secureCalls.filter(call => call.action === "saveSecret").length;
+      window.dispatchEvent(new Event("aigen-native-ready"));
+      window.dispatchEvent(new Event("aigen-native-ready"));
+      await new Promise(r => setTimeout(r, 100));
       return {
         current,
         saved,
@@ -4659,6 +4751,9 @@ async function testNativeSecureApiKeyMigration(cdp) {
           model: document.getElementById("model").value,
         },
         secrets: window.__secureSecrets,
+        maxSecretInFlight: window.__secureMaxInFlight,
+        saveCountBeforeReadyReplay,
+        saveCountAfterReadyReplay: window.__secureCalls.filter(call => call.action === "saveSecret").length,
         saveCalls: window.__secureCalls.filter(call => call.action === "saveSecret"),
         loadCalls: window.__secureCalls.filter(call => call.action === "loadSecret"),
       };
@@ -4669,6 +4764,8 @@ async function testNativeSecureApiKeyMigration(cdp) {
     assertQa(result.officialAfterSwitch.key === "sk-official-secure" && result.officialAfterSwitch.provider === "official" && result.officialAfterSwitch.model === "gpt-image-2" && result.officialAfterSwitch.quality === "high" && result.officialAfterSwitch.outputFormat === "webp", "Switching to the saved official profile must load its own secure key and complete official option snapshot.", result);
     assertQa(result.grsaiAfterSwitch.key === "sk-grsai-secure" && result.grsaiAfterSwitch.provider === "grsai" && result.grsaiAfterSwitch.model === "gpt-image-2-vip", "Switching back to GrsAI must restore the GrsAI key instead of reusing the official key.", result);
     assertQa(result.secrets["api_key:secure_grsai"] === "sk-grsai-secure" && result.secrets["api_key:secure_official"] === "sk-official-secure", "The native secure store must use distinct per-profile key names and values.", result);
+    assertQa(result.maxSecretInFlight === 1, "All secure-storage reads, writes, and deletes must be globally serialized because the Windows plugin rewrites the entire encrypted map.", result);
+    assertQa(result.saveCountAfterReadyReplay === result.saveCountBeforeReadyReplay, "Repeated native-ready events must not rerun API key migration or overwrite a newer secure value.", result);
     assertQa(result.saveCalls.length >= 1 && result.loadCalls.length >= 1, "Migration must write and later read the OS secure-storage bridge.", result);
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
