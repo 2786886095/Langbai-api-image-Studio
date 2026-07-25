@@ -2,9 +2,13 @@
 
 > 适用设备：当前 Windows 电脑
 > OpenCodex 版本：`2.7.36`
-> 图像模型：`gpt-image-2`
+> 图像模型：本文件专述 `gpt-image-2`
 > 文档日期：2026-07-25
 > 适配范围：只包含文生图与参考图编辑，不包含文本模型、Responses API 或模型路由
+
+Nano Banana 2（`gemini-3.1-flash-image`）使用同一 OpenCodex 地址，但采用独立的
+`aspect_ratio` / `image_size` 契约和本地蒙版合成方案，详见
+`NANO_BANANA2_AND_INPAINT_IMPLEMENTATION_PLAN.md`。两套模型参数不得混发。
 
 ## 1. 接入目标
 
@@ -58,8 +62,8 @@ Authorization: Bearer opencodex-local-only
 | 单张参考图编辑 | 已实测成功 | 调用 `/v1/images/edits`，使用 JSON Data URL |
 | 多张参考图 | 支持 | `images` 数组中放多个对象 |
 | Base64 图片响应 | 已实测成功 | 读取 `data[].b64_json` |
-| `quality: high` | 支持 | 可做成低/中/高/自动选择器 |
-| 自定义尺寸 | 支持 | 必须满足 `gpt-image-2` 尺寸约束 |
+| `quality: high` | 请求可发送，但当前私有上游未按值执行 | UI 必须标为“质量偏好”，不能承诺实际档位 |
+| 自定义尺寸 | 请求可发送，但当前私有上游未按值执行 | UI 必须标为“尺寸偏好”，并以响应/图片实际尺寸为准 |
 | 透明背景 | 不支持 | `gpt-image-2` 当前不支持 `transparent` |
 | 参考图忠实度切换 | 不支持切换 | `gpt-image-2` 自动按 high fidelity 处理 |
 | multipart 编辑上传 | 不支持 | 不得发送 `multipart/form-data` |
@@ -76,8 +80,8 @@ Authorization: Bearer opencodex-local-only
 |---|---|---:|---:|---|---|---|
 | `model` | string | 必填 | 必填 | `gpt-image-2` | `gpt-image-2` | 不要自动替换为文本模型 |
 | `prompt` | string | 必填 | 必填 | 非空文本 | 用户提示词 | 支持中文 |
-| `size` | string | 可选 | 可选 | `auto` 或 `宽x高` | `auto` / 常用预设 | 示例：`1024x1024` |
-| `quality` | string | 可选 | 可选 | `auto`、`low`、`medium`、`high` | `auto` | `high` 质量更高，但通常更慢、用量更大 |
+| `size` | string | 可选 | 可选 | `auto` 或 `宽x高` | `auto` / 常用预设 | 当前私有上游可能忽略，例如请求 `1024x1024` 实际返回 `1402x1122` |
+| `quality` | string | 可选 | 可选 | `auto`、`low`、`medium`、`high` | `auto` | 当前私有上游可能改写档位，不能把请求值当成实际值 |
 | `background` | string | 可选 | 可选 | `auto`、`opaque` | `auto` | 不要给 `gpt-image-2` 发送 `transparent` |
 | `n` | integer | 可选 | 可选 | 正整数 | `1` | 软件应使用多个 `n=1` 请求做批量任务 |
 | `images` | array | 不使用 | 必填 | `[{ "image_url": "data:..." }]` | 1 个或多个 | 字段名是复数 `images` |
@@ -91,11 +95,13 @@ Authorization: Bearer opencodex-local-only
 | 标准 | `medium` | 一般成图 | 质量和速度折中 |
 | 高质量 | `high` | 最终成图、细节要求高 | 更慢，通常使用更多图像输出量 |
 
-可以调 `high`。它是图像渲染质量，不是 Codex 文本模型的 reasoning effort；软件中不要把它命名为“推理等级”。
+可以发送 `high`，但它只能作为请求偏好。2026-07-25 的本机实测中，文生图和参考图编辑都发送了 `quality: "high"`，上游响应却分别报告 `low` 和 `medium`。因此软件必须展示服务端实际返回的 `quality`，不能显示“high 已生效”。
+
+它是图像渲染质量请求，不是 Codex 文本模型的 reasoning effort；软件中不要把它命名为“推理等级”。
 
 ### 4.3 尺寸约束
 
-`gpt-image-2` 支持 `auto` 和符合以下全部条件的自定义尺寸：
+公开 OpenAI Image API 中，`gpt-image-2` 支持 `auto` 和符合以下全部条件的自定义尺寸：
 
 | 约束 | 要求 |
 |---|---|
@@ -118,6 +124,8 @@ Authorization: Bearer opencodex-local-only
 | 4K 竖图 | `2160x3840` |
 
 超过 `2560x1440` 总像素级别的输出在官方说明中仍被视为实验性能力。高分辨率与 `quality: high` 叠加时，延迟和用量都会明显增加。
+
+但当前 ChatGPT/Codex 私有图片后端不保证遵守上述公开 API 尺寸参数。本机实测请求 `1024x1024`，文生图和编辑均实际返回 `1402x1122`。客户端必须读取响应 `size` 并进一步检查解码图片的真实宽高。
 
 ### 4.4 不要默认发送的参数
 
@@ -393,7 +401,8 @@ GET http://127.0.0.1:10100/healthz
 - [ ] 参考图使用 JSON 调用 `/v1/images/edits`。
 - [ ] 编辑请求发送 `images[].image_url` Data URL，不使用 multipart。
 - [ ] `quality` 提供 `auto/low/medium/high`，默认 `auto`。
-- [ ] `quality: high` 与 `size` 可以同时发送。
+- [ ] `quality: high` 与 `size` 可以同时发送，但 UI 标为请求偏好。
+- [ ] UI 显示响应返回的实际 `quality` 与图片实际宽高，不把请求值当成结果值。
 - [ ] `gpt-image-2` 不发送 `input_fidelity` 和 `background: transparent`。
 - [ ] 单请求固定 `n=1`，最多同时 5 个请求。
 - [ ] 客户端超时大于 OpenCodex 的 600 秒。
@@ -408,7 +417,7 @@ GET http://127.0.0.1:10100/healthz
 本规范依据三部分信息：
 
 1. 当前电脑安装的 OpenCodex `2.7.36` 图片代理实现与配置。
-2. 当前电脑已完成的文生图和参考图编辑真实调用，二者均返回 HTTP 200。
+2. 当前电脑已完成的文生图和参考图编辑真实调用，二者均返回 HTTP 200；参考图编辑内容生效，但 `quality: high` 和请求尺寸未被私有上游严格执行。
 3. [OpenAI 图像生成官方说明](https://developers.openai.com/api/docs/guides/image-generation)与 [GPT Image 2 模型页](https://developers.openai.com/api/docs/models/gpt-image-2)。
 4. [Codex 图片 JSON 请求类型](https://github.com/openai/codex/blob/main/codex-rs/codex-api/src/images.rs)。
 

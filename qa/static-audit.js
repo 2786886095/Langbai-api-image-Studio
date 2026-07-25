@@ -24,19 +24,22 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.32", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.32\+56$/m);
-assert.match(html, /v1\.3\.32/);
-assert.match(html, /20260725-1-3-32/g);
-assert.match(sw, /ai-image-generator-1-3-32-20260725/);
+assert.equal(version, "1.3.33", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.33\+57$/m);
+assert.match(html, /v1\.3\.33/);
+assert.match(html, /20260725-1-3-33/g);
+assert.match(sw, /ai-image-generator-1-3-33-20260725/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,32,56/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.32"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,33,57/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.33"/);
 for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",
   "officialCostSummary", "officialEstimatedCost", "officialRateStatus", "officialPricingLink", "refreshOfficialRate",
-  "openCodexProviderPanel", "openCodexQuality", "openCodexBackground", "testOpenCodexHealth", "openCodexHealthStatus",
+  "openCodexProviderPanel", "openCodexModel", "openCodexQuality", "openCodexBackground",
+  "openCodexAspectRatio", "openCodexImageSize", "testOpenCodexHealth", "openCodexHealthStatus",
+  "openInpaintFromFile", "inpaintModal", "inpaintMaskCanvas", "inpaintBrush", "inpaintEraser",
+  "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing provider-specific control: ${id}`);
@@ -46,6 +49,13 @@ assert.match(app, /provider:\s*"grsai"/);
 assert.match(app, /provider:\s*"opencodex"/);
 assert.match(app, /OPENCODEX_API_ENDPOINT\s*=\s*"http:\/\/127\.0\.0\.1:10100\/v1\/images\/generations"/);
 assert.match(app, /OPENCODEX_REQUEST_TIMEOUT_MS\s*=\s*620000/);
+assert.match(app, /gemini-3\.1-flash-image/);
+assert.match(app, /OPENCODEX_NANO_ASPECT_RATIOS/);
+assert.match(app, /compositeInpaintPixels/);
+assert.match(app, /buildInwardFeatherAlpha/);
+for (const size of ["1024x1024", "1536x1024", "1024x1536", "2048x2048", "2048x1152", "3840x2160", "2160x3840"]) {
+  assert.match(html, new RegExp(`value="${size}"`), `Missing GPT Image 2 popular size: ${size}`);
+}
 assert.match(html, /option value="opencodex"/);
 assert.match(app, /body\.images\s*=\s*refs\.map\(ref => \(\{\s*image_url:\s*ref\.dataUrl\s*\}\)\)/);
 assert.match(app, /forceDirectProxy:\s*true/);

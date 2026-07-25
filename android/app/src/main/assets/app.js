@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.32";
+const APP_VERSION = "1.3.33";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -243,9 +243,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜 · 气泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
-    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地 GPT", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
+    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
     opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
-    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "使用本机 ChatGPT/Codex 登录转发生图；仅连接 127.0.0.1，不使用电脑端代理。", opencodexQuality: "输出质量", opencodexQualityHint: "草稿适合快速试错，标准平衡速度与细节，高质量适合最终成图。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", opencodexFacts: "JSON 图片协议 · gpt-image-2 · 最多并发 5 · 单次超时 620 秒", opencodexCapability: "参考图会转换为 Data URL 数组；参考图保真度自动为高，不发送格式、压缩、审核或 input_fidelity 参数。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}",
+    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "这是请求偏好；私有上游可能改写档位，结果以实际响应为准。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 最多并发 5 · 单次超时 620 秒", opencodexCapability: "质量与尺寸均为请求偏好；参考图保真度自动为高，不发送格式、压缩、审核或 input_fidelity 参数。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintTitle: "局部重绘", inpaintDisclosure: "Nano Banana 2 生成语义补丁，软件只在蒙版内本地合成；这不是上游原生 mask 重绘。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
@@ -321,9 +321,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡 · 氣泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
-    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機 GPT", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
+    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機生圖", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
     opencodexHint: "使用本機 OpenCodex 的 ChatGPT 登入轉發生圖；本機佔位密鑰不會傳送給 OpenAI，實際額度類型由 ChatGPT 上游決定。",
-    opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "使用本機 ChatGPT/Codex 登入轉發生圖；僅連線 127.0.0.1，不使用電腦端代理。", opencodexQuality: "輸出品質", opencodexQualityHint: "草稿適合快速試錯，標準平衡速度與細節，高品質適合最終成圖。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", opencodexFacts: "JSON 圖片協議 · gpt-image-2 · 最多並行 5 · 單次逾時 620 秒", opencodexCapability: "參考圖會轉為 Data URL 陣列；參考圖保真度自動為高，不傳送格式、壓縮、審核或 input_fidelity 參數。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}",
+    opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "重用本機 ChatGPT/Codex 或 Google Antigravity 登入；僅連線 127.0.0.1，不使用電腦端代理。", openCodexModel: "本機生圖模型", openCodexModelHint: "GPT Image 2 適合通用生成；Nano Banana 2 擅長多參考圖、文字與語意編輯。", opencodexQuality: "品質偏好", opencodexQualityHint: "這是請求偏好；私有上游可能改寫檔位，以實際回應為準。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", openCodexAspectRatio: "畫面比例", openCodexAspectRatioHint: "只能選擇 Nano Banana 2 官方支援的畫面比例。", openCodexImageSize: "解析度檔位", openCodexImageSizeHint: "512/1K 最多並行 5，2K 最多 3，4K 固定單任務。", opencodexFacts: "JSON 圖片協議 · GPT Image 2 · 最多並行 5 · 單次逾時 620 秒", opencodexCapability: "品質與尺寸均為請求偏好；參考圖保真度自動為高，不傳送格式、壓縮、審核或 input_fidelity 參數。", openCodexNanoFacts: "JSON 圖片協議 · Nano Banana 2 · 目前最多並行 {concurrency} · 單次逾時 620 秒", openCodexNanoCapability: "支援最多 8 張客戶端參考圖、文字渲染與語意編輯；比例與檔位是請求目標，以實際圖片為準。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}", openInpaint: "局部重繪", inpaintRequiresNano: "局部重繪需要選擇 Nano Banana 2", inpaintTitle: "局部重繪", inpaintDisclosure: "Nano Banana 2 產生語意補丁，軟體只在蒙版內本機合成；這不是上游原生 mask 重繪。", inpaintChooseSource: "選擇原圖", inpaintNoSource: "尚未選擇圖片", inpaintPromptLabel: "修改內容", inpaintGenerate: "產生候選補丁", inpaintApply: "套用並加入結果", inpaintInitial: "先選擇原圖，再塗抹要修改的區域。", inpaintNeedSource: "請先選擇原圖", inpaintNeedMask: "請先塗抹要修改的區域", inpaintNeedPrompt: "請輸入修改內容", inpaintGenerating: "正在產生候選補丁 {done}/{total}…", inpaintApplied: "局部重繪結果已加入結果清單", inpaintCandidateFailed: "候選 {index} 失敗：{reason}", inpaintRequestedActual: "請求：{requested} · 實際：{actual}",
     savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
     apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
     apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
@@ -399,9 +399,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI Image Generator", subtitle: "Single images · Comic panels · Speech bubbles",
     web: "Web/PWA", desktop: "Desktop", android: "Android",
     create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
-    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "Local OpenCodex GPT", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
+    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "OpenCodex Local Images", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
     opencodexHint: "Routes images through the local OpenCodex ChatGPT login. The placeholder key is never sent to OpenAI; ChatGPT determines the actual quota category.",
-    opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Routes images through the local ChatGPT/Codex login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", opencodexQuality: "Output quality", opencodexQualityHint: "Draft is for quick iteration, Standard balances speed and detail, and High quality is for final images.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", opencodexFacts: "JSON image protocol · gpt-image-2 · up to 5 concurrent requests · 620-second timeout", opencodexCapability: "References are sent as a Data URL array with automatic high fidelity. Format, compression, moderation, and input_fidelity are omitted.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}",
+    opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Reuses the local ChatGPT/Codex or Google Antigravity login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", openCodexModel: "Local image model", openCodexModelHint: "GPT Image 2 is general purpose; Nano Banana 2 excels at multi-reference, text, and semantic editing.", opencodexQuality: "Quality preference", opencodexQualityHint: "This is a request preference. The private upstream may rewrite it; use the actual response.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", openCodexAspectRatio: "Aspect ratio", openCodexAspectRatioHint: "Only official Nano Banana 2 aspect ratios are available.", openCodexImageSize: "Resolution tier", openCodexImageSizeHint: "512/1K: up to 5 concurrent; 2K: 3; 4K: one task.", opencodexFacts: "JSON image protocol · GPT Image 2 · up to 5 concurrent requests · 620-second timeout", opencodexCapability: "Quality and size are request preferences. Reference fidelity is automatic high; format, compression, moderation, and input_fidelity are omitted.", openCodexNanoFacts: "JSON image protocol · Nano Banana 2 · up to {concurrency} concurrent · 620-second timeout", openCodexNanoCapability: "Supports up to 8 client-side references, text rendering, and semantic edits. Ratio and tier are request targets; the decoded image is authoritative.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}", openInpaint: "Local inpaint", inpaintRequiresNano: "Local inpaint requires Nano Banana 2", inpaintTitle: "Local inpaint", inpaintDisclosure: "Nano Banana 2 generates a semantic patch and the app composites it only inside the local mask. This is not native upstream mask inpainting.", inpaintChooseSource: "Choose source image", inpaintNoSource: "No image selected", inpaintPromptLabel: "Requested change", inpaintGenerate: "Generate candidates", inpaintApply: "Apply and add to results", inpaintInitial: "Choose a source image, then paint the area to change.", inpaintNeedSource: "Choose a source image first", inpaintNeedMask: "Paint the area to change first", inpaintNeedPrompt: "Enter the requested change", inpaintGenerating: "Generating candidate patch {done}/{total}…", inpaintApplied: "The local inpaint result was added to results", inpaintCandidateFailed: "Candidate {index} failed: {reason}", inpaintRequestedActual: "Requested: {requested} · actual: {actual}",
     savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
     apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
@@ -477,9 +477,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画コマ · 吹き出し文字",
     web: "Web/PWA", desktop: "デスクトップ", android: "Android",
     create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
-    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "ローカル OpenCodex GPT", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
+    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "OpenCodex ローカル画像", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
     opencodexHint: "ローカル OpenCodex の ChatGPT ログイン経由で画像を生成します。プレースホルダーキーは OpenAI に送信されず、実際の利用枠は ChatGPT 側で決まります。",
-    opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex ログインで画像を生成します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", opencodexQuality: "出力品質", opencodexQualityHint: "下書きは試行、標準は速度と詳細の両立、高品質は最終画像向けです。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", opencodexFacts: "JSON 画像プロトコル · gpt-image-2 · 最大同時 5 件 · 620 秒タイムアウト", opencodexCapability: "参照画像は Data URL 配列で送信し、忠実度は自動的に高になります。形式、圧縮、審査、input_fidelity は送信しません。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}",
+    opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex または Google Antigravity ログインを再利用します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", openCodexModel: "ローカル画像モデル", openCodexModelHint: "GPT Image 2 は汎用生成、Nano Banana 2 は複数参照・文字・意味編集に向いています。", opencodexQuality: "品質の希望", opencodexQualityHint: "これは要求値です。非公開上流が変更する場合があるため、実際の応答を確認してください。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", openCodexAspectRatio: "画面比率", openCodexAspectRatioHint: "Nano Banana 2 が公式対応する画面比率のみ選択できます。", openCodexImageSize: "解像度段階", openCodexImageSizeHint: "512/1K は最大 5、2K は 3、4K は 1 タスクです。", opencodexFacts: "JSON 画像プロトコル · GPT Image 2 · 最大同時 5 件 · 620 秒タイムアウト", opencodexCapability: "品質とサイズは要求値です。参照忠実度は自動的に高く、形式・圧縮・審査・input_fidelity は送信しません。", openCodexNanoFacts: "JSON 画像プロトコル · Nano Banana 2 · 最大同時 {concurrency} 件 · 620 秒タイムアウト", openCodexNanoCapability: "クライアント側参照画像は最大 8 枚。文字描画と意味編集に対応します。比率と段階は要求値で、実画像を正とします。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}", openInpaint: "部分再描画", inpaintRequiresNano: "部分再描画には Nano Banana 2 が必要です", inpaintTitle: "部分再描画", inpaintDisclosure: "Nano Banana 2 が意味的なパッチを生成し、アプリがローカルマスク内だけに合成します。上流ネイティブの mask 再描画ではありません。", inpaintChooseSource: "元画像を選択", inpaintNoSource: "画像未選択", inpaintPromptLabel: "変更内容", inpaintGenerate: "候補を生成", inpaintApply: "適用して結果へ追加", inpaintInitial: "元画像を選び、変更する領域を塗ってください。", inpaintNeedSource: "先に元画像を選択してください", inpaintNeedMask: "先に変更する領域を塗ってください", inpaintNeedPrompt: "変更内容を入力してください", inpaintGenerating: "候補パッチを生成中 {done}/{total}…", inpaintApplied: "部分再描画結果を結果一覧へ追加しました", inpaintCandidateFailed: "候補 {index} 失敗：{reason}", inpaintRequestedActual: "要求：{requested} · 実際：{actual}",
     savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
     apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
@@ -555,9 +555,9 @@ const CLEAN_LOCALES = {
     appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 컷 · 말풍선 문구",
     web: "Web/PWA", desktop: "데스크톱", android: "Android",
     create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
-    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "로컬 OpenCodex GPT", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
+    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "OpenCodex 로컬 이미지", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
     opencodexHint: "로컬 OpenCodex의 ChatGPT 로그인으로 이미지를 생성합니다. 자리표시자 키는 OpenAI로 전송되지 않으며 실제 사용 한도는 ChatGPT에서 결정합니다.",
-    opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 로그인으로 이미지를 생성합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", opencodexQuality: "출력 품질", opencodexQualityHint: "초안은 빠른 시도, 표준은 속도와 세부 묘사의 균형, 고품질은 최종 이미지에 적합합니다.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", opencodexFacts: "JSON 이미지 프로토콜 · gpt-image-2 · 최대 동시 5개 · 620초 제한", opencodexCapability: "참고 이미지는 Data URL 배열로 전송되며 충실도는 자동으로 높음입니다. 형식, 압축, 심사, input_fidelity는 전송하지 않습니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}",
+    opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 또는 Google Antigravity 로그인을 재사용합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", openCodexModel: "로컬 이미지 모델", openCodexModelHint: "GPT Image 2는 범용 생성, Nano Banana 2는 다중 참고·문자·의미 편집에 적합합니다.", opencodexQuality: "품질 선호", opencodexQualityHint: "요청 선호값입니다. 비공개 업스트림이 값을 바꿀 수 있으므로 실제 응답을 확인하세요.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", openCodexAspectRatio: "화면 비율", openCodexAspectRatioHint: "Nano Banana 2가 공식 지원하는 화면 비율만 선택할 수 있습니다.", openCodexImageSize: "해상도 단계", openCodexImageSizeHint: "512/1K는 최대 5개, 2K는 3개, 4K는 1개 작업입니다.", opencodexFacts: "JSON 이미지 프로토콜 · GPT Image 2 · 최대 동시 5개 · 620초 제한", opencodexCapability: "품질과 크기는 요청 선호값입니다. 참고 충실도는 자동 높음이며 형식, 압축, 심사, input_fidelity는 전송하지 않습니다.", openCodexNanoFacts: "JSON 이미지 프로토콜 · Nano Banana 2 · 최대 동시 {concurrency}개 · 620초 제한", openCodexNanoCapability: "클라이언트 참고 이미지는 최대 8장입니다. 문자 렌더링과 의미 편집을 지원하며 비율과 단계는 요청 목표이고 실제 이미지를 기준으로 합니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}", openInpaint: "부분 다시 그리기", inpaintRequiresNano: "부분 다시 그리기에는 Nano Banana 2가 필요합니다", inpaintTitle: "부분 다시 그리기", inpaintDisclosure: "Nano Banana 2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다. 업스트림 네이티브 mask 인페인팅이 아닙니다.", inpaintChooseSource: "원본 이미지 선택", inpaintNoSource: "선택된 이미지 없음", inpaintPromptLabel: "변경 내용", inpaintGenerate: "후보 생성", inpaintApply: "적용하고 결과에 추가", inpaintInitial: "원본 이미지를 선택한 뒤 변경할 영역을 칠하세요.", inpaintNeedSource: "먼저 원본 이미지를 선택하세요", inpaintNeedMask: "먼저 변경할 영역을 칠하세요", inpaintNeedPrompt: "변경 내용을 입력하세요", inpaintGenerating: "후보 패치 생성 중 {done}/{total}…", inpaintApplied: "부분 다시 그리기 결과를 결과 목록에 추가했습니다", inpaintCandidateFailed: "후보 {index} 실패: {reason}", inpaintRequestedActual: "요청: {requested} · 실제: {actual}",
     savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
     apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
@@ -1133,10 +1133,15 @@ const dom = {
   openCodexProviderPanel: $("#openCodexProviderPanel"),
   grsaiProviderPanel: $("#grsaiProviderPanel"),
   customProviderPanel: $("#customProviderPanel"),
+  openCodexModel: $("#openCodexModel"),
   openCodexQuality: $("#openCodexQuality"),
   openCodexBackground: $("#openCodexBackground"),
+  openCodexAspectRatio: $("#openCodexAspectRatio"),
+  openCodexImageSize: $("#openCodexImageSize"),
   testOpenCodexHealth: $("#testOpenCodexHealth"),
   openCodexHealthStatus: $("#openCodexHealthStatus"),
+  openInpaintFromFile: $("#openInpaintFromFile"),
+  inpaintSourceInput: $("#inpaintSourceInput"),
   officialQuality: $("#officialQuality"),
   officialBackground: $("#officialBackground"),
   officialOutputFormat: $("#officialOutputFormat"),
@@ -1164,6 +1169,7 @@ const dom = {
   promptHint:    $("#promptHint"),
   referenceField: $("#referenceField"),
   globalSizeField: $("#globalSizeField"),
+  sizePolicyHint: $("#sizePolicyHint"),
   refImage:      $("#refImage"),
   uploadZone:    $("#uploadZone"),
   thumbGrid:     $("#thumbGrid"),
@@ -1285,6 +1291,46 @@ const dom = {
   historySearch: $("#historySearch"),
   refreshHistory:$("#refreshHistory"),
   historyList:   $("#historyList"),
+  // OpenCodex 局部重绘
+  inpaintModal: $("#inpaintModal"),
+  closeInpaint: $("#closeInpaint"),
+  inpaintChooseSource: $("#inpaintChooseSource"),
+  inpaintBaseCanvas: $("#inpaintBaseCanvas"),
+  inpaintPreviewCanvas: $("#inpaintPreviewCanvas"),
+  inpaintMaskCanvas: $("#inpaintMaskCanvas"),
+  inpaintCanvasScroller: $("#inpaintCanvasScroller"),
+  inpaintCanvasStage: $("#inpaintCanvasStage"),
+  inpaintEmpty: $("#inpaintEmpty"),
+  inpaintBrush: $("#inpaintBrush"),
+  inpaintEraser: $("#inpaintEraser"),
+  inpaintUndo: $("#inpaintUndo"),
+  inpaintRedo: $("#inpaintRedo"),
+  inpaintClearMask: $("#inpaintClearMask"),
+  inpaintToggleMask: $("#inpaintToggleMask"),
+  inpaintCompare: $("#inpaintCompare"),
+  inpaintZoomFit: $("#inpaintZoomFit"),
+  inpaintZoom100: $("#inpaintZoom100"),
+  inpaintPrompt: $("#inpaintPrompt"),
+  inpaintBrushSize: $("#inpaintBrushSize"),
+  inpaintBrushSizeValue: $("#inpaintBrushSizeValue"),
+  inpaintFeather: $("#inpaintFeather"),
+  inpaintFeatherValue: $("#inpaintFeatherValue"),
+  inpaintContext: $("#inpaintContext"),
+  inpaintContextValue: $("#inpaintContextValue"),
+  inpaintCandidateCount: $("#inpaintCandidateCount"),
+  inpaintCandidateStrip: $("#inpaintCandidateStrip"),
+  inpaintSourceMeta: $("#inpaintSourceMeta"),
+  inpaintAlignment: $("#inpaintAlignment"),
+  inpaintOffsetX: $("#inpaintOffsetX"),
+  inpaintOffsetXValue: $("#inpaintOffsetXValue"),
+  inpaintOffsetY: $("#inpaintOffsetY"),
+  inpaintOffsetYValue: $("#inpaintOffsetYValue"),
+  inpaintScale: $("#inpaintScale"),
+  inpaintScaleValue: $("#inpaintScaleValue"),
+  generateInpaint: $("#generateInpaint"),
+  applyInpaint: $("#applyInpaint"),
+  cancelInpaintGeneration: $("#cancelInpaintGeneration"),
+  inpaintStatus: $("#inpaintStatus"),
 };
 
 // ─── 自绘下拉列表（替代原生 <select>，Windows exe 端原生弹出层不可用）──────
@@ -1474,6 +1520,7 @@ const customSelects = {
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
   captionAutoFillTemplate: initCustomSelect(dom.captionAutoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
+  openCodexAspectRatio: initCustomSelect(dom.openCodexAspectRatio),
   modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
 
@@ -1489,6 +1536,24 @@ let currentMode = "single";   // "single" | "comic" | "caption"
 let panelCounter = 0;         // 分镜自增编号
 let captionRowCounter = 0;    // 嵌字行自增编号
 let abortController = null;   // 用于取消批量生成
+const inpaintState = {
+  source: null,
+  sourceName: "",
+  sourceMime: "",
+  maskDataCanvas: document.createElement("canvas"),
+  actions: [],
+  redoActions: [],
+  activeStroke: null,
+  tool: "brush",
+  maskVisible: true,
+  zoomMode: "fit",
+  candidates: [],
+  selectedCandidate: -1,
+  cropPlan: null,
+  generating: false,
+  abortController: null,
+  resultDataUrl: "",
+};
 let activeGenerationId = 0;    // 用于丢弃已取消/过期的生成结果
 let importedTxtFiles = [];      // { name, content } —— 导入的多个 txt 文件
 let referenceImages = [];       // { file, dataUrl, width, height } —— 多张参考图片
@@ -1635,6 +1700,30 @@ const OPENCODEX_HEALTH_URL = "http://127.0.0.1:10100/healthz";
 const OPENCODEX_PLACEHOLDER_KEY = "opencodex-local-only";
 const OPENCODEX_REQUEST_TIMEOUT_MS = 620000;
 const OPENCODEX_HEALTH_CACHE_MS = 30000;
+const OPENCODEX_GPT_IMAGE_2 = "gpt-image-2";
+const OPENCODEX_NANO_BANANA_2 = "gemini-3.1-flash-image";
+const OPENCODEX_MODELS = Object.freeze([OPENCODEX_GPT_IMAGE_2, OPENCODEX_NANO_BANANA_2]);
+const OPENCODEX_NANO_ASPECT_RATIOS = Object.freeze([
+  "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1",
+  "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
+]);
+const OPENCODEX_CAPABILITIES = Object.freeze({
+  [OPENCODEX_GPT_IMAGE_2]: Object.freeze({
+    label: "GPT Image 2",
+    login: "ChatGPT/Codex",
+    maxReferences: 8,
+    supportsInpaint: false,
+    requestFields: Object.freeze(["size", "quality", "background"]),
+  }),
+  [OPENCODEX_NANO_BANANA_2]: Object.freeze({
+    label: "Nano Banana 2",
+    login: "Google Antigravity",
+    maxReferences: 8,
+    upstreamMaxReferences: 14,
+    supportsInpaint: true,
+    requestFields: Object.freeze(["aspect_ratio", "image_size"]),
+  }),
+});
 const GRSAI_SITE_URL = "https://grsai.com/zh";
 const GRSAI_API_ENDPOINT = "https://grsai.dakka.com.cn/v1/api/generate";
 const API_PROVIDER_PRESETS = {
@@ -1658,8 +1747,11 @@ const OFFICIAL_IMAGE_OPTION_DEFAULTS = Object.freeze({
   inputFidelity: "low",
 });
 const OPENCODEX_IMAGE_OPTION_DEFAULTS = Object.freeze({
+  model: OPENCODEX_GPT_IMAGE_2,
   quality: "auto",
   background: "auto",
+  aspectRatio: "1:1",
+  imageSize: "1K",
 });
 const USD_CNY_RATE_KEY = "ai_image_gen_usd_cny_rate_v1";
 const USD_CNY_RATE_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY?providers=ECB";
@@ -2006,23 +2098,122 @@ function applyOfficialImageOptions(value = {}) {
 }
 
 function normalizeOpenCodexImageOptions(value = {}) {
+  const model = OPENCODEX_MODELS.includes(value.model) ? value.model : OPENCODEX_IMAGE_OPTION_DEFAULTS.model;
   return {
+    model,
     quality: ["auto", "low", "medium", "high"].includes(value.quality) ? value.quality : OPENCODEX_IMAGE_OPTION_DEFAULTS.quality,
     background: ["auto", "opaque"].includes(value.background) ? value.background : OPENCODEX_IMAGE_OPTION_DEFAULTS.background,
+    aspectRatio: OPENCODEX_NANO_ASPECT_RATIOS.includes(value.aspectRatio)
+      ? value.aspectRatio
+      : OPENCODEX_IMAGE_OPTION_DEFAULTS.aspectRatio,
+    imageSize: ["512", "1K", "2K", "4K"].includes(value.imageSize)
+      ? value.imageSize
+      : OPENCODEX_IMAGE_OPTION_DEFAULTS.imageSize,
   };
 }
 
 function getOpenCodexImageOptions() {
   return normalizeOpenCodexImageOptions({
+    model: dom.openCodexModel?.value || dom.model?.value,
     quality: dom.openCodexQuality?.value,
     background: dom.openCodexBackground?.value,
+    aspectRatio: dom.openCodexAspectRatio?.value,
+    imageSize: dom.openCodexImageSize?.value,
   });
 }
 
 function applyOpenCodexImageOptions(value = {}) {
   const options = normalizeOpenCodexImageOptions(value);
+  setProviderSegmentValue("openCodexModel", options.model);
   setProviderSegmentValue("openCodexQuality", options.quality);
   setProviderSegmentValue("openCodexBackground", options.background);
+  setProviderSegmentValue("openCodexImageSize", options.imageSize);
+  if (dom.openCodexAspectRatio) dom.openCodexAspectRatio.value = options.aspectRatio;
+  customSelects?.openCodexAspectRatio?.syncLabel();
+  updateOpenCodexOptionAvailability();
+}
+
+function updateOpenCodexOptionAvailability() {
+  const options = getOpenCodexImageOptions();
+  const model = options.model;
+  const capability = OPENCODEX_CAPABILITIES[model] || OPENCODEX_CAPABILITIES[OPENCODEX_GPT_IMAGE_2];
+  const isNano = model === OPENCODEX_NANO_BANANA_2;
+  document.querySelectorAll(".opencodex-gpt-option").forEach(element => element.classList.toggle("hidden", isNano));
+  document.querySelectorAll(".opencodex-nano-option").forEach(element => element.classList.toggle("hidden", !isNano));
+  if (dom.model && isOpenCodexSelected()) dom.model.value = model;
+  if (dom.openInpaintFromFile) {
+    dom.openInpaintFromFile.disabled = !isNano;
+    dom.openInpaintFromFile.title = isNano ? cleanText("openInpaint") : cleanText("inpaintRequiresNano");
+  }
+  if ($("#openCodexFacts")) {
+    $("#openCodexFacts").textContent = isNano
+      ? interpolate(cleanText("openCodexNanoFacts"), { concurrency: getOpenCodexConcurrency(options) })
+      : cleanText("opencodexFacts");
+  }
+  if ($("#openCodexCapabilityNote")) {
+    $("#openCodexCapabilityNote").textContent = isNano
+      ? cleanText("openCodexNanoCapability")
+      : cleanText("opencodexCapability");
+  }
+  updateSizePolicyUi();
+  if (dom.apiQuickMeta && isOpenCodexSelected()) updateApiQuickState();
+}
+
+const SIZE_POLICY_TEXT = Object.freeze({
+  "zh-CN": Object.freeze({
+    official: "gpt-image-2 支持满足约束的任意尺寸；带“官方”的七项是 OpenAI 常用预设。",
+    opencodex: "Codex 额度反代会接收合法尺寸，但自定义尺寸可能被上游改写；生成后请查看实际尺寸。",
+    nano: "Nano Banana 2 只使用上方的官方“比例 × 分辨率档位”；这里的像素尺寸不会发送。",
+    generic: "预设尺寸会作为像素尺寸发送；自定义接口是否支持由服务端决定。",
+  }),
+  "zh-Hant": Object.freeze({
+    official: "gpt-image-2 支援符合限制的任意尺寸；標示「官方」的七項是 OpenAI 常用預設。",
+    opencodex: "Codex 額度反代會接收合法尺寸，但自訂尺寸可能被上游改寫；請以生成後的實際尺寸為準。",
+    nano: "Nano Banana 2 只使用上方官方的「比例 × 解析度檔位」；此處像素尺寸不會傳送。",
+    generic: "預設尺寸會作為像素尺寸傳送；自訂介面是否支援由伺服器決定。",
+  }),
+  en: Object.freeze({
+    official: "gpt-image-2 accepts any compliant size. The seven Official choices are OpenAI's popular presets.",
+    opencodex: "The Codex quota proxy accepts compliant sizes, but upstream may rewrite custom requests. Check the decoded size.",
+    nano: "Nano Banana 2 uses only the official ratio and resolution tier above. Pixel presets here are not sent.",
+    generic: "Pixel dimensions are sent as requested. Custom-server support depends on that server.",
+  }),
+  ja: Object.freeze({
+    official: "gpt-image-2 は制約を満たす任意サイズに対応します。「公式」の7項目は OpenAI の代表的なプリセットです。",
+    opencodex: "Codex クォータプロキシは有効なサイズを受け付けますが、上流が変更する場合があります。生成後の実寸を確認してください。",
+    nano: "Nano Banana 2 は上の公式「比率 × 解像度段階」のみを使用し、ここのピクセル値は送信しません。",
+    generic: "ピクセル寸法を要求値として送信します。対応可否は接続先サーバーによります。",
+  }),
+  ko: Object.freeze({
+    official: "gpt-image-2는 제약을 만족하는 임의 크기를 지원합니다. '공식' 7개 항목은 OpenAI 권장 프리셋입니다.",
+    opencodex: "Codex 할당량 프록시는 유효한 크기를 받지만 업스트림이 사용자 크기를 바꿀 수 있습니다. 생성 후 실제 크기를 확인하세요.",
+    nano: "Nano Banana 2는 위의 공식 '비율 × 해상도 단계'만 사용하며 이 픽셀 크기는 전송하지 않습니다.",
+    generic: "픽셀 크기를 요청값으로 전송합니다. 지원 여부는 연결한 서버에 따라 다릅니다.",
+  }),
+});
+
+function updateSizePolicyUi() {
+  const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
+  const isNano = provider === "opencodex" && getOpenCodexImageOptions().model === OPENCODEX_NANO_BANANA_2;
+  const isCaptionMode = !!dom.modeTabs?.querySelector('[data-mode="caption"].active');
+  if (dom.globalSizeField) dom.globalSizeField.classList.toggle("hidden", isCaptionMode || isNano);
+  if (!dom.sizePolicyHint) return;
+  const language = SIZE_POLICY_TEXT[currentLanguage] || SIZE_POLICY_TEXT["zh-CN"];
+  const key = isNano
+    ? "nano"
+    : provider === "official" && officialImageModelFamily(dom.model?.value || "") === "gpt-image-2"
+      ? "official"
+      : provider === "opencodex"
+        ? "opencodex"
+        : "generic";
+  dom.sizePolicyHint.textContent = language[key];
+}
+
+function getOpenCodexConcurrency(options = getOpenCodexImageOptions()) {
+  if (options.model !== OPENCODEX_NANO_BANANA_2) return 5;
+  if (options.imageSize === "4K") return 1;
+  if (options.imageSize === "2K") return 3;
+  return 5;
 }
 
 function updateOfficialOptionAvailability() {
@@ -2054,6 +2245,7 @@ function updateOfficialOptionAvailability() {
     const key = isGptImage2 ? "officialCapabilityGptImage2" : isMini ? "officialCapabilityMini" : model ? "officialCapabilityLegacy" : "officialCapabilityDefault";
     dom.officialCapabilityNote.textContent = cleanText(key);
   }
+  updateSizePolicyUi();
 }
 
 function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "custom") {
@@ -2063,6 +2255,7 @@ function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "cus
   dom.customProviderPanel?.classList.toggle("hidden", provider !== "custom");
   dom.grsaiRetrySettings?.classList.toggle("hidden", provider !== "grsai");
   if (provider === "official") updateOfficialOptionAvailability();
+  updateSizePolicyUi();
 }
 
 function updateProviderOptionsLanguage() {
@@ -2075,14 +2268,25 @@ function updateProviderOptionsLanguage() {
     officialModerationLabel: "officialModeration", officialModerationHint: "officialModerationHint",
     officialInputFidelityLabel: "officialInputFidelity", officialInputFidelityHint: "officialInputFidelityHint",
     openCodexProviderTitle: "opencodexPanelTitle", openCodexProviderHint: "opencodexPanelHint",
+    openCodexModelLabel: "openCodexModel", openCodexModelHint: "openCodexModelHint",
     openCodexQualityLabel: "opencodexQuality", openCodexQualityHint: "opencodexQualityHint",
     openCodexBackgroundLabel: "opencodexBackground", openCodexBackgroundHint: "opencodexBackgroundHint",
+    openCodexAspectRatioLabel: "openCodexAspectRatio", openCodexAspectRatioHint: "openCodexAspectRatioHint",
+    openCodexImageSizeLabel: "openCodexImageSize", openCodexImageSizeHint: "openCodexImageSizeHint",
     openCodexFacts: "opencodexFacts", openCodexCapabilityNote: "opencodexCapability",
     grsaiProviderTitle: "grsaiPanelTitle", grsaiProviderHint: "grsaiPanelHint", grsaiNodeHint: "grsaiNodeHint",
     grsaiWebsite: "grsaiWebsiteLabel", customProviderTitle: "customPanelTitle", customProviderHint: "customPanelHint",
     grsaiRetryTitle: "grsaiRetryTitle",
   };
   Object.entries(textKeys).forEach(([id, key]) => setText(`#${id}`, key));
+  const nanoRatioHint = {
+    "zh-CN": "只发送 Nano Banana 2 官方支持的比例。",
+    "zh-Hant": "只傳送 Nano Banana 2 官方支援的比例。",
+    en: "Only official Nano Banana 2 aspect ratios are sent.",
+    ja: "Nano Banana 2 が公式対応する比率のみ送信します。",
+    ko: "Nano Banana 2 공식 지원 비율만 전송합니다.",
+  }[currentLanguage];
+  if ($("#openCodexAspectRatioHint")) $("#openCodexAspectRatioHint").textContent = nanoRatioHint;
   const optionKeys = { auto: "optionAuto", low: "optionLow", medium: "optionMedium", high: "optionHigh", opaque: "optionOpaque", transparent: "optionTransparent" };
   document.querySelectorAll(".provider-segments button[data-value]").forEach(button => {
     const key = optionKeys[button.dataset.value];
@@ -2101,10 +2305,31 @@ function updateProviderOptionsLanguage() {
   document.querySelectorAll('[data-provider-control="openCodexQuality"] button[data-value]').forEach(button => {
     button.textContent = openCodexQualityLabels[button.dataset.value] || button.dataset.value;
   });
+  customSelects.openCodexAspectRatio?.syncLabel();
   setButtonText(dom.testOpenCodexHealth, "refresh", "opencodexHealthCheck");
+  setButtonText(dom.openInpaintFromFile, "mask", "openInpaint");
   setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
   updateOfficialOptionAvailability();
+  updateOpenCodexOptionAvailability();
   setOpenCodexHealthState(openCodexHealthState, openCodexHealthDetail);
+  updateInpaintLanguage();
+}
+
+function updateInpaintLanguage() {
+  setText("#inpaintTitle", "inpaintTitle");
+  setText("#inpaintDisclosure", "inpaintDisclosure");
+  setButtonText(dom.inpaintChooseSource, "image", "inpaintChooseSource");
+  setText("#inpaintPromptLabel", "inpaintPromptLabel");
+  setButtonText(dom.generateInpaint, "spark", "inpaintGenerate");
+  setButtonText(dom.applyInpaint, "save", "inpaintApply");
+  setButtonText(dom.cancelInpaintGeneration, "x", "cancelGeneration");
+  if (dom.inpaintPrompt) dom.inpaintPrompt.placeholder = cleanText("inpaintPromptLabel");
+  const hasSource = Number(dom.inpaintBaseCanvas?.width || 0) > 0;
+  const isGenerating = !dom.cancelInpaintGeneration?.classList.contains("hidden");
+  if (dom.inpaintSourceMeta && !hasSource) dom.inpaintSourceMeta.textContent = cleanText("inpaintNoSource");
+  if (dom.inpaintStatus && !hasSource && !isGenerating) {
+    dom.inpaintStatus.textContent = cleanText("inpaintInitial");
+  }
 }
 
 let openCodexHealthState = "idle";
@@ -2262,6 +2487,12 @@ function normalizeApiConfig(config = {}) {
   const apiProvider = configuredProvider === "custom" && inferredProvider === "opencodex"
     ? "opencodex"
     : configuredProvider;
+  const openCodexImageOptions = apiProvider === "opencodex"
+    ? normalizeOpenCodexImageOptions({
+        ...(config.openCodexImageOptions || {}),
+        model: OPENCODEX_MODELS.includes(config.model) ? config.model : config.openCodexImageOptions?.model,
+      })
+    : undefined;
   return {
     id: config.id || makeApiId(),
     name: config.name || readableEndpoint(endpoint) || cleanText("manualApi"),
@@ -2269,9 +2500,9 @@ function normalizeApiConfig(config = {}) {
     endpoint: apiProvider === "opencodex" ? OPENCODEX_API_ENDPOINT : endpoint,
     apiKey: apiProvider === "opencodex" ? OPENCODEX_PLACEHOLDER_KEY : (config.apiKey || ""),
     hasSecureKey: apiProvider === "opencodex" ? false : config.hasSecureKey === true,
-    model: apiProvider === "opencodex" ? "gpt-image-2" : (config.model || ""),
+    model: apiProvider === "opencodex" ? openCodexImageOptions.model : (config.model || ""),
     officialImageOptions: apiProvider === "official" ? normalizeOfficialImageOptions(config.officialImageOptions) : undefined,
-    openCodexImageOptions: apiProvider === "opencodex" ? normalizeOpenCodexImageOptions(config.openCodexImageOptions) : undefined,
+    openCodexImageOptions,
     proxyEndpoint: config.proxyEndpoint || "",
     platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(endpoint) || cleanText("customApi"),
   };
@@ -2345,7 +2576,8 @@ function applyApiProvider(provider = "custom", options = {}) {
   }
   if (next === "opencodex") {
     if (options.forceEndpoint || !dom.apiKey?.value.trim()) dom.apiKey.value = OPENCODEX_PLACEHOLDER_KEY;
-    if (options.forceEndpoint || !dom.model?.value.trim()) dom.model.value = "gpt-image-2";
+    const selectedModel = getOpenCodexImageOptions().model;
+    if (options.forceEndpoint || !OPENCODEX_MODELS.includes(dom.model?.value.trim())) dom.model.value = selectedModel;
   }
   if (dom.apiKey) dom.apiKey.readOnly = next === "opencodex";
   if (dom.model) dom.model.readOnly = next === "opencodex";
@@ -2383,7 +2615,8 @@ function applyConfig(cfg) {
   if (!cfg.model && provider === "official") dom.model.value = "gpt-image-2";
   if (provider === "opencodex") {
     dom.apiKey.value = OPENCODEX_PLACEHOLDER_KEY;
-    dom.model.value = "gpt-image-2";
+    dom.model.value = getOpenCodexImageOptions().model;
+    setModelChoices(OPENCODEX_MODELS);
     setOpenCodexHealthState("idle");
     setTimeout(() => void checkOpenCodexHealth({ announce: false, force: true }), 0);
   }
@@ -2671,8 +2904,9 @@ dom.apiProvider?.addEventListener("change", () => {
   } else if (provider === "official") {
     loadOfficialModels();
   } else if (provider === "opencodex") {
-    setModelChoices(["gpt-image-2"]);
-    dom.model.value = "gpt-image-2";
+    setModelChoices(OPENCODEX_MODELS);
+    dom.model.value = getOpenCodexImageOptions().model;
+    updateOpenCodexOptionAvailability();
     setOpenCodexHealthState("idle");
     void checkOpenCodexHealth({ announce: true, force: true });
   } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
@@ -2707,6 +2941,7 @@ document.querySelectorAll(".provider-segments[data-provider-control]").forEach(g
     const controlId = group.dataset.providerControl;
     setProviderSegmentValue(controlId, button.dataset.value);
     updateOfficialOptionAvailability();
+    updateOpenCodexOptionAvailability();
     persistCurrentProviderOptions();
     scheduleOfficialCostSummaryUpdate();
   });
@@ -2716,6 +2951,10 @@ dom.officialOutputCompression?.addEventListener("input", () => {
   if (dom.officialCompressionValue) dom.officialCompressionValue.textContent = dom.officialOutputCompression.value;
 });
 dom.officialOutputCompression?.addEventListener("change", persistCurrentProviderOptions);
+dom.openCodexAspectRatio?.addEventListener("change", () => {
+  updateOpenCodexOptionAvailability();
+  persistCurrentProviderOptions();
+});
 dom.testOpenCodexHealth?.addEventListener("click", () => {
   void checkOpenCodexHealth({ announce: true, force: true });
 });
@@ -2724,6 +2963,629 @@ dom.refreshOfficialRate?.addEventListener("click", () => {
 });
 dom.officialPricingLink?.addEventListener("click", () => {
   void openExternalUrl(OPENAI_PRICING_URL);
+});
+
+// ─── OpenCodex / Nano Banana 2 局部重绘 ─────────────────────
+// 上游只接收“图片 + 文字”的语义编辑请求，不接收二值 mask。软件先让模型生成
+// 带上下文的候选补丁，再把候选严格限制在本地蒙版内合成，蒙版外像素不参与混合。
+const INPAINT_PAINT_STATUS = Object.freeze({
+  "zh-CN": "原图已载入，请涂抹要修改的区域。",
+  "zh-Hant": "原圖已載入，請塗抹要修改的區域。",
+  en: "Source loaded. Paint the area to change.",
+  ja: "元画像を読み込みました。変更する領域を塗ってください。",
+  ko: "원본을 불러왔습니다. 변경할 영역을 칠하세요.",
+});
+
+function setInpaintStatus(message, type = "info") {
+  if (!dom.inpaintStatus) return;
+  dom.inpaintStatus.className = `status ${type} inpaint-status`;
+  dom.inpaintStatus.textContent = String(message || "");
+}
+
+function loadImageElement(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("图片解码失败"));
+    image.src = source;
+  });
+}
+
+function updateInpaintHistoryButtons() {
+  if (dom.inpaintUndo) dom.inpaintUndo.disabled = inpaintState.actions.length === 0;
+  if (dom.inpaintRedo) dom.inpaintRedo.disabled = inpaintState.redoActions.length === 0;
+}
+
+function setInpaintTool(tool) {
+  inpaintState.tool = tool === "eraser" ? "eraser" : "brush";
+  const brushActive = inpaintState.tool === "brush";
+  dom.inpaintBrush?.classList.toggle("active", brushActive);
+  dom.inpaintEraser?.classList.toggle("active", !brushActive);
+  dom.inpaintBrush?.setAttribute("aria-pressed", String(brushActive));
+  dom.inpaintEraser?.setAttribute("aria-pressed", String(!brushActive));
+}
+
+function updateInpaintStageSize() {
+  const source = inpaintState.source;
+  if (!source || !dom.inpaintCanvasStage || !dom.inpaintCanvasScroller) return;
+  const availableWidth = Math.max(160, dom.inpaintCanvasScroller.clientWidth - 30);
+  const availableHeight = Math.max(160, dom.inpaintCanvasScroller.clientHeight - 30);
+  const scale = inpaintState.zoomMode === "100"
+    ? 1
+    : Math.min(1, availableWidth / source.width, availableHeight / source.height);
+  dom.inpaintCanvasStage.style.width = `${Math.max(1, Math.round(source.width * scale))}px`;
+  dom.inpaintCanvasStage.style.height = `${Math.max(1, Math.round(source.height * scale))}px`;
+  dom.inpaintCanvasStage.classList.toggle("is-fit", inpaintState.zoomMode === "fit");
+  dom.inpaintZoomFit?.classList.toggle("active", inpaintState.zoomMode === "fit");
+  dom.inpaintZoom100?.classList.toggle("active", inpaintState.zoomMode === "100");
+}
+
+function drawMaskStroke(context, stroke, color) {
+  if (!context || !stroke?.points?.length) return;
+  context.save();
+  context.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
+  context.strokeStyle = color;
+  context.fillStyle = color;
+  context.lineWidth = stroke.size;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  const first = stroke.points[0];
+  if (stroke.points.length === 1) {
+    context.beginPath();
+    context.arc(first.x, first.y, stroke.size / 2, 0, Math.PI * 2);
+    context.fill();
+  } else {
+    context.beginPath();
+    context.moveTo(first.x, first.y);
+    for (let i = 1; i < stroke.points.length; i++) {
+      context.lineTo(stroke.points[i].x, stroke.points[i].y);
+    }
+    context.stroke();
+  }
+  context.restore();
+}
+
+function replayInpaintMask() {
+  const dataCanvas = inpaintState.maskDataCanvas;
+  const displayCanvas = dom.inpaintMaskCanvas;
+  if (!dataCanvas || !displayCanvas) return;
+  const dataContext = dataCanvas.getContext("2d");
+  const displayContext = displayCanvas.getContext("2d");
+  dataContext.clearRect(0, 0, dataCanvas.width, dataCanvas.height);
+  displayContext.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+  inpaintState.actions.forEach(stroke => {
+    drawMaskStroke(dataContext, stroke, "#fff");
+    drawMaskStroke(displayContext, stroke, "rgba(255, 70, 105, 0.58)");
+  });
+  updateInpaintHistoryButtons();
+}
+
+function resetInpaintCandidates() {
+  inpaintState.candidates = [];
+  inpaintState.selectedCandidate = -1;
+  inpaintState.cropPlan = null;
+  inpaintState.resultDataUrl = "";
+  if (dom.inpaintCandidateStrip) dom.inpaintCandidateStrip.innerHTML = "";
+  dom.inpaintAlignment?.classList.add("hidden");
+  dom.applyInpaint?.classList.add("hidden");
+  ["inpaintOffsetX", "inpaintOffsetY"].forEach(key => {
+    if (dom[key]) dom[key].value = "0";
+  });
+  if (dom.inpaintScale) dom.inpaintScale.value = "100";
+  updateInpaintAlignmentLabels();
+}
+
+async function loadInpaintSourceBlob(blob, name = "image") {
+  const normalized = await normalizeImageBlob(blob);
+  const dataUrl = await blobToDataUrl(normalized);
+  const image = await loadImageElement(dataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  if (!width || !height) throw new Error("无法读取图片尺寸");
+  [dom.inpaintBaseCanvas, dom.inpaintPreviewCanvas, dom.inpaintMaskCanvas, inpaintState.maskDataCanvas].forEach(canvas => {
+    canvas.width = width;
+    canvas.height = height;
+  });
+  dom.inpaintBaseCanvas.getContext("2d").drawImage(image, 0, 0, width, height);
+  dom.inpaintPreviewCanvas.getContext("2d").drawImage(image, 0, 0, width, height);
+  inpaintState.source = {
+    image,
+    dataUrl,
+    width,
+    height,
+    mimeType: normalized.type || "image/png",
+    bytes: normalized.size,
+  };
+  inpaintState.sourceName = name;
+  inpaintState.sourceMime = normalized.type || "image/png";
+  inpaintState.actions = [];
+  inpaintState.redoActions = [];
+  inpaintState.activeStroke = null;
+  resetInpaintCandidates();
+  replayInpaintMask();
+  dom.inpaintEmpty?.classList.add("hidden");
+  if (dom.inpaintSourceMeta) {
+    dom.inpaintSourceMeta.textContent = `${name} · ${width}×${height} · ${formatImageBytes(normalized.size)}`;
+  }
+  requestAnimationFrame(updateInpaintStageSize);
+  setInpaintStatus(INPAINT_PAINT_STATUS[currentLanguage] || INPAINT_PAINT_STATUS["zh-CN"], "info");
+}
+
+async function openInpaintFromCard(card) {
+  if (!card) return;
+  if (!isOpenCodexSelected() || getOpenCodexImageOptions().model !== OPENCODEX_NANO_BANANA_2) {
+    showStatus(cleanText("inpaintRequiresNano"), "error");
+    return;
+  }
+  openModal(dom.inpaintModal);
+  setInpaintStatus("正在读取本地图片缓存…", "info");
+  try {
+    let blob = await Promise.resolve(card._imageCachePromise).catch(() => null);
+    if (!(blob instanceof Blob)) {
+      const source = card._zipBlob || card._localImageUrl || card._zipImage?.url;
+      if (!source) throw new Error("该结果没有可用的图片缓存");
+      blob = await imageUrlToBlobWithFallback(source, card._zipImage?.originalUrl || "");
+    }
+    await loadInpaintSourceBlob(blob, `分镜 ${card.dataset.panelId || ""}`.trim());
+  } catch (error) {
+    setInpaintStatus(`读取原图失败：${error.message || error}`, "error");
+  }
+}
+
+function canvasPointFromPointer(event) {
+  const canvas = dom.inpaintMaskCanvas;
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(canvas.width, (event.clientX - rect.left) * canvas.width / Math.max(1, rect.width))),
+    y: Math.max(0, Math.min(canvas.height, (event.clientY - rect.top) * canvas.height / Math.max(1, rect.height))),
+  };
+}
+
+function analyzeInpaintMask(canvas = inpaintState.maskDataCanvas) {
+  if (!canvas?.width || !canvas?.height) return null;
+  const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+  let minX = canvas.width;
+  let minY = canvas.height;
+  let maxX = -1;
+  let maxY = -1;
+  let count = 0;
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      if (pixels[(y * canvas.width + x) * 4 + 3] === 0) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      count++;
+    }
+  }
+  if (!count) return null;
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+    pixels: count,
+    coverage: count / (canvas.width * canvas.height),
+  };
+}
+
+function nearestNanoAspectRatio(width, height) {
+  const target = width / Math.max(1, height);
+  let best = OPENCODEX_NANO_ASPECT_RATIOS[0];
+  let bestDistance = Infinity;
+  OPENCODEX_NANO_ASPECT_RATIOS.forEach(value => {
+    const [w, h] = value.split(":").map(Number);
+    const distance = Math.abs(Math.log(target / (w / h)));
+    if (distance < bestDistance) {
+      best = value;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}
+
+function planInpaintCrop(mask, imageWidth, imageHeight, contextPercent = 15) {
+  const padding = Math.max(64, Math.round(Math.max(mask.width, mask.height) * contextPercent / 100));
+  let left = Math.max(0, mask.minX - padding);
+  let top = Math.max(0, mask.minY - padding);
+  let right = Math.min(imageWidth, mask.maxX + 1 + padding);
+  let bottom = Math.min(imageHeight, mask.maxY + 1 + padding);
+  const aspectRatio = nearestNanoAspectRatio(right - left, bottom - top);
+  const [ratioWidth, ratioHeight] = aspectRatio.split(":").map(Number);
+  const targetRatio = ratioWidth / ratioHeight;
+  const centerX = (left + right) / 2;
+  const centerY = (top + bottom) / 2;
+  let width = right - left;
+  let height = bottom - top;
+  if (width / height < targetRatio) width = Math.min(imageWidth, Math.ceil(height * targetRatio));
+  else height = Math.min(imageHeight, Math.ceil(width / targetRatio));
+  left = Math.max(0, Math.min(imageWidth - width, Math.round(centerX - width / 2)));
+  top = Math.max(0, Math.min(imageHeight - height, Math.round(centerY - height / 2)));
+  width = Math.min(imageWidth - left, Math.round(width));
+  height = Math.min(imageHeight - top, Math.round(height));
+  return { x: left, y: top, width, height, aspectRatio };
+}
+
+function buildInwardFeatherAlpha(maskImageData, width, height, featherRadius) {
+  const length = width * height;
+  const inside = new Uint8Array(length);
+  const alpha = new Uint8ClampedArray(length);
+  const distance = new Float32Array(length);
+  const infinite = width + height + 1;
+  for (let i = 0; i < length; i++) {
+    const raw = maskImageData.data[i * 4 + 3];
+    inside[i] = raw > 0 ? 1 : 0;
+    distance[i] = raw > 0 ? infinite : 0;
+  }
+  if (featherRadius <= 0) {
+    for (let i = 0; i < length; i++) alpha[i] = maskImageData.data[i * 4 + 3];
+    return alpha;
+  }
+  const diagonal = Math.SQRT2;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      if (!inside[i]) continue;
+      let value = distance[i];
+      if (x > 0) value = Math.min(value, distance[i - 1] + 1);
+      if (y > 0) value = Math.min(value, distance[i - width] + 1);
+      if (x > 0 && y > 0) value = Math.min(value, distance[i - width - 1] + diagonal);
+      if (x + 1 < width && y > 0) value = Math.min(value, distance[i - width + 1] + diagonal);
+      distance[i] = value;
+    }
+  }
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = width - 1; x >= 0; x--) {
+      const i = y * width + x;
+      if (!inside[i]) continue;
+      let value = distance[i];
+      if (x + 1 < width) value = Math.min(value, distance[i + 1] + 1);
+      if (y + 1 < height) value = Math.min(value, distance[i + width] + 1);
+      if (x + 1 < width && y + 1 < height) value = Math.min(value, distance[i + width + 1] + diagonal);
+      if (x > 0 && y + 1 < height) value = Math.min(value, distance[i + width - 1] + diagonal);
+      distance[i] = value;
+      const raw = maskImageData.data[i * 4 + 3] / 255;
+      alpha[i] = Math.round(255 * raw * Math.min(1, value / featherRadius));
+    }
+  }
+  return alpha;
+}
+
+function compositeInpaintPixels(original, patch, maskAlpha, crop) {
+  const output = new ImageData(new Uint8ClampedArray(original.data), original.width, original.height);
+  for (let y = 0; y < crop.height; y++) {
+    for (let x = 0; x < crop.width; x++) {
+      const targetX = crop.x + x;
+      const targetY = crop.y + y;
+      const targetIndex = targetY * original.width + targetX;
+      const amount = maskAlpha[targetIndex] / 255;
+      if (amount <= 0) continue;
+      const sourceIndex = (y * crop.width + x) * 4;
+      const outputIndex = targetIndex * 4;
+      for (let channel = 0; channel < 4; channel++) {
+        output.data[outputIndex + channel] = Math.round(
+          original.data[outputIndex + channel] * (1 - amount) + patch.data[sourceIndex + channel] * amount
+        );
+      }
+    }
+  }
+  return output;
+}
+
+function updateInpaintAlignmentLabels() {
+  if (dom.inpaintOffsetXValue) dom.inpaintOffsetXValue.textContent = dom.inpaintOffsetX?.value || "0";
+  if (dom.inpaintOffsetYValue) dom.inpaintOffsetYValue.textContent = dom.inpaintOffsetY?.value || "0";
+  if (dom.inpaintScaleValue) dom.inpaintScaleValue.textContent = dom.inpaintScale?.value || "100";
+}
+
+function renderInpaintPreview() {
+  const source = inpaintState.source;
+  const candidate = inpaintState.candidates[inpaintState.selectedCandidate];
+  const crop = inpaintState.cropPlan;
+  if (!source || !candidate?.image || !crop) return;
+  const patchCanvas = document.createElement("canvas");
+  patchCanvas.width = crop.width;
+  patchCanvas.height = crop.height;
+  const patchContext = patchCanvas.getContext("2d");
+  const scaleAdjust = Number(dom.inpaintScale?.value || 100) / 100;
+  const baseScale = Math.max(crop.width / candidate.image.naturalWidth, crop.height / candidate.image.naturalHeight) * scaleAdjust;
+  const drawWidth = candidate.image.naturalWidth * baseScale;
+  const drawHeight = candidate.image.naturalHeight * baseScale;
+  const drawX = (crop.width - drawWidth) / 2 + Number(dom.inpaintOffsetX?.value || 0);
+  const drawY = (crop.height - drawHeight) / 2 + Number(dom.inpaintOffsetY?.value || 0);
+  patchContext.drawImage(candidate.image, drawX, drawY, drawWidth, drawHeight);
+  const originalContext = dom.inpaintBaseCanvas.getContext("2d");
+  const original = originalContext.getImageData(0, 0, source.width, source.height);
+  const patch = patchContext.getImageData(0, 0, crop.width, crop.height);
+  const mask = inpaintState.maskDataCanvas.getContext("2d").getImageData(0, 0, source.width, source.height);
+  const alpha = buildInwardFeatherAlpha(mask, source.width, source.height, Number(dom.inpaintFeather?.value || 0));
+  const result = compositeInpaintPixels(original, patch, alpha, crop);
+  dom.inpaintPreviewCanvas.getContext("2d").putImageData(result, 0, 0);
+  inpaintState.resultDataUrl = dom.inpaintPreviewCanvas.toDataURL("image/png");
+}
+
+function renderInpaintCandidates() {
+  if (!dom.inpaintCandidateStrip) return;
+  dom.inpaintCandidateStrip.innerHTML = "";
+  inpaintState.candidates.forEach((candidate, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `inpaint-candidate${index === inpaintState.selectedCandidate ? " active" : ""}`;
+    button.innerHTML = `<img src="${candidate.dataUrl}" alt="候选 ${index + 1}"><span>${index + 1}</span>`;
+    button.addEventListener("click", () => {
+      inpaintState.selectedCandidate = index;
+      renderInpaintCandidates();
+      renderInpaintPreview();
+    });
+    dom.inpaintCandidateStrip.appendChild(button);
+  });
+}
+
+function responseImageToDataUrl(data) {
+  const item = data?.data?.[0];
+  if (!item) throw new Error("候选响应没有图片");
+  if (item.b64_json) return `data:${item.mime_type || inferImageMimeFromBase64(item.b64_json)};base64,${item.b64_json}`;
+  if (item.url) return item.url;
+  throw new Error("候选响应没有可用图片字段");
+}
+
+async function generateInpaintCandidates() {
+  const source = inpaintState.source;
+  const prompt = String(dom.inpaintPrompt?.value || "").trim();
+  if (!source) return setInpaintStatus(cleanText("inpaintNeedSource"), "error");
+  if (!prompt) return setInpaintStatus(cleanText("inpaintNeedPrompt"), "error");
+  if (!isOpenCodexSelected() || getOpenCodexImageOptions().model !== OPENCODEX_NANO_BANANA_2) {
+    return setInpaintStatus(cleanText("inpaintRequiresNano"), "error");
+  }
+  const mask = analyzeInpaintMask();
+  if (!mask) return setInpaintStatus(cleanText("inpaintNeedMask"), "error");
+  if (mask.coverage > 0.95) {
+    return setInpaintStatus("蒙版覆盖超过 95%，请直接使用参考图编辑，或缩小蒙版区域。", "error");
+  }
+  const crop = planInpaintCrop(mask, source.width, source.height, Number(dom.inpaintContext?.value || 15));
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = crop.width;
+  cropCanvas.height = crop.height;
+  cropCanvas.getContext("2d").drawImage(
+    dom.inpaintBaseCanvas,
+    crop.x, crop.y, crop.width, crop.height,
+    0, 0, crop.width, crop.height
+  );
+  const cropDataUrl = cropCanvas.toDataURL("image/png");
+  const candidateCount = Math.max(1, Math.min(4, Number(dom.inpaintCandidateCount?.value || 2)));
+  const controller = new AbortController();
+  inpaintState.abortController?.abort();
+  inpaintState.abortController = controller;
+  inpaintState.generating = true;
+  inpaintState.cropPlan = crop;
+  resetInpaintCandidates();
+  inpaintState.cropPlan = crop;
+  dom.generateInpaint.disabled = true;
+  dom.cancelInpaintGeneration?.classList.remove("hidden");
+  let completed = 0;
+  const generated = [];
+  const failures = [];
+  const semanticPrompt = [
+    "Edit the supplied image crop according to the instruction below.",
+    "Preserve the surrounding composition, lighting, perspective, texture, and unchanged objects.",
+    "Return one complete edited crop with no frame, labels, mask visualization, or explanation.",
+    `Instruction: ${prompt}`,
+  ].join("\n");
+  try {
+    const results = await mapWithConcurrency(Array.from({ length: candidateCount }), 2, async (_, index) => {
+      try {
+        const response = await callImageAPI(semanticPrompt, `${crop.width}x${crop.height}`, 1, `局部重绘候选 ${index + 1}`, {
+          signal: controller.signal,
+          references: [{ dataUrl: cropDataUrl, width: crop.width, height: crop.height }],
+          maxRetries: 0,
+          openCodexOptions: {
+            ...getOpenCodexImageOptions(),
+            model: OPENCODEX_NANO_BANANA_2,
+            aspectRatio: crop.aspectRatio,
+          },
+        });
+        const sourceUrl = responseImageToDataUrl(response);
+        const blob = sourceUrl.startsWith("data:") ? dataUrlToBlob(sourceUrl) : await imageUrlToBlob(sourceUrl);
+        const dataUrl = await blobToDataUrl(await normalizeImageBlob(blob));
+        const image = await loadImageElement(dataUrl);
+        return { dataUrl, image, meta: response._openCodex || null };
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        failures.push(interpolate(cleanText("inpaintCandidateFailed"), { index: index + 1, reason: error.message || error }));
+        return null;
+      } finally {
+        completed++;
+        setInpaintStatus(interpolate(cleanText("inpaintGenerating"), { done: completed, total: candidateCount }), "info");
+      }
+    });
+    generated.push(...results.filter(Boolean));
+    if (!generated.length) throw new Error(failures.join("\n") || "所有候选均生成失败");
+    inpaintState.candidates = generated;
+    inpaintState.selectedCandidate = 0;
+    renderInpaintCandidates();
+    renderInpaintPreview();
+    dom.inpaintAlignment?.classList.remove("hidden");
+    dom.applyInpaint?.classList.remove("hidden");
+    setInpaintStatus(
+      failures.length ? `已生成 ${generated.length} 个候选；${failures.length} 个失败。` : `已生成 ${generated.length} 个候选。`,
+      failures.length ? "info" : "success"
+    );
+  } catch (error) {
+    setInpaintStatus(error?.name === "AbortError" ? "已取消候选生成。" : `局部重绘失败：${error.message || error}`, error?.name === "AbortError" ? "info" : "error");
+  } finally {
+    inpaintState.generating = false;
+    inpaintState.abortController = null;
+    dom.generateInpaint.disabled = false;
+    dom.cancelInpaintGeneration?.classList.add("hidden");
+  }
+}
+
+function applyInpaintResult() {
+  if (!inpaintState.resultDataUrl || !inpaintState.source || !inpaintState.cropPlan) {
+    setInpaintStatus("请先生成并选择候选补丁。", "error");
+    return;
+  }
+  const base64 = inpaintState.resultDataUrl.split(",")[1] || "";
+  const panelId = String(generatedImageUrls.length + 1);
+  const prompt = String(dom.inpaintPrompt?.value || "").trim();
+  const crop = inpaintState.cropPlan;
+  const selected = inpaintState.candidates[inpaintState.selectedCandidate];
+  const openCodexOptions = getOpenCodexImageOptions();
+  const card = addResultPlaceholder(panelId, prompt, {
+    mode: "single",
+    prompt,
+    fullPrompt: prompt,
+    size: `${inpaintState.source.width}x${inpaintState.source.height}`,
+    references: [],
+  });
+  replacePlaceholder(card, panelId, {
+    data: [{ b64_json: base64, mime_type: "image/png" }],
+    _openCodex: {
+      provider: "opencodex-local-image",
+      operation: "inpaint",
+      requested: {
+        model: OPENCODEX_NANO_BANANA_2,
+        aspectRatio: crop.aspectRatio,
+        imageSize: openCodexOptions.imageSize,
+      },
+      response: selected?.meta?.response || { mimeType: "image/png" },
+    },
+  }, prompt, {
+    mode: "single",
+    operation: "inpaint",
+    size: `${inpaintState.source.width}x${inpaintState.source.height}`,
+    inpaint: {
+      sourceName: inpaintState.sourceName,
+      crop: { ...crop },
+      feather: Number(dom.inpaintFeather?.value || 0),
+      context: Number(dom.inpaintContext?.value || 15),
+      localMaskComposite: true,
+    },
+  });
+  dom.emptyState?.classList.add("hidden");
+  dom.resultGrid?.classList.remove("hidden");
+  dom.resultToolbar?.classList.remove("hidden");
+  setInpaintStatus(cleanText("inpaintApplied"), "success");
+  closeModal(dom.inpaintModal);
+}
+
+dom.openInpaintFromFile?.addEventListener("click", () => {
+  openModal(dom.inpaintModal);
+  if (!inpaintState.source) dom.inpaintSourceInput?.click();
+});
+dom.inpaintChooseSource?.addEventListener("click", () => dom.inpaintSourceInput?.click());
+dom.inpaintSourceInput?.addEventListener("change", async () => {
+  const file = dom.inpaintSourceInput.files?.[0];
+  dom.inpaintSourceInput.value = "";
+  if (!file) return;
+  try {
+    await loadInpaintSourceBlob(file, file.name || "image");
+  } catch (error) {
+    setInpaintStatus(`读取原图失败：${error.message || error}`, "error");
+  }
+});
+dom.closeInpaint?.addEventListener("click", () => {
+  inpaintState.abortController?.abort();
+  closeModal(dom.inpaintModal);
+});
+dom.inpaintBrush?.addEventListener("click", () => setInpaintTool("brush"));
+dom.inpaintEraser?.addEventListener("click", () => setInpaintTool("eraser"));
+dom.inpaintUndo?.addEventListener("click", () => {
+  const action = inpaintState.actions.pop();
+  if (action) inpaintState.redoActions.push(action);
+  resetInpaintCandidates();
+  replayInpaintMask();
+});
+dom.inpaintRedo?.addEventListener("click", () => {
+  const action = inpaintState.redoActions.pop();
+  if (action) inpaintState.actions.push(action);
+  resetInpaintCandidates();
+  replayInpaintMask();
+});
+dom.inpaintClearMask?.addEventListener("click", () => {
+  if (inpaintState.actions.length) inpaintState.redoActions.push(...inpaintState.actions.splice(0));
+  resetInpaintCandidates();
+  replayInpaintMask();
+});
+dom.inpaintToggleMask?.addEventListener("click", () => {
+  inpaintState.maskVisible = !inpaintState.maskVisible;
+  dom.inpaintCanvasStage?.classList.toggle("mask-hidden", !inpaintState.maskVisible);
+  dom.inpaintToggleMask.classList.toggle("active", inpaintState.maskVisible);
+  dom.inpaintToggleMask.setAttribute("aria-pressed", String(inpaintState.maskVisible));
+});
+const setInpaintCompare = active => dom.inpaintCanvasStage?.classList.toggle("compare-original", active);
+dom.inpaintCompare?.addEventListener("pointerdown", event => {
+  event.preventDefault();
+  setInpaintCompare(true);
+  dom.inpaintCompare.setPointerCapture?.(event.pointerId);
+});
+["pointerup", "pointercancel", "lostpointercapture"].forEach(type => {
+  dom.inpaintCompare?.addEventListener(type, () => setInpaintCompare(false));
+});
+dom.inpaintZoomFit?.addEventListener("click", () => {
+  inpaintState.zoomMode = "fit";
+  updateInpaintStageSize();
+});
+dom.inpaintZoom100?.addEventListener("click", () => {
+  inpaintState.zoomMode = "100";
+  updateInpaintStageSize();
+});
+dom.inpaintMaskCanvas?.addEventListener("pointerdown", event => {
+  if (!inpaintState.source || event.button !== 0) return;
+  event.preventDefault();
+  dom.inpaintMaskCanvas.setPointerCapture(event.pointerId);
+  inpaintState.activeStroke = {
+    tool: inpaintState.tool,
+    size: Number(dom.inpaintBrushSize?.value || 48),
+    points: [canvasPointFromPointer(event)],
+  };
+  inpaintState.actions.push(inpaintState.activeStroke);
+  inpaintState.redoActions = [];
+  resetInpaintCandidates();
+  replayInpaintMask();
+});
+dom.inpaintMaskCanvas?.addEventListener("pointermove", event => {
+  if (!inpaintState.activeStroke || !dom.inpaintMaskCanvas.hasPointerCapture?.(event.pointerId)) return;
+  const point = canvasPointFromPointer(event);
+  const previous = inpaintState.activeStroke.points.at(-1);
+  if (Math.hypot(point.x - previous.x, point.y - previous.y) < 1.5) return;
+  inpaintState.activeStroke.points.push(point);
+  replayInpaintMask();
+});
+const finishInpaintStroke = event => {
+  if (!inpaintState.activeStroke) return;
+  if (dom.inpaintMaskCanvas.hasPointerCapture?.(event.pointerId)) dom.inpaintMaskCanvas.releasePointerCapture(event.pointerId);
+  inpaintState.activeStroke = null;
+  replayInpaintMask();
+};
+dom.inpaintMaskCanvas?.addEventListener("pointerup", finishInpaintStroke);
+dom.inpaintMaskCanvas?.addEventListener("pointercancel", finishInpaintStroke);
+dom.inpaintBrushSize?.addEventListener("input", () => {
+  if (dom.inpaintBrushSizeValue) dom.inpaintBrushSizeValue.textContent = dom.inpaintBrushSize.value;
+});
+dom.inpaintFeather?.addEventListener("input", () => {
+  if (dom.inpaintFeatherValue) dom.inpaintFeatherValue.textContent = dom.inpaintFeather.value;
+  renderInpaintPreview();
+});
+dom.inpaintContext?.addEventListener("input", () => {
+  if (dom.inpaintContextValue) dom.inpaintContextValue.textContent = dom.inpaintContext.value;
+  resetInpaintCandidates();
+});
+[dom.inpaintOffsetX, dom.inpaintOffsetY, dom.inpaintScale].forEach(control => {
+  control?.addEventListener("input", () => {
+    updateInpaintAlignmentLabels();
+    renderInpaintPreview();
+  });
+});
+dom.generateInpaint?.addEventListener("click", () => void generateInpaintCandidates());
+dom.applyInpaint?.addEventListener("click", applyInpaintResult);
+dom.cancelInpaintGeneration?.addEventListener("click", () => inpaintState.abortController?.abort());
+window.addEventListener("resize", () => {
+  if (!dom.inpaintModal?.classList.contains("hidden")) updateInpaintStageSize();
 });
 
 // 尺寸、数量、分镜和质量都可能改变官方图片输出费用。使用委托监听，兼容动态创建的分镜行。
@@ -3753,7 +4615,7 @@ function switchMode(mode) {
   dom.captionSection.classList.toggle("hidden", !isCaption);
   dom.nImagesField.classList.toggle("hidden", isComic || isCaption);
   dom.referenceField.classList.toggle("hidden", isCaption);
-  dom.globalSizeField.classList.toggle("hidden", isCaption);
+  updateSizePolicyUi();
   dom.saveComicFolder.classList.toggle("hidden", !(isComic || isCaption));
   dom.progressWrap.classList.toggle("hidden", true);
 
@@ -4842,19 +5704,22 @@ function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProv
 }
 
 registerAdapter({
-  name: "OpenCodex 本地 GPT",
+  name: "OpenCodex 本地生图",
   provider: "opencodex",
   sizeFormat: "pixel",
   supportsReference: true,
   concurrency: 5,
+  getConcurrency() {
+    return getOpenCodexConcurrency();
+  },
 
   async fetchModels() {
     if (!(await checkOpenCodexHealth({ announce: false, force: true }))) {
       throw new Error("OpenCodex 本地服务未启动。请先启动 OpenCodex，或执行 ocx ensure。");
     }
-    setModelChoices(["gpt-image-2"]);
-    dom.model.value = "gpt-image-2";
-    showStatus("OpenCodex · gpt-image-2", "success");
+    setModelChoices(OPENCODEX_MODELS);
+    dom.model.value = getOpenCodexImageOptions().model;
+    showStatus(`OpenCodex · ${OPENCODEX_CAPABILITIES[dom.model.value]?.label || dom.model.value}`, "success");
   },
 
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
@@ -4863,39 +5728,83 @@ registerAdapter({
     if (!(await checkOpenCodexHealth({ announce: false, force: false }))) {
       throw new Error("OpenCodex 本地服务未启动。请先启动 OpenCodex，或执行 ocx ensure。");
     }
-    validateOfficialImageSize("gpt-image-2", size);
-    const selected = getOpenCodexImageOptions();
-    const body = {
-      model: "gpt-image-2",
-      prompt,
-      size,
-      quality: selected.quality,
-      background: selected.background,
-      n: 1,
-    };
+    const selected = normalizeOpenCodexImageOptions(options.openCodexOptions || getOpenCodexImageOptions());
+    const selectedModel = OPENCODEX_MODELS.includes(model) ? model : selected.model;
+    const capability = OPENCODEX_CAPABILITIES[selectedModel];
+    if (!capability) throw new Error(`OpenCodex 不支持模型：${selectedModel}`);
+    if (!String(prompt || "").trim()) throw new Error("提示词不能为空");
+    if (Number(n) !== 1) throw new Error("OpenCodex 单次请求固定 n=1；批量生图由客户端并发多个请求。");
+    if (hasRef && refs.length > capability.maxReferences) {
+      throw new Error(`${capability.label} 客户端最多发送 ${capability.maxReferences} 张参考图。`);
+    }
+    if (hasRef && refs.some(ref => !/^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(ref?.dataUrl || "")))) {
+      throw new Error("OpenCodex 参考图必须是 PNG、JPEG 或 WebP Data URL，不能发送远程 URL。");
+    }
+    const requested = { model: selectedModel, n: 1 };
+    const body = { model: selectedModel, prompt: String(prompt).trim(), n: 1 };
+    if (selectedModel === OPENCODEX_GPT_IMAGE_2) {
+      validateOfficialImageSize(OPENCODEX_GPT_IMAGE_2, size);
+      Object.assign(body, {
+        size,
+        quality: selected.quality,
+        background: selected.background,
+      });
+      Object.assign(requested, {
+        size,
+        quality: selected.quality,
+        background: selected.background,
+      });
+    } else {
+      const aspectRatio = selected.aspectRatio;
+      if (!OPENCODEX_NANO_ASPECT_RATIOS.includes(aspectRatio)) {
+        throw new Error(`Nano Banana 2 不支持比例：${aspectRatio}`);
+      }
+      body.aspect_ratio = aspectRatio;
+      body.image_size = selected.imageSize;
+      requested.aspectRatio = aspectRatio;
+      requested.imageSize = selected.imageSize;
+      requested.sourceSize = size;
+    }
     const url = normalizeApiUrl(endpoint, hasRef && refs.length ? "images/edits" : "images/generations");
     if (hasRef && refs.length) {
       body.images = refs.map(ref => ({ image_url: ref.dataUrl }));
     }
     try {
-      return await apiFetch(url, OPENCODEX_PLACEHOLDER_KEY, body, {
+      const data = await apiFetch(url, OPENCODEX_PLACEHOLDER_KEY, body, {
         signal,
         nativeTimeoutMs: OPENCODEX_REQUEST_TIMEOUT_MS,
         forceDirectProxy: true,
       });
+      const images = Array.isArray(data?.data) ? data.data : [];
+      if (!images.some(item => item?.b64_json || item?.url)) {
+        throw new Error("OpenCodex 上游没有返回图片，可能只返回了文本或被安全策略终止。");
+      }
+      data._openCodex = {
+        provider: "opencodex-local-image",
+        operation: hasRef && refs.length ? "edit" : "generation",
+        requested,
+        response: {
+          quality: data?.quality || images[0]?.quality || null,
+          size: data?.size || images[0]?.size || null,
+          mimeType: images[0]?.mime_type || null,
+        },
+      };
+      return data;
     } catch (err) {
       const message = String(err?.message || err || "");
       if (/HTTP\s*499\b/i.test(message)) throw createAbortError();
       const guidance = /HTTP\s*400\b/i.test(message)
-        ? "请求参数不受支持，请检查尺寸、提示词或参考图。"
+        ? "请求参数不受支持，请检查模型、比例、分辨率、提示词或参考图。"
         : /HTTP\s*401\b/i.test(message)
-          ? "ChatGPT/Codex 授权已失效，请检查 ocx status 或重新登录。"
+          ? `${selectedModel === OPENCODEX_NANO_BANANA_2 ? "Google Antigravity" : "ChatGPT/Codex"} 授权已失效，请检查 ocx status 或重新登录。`
+          : /HTTP\s*403\b/i.test(message)
+            ? "当前上游账号策略或模型访问权限受限。"
           : /HTTP\s*409\b/i.test(message)
             ? "账号或任务状态已失效，请重新开始任务后再试。"
             : /HTTP\s*413\b/i.test(message)
               ? "参考图请求体过大，请减少图片数量或压缩图片。"
               : /HTTP\s*429\b/i.test(message)
-                ? "ChatGPT 上游正在限流或额度冷却，请稍后手动重试。"
+                ? "上游正在限流或额度冷却，请稍后手动重试。"
                 : /HTTP\s*502\b/i.test(message)
                   ? "OpenCodex 上游连接失败，任务不会自动重发，可稍后手动重试。"
                   : /HTTP\s*504\b/i.test(message)
@@ -4915,13 +5824,10 @@ function pixelSizeToRatio(size) {
   const [w, h] = size.split("x").map(Number);
   if (!w || !h) return "1:1";
   const ratio = w / h;
-  const candidates = [
-    { r: 1, label: "1:1" }, { r: 16/9, label: "16:9" }, { r: 9/16, label: "9:16" },
-    { r: 4/3, label: "4:3" }, { r: 3/4, label: "3:4" },
-    { r: 3/2, label: "3:2" }, { r: 2/3, label: "2:3" },
-    { r: 5/4, label: "5:4" }, { r: 4/5, label: "4:5" },
-    { r: 21/9, label: "21:9" },
-  ];
+  const candidates = OPENCODEX_NANO_ASPECT_RATIOS.map(label => {
+    const [rw, rh] = label.split(":").map(Number);
+    return { r: rw / rh, label };
+  });
   candidates.sort((a, b) => Math.abs(a.r - ratio) - Math.abs(b.r - ratio));
   return candidates[0].label;
 }
@@ -5468,6 +6374,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     }
     return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
       signal,
+      openCodexOptions: options.openCodexOptions,
       onSubmit504Retry: ({ retryIndex, maxRetries, intervalSeconds, remainingSeconds }) => {
         showStatus(interpolate(cleanText("grsaiSubmit504Waiting"), {
           seconds: remainingSeconds,
@@ -5606,7 +6513,9 @@ function getProviderConcurrency() {
   const endpoint = dom.apiEndpoint?.value?.trim?.() || "";
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   const adapter = findAdapter(endpoint, provider);
-  const configured = Number(adapter?.concurrency || 4);
+  const configured = Number(typeof adapter?.getConcurrency === "function"
+    ? adapter.getConcurrency()
+    : adapter?.concurrency || 4);
   return Math.max(1, Math.min(20, Number.isFinite(configured) ? Math.floor(configured) : 4));
 }
 
@@ -6339,6 +7248,53 @@ function inferImageMimeFromBase64(value, fallback = "image/png") {
   return fallback;
 }
 
+function formatImageBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!value) return "";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+async function readImageBlobDimensions(blob) {
+  if (!(blob instanceof Blob)) return null;
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(blob);
+      const dimensions = { width: bitmap.width || null, height: bitmap.height || null };
+      bitmap.close?.();
+      if (dimensions.width && dimensions.height) return dimensions;
+    } catch {}
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await loadImageElement(objectUrl);
+    return { width: image.naturalWidth || null, height: image.naturalHeight || null };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function renderOpenCodexResultMeta(element, record) {
+  if (!element || !record?.requested || !record?.actual) return;
+  const requested = record.requested;
+  const actual = record.actual;
+  const requestedText = requested.model === OPENCODEX_NANO_BANANA_2
+    ? `${requested.aspectRatio || "auto"} · ${requested.imageSize || "1K"}`
+    : `${requested.size || "auto"} · ${requested.quality || "auto"}`;
+  const actualParts = [];
+  if (actual.width && actual.height) actualParts.push(`${actual.width}×${actual.height}`);
+  if (actual.responseQuality) actualParts.push(String(actual.responseQuality));
+  if (actual.mimeType) actualParts.push(String(actual.mimeType).replace("image/", "").toUpperCase());
+  if (actual.bytes) actualParts.push(formatImageBytes(actual.bytes));
+  element.innerHTML = `
+    <strong>${escapeHtml(OPENCODEX_CAPABILITIES[record.model]?.label || record.model || "OpenCodex")}</strong>
+    <span>${escapeHtml(interpolate(cleanText("inpaintRequestedActual"), {
+      requested: requestedText,
+      actual: actualParts.join(" · ") || "—",
+    }))}</span>`;
+}
+
 function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   const item = (data.data || [])[0];
   let imageUrl = null;
@@ -6385,6 +7341,9 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   reloadBtn.className = "btn btn-sm result-media-reload";
   setButtonText(reloadBtn, "retry", "reloadImage");
   const img = document.createElement("img");
+  let record = null;
+  let actualDimensionResolve = null;
+  const actualDimensionPromise = new Promise(resolve => { actualDimensionResolve = resolve; });
   let reloadAttempted = false;
   let previewReloadSeq = 0;
   img.alt = `分镜 ${panelId}`;
@@ -6397,12 +7356,21 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     media.classList.remove("is-loading", "is-error");
     mediaStatusText.textContent = "";
     reloadBtn.disabled = false;
+    if (record?.actual) {
+      record.actual.width = img.naturalWidth || null;
+      record.actual.height = img.naturalHeight || null;
+      renderOpenCodexResultMeta(card.querySelector(".result-provider-meta"), record);
+    }
+    actualDimensionResolve?.({ width: img.naturalWidth || null, height: img.naturalHeight || null });
+    actualDimensionResolve = null;
   });
   img.addEventListener("error", () => {
     media.classList.remove("is-loading");
     media.classList.add("is-error");
     reloadBtn.disabled = false;
     mediaStatusText.textContent = tr(reloadAttempted ? "重载失败，仍无法预览" : "图片链接暂时无法预览");
+    actualDimensionResolve?.(null);
+    actualDimensionResolve = null;
   });
   function setPreviewFromBlob(blob) {
     if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("图片字节为空");
@@ -6512,17 +7480,24 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
 
   renderResultBilling(card, billing);
 
+  const openCodexMeta = data?._openCodex || null;
+  const providerMeta = document.createElement("div");
+  providerMeta.className = "result-provider-meta";
+  if (!openCodexMeta) providerMeta.classList.add("hidden");
+  card.appendChild(providerMeta);
+
   const actions = document.createElement("div");
   actions.className = "result-actions";
   actions.append(
     makeCardActionBtn("download", "download", () => downloadImage(card._zipBlob || card._localImageUrl || imageUrl, panelId, originalImageUrl)),
     makeCardActionBtn("copy", "copyLink", () => copyImageUrl(imageUrl, originalImageUrl)),
     makeCardActionBtn("retry", "retry", () => retryResultCard(card, false)),
-    makeCardActionBtn("edit", "editRetry", () => retryResultCard(card, true))
+    makeCardActionBtn("edit", "editRetry", () => retryResultCard(card, true)),
+    makeCardActionBtn("mask", "openInpaint", () => void openInpaintFromCard(card))
   );
   card.appendChild(actions);
 
-  const record = {
+  record = {
     id: recordId,
     createdAt: new Date().toISOString(),
     mode: options.mode || options.retryContext?.mode || currentMode,
@@ -6530,7 +7505,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     prompt: recordPrompt,
     panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
     fullPrompt,
-    model: dom.model.value.trim(),
+    model: openCodexMeta?.requested?.model || dom.model.value.trim(),
     endpoint: dom.apiEndpoint.value.trim(),
     size: options.size || options.retryContext?.size || getSelectedSize(),
     imageUrl,
@@ -6538,9 +7513,49 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     retryCount: options.retryContext?.retryCount ?? getGlobalRetryCount(),
     billing,
     usage,
+    provider: openCodexMeta?.provider || options.provider || "",
+    operation: openCodexMeta?.operation || options.operation ||
+      ((options.retryContext?.references?.length || referenceImages.length) ? "edit" : "generation"),
+    requested: openCodexMeta?.requested ? { ...openCodexMeta.requested } : null,
+    actual: openCodexMeta ? {
+      mimeType: item?.mime_type || openCodexMeta.response?.mimeType || (item?.b64_json ? inferImageMimeFromBase64(item.b64_json) : null),
+      responseQuality: openCodexMeta.response?.quality || null,
+      responseSize: openCodexMeta.response?.size || null,
+      width: null,
+      height: null,
+      bytes: null,
+    } : null,
+    inpaint: options.inpaint ? { ...options.inpaint } : null,
     _cachePromise: card._imageCachePromise,
     _cacheKey: card._generatedCacheKey,
   };
+  if (openCodexMeta) {
+    providerMeta.classList.remove("hidden");
+    renderOpenCodexResultMeta(providerMeta, record);
+    const cachedBlobPromise = Promise.resolve(card._imageCachePromise).catch(() => null);
+    const decodedBlobDimensions = cachedBlobPromise
+      .then(blob => readImageBlobDimensions(blob))
+      .catch(() => null);
+    const dimensionFallback = new Promise(resolve => setTimeout(() => resolve(null), 3000));
+    record._actualMetaPromise = Promise.all([
+      Promise.race([actualDimensionPromise.catch(() => null), decodedBlobDimensions, dimensionFallback]),
+      cachedBlobPromise,
+    ]).then(([dimensions, blob]) => {
+      if (dimensions) {
+        record.actual.width = dimensions.width;
+        record.actual.height = dimensions.height;
+      }
+      if (blob instanceof Blob) {
+        record.actual.bytes = blob.size;
+        record.actual.mimeType = blob.type || record.actual.mimeType;
+      }
+      renderOpenCodexResultMeta(providerMeta, record);
+      return record.actual;
+    });
+  } else {
+    actualDimensionResolve?.(null);
+    actualDimensionResolve = null;
+  }
   generatedImageUrls.push({ url: imageUrl, panelId: String(panelId), prompt, recordId: record.id });
   if (!options.skipHistory && record.mode !== "comic") saveGenerationRecord(record);
   updateFailedRetryTools();
@@ -7346,7 +8361,8 @@ function saveHistory(list) {
 
 async function saveGenerationRecord(record) {
   if (loadSettings().historyEnabled === false) return;
-  const { _cachePromise, _cacheKey, ...persisted } = record;
+  await Promise.resolve(record._actualMetaPromise).catch(() => null);
+  const { _cachePromise, _cacheKey, _actualMetaPromise, ...persisted } = record;
   persisted.imageUrl = await makeHistoryImageUrl(record.imageUrl, _cachePromise, record.id, _cacheKey);
   const list = loadHistory();
   list.unshift(persisted);
@@ -7359,8 +8375,9 @@ async function saveGenerationProject(project) {
 
   const images = [];
   for (const img of sourceImages) {
+    await Promise.resolve(img._actualMetaPromise).catch(() => null);
     const panelPrompt = getPanelOnlyPrompt(img, project.globalPrompt || "");
-    const { fullPrompt: _fullPrompt, _cachePromise, _cacheKey, ...imageRecord } = img;
+    const { fullPrompt: _fullPrompt, _cachePromise, _cacheKey, _actualMetaPromise, ...imageRecord } = img;
     images.push({
       ...imageRecord,
       prompt: panelPrompt,
@@ -7394,7 +8411,8 @@ async function saveGenerationProject(project) {
 // （而不是留着旧记录不管、平白多出一条重复记录）。
 async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
   if (loadSettings().historyEnabled === false) return;
-  const { _cachePromise, _cacheKey, ...persisted } = newRecord;
+  await Promise.resolve(newRecord._actualMetaPromise).catch(() => null);
+  const { _cachePromise, _cacheKey, _actualMetaPromise, ...persisted } = newRecord;
   const record = {
     ...persisted,
     imageUrl: await makeHistoryImageUrl(newRecord.imageUrl, _cachePromise, newRecord.id, _cacheKey),
@@ -7409,6 +8427,7 @@ async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
 // 不新增记录、不改变项目在历史列表里的位置，旧图彻底不留痕迹。
 async function updateComicHistoryPanel(projectId, panelId, record) {
   if (!projectId || loadSettings().historyEnabled === false) return;
+  await Promise.resolve(record._actualMetaPromise).catch(() => null);
   const list = loadHistory();
   const project = list.find(item => item.id === projectId && isHistoryProject(item));
   if (!project || !Array.isArray(project.images)) return;
@@ -7431,6 +8450,11 @@ async function updateComicHistoryPanel(projectId, panelId, record) {
     size: record.size || project.images[idx].size,
     billing: record.billing || null,
     usage: record.usage || null,
+    provider: record.provider || project.images[idx].provider || "",
+    operation: record.operation || project.images[idx].operation || "",
+    requested: record.requested || project.images[idx].requested || null,
+    actual: record.actual || project.images[idx].actual || null,
+    inpaint: record.inpaint || project.images[idx].inpaint || null,
   };
   if (idx === 0) {
     project.imageUrl = project.images[0].imageUrl;

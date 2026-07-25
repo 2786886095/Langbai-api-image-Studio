@@ -8,9 +8,11 @@
 
 - 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)（不是广告，纯粹自己感觉好用）
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
-- 软件内可选四种 API：`官方 API`、`OpenCodex 本地 GPT`、`GrsAI 生图 API`、`自定义 API`
-- Windows 本机可直接选择 `OpenCodex 本地 GPT`：地址固定为 `http://127.0.0.1:10100/v1/images/generations`，界面使用本地占位密钥 `opencodex-local-only`，模型固定为 `gpt-image-2`
-- OpenCodex 模式复用本机 OpenCodex 保存的 ChatGPT 登录，不会把占位密钥发送给 OpenAI；上游如何计算 ChatGPT/Codex 图片额度由 OpenAI 决定，项目不承诺额度归类
+- 软件内可选四种 API：`官方 API`、`OpenCodex 本地生图`、`GrsAI 生图 API`、`自定义 API`
+- Windows 本机可直接选择 `OpenCodex 本地生图`：地址固定为 `http://127.0.0.1:10100/v1/images/generations`，界面使用本地占位密钥 `opencodex-local-only`
+- OpenCodex 内可选 `gpt-image-2` 与 `gemini-3.1-flash-image`（Nano Banana 2）。GPT 使用尺寸与质量偏好；Nano 只发送 Google 官方比例和 `512 / 1K / 2K / 4K` 档位，不会混发参数
+- Nano Banana 2 支持本地局部重绘：模型生成带上下文的语义补丁，软件按用户蒙版本地合成，蒙版外像素保持原图；这不是上游原生 mask 接口
+- OpenCodex 模式复用本机 OpenCodex 保存的 ChatGPT/Codex 或 Google Antigravity 登录；占位密钥不是上游凭据。上游如何计算图片额度由对应服务决定，项目不承诺额度归类
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
 - 选择 `官方 API` 时使用 OpenAI 官方 `https://api.openai.com/v1` Image API，可单独设置 `low / medium / high / auto` 质量、背景、PNG/JPEG/WebP、压缩、审核强度和参考图保真度；这些参数随官方 API 配置保存
 - 官方模型检测只保留 OpenAI 的 GPT Image 模型；检测失败时会保留内置官方列表并显示失败原因，不会混入 GrsAI 的 VIP/CL 等中转站模型
@@ -24,7 +26,7 @@
 
 - **三种工作流**：单图生成 + 漫画分镜批量生成 + 参考图气泡嵌字
 - **多平台 API 适配**：OpenAI 官方 Image API、GrsAI generate/result、OpenAI 兼容 generations/edits 等
-- 参考图上传 / TXT 导入 / 自定义分辨率 / 有限并发控制
+- 参考图上传 / TXT 导入 / 自定义分辨率 / 官方与常用尺寸预设 / 有限并发控制
 - **生图历史**（漫画按「项目」保存）、失败一键重试、可调重试次数
 - **ZIP 打包导出**（桌面浏览器 + 安卓 SAF 目录授权）
 - **软件内更新**：设置里可检查 GitHub Releases；Windows 会静默下载并运行安装器自动覆盖升级（弹出安装进度、装完自动重启），Android 会跳转到 GitHub 发布页由系统浏览器下载安装

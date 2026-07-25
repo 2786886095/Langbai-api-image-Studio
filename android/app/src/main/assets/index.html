@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260725-1-3-32">
+  <link rel="stylesheet" href="style.css?v=20260725-1-3-33">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -214,14 +214,26 @@
                 <span class="provider-badge provider-badge-opencodex">LOCAL</span>
                 <div>
                   <h3 id="openCodexProviderTitle">OpenCodex 本地图片代理</h3>
-                  <p id="openCodexProviderHint">使用本机 ChatGPT/Codex 登录转发生图；仅连接 127.0.0.1，不使用电脑端代理。</p>
+                  <p id="openCodexProviderHint">复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。</p>
                 </div>
               </div>
 
               <div class="provider-option provider-option-wide">
                 <div class="provider-option-copy">
+                  <strong id="openCodexModelLabel">本地生图模型</strong>
+                  <small id="openCodexModelHint">GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。</small>
+                </div>
+                <div class="provider-segments provider-segments-two opencodex-model-segments" data-provider-control="openCodexModel" role="group" aria-labelledby="openCodexModelLabel">
+                  <button type="button" data-value="gpt-image-2">GPT Image 2</button>
+                  <button type="button" data-value="gemini-3.1-flash-image">Nano Banana 2</button>
+                </div>
+                <input type="hidden" id="openCodexModel" value="gpt-image-2">
+              </div>
+
+              <div class="provider-option provider-option-wide opencodex-gpt-option">
+                <div class="provider-option-copy">
                   <strong id="openCodexQualityLabel">输出质量</strong>
-                  <small id="openCodexQualityHint">草稿适合快速试错，标准平衡速度与细节，高质量适合最终成图。</small>
+                  <small id="openCodexQualityHint">这是请求偏好；私有上游可能改写档位，结果以实际响应为准。</small>
                 </div>
                 <div class="provider-segments provider-segments-four" data-provider-control="openCodexQuality" role="group" aria-labelledby="openCodexQualityLabel">
                   <button type="button" data-value="auto">自动</button>
@@ -232,7 +244,7 @@
                 <input type="hidden" id="openCodexQuality" value="auto">
               </div>
 
-              <div class="provider-option">
+              <div class="provider-option opencodex-gpt-option">
                 <div class="provider-option-copy">
                   <strong id="openCodexBackgroundLabel">背景</strong>
                   <small id="openCodexBackgroundHint">gpt-image-2 仅发送自动或不透明；不会发送透明背景。</small>
@@ -244,12 +256,57 @@
                 <input type="hidden" id="openCodexBackground" value="auto">
               </div>
 
-              <div class="provider-facts">
-                <span id="openCodexFacts">JSON 图片协议 · gpt-image-2 · 最多并发 5 · 单次超时 620 秒</span>
+              <div class="provider-options-grid opencodex-nano-option hidden">
+                <div class="provider-option">
+                  <div class="provider-option-copy">
+                    <strong id="openCodexAspectRatioLabel">画面比例</strong>
+                    <small id="openCodexAspectRatioHint">只能选择 Nano Banana 2 官方支持的画面比例。</small>
+                  </div>
+                  <div class="custom-select" id="openCodexAspectRatioCustomSelect">
+                    <button type="button" class="custom-select-trigger" id="openCodexAspectRatioTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
+                    <div class="custom-select-list hidden" id="openCodexAspectRatioCustomList" role="listbox"></div>
+                  </div>
+                  <select id="openCodexAspectRatio" class="custom-select-native" tabindex="-1" aria-hidden="true">
+                    <option value="1:1">1:1</option>
+                    <option value="1:4">1:4</option>
+                    <option value="1:8">1:8</option>
+                    <option value="2:3">2:3</option>
+                    <option value="3:2">3:2</option>
+                    <option value="3:4">3:4</option>
+                    <option value="4:1">4:1</option>
+                    <option value="4:3">4:3</option>
+                    <option value="4:5">4:5</option>
+                    <option value="5:4">5:4</option>
+                    <option value="8:1">8:1</option>
+                    <option value="9:16">9:16</option>
+                    <option value="16:9">16:9</option>
+                    <option value="21:9">21:9</option>
+                  </select>
+                </div>
+
+                <div class="provider-option">
+                  <div class="provider-option-copy">
+                    <strong id="openCodexImageSizeLabel">分辨率档位</strong>
+                    <small id="openCodexImageSizeHint">512/1K 最多并发 5，2K 最多 3，4K 固定单任务。</small>
+                  </div>
+                  <div class="provider-segments provider-segments-four" data-provider-control="openCodexImageSize" role="group" aria-labelledby="openCodexImageSizeLabel">
+                    <button type="button" data-value="512">512</button>
+                    <button type="button" data-value="1K">1K</button>
+                    <button type="button" data-value="2K">2K</button>
+                    <button type="button" data-value="4K">4K</button>
+                  </div>
+                  <input type="hidden" id="openCodexImageSize" value="1K">
+                </div>
               </div>
-              <p class="provider-capability-note" id="openCodexCapabilityNote">参考图会转换为 Data URL 数组；参考图保真度自动为高，不发送格式、压缩、审核或 input_fidelity 参数。</p>
+
+              <div class="provider-facts">
+                <span id="openCodexFacts">JSON 图片协议 · GPT Image 2 · 最多并发 5 · 单次超时 620 秒</span>
+              </div>
+              <p class="provider-capability-note" id="openCodexCapabilityNote">质量与尺寸均为请求偏好；参考图保真度自动为高，不发送格式、压缩、审核或 input_fidelity 参数。</p>
               <div class="opencodex-health-row">
                 <button type="button" id="testOpenCodexHealth" class="btn btn-xs"><span class="ui-icon ui-icon-refresh"></span> 检测本地服务</button>
+                <button type="button" id="openInpaintFromFile" class="btn btn-xs"><span class="ui-icon ui-icon-mask"></span> 局部重绘</button>
+                <input type="file" id="inpaintSourceInput" accept="image/png,image/jpeg,image/webp" hidden>
                 <span id="openCodexHealthStatus" class="opencodex-health-status" data-state="idle" role="status">尚未检测</span>
               </div>
             </section>
@@ -363,10 +420,31 @@
         <!-- 全局分辨率 -->
         <fieldset class="field" id="globalSizeField">
           <legend>全局分辨率</legend>
+          <p class="field-hint size-policy-hint" id="sizePolicyHint"></p>
           <div class="size-presets" id="sizePresets">
-            <label class="size-option"><input type="radio" name="size" value="1024x1024"><span>1024²</span><small>1:1</small></label>
-            <label class="size-option"><input type="radio" name="size" value="1536x1024" checked><span>1536×1024</span><small>横版 3:2</small></label>
-            <label class="size-option"><input type="radio" name="size" value="1024x1536"><span>1024×1536</span><small>竖版 2:3</small></label>
+            <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1024x1024"><span>1024²</span><small>1:1</small></label>
+            <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1536x1024" checked><span>1536×1024</span><small>横版 3:2</small></label>
+            <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1024x1536"><span>1024×1536</span><small>竖版 2:3</small></label>
+            <details class="size-presets-more">
+              <summary>更多常用尺寸</summary>
+              <div class="size-preset-grid">
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2048x2048"><span>2048²</span><small>官方 2K 方图</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2048x1152"><span>2048×1152</span><small>官方 2K 横图</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="3840x2160"><span>3840×2160</span><small>官方 4K 横图</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2160x3840"><span>2160×3840</span><small>官方 4K 竖图</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1920x1088"><span>1920×1088</span><small>横屏 16:9</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1088x1920"><span>1088×1920</span><small>竖屏 9:16</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1152x2048"><span>1152×2048</span><small>2K 竖屏</small></label>
+                <label class="size-option"><input type="radio" name="size" value="2560x1440"><span>2560×1440</span><small>QHD 横屏</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1440x2560"><span>1440×2560</span><small>QHD 竖屏</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1600x1200"><span>1600×1200</span><small>横版 4:3</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1200x1600"><span>1200×1600</span><small>竖版 3:4</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1360x1088"><span>1360×1088</span><small>横版 5:4</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1088x1360"><span>1088×1360</span><small>竖版 4:5</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1920x1200"><span>1920×1200</span><small>桌面 16:10</small></label>
+                <label class="size-option"><input type="radio" name="size" value="1200x1920"><span>1200×1920</span><small>竖版 10:16</small></label>
+              </div>
+            </details>
             <label class="size-option size-custom">
               <input type="radio" name="size" value="custom">
               <span>自定义</span>
@@ -679,7 +757,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.3.32</strong>
+            <strong id="currentVersionLabel">v1.3.33</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -726,6 +804,103 @@
         <button type="button" id="refreshHistory" class="btn btn-sm">刷新</button>
       </div>
       <div id="historyList" class="history-list"></div>
+    </div>
+  </div>
+
+  <div class="modal inpaint-modal hidden" id="inpaintModal" role="dialog" aria-modal="true" aria-labelledby="inpaintTitle">
+    <div class="modal-card inpaint-card" tabindex="-1">
+      <div class="modal-header inpaint-header">
+        <div>
+          <h2 id="inpaintTitle">局部重绘</h2>
+          <p class="field-hint" id="inpaintDisclosure">Nano Banana 2 生成语义补丁，软件只在蒙版内本地合成；这不是上游原生 mask 重绘。</p>
+        </div>
+        <button type="button" class="icon-btn" id="closeInpaint" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+      </div>
+
+      <div class="inpaint-layout">
+        <section class="inpaint-workspace">
+          <div class="inpaint-toolbar" role="toolbar" aria-label="蒙版工具">
+            <div class="inpaint-tool-group" role="group" aria-label="绘制模式">
+              <button type="button" id="inpaintBrush" class="icon-btn active" title="画笔" aria-pressed="true"><span class="ui-icon ui-icon-brush"></span></button>
+              <button type="button" id="inpaintEraser" class="icon-btn" title="橡皮擦" aria-pressed="false"><span class="ui-icon ui-icon-eraser"></span></button>
+            </div>
+            <button type="button" id="inpaintUndo" class="icon-btn" title="撤销" disabled><span class="ui-icon ui-icon-undo"></span></button>
+            <button type="button" id="inpaintRedo" class="icon-btn" title="重做" disabled><span class="ui-icon ui-icon-redo"></span></button>
+            <button type="button" id="inpaintClearMask" class="icon-btn" title="清空蒙版"><span class="ui-icon ui-icon-trash"></span></button>
+            <button type="button" id="inpaintToggleMask" class="icon-btn active" title="显示或隐藏蒙版" aria-pressed="true"><span class="ui-icon ui-icon-eye"></span></button>
+            <button type="button" id="inpaintCompare" class="icon-btn" title="按住查看原图"><span class="ui-icon ui-icon-compare"></span></button>
+            <div class="inpaint-zoom-control">
+              <button type="button" id="inpaintZoomFit" class="btn btn-xs active">适应</button>
+              <button type="button" id="inpaintZoom100" class="btn btn-xs">100%</button>
+            </div>
+          </div>
+
+          <div class="inpaint-canvas-scroller" id="inpaintCanvasScroller">
+            <div class="inpaint-canvas-stage is-fit" id="inpaintCanvasStage">
+              <canvas id="inpaintBaseCanvas"></canvas>
+              <canvas id="inpaintPreviewCanvas"></canvas>
+              <canvas id="inpaintMaskCanvas" aria-label="局部重绘蒙版画布"></canvas>
+            </div>
+            <div class="inpaint-empty" id="inpaintEmpty">
+              <span class="ui-icon ui-icon-image"></span>
+              <strong>选择一张图片开始</strong>
+            </div>
+          </div>
+
+          <div class="inpaint-candidate-strip" id="inpaintCandidateStrip" aria-label="候选补丁"></div>
+        </section>
+
+        <aside class="inpaint-controls">
+          <button type="button" id="inpaintChooseSource" class="btn btn-sm"><span class="ui-icon ui-icon-image"></span> 选择原图</button>
+          <p class="inpaint-source-meta" id="inpaintSourceMeta">尚未选择图片</p>
+
+          <label class="field">
+            <span id="inpaintPromptLabel">修改内容</span>
+            <textarea id="inpaintPrompt" rows="5" placeholder="例如：把杯子正面的图案改成黄色五角星，保持光线、透视和背景不变"></textarea>
+          </label>
+
+          <label class="field range-field">
+            <span>画笔大小 <output id="inpaintBrushSizeValue">48</output> px</span>
+            <input type="range" id="inpaintBrushSize" min="4" max="320" step="2" value="48">
+          </label>
+
+          <label class="field range-field">
+            <span>边缘柔化 <output id="inpaintFeatherValue">12</output> px</span>
+            <input type="range" id="inpaintFeather" min="0" max="96" step="1" value="12">
+          </label>
+
+          <label class="field range-field">
+            <span>上下文范围 <output id="inpaintContextValue">15</output>%</span>
+            <input type="range" id="inpaintContext" min="5" max="40" step="1" value="15">
+          </label>
+
+          <label class="field">
+            <span>候选数量</span>
+            <input type="number" id="inpaintCandidateCount" min="1" max="4" step="1" value="2">
+          </label>
+
+          <div class="inpaint-alignment hidden" id="inpaintAlignment">
+            <strong>补丁对齐</strong>
+            <label class="field range-field">
+              <span>水平 <output id="inpaintOffsetXValue">0</output> px</span>
+              <input type="range" id="inpaintOffsetX" min="-256" max="256" step="1" value="0">
+            </label>
+            <label class="field range-field">
+              <span>垂直 <output id="inpaintOffsetYValue">0</output> px</span>
+              <input type="range" id="inpaintOffsetY" min="-256" max="256" step="1" value="0">
+            </label>
+            <label class="field range-field">
+              <span>缩放 <output id="inpaintScaleValue">100</output>%</span>
+              <input type="range" id="inpaintScale" min="80" max="120" step="1" value="100">
+            </label>
+          </div>
+
+          <button type="button" id="generateInpaint" class="btn btn-primary"><span class="ui-icon ui-icon-spark"></span> 生成候选补丁</button>
+          <button type="button" id="applyInpaint" class="btn btn-sm hidden"><span class="ui-icon ui-icon-save"></span> 应用并加入结果</button>
+          <button type="button" id="cancelInpaintGeneration" class="btn btn-sm btn-danger hidden"><span class="ui-icon ui-icon-x"></span> 取消生成</button>
+          <p class="status info inpaint-status" id="inpaintStatus" role="status" aria-live="polite">先选择原图，再涂抹要修改的区域。</p>
+        </aside>
+      </div>
     </div>
   </div>
 
@@ -776,6 +951,6 @@
     </tr>
   </template>
 
-  <script src="app.js?v=20260725-1-3-32"></script>
+  <script src="app.js?v=20260725-1-3-33"></script>
 </body>
 </html>

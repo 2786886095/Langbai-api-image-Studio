@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.32
+# Codex / Claude Handoff: AI 图片生成器 v1.3.33
 
 更新时间：2026-07-25
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,21 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.32+56`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.33+57`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.33 OpenCodex 双模型、尺寸与局部重绘
+
+- `OpenCodex 本地生图` 现明确支持 `gpt-image-2` 与 `gemini-3.1-flash-image`（Nano Banana 2），通过 capability 表隔离参数，不按模型名字猜能力。
+- Nano 只显示并发送 Google 官方 14 种比例与 `512 / 1K / 2K / 4K` 档位；不发送 GPT 的 `size / quality / background`。并发上限按档位为 `5 / 5 / 3 / 1`。
+- GPT Image 2 提供 OpenAI 七个官方常用尺寸，并新增多组满足 16 倍数约束的横屏、竖屏、4:3、5:4、16:10 等常用预设；合法自定义尺寸继续可用。
+- OpenCodex GPT 的尺寸与质量明确标为请求偏好；结果卡与历史同时保存 requested、响应字段、解码实际宽高、MIME 和字节数，不能把请求值冒充实际值。
+- 新增 Nano 局部重绘工作区：画笔、橡皮、撤销/重做、清空、蒙版显隐、原图对比、适应/100%、内向羽化、上下文裁剪、1～4 个候选和手动平移/缩放。
+- 局部重绘不是上游原生 mask：模型只接收带上下文的语义编辑裁剪，最终由客户端按蒙版本地 RGBA 合成。回归逐像素验证蒙版外四通道不变。
+- OpenCodex 固定 `n=1`，批量由客户端多请求并发；任何 OpenCodex 失败均不自动重复提交。
+- 浏览器回归新增双模型请求体隔离、官方比例/档位、动态并发、`n=1` 拦截、官方尺寸预设、局部合成和结果实际属性验证。
 
 ## v1.3.32 OpenCodex 本机生图适配
 
@@ -236,9 +247,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.32"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.33"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.32` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.33` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -254,5 +265,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.32 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.33 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

@@ -291,6 +291,7 @@ async function testCustomSelects(cdp) {
 async function testApiConfig(cdp) {
   logStep("API config save, restore, delete, and mobile scroll");
   await loadFresh(cdp, "api-config");
+  cdp.assertNoRuntimeIssues();
   const firstScreen = await cdp.eval(`(() => {
     localStorage.clear();
     const quick = document.getElementById("apiQuickCard").getBoundingClientRect();
@@ -3944,8 +3945,8 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
     applyConfig(openCodexProfile);
     const restoredOpenCodexOptions = getOpenCodexImageOptions();
     const healthReady = await checkOpenCodexHealth({ announce: false, force: true });
-    const opencodexGeneration = await callImageAPI("opencodex generation", "1024x1024", 3, "opencodex", { references: [], maxRetries: 3 });
-    const opencodexEdit = await callImageAPI("opencodex edit", "1024x1024", 2, "opencodex edit", { references: [reference], maxRetries: 3 });
+    const opencodexGeneration = await callImageAPI("opencodex generation", "1024x1024", 1, "opencodex", { references: [], maxRetries: 3 });
+    const opencodexEdit = await callImageAPI("opencodex edit", "1024x1024", 1, "opencodex edit", { references: [reference], maxRetries: 3 });
     openCodexRequestMode = "400";
     const beforeOpenCodex400 = requests.filter(item => item.kind === "opencodex-generation").length;
     let openCodex400Error = "";
@@ -4056,15 +4057,166 @@ async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
       const panelRect = panel.getBoundingClientRect();
       const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
       const buttons = Array.from(panel.querySelectorAll(".provider-segments button"));
+      applyOpenCodexImageOptions({ model: OPENCODEX_NANO_BANANA_2, aspectRatio: "9:16", imageSize: "1K" });
+      const nanoPanelRect = panel.getBoundingClientRect();
+      const nanoButtons = Array.from(panel.querySelectorAll(".provider-segments button:not(.hidden)"));
       return {
         panel: { left: panelRect.left, right: panelRect.right, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
+        nanoPanel: { left: nanoPanelRect.left, right: nanoPanelRect.right, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
         input: { left: inputRect.left, right: inputRect.right },
         buttonOverflow: buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent.trim()),
+        nanoButtonOverflow: nanoButtons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent.trim()),
+        nanoGlobalSizeHidden: dom.globalSizeField.classList.contains("hidden"),
         bodyHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       };
     })()`);
     assertQa(openCodexLayout.panel.left >= openCodexLayout.input.left - 1 && openCodexLayout.panel.right <= openCodexLayout.input.right + 1 && openCodexLayout.panel.scrollWidth <= openCodexLayout.panel.clientWidth + 1 && openCodexLayout.buttonOverflow.length === 0 && !openCodexLayout.bodyHorizontalOverflow, "The dedicated OpenCodex panel and quality controls must fit desktop and mobile layouts without horizontal overflow.", { viewport, openCodexLayout });
+    assertQa(openCodexLayout.nanoPanel.left >= openCodexLayout.input.left - 1 && openCodexLayout.nanoPanel.right <= openCodexLayout.input.right + 1 && openCodexLayout.nanoPanel.scrollWidth <= openCodexLayout.nanoPanel.clientWidth + 1 && openCodexLayout.nanoButtonOverflow.length === 0 && openCodexLayout.nanoGlobalSizeHidden && !openCodexLayout.bodyHorizontalOverflow, "Nano Banana ratio/tier controls must fit desktop and mobile layouts and replace the pixel-size panel without horizontal overflow.", { viewport, openCodexLayout });
   }
+}
+
+async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
+  logStep("OpenCodex exposes GPT Image 2 and Nano Banana 2 separately, sends only each model's supported size fields, and keeps local-inpaint pixels outside the mask unchanged");
+  await loadFresh(cdp, "opencodex-dual-model-inpaint");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    const originalFetch = window.fetch.bind(window);
+    const requests = [];
+    window.fetch = async (url, options = {}) => {
+      const target = String(url);
+      if (target === "http://127.0.0.1:10100/healthz") {
+        return new Response(JSON.stringify({ status: "ok", service: "opencodex", version: "2.7.36" }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target.includes("127.0.0.1:10100/v1/images/")) {
+        requests.push({ url: target, body: JSON.parse(options.body || "{}") });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng, mime_type: "image/png" }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(url, options);
+    };
+
+    applyApiProvider("opencodex", { forceEndpoint: true });
+    dom.apiProvider.value = "opencodex";
+    applyOpenCodexImageOptions({
+      model: OPENCODEX_NANO_BANANA_2,
+      aspectRatio: "9:16",
+      imageSize: "1K",
+    });
+    const nanoUi = {
+      model: dom.model.value,
+      globalSizeHidden: dom.globalSizeField.classList.contains("hidden"),
+      gptOptionsHidden: Array.from(document.querySelectorAll(".opencodex-gpt-option")).every(element => element.classList.contains("hidden")),
+      nanoOptionsVisible: Array.from(document.querySelectorAll(".opencodex-nano-option")).every(element => !element.classList.contains("hidden")),
+      ratios: Array.from(dom.openCodexAspectRatio.options).map(option => option.value),
+      tiers: Array.from(document.querySelectorAll('[data-provider-control="openCodexImageSize"] button')).map(button => button.dataset.value),
+      concurrency: [getOpenCodexConcurrency({ model: OPENCODEX_NANO_BANANA_2, imageSize: "1K" }), getOpenCodexConcurrency({ model: OPENCODEX_NANO_BANANA_2, imageSize: "2K" }), getOpenCodexConcurrency({ model: OPENCODEX_NANO_BANANA_2, imageSize: "4K" })],
+    };
+    const reference = { dataUrl: "data:image/png;base64," + tinyPng, width: 1, height: 1 };
+    const nanoGeneration = await callImageAPI("nano generation", "832x1216", 1, "nano", { references: [], maxRetries: 4 });
+    const nanoEdit = await callImageAPI("nano edit", "832x1216", 1, "nano edit", { references: [reference], maxRetries: 4 });
+    let invalidN = "";
+    try {
+      await callImageAPI("invalid n", "832x1216", 5, "nano invalid", { references: [], maxRetries: 4 });
+    } catch (error) {
+      invalidN = error.message || String(error);
+    }
+
+    applyOpenCodexImageOptions({
+      model: OPENCODEX_GPT_IMAGE_2,
+      quality: "high",
+      background: "opaque",
+    });
+    const gptUi = {
+      model: dom.model.value,
+      globalSizeVisible: !dom.globalSizeField.classList.contains("hidden"),
+      policy: dom.sizePolicyHint.textContent,
+      officialPresets: Array.from(document.querySelectorAll('.size-option[data-size-kind="official"] input')).map(input => input.value),
+      allPresetCount: document.querySelectorAll('.size-option input[name="size"]:not([value="custom"])').length,
+    };
+    const gptGeneration = await callImageAPI("gpt generation", "832x1216", 1, "gpt", { references: [], maxRetries: 0 });
+
+    const original = new ImageData(new Uint8ClampedArray(4 * 4 * 4), 4, 4);
+    for (let i = 0; i < 16; i++) {
+      original.data.set([10, 20, 220, 255], i * 4);
+    }
+    const patch = new ImageData(new Uint8ClampedArray(2 * 2 * 4), 2, 2);
+    for (let i = 0; i < 4; i++) patch.data.set([240, 30, 20, 255], i * 4);
+    const alpha = new Uint8ClampedArray(16);
+    [5, 6, 9, 10].forEach(index => { alpha[index] = 255; });
+    const composited = compositeInpaintPixels(original, patch, alpha, { x: 1, y: 1, width: 2, height: 2 });
+    const outsideUnchanged = Array.from({ length: 16 }, (_, index) => {
+      if ([5, 6, 9, 10].includes(index)) return true;
+      return [0, 1, 2, 3].every(channel => composited.data[index * 4 + channel] === original.data[index * 4 + channel]);
+    }).every(Boolean);
+    const insideChanged = [5, 6, 9, 10].every(index => composited.data[index * 4] === 240 && composited.data[index * 4 + 2] === 20);
+
+    const maskCanvas = document.createElement("canvas");
+    maskCanvas.width = 4;
+    maskCanvas.height = 4;
+    const maskContext = maskCanvas.getContext("2d");
+    maskContext.fillStyle = "#fff";
+    maskContext.fillRect(1, 1, 2, 2);
+    const maskData = maskContext.getImageData(0, 0, 4, 4);
+    const feather = buildInwardFeatherAlpha(maskData, 4, 4, 2);
+    const featherOutsideZero = [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15].every(index => feather[index] === 0);
+    const crop = planInpaintCrop({ minX: 300, minY: 200, maxX: 499, maxY: 599, width: 200, height: 400 }, 1200, 896, 15);
+
+    const card = document.createElement("div");
+    card.className = "result-item";
+    dom.resultGrid.appendChild(card);
+    const record = replacePlaceholder(card, "nano-meta", {
+      data: [{ b64_json: tinyPng, mime_type: "image/png" }],
+      _openCodex: {
+        provider: "opencodex-local-image",
+        operation: "generation",
+        requested: { model: OPENCODEX_NANO_BANANA_2, aspectRatio: "9:16", imageSize: "1K" },
+        response: { mimeType: "image/png" },
+      },
+    }, "metadata", { skipHistory: true });
+    await record._actualMetaPromise;
+    const resultMeta = {
+      actionCount: card.querySelectorAll(".result-actions .card-action").length,
+      text: card.querySelector(".result-provider-meta")?.textContent || "",
+      actual: record.actual,
+    };
+
+    window.fetch = originalFetch;
+    return {
+      requests,
+      nanoUi,
+      gptUi,
+      invalidN,
+      nanoGeneration,
+      nanoEdit,
+      gptGeneration,
+      outsideUnchanged,
+      insideChanged,
+      featherOutsideZero,
+      crop,
+      controlsPresent: ["inpaintModal", "inpaintMaskCanvas", "inpaintBrush", "inpaintEraser", "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint"].every(id => !!document.getElementById(id)),
+      resultMeta,
+    };
+  })()`, true);
+
+  const nanoGeneration = result.requests.find(item => item.body.model === "gemini-3.1-flash-image" && !item.body.images)?.body || {};
+  const nanoEdit = result.requests.find(item => item.body.model === "gemini-3.1-flash-image" && item.body.images)?.body || {};
+  const gptGeneration = result.requests.find(item => item.body.model === "gpt-image-2")?.body || {};
+  const expectedRatios = ["1:1","1:4","1:8","2:3","3:2","3:4","4:1","4:3","4:5","5:4","8:1","9:16","16:9","21:9"];
+  assertQa(result.nanoUi.model === "gemini-3.1-flash-image" && result.nanoUi.globalSizeHidden && result.nanoUi.gptOptionsHidden && result.nanoUi.nanoOptionsVisible, "Nano Banana 2 must show only its ratio/tier controls and hide the unrelated pixel-size panel.", result);
+  assertQa(JSON.stringify(result.nanoUi.ratios) === JSON.stringify(expectedRatios) && result.nanoUi.tiers.join(",") === "512,1K,2K,4K", "Nano Banana 2 must expose exactly Google's official ratios and resolution tiers.", result);
+  assertQa(result.nanoUi.concurrency.join(",") === "5,3,1", "Nano Banana 2 concurrency must fall from 5 to 3 to 1 as the resolution tier grows.", result);
+  assertQa(nanoGeneration.n === 1 && nanoGeneration.aspect_ratio === "9:16" && nanoGeneration.image_size === "1K" && !("size" in nanoGeneration) && !("quality" in nanoGeneration) && !("background" in nanoGeneration), "Nano Banana generation must send only model/prompt/n plus aspect_ratio and image_size.", result);
+  assertQa(nanoEdit.images?.[0]?.image_url?.startsWith("data:image/png;base64,") && nanoEdit.aspect_ratio === "9:16" && !("input_fidelity" in nanoEdit), "Nano Banana reference editing must use JSON data URLs without GPT-only fields.", result);
+  assertQa(/n=1|单次|single/i.test(result.invalidN) && result.requests.filter(item => item.body.model === "gemini-3.1-flash-image").length === 2, "OpenCodex must reject n > 1 before sending; batching is implemented as separate concurrent n=1 requests.", result);
+  assertQa(result.gptUi.model === "gpt-image-2" && result.gptUi.globalSizeVisible && result.gptUi.officialPresets.join(",") === "1024x1024,1536x1024,1024x1536,2048x2048,2048x1152,3840x2160,2160x3840" && result.gptUi.allPresetCount >= 16, "GPT Image 2 must expose all seven official popular sizes plus additional compliant common presets.", result);
+  assertQa(/上游|upstream|実寸|실제/.test(result.gptUi.policy) && gptGeneration.size === "832x1216" && gptGeneration.quality === "high" && gptGeneration.background === "opaque" && !("aspect_ratio" in gptGeneration) && !("image_size" in gptGeneration), "OpenCodex GPT must accept compliant custom sizes while warning that the private upstream may rewrite them.", result);
+  assertQa(result.outsideUnchanged && result.insideChanged && result.featherOutsideZero, "Local inpaint compositing must preserve every RGBA channel outside the mask and alter only masked pixels.", result);
+  assertQa(expectedRatios.includes(result.crop.aspectRatio) && result.crop.x >= 0 && result.crop.y >= 0 && result.crop.x + result.crop.width <= 1200 && result.crop.y + result.crop.height <= 896, "The semantic-edit crop must stay inside the source image and map to an official Nano Banana ratio.", result);
+  assertQa(result.controlsPresent && result.resultMeta.actionCount === 5 && /Nano Banana 2/.test(result.resultMeta.text) && result.resultMeta.actual.width === 1 && result.resultMeta.actual.height === 1 && result.resultMeta.actual.bytes > 0, "Inpaint controls, card entry action, and requested-versus-actual OpenCodex metadata must be wired and persisted from decoded bytes.", result);
 }
 
 async function testGrsaiOfficialAdapter(cdp) {
@@ -4626,6 +4778,7 @@ async function main() {
     await testDesktopProxyControls(cdp);
     await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
     await testOpenAiOfficialProviderResponsiveLayout(cdp);
+    await testOpenCodexDualModelsSizesAndLocalInpaint(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
     await testSavePathsTextMenuAndWindowsZipChunks(cdp);
