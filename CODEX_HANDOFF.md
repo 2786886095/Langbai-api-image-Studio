@@ -14,7 +14,7 @@
 ## v1.3.35 Windows 点击与 API 配置数据修复
 
 - Windows v1.3.34 可渲染页面但真实鼠标点击会失效或命中另一个控件。曾尝试在 2024 旧插件上直接扩充坐标参数；虽然 CI 能编译，真实安装测试会在点击后崩溃，因此该方案已废弃且没有发布。当前改为内置上游最新提交 `2ae79f8c`，使用其新的 `WebviewHost`、`RenderWebview` 和透明命中实现。
-- 新 Host 显式复用 `%LOCALAPPDATA%\flutter_webview_windows\ai_image_generator\EBWebView`，更新插件不会切换 localStorage 来源或丢失现有历史/设置/API 元数据。外部链接仍交给系统默认浏览器，弹窗不在软件内打开。
+- 新 Host 显式传入 `%LOCALAPPDATA%\flutter_webview_windows\ai_image_generator`；WebView2 会在其下复用既有 `EBWebView`，不会切换 localStorage 来源或丢失现有历史/设置/API 元数据。外部链接仍交给系统默认浏览器，弹窗不在软件内打开。
 - Windows 壳在最小化时不再把 Flutter 子窗口强制缩到零，WebView 也拒绝上报小于 `2x2` 的 Surface；窗口失活时不再强制抢焦点。模式标签新增方向键切换、`aria-selected` 与粘性定位。
 - 启动时检测旧版 API 配置是否共享同一 ID，或不同 ID 清洗/截断后是否落到同一个安全密钥槽。活动配置保留原 ID 与密钥槽，冲突配置获得新 ID 并停止读取歧义密钥，同时提示用户重新填写，避免把另一个供应商的 Key 静默拿来使用。
 - 新建未选中配置时强制生成新 ID；保存列表时再次执行唯一性保护；系统安全存储的读、写、删在 JS 和 Dart 两层全局串行。回归覆盖重复/碰撞 ID 的一次性迁移、稳定重载、默认配置、同供应商同名多账户和并发安全存储。

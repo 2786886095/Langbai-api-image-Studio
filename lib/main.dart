@@ -912,7 +912,6 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       localAppData,
       'flutter_webview_windows',
       'ai_image_generator',
-      'EBWebView',
     ].join(Platform.pathSeparator);
   }
 

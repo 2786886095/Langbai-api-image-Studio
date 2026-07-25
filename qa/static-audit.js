@@ -43,7 +43,7 @@ assert.match(vendoredWindowsWebview, /size\.width < 2 \|\| size\.height < 2/);
 assert.match(vendoredWindowsRenderWebview, /class RenderWebview/);
 assert.match(vendoredWindowsPatches, /2ae79f8cda1c3846ea24b9c67d522162cdd8a846/);
 assert.match(dartMain, /WebviewHost\.create/);
-assert.match(dartMain, /flutter_webview_windows[\s\S]*ai_image_generator[\s\S]*EBWebView/);
+assert.match(dartMain, /'flutter_webview_windows',\s*'ai_image_generator',\s*\]\.join/);
 assert.match(dartMain, /setNewWindowRequestedDelegate/);
 assert.match(windowsRunner, /wparam == SIZE_MINIMIZED/);
 assert.match(windowsRunner, /LOWORD\(wparam\) != WA_INACTIVE/);
