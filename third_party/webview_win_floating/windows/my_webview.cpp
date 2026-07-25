@@ -1,8 +1,10 @@
 #include "my_webview.h"
 
 #include <functional>
+#include <atomic>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <utility> // std::pair
 #include <regex>
 
@@ -39,9 +41,9 @@ class MyWebViewImpl : public MyWebView
 {
 public:
     MyWebViewImpl(HWND hWnd,
-        MyWebViewCreateParams params,
-        PCWSTR pwUserDataFolder,
-        PCWSTR pwProfileName);
+        MyWebViewCreateParams params);
+
+    HRESULT initialize(PCWSTR pwUserDataFolder, PCWSTR pwProfileName) override;
 
     virtual ~MyWebViewImpl() override;
 
@@ -86,12 +88,13 @@ public:
 	HRESULT resume();
 
     void askFlutterPermission(wil::com_ptr<ICoreWebView2PermissionRequestedEventArgs> args, OnAskPermissionFunc onAskPermission);
-    void MyWebViewImpl::grantPermission(int deferralId, BOOL isGranted);
+    void grantPermission(int deferralId, BOOL isGranted);
 
     void openDevTools() override;
 
 private:
     MyWebViewCreateParams m_params;
+    HWND m_parentWindow = nullptr;
     bool m_isNowGoBackForward = false;
 
     void __sendOnNavigationRequest(std::wstring utf16Url, std::string utf8Url, bool isNewWindow);
@@ -116,17 +119,25 @@ private:
     wil::com_ptr<ICoreWebView2Controller> m_pController;
     wil::com_ptr<ICoreWebView2Settings> m_pSettings;
     RECT m_bounds = { 0,0,0,0 };
+    EventRegistrationToken m_navigationStartingToken{};
+    EventRegistrationToken m_newWindowRequestedToken{};
+    EventRegistrationToken m_navigationCompletedToken{};
+    EventRegistrationToken m_documentTitleChangedToken{};
+    EventRegistrationToken m_historyChangedToken{};
+    EventRegistrationToken m_webMessageReceivedToken{};
+    EventRegistrationToken m_processFailedToken{};
+    EventRegistrationToken m_moveFocusRequestedToken{};
+    EventRegistrationToken m_fullScreenChangedToken{};
+    EventRegistrationToken m_permissionRequestedToken{};
 };
 wil::com_ptr<ICoreWebView2Environment> g_env;
 
 // --------------------------------------------------------------------------
 
 MyWebView* MyWebView::Create(HWND hWnd,
-    MyWebViewCreateParams params,
-    PCWSTR pwUserDataFolder,
-    PCWSTR pwProfileName)
+    MyWebViewCreateParams params)
 {
-    return new MyWebViewImpl(hWnd, params, pwUserDataFolder, pwProfileName);
+    return new MyWebViewImpl(hWnd, params);
 }
 
 HRESULT InitWebViewRuntime(PCWSTR pwUserDataFolder, std::function<void(HRESULT)> callback = nullptr)
@@ -153,28 +164,46 @@ HRESULT ReleaseWebViewRuntime()
 }
 
 MyWebViewImpl::MyWebViewImpl(HWND hWnd,
-    MyWebViewCreateParams params,
-    PCWSTR pwUserDataFolder = NULL,
-    PCWSTR pwProfileName = NULL) : m_params(params)
+    MyWebViewCreateParams params) : m_params(params), m_parentWindow(hWnd)
 {
+}
+
+HRESULT MyWebViewImpl::initialize(
+    PCWSTR pwUserDataFolder,
+    PCWSTR pwProfileName)
+{
+    const auto params = m_params;
+    const auto creationCompleted = std::make_shared<std::atomic_bool>(false);
+    const auto completeCreation = [params, creationCompleted](HRESULT hr, MyWebView* webview) {
+        if (!creationCompleted->exchange(true)) params.onCreated(hr, webview);
+    };
     std::wstring profileName = (pwProfileName != NULL) ? pwProfileName : L"";
 
-    InitWebViewRuntime(pwUserDataFolder, [=](HRESULT hr) -> void {
+    const HRESULT initHr = InitWebViewRuntime(pwUserDataFolder, [=](HRESULT hr) -> void {
         if (hr != S_OK) {
-            params.onCreated(hr, NULL);
+            completeCreation(hr, NULL);
             return;
         }
 
         // Lambda that handles the controller after creation (shared by both paths)
         auto onControllerCreated = Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
             [=](HRESULT hr, ICoreWebView2Controller* controller) -> HRESULT {
-                if (hr != S_OK) {
-                    params.onCreated(hr, NULL);
-                    return hr;
+                if (hr != S_OK || controller == nullptr) {
+                    const HRESULT failure = FAILED(hr) ? hr : E_POINTER;
+                    completeCreation(failure, NULL);
+                    return failure;
                 }
 
                 hr = controller->get_CoreWebView2(&m_pWebview);
+                if (FAILED(hr) || !m_pWebview) {
+                    completeCreation(FAILED(hr) ? hr : E_POINTER, NULL);
+                    return FAILED(hr) ? hr : E_POINTER;
+                }
                 hr = m_pWebview->get_Settings(&m_pSettings);
+                if (FAILED(hr) || !m_pSettings) {
+                    completeCreation(FAILED(hr) ? hr : E_POINTER, NULL);
+                    return FAILED(hr) ? hr : E_POINTER;
+                }
                 m_pController = controller;
 
                 m_pSettings->put_AreDefaultContextMenusEnabled(FALSE);
@@ -243,7 +272,7 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                                 __sendOnPageStarted(utf8Url, navigationId);
                             }
                             return S_OK;
-                        }).Get(), NULL);
+                        }).Get(), &m_navigationStartingToken);
 
                 m_pWebview->add_NewWindowRequested(
                     Callback<ICoreWebView2NewWindowRequestedEventHandler>(
@@ -261,7 +290,7 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
 
                             args->put_Handled(TRUE); // ignore default handler
                             return S_OK;
-                        }).Get(), NULL);
+                        }).Get(), &m_newWindowRequestedToken);
 
                 m_pWebview->add_NavigationCompleted(
                     Callback<ICoreWebView2NavigationCompletedEventHandler>(
@@ -351,7 +380,7 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                             }
 
                             return S_OK;
-                        }).Get(), NULL);
+                        }).Get(), &m_navigationCompletedToken);
 
                 m_pWebview->add_DocumentTitleChanged(
                     Callback<ICoreWebView2DocumentTitleChangedEventHandler>(
@@ -363,7 +392,7 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                             auto utf8Title = utf8_encode(std::wstring(title.get()));
                             params.onPageTitleChanged(utf8Title);
                             return S_OK;
-                        }).Get(), NULL);
+                        }).Get(), &m_documentTitleChangedToken);
 
                 m_pWebview->add_HistoryChanged(
                     Callback<ICoreWebView2HistoryChangedEventHandler>(
@@ -374,20 +403,7 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
 
                             return S_OK;
                         })
-                        .Get(), NULL);
-
-                m_pWebview->add_DocumentTitleChanged(
-                    Callback<ICoreWebView2DocumentTitleChangedEventHandler>(
-                        [=](ICoreWebView2* sender, IUnknown* args) -> HRESULT {
-                            wil::unique_cotaskmem_string pwTitle;
-                            HRESULT hr = sender->get_DocumentTitle(&pwTitle);
-                            if (SUCCEEDED(hr)) {
-                                std::string title = utf8_encode(pwTitle.get());
-                                params.onPageTitleChanged(title);
-                            }
-                            return S_OK;
-                        }).Get(), NULL);
-
+                        .Get(), &m_historyChangedToken);
 
                 hr = m_pWebview->add_WebMessageReceived(
                     Callback<ICoreWebView2WebMessageReceivedEventHandler>(
@@ -400,9 +416,13 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                                 }
                             }
                             return S_OK;
-                        }).Get(), NULL); /// &m_webMessageReceivedToken
+                        }).Get(), &m_webMessageReceivedToken);
+                if (FAILED(hr)) {
+                    completeCreation(hr, NULL);
+                    return hr;
+                }
 
-                m_pWebview->add_ProcessFailed(
+                hr = m_pWebview->add_ProcessFailed(
                     Callback<ICoreWebView2ProcessFailedEventHandler>(
                         [=](ICoreWebView2* sender, ICoreWebView2ProcessFailedEventArgs* args) -> HRESULT {
                             COREWEBVIEW2_PROCESS_FAILED_KIND kind = COREWEBVIEW2_PROCESS_FAILED_KIND_UNKNOWN_PROCESS_EXITED;
@@ -413,7 +433,11 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                                 params.onProcessFailed(static_cast<int>(kind));
                             }
                             return S_OK;
-                        }).Get(), NULL);
+                        }).Get(), &m_processFailedToken);
+                if (FAILED(hr)) {
+                    completeCreation(hr, NULL);
+                    return hr;
+                }
 
                 hr = m_pController->add_MoveFocusRequested(
                     Callback<ICoreWebView2MoveFocusRequestedEventHandler>(
@@ -422,7 +446,7 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                             args->get_Reason(&reason);
                             params.onMoveFocusRequest(reason == COREWEBVIEW2_MOVE_FOCUS_REASON_NEXT);
                             return S_OK;
-                        }).Get(), NULL);
+                        }).Get(), &m_moveFocusRequestedToken);
 
                 hr = m_pWebview->add_ContainsFullScreenElementChanged(
                     Callback<ICoreWebView2ContainsFullScreenElementChangedEventHandler>(
@@ -432,17 +456,21 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                             params.onFullScreenChanged(isFullScreen);
                             return S_OK;
                         })
-                    .Get(), nullptr);
+                    .Get(), &m_fullScreenChangedToken);
 
                 hr = m_pWebview->add_PermissionRequested(
                     Callback<ICoreWebView2PermissionRequestedEventHandler>(
                         [=](ICoreWebView2* sender, ICoreWebView2PermissionRequestedEventArgs* args) -> HRESULT {
                             askFlutterPermission(args, params.onAskPermission);
                             return S_OK;
-                    }).Get(), NULL);
+                    }).Get(), &m_permissionRequestedToken);
 
-                params.onCreated(hr, this);
-                return hr;
+                if (FAILED(hr)) {
+                    completeCreation(hr, NULL);
+                    return hr;
+                }
+                completeCreation(S_OK, this);
+                return S_OK;
             });
 
         // If a profileName is specified, use ICoreWebView2Environment10 to create
@@ -454,19 +482,31 @@ MyWebViewImpl::MyWebViewImpl(HWND hWnd,
                 wil::com_ptr<ICoreWebView2ControllerOptions> options;
                 HRESULT optHr = env10->CreateCoreWebView2ControllerOptions(&options);
                 if (SUCCEEDED(optHr) && options != NULL) {
-                    options->put_ProfileName(profileName.c_str());
-                    env10->CreateCoreWebView2ControllerWithOptions(hWnd, options.get(), onControllerCreated.Get());
+                    optHr = options->put_ProfileName(profileName.c_str());
+                    if (FAILED(optHr)) {
+                        completeCreation(optHr, NULL);
+                        return;
+                    }
+                    const HRESULT createHr = env10->CreateCoreWebView2ControllerWithOptions(
+                        m_parentWindow, options.get(), onControllerCreated.Get());
+                    if (FAILED(createHr)) completeCreation(createHr, NULL);
                     return;
                 }
-                std::cout << "[webview_win_floating] CreateCoreWebView2ControllerOptions failed, falling back to default controller" << std::endl;
+                completeCreation(FAILED(optHr) ? optHr : E_FAIL, NULL);
+                return;
             } else {
-                std::cout << "[webview_win_floating] ICoreWebView2Environment10 not available, profileName ignored" << std::endl;
+                completeCreation(E_NOINTERFACE, NULL);
+                return;
             }
         }
 
         // Standard path: no profile name, or profile API unavailable
-        g_env->CreateCoreWebView2Controller(hWnd, onControllerCreated.Get());
+        const HRESULT createHr = g_env->CreateCoreWebView2Controller(
+            m_parentWindow, onControllerCreated.Get());
+        if (FAILED(createHr)) completeCreation(createHr, NULL);
         });
+    if (FAILED(initHr)) completeCreation(initHr, NULL);
+    return initHr;
 }
 
 void MyWebViewImpl::askFlutterPermission(wil::com_ptr<ICoreWebView2PermissionRequestedEventArgs> args, OnAskPermissionFunc onAskPermission)
@@ -502,6 +542,23 @@ void MyWebViewImpl::grantPermission(int deferralId, BOOL isGranted)
 
 MyWebViewImpl::~MyWebViewImpl()
 {
+    while (!permissionArgsMap.empty()) {
+        grantPermission(permissionArgsMap.begin()->first, FALSE);
+    }
+    if (m_pWebview) {
+        m_pWebview->remove_NavigationStarting(m_navigationStartingToken);
+        m_pWebview->remove_NewWindowRequested(m_newWindowRequestedToken);
+        m_pWebview->remove_NavigationCompleted(m_navigationCompletedToken);
+        m_pWebview->remove_DocumentTitleChanged(m_documentTitleChangedToken);
+        m_pWebview->remove_HistoryChanged(m_historyChangedToken);
+        m_pWebview->remove_WebMessageReceived(m_webMessageReceivedToken);
+        m_pWebview->remove_ProcessFailed(m_processFailedToken);
+        m_pWebview->remove_ContainsFullScreenElementChanged(m_fullScreenChangedToken);
+        m_pWebview->remove_PermissionRequested(m_permissionRequestedToken);
+    }
+    if (m_pController) {
+        m_pController->remove_MoveFocusRequested(m_moveFocusRequestedToken);
+    }
     if (m_pController) {
         m_pController->Close();
     }
@@ -563,6 +620,8 @@ HRESULT MyWebViewImpl::runJavascript(LPCWSTR javaScriptString, bool ignoreResult
 
 HRESULT MyWebViewImpl::addScriptChannelByName(LPCWSTR channelName)
 {
+    const std::wstring channel_name(channelName == nullptr ? L"" : channelName);
+    if (channel_name.empty() || channel_name.length() > 30) return E_INVALIDARG;
     if (!m_hasRegisteredChannel) {
         m_hasRegisteredChannel = true;
 
@@ -575,13 +634,12 @@ HRESULT MyWebViewImpl::addScriptChannelByName(LPCWSTR channelName)
     }
 
     WCHAR script[100];
-    if (wcslen(channelName) > 30) return E_FAIL;
-    wsprintf(script, L"const %s = new JkChannel('%s');", channelName, channelName);
+    wsprintf(script, L"const %s = new JkChannel('%s');", channel_name.c_str(), channel_name.c_str());
 
     return m_pWebview->AddScriptToExecuteOnDocumentCreated(script, Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
-        [=](HRESULT error, PCWSTR id) -> HRESULT {
+        [this, channel_name](HRESULT error, PCWSTR id) -> HRESULT {
             if (FAILED(error)) return error;
-            channelMap[channelName] = id;
+            channelMap[channel_name] = id;
             return S_OK; //do nothing
         }).Get());
 }
@@ -600,7 +658,9 @@ void MyWebViewImpl::removeScriptChannelByName(LPCWSTR channelName)
 HRESULT MyWebViewImpl::updateBounds(RECT& bounds)
 {
     m_bounds = bounds;
-    return m_pController->put_Bounds(bounds);
+    const HRESULT boundsHr = m_pController->put_Bounds(bounds);
+    if (FAILED(boundsHr)) return boundsHr;
+    return m_pController->NotifyParentWindowPositionChanged();
 }
 
 HRESULT MyWebViewImpl::getBounds(RECT& bounds)
@@ -627,8 +687,8 @@ HRESULT MyWebViewImpl::setBackgroundColor(int32_t argb)
 
 HRESULT MyWebViewImpl::requestFocus(bool isNext)
 {
-    m_pController->MoveFocus(isNext ? COREWEBVIEW2_MOVE_FOCUS_REASON_NEXT : COREWEBVIEW2_MOVE_FOCUS_REASON_PREVIOUS);
-    return S_OK;
+    (void)isNext;
+    return m_pController->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
 }
 
 void MyWebViewImpl::enableJavascript(bool bEnable)

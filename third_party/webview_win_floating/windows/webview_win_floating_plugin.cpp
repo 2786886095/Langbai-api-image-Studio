@@ -75,11 +75,25 @@ void WebviewWinFloatingPlugin::createWebview(const flutter::MethodCall<flutter::
 
   params.onCreated = [=](HRESULT hr, MyWebView *webview) -> void {
     if (webview != NULL) {
-      m_webviewMap[webviewId] = webview;
+      auto pending = m_pendingWebviewMap.find(webviewId);
+      if (pending == m_pendingWebviewMap.end() || pending->second.get() != webview) {
+        shared_result->Error("[webview] native create was cancelled.");
+        return;
+      }
+      m_webviewMap[webviewId] = pending->second;
+      m_pendingWebviewMap.erase(pending);
       std::cout << "[webview] native create: id = " << webviewId << std::endl;
       if (!url.empty()) webview->loadUrl(utf8ToUtf16(url).c_str());
       shared_result->Success(flutter::EncodableValue(true));
     } else {
+      auto pending = m_pendingWebviewMap.find(webviewId);
+      if (pending != m_pendingWebviewMap.end()) {
+        // Keep the object alive until plugin shutdown. The failure callback is
+        // currently running from inside that object, so erasing the final
+        // owner here would destroy it before its callback returns.
+        m_retiredWebviews.push_back(pending->second);
+        m_pendingWebviewMap.erase(pending);
+      }
       std::cerr << "[webview] native create failed. result = " << hr << std::endl;
       shared_result->Error("[webview] native create failed.");
     }
@@ -192,15 +206,25 @@ void WebviewWinFloatingPlugin::createWebview(const flutter::MethodCall<flutter::
 
   const auto wideUserDataFolder = utf8ToUtf16(userDataFolder);
   const auto wideProfileName = utf8ToUtf16(profileName);
-  MyWebView::Create(m_nativeHWND, params, wideUserDataFolder.c_str(), wideProfileName.c_str());
+  auto pending = std::shared_ptr<MyWebView>(
+    MyWebView::Create(m_nativeHWND, params));
+  if (!pending) {
+    shared_result->Error("[webview] native allocation failed.");
+    return;
+  }
+  m_pendingWebviewMap[webviewId] = pending;
+  pending->initialize(wideUserDataFolder.c_str(), wideProfileName.c_str());
 }
 
 void WebviewWinFloatingPlugin::destroyAllWebViews() {
-  for(auto iter = m_webviewMap.begin(); iter != m_webviewMap.end(); iter++) {
-    std::cout << "[webview_win_floating] old webview found, deleting id = " << iter->first << std::endl;
-    delete iter->second;
+  for (const auto& entry : m_webviewMap) {
+    std::cout << "[webview_win_floating] old webview found, deleting id = " << entry.first << std::endl;
   }
   m_webviewMap.clear();
+  for (const auto& entry : m_pendingWebviewMap) {
+    m_retiredWebviews.push_back(entry.second);
+  }
+  m_pendingWebviewMap.clear();
 }
 
 void WebviewWinFloatingPlugin::HandleMethodCall(
@@ -220,7 +244,9 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
   auto webviewId = std::get<int>(arguments[flutter::EncodableValue("webviewId")]);
 
   bool isCreateCall = method_call.method_name().compare("create") == 0;
-  auto webview = m_webviewMap[webviewId];
+  auto webviewIt = m_webviewMap.find(webviewId);
+  std::shared_ptr<MyWebView> webview =
+      webviewIt == m_webviewMap.end() ? nullptr : webviewIt->second;
   if (webview == NULL && !isCreateCall) {
     result->Error("webview hasn't created");
     return;
@@ -246,8 +272,9 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
     bounds.top = std::get<int>(arguments[flutter::EncodableValue("top")]);
     bounds.right = std::get<int>(arguments[flutter::EncodableValue("right")]);
     bounds.bottom = std::get<int>(arguments[flutter::EncodableValue("bottom")]);
-    webview->updateBounds(bounds);
-    result->Success(flutter::EncodableValue(true));
+    const HRESULT hr = webview->updateBounds(bounds);
+    if (FAILED(hr)) result->Error("updateBounds() error");
+    else result->Success(flutter::EncodableValue(true));
   } else if (method_call.method_name().compare("loadUrl") == 0) {
     auto url = std::get<std::string>(arguments[flutter::EncodableValue("url")]);
     auto hr = webview->loadUrl(utf8ToUtf16(url).c_str());
@@ -299,8 +326,12 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
     auto isFullScreen = std::get<bool>(arguments[flutter::EncodableValue("isFullScreen")]);
     if (isFullScreen) {
       RECT bounds;
-      GetWindowRect(GetDesktopWindow(), &bounds);
-      webview->updateBounds(bounds);
+      GetClientRect(m_nativeHWND, &bounds);
+      const HRESULT hr = webview->updateBounds(bounds);
+      if (FAILED(hr)) {
+        result->Error("setFullScreen() bounds error");
+        return;
+      }
     }
     result->Success(flutter::EncodableValue(true));
   } else if (method_call.method_name().compare("setVisibility") == 0) {
@@ -369,7 +400,6 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
 
   } else if (method_call.method_name().compare("dispose") == 0) {
     if (webview != NULL) {
-      delete webview; //TODO:...
       m_webviewMap.erase(webviewId);
       std::cout << "[webview] native dispose: id = " << webviewId << std::endl;
     }

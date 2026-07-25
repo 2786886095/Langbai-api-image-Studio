@@ -9,6 +9,7 @@
 // Jacky {
 #include <windows.h>
 #include <map>
+#include <vector>
 #include "my_webview.h"
 // Jacky }
 
@@ -36,9 +37,11 @@ class WebviewWinFloatingPlugin : public flutter::Plugin {
   // Jacky {
   HWND m_nativeHWND;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> m_MethodChannel;
-  std::map<int, MyWebView*> m_webviewMap;
+  std::map<int, std::shared_ptr<MyWebView>> m_webviewMap;
+  std::map<int, std::shared_ptr<MyWebView>> m_pendingWebviewMap;
+  std::vector<std::shared_ptr<MyWebView>> m_retiredWebviews;
 
-  void WebviewWinFloatingPlugin::createWebview(const flutter::MethodCall<flutter::EncodableValue> &method_call,
+  void createWebview(const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> &result,
     int webviewId, std::string url, std::string userDataFolder, std::string profileName);
   void destroyAllWebViews();
