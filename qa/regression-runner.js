@@ -448,6 +448,79 @@ async function testApiConfig(cdp) {
   assertQa(legacyIdentity.activeId === legacyIdentity.expectedActiveId && legacyIdentity.endpointAfterDelete.includes("same-endpoint.example"), "Deleting another redacted profile on the same endpoint must not clear the active profile.", legacyIdentity);
   assertQa(legacyIdentity.remainingIds.length === 1 && legacyIdentity.remainingIds[0] === legacyIdentity.expectedActiveId, "Only the selected non-active profile should be deleted.", legacyIdentity);
 
+  const isolatedProfiles = await cdp.eval(`(async () => {
+    localStorage.clear();
+    localStorage.setItem(USD_CNY_RATE_KEY, JSON.stringify({ rate: 6.77, rateDate: "2026-07-24", fetchedAt: Date.now(), source: "ECB/Frankfurter" }));
+    renderSavedApis();
+    const answerAskDialog = async (value) => {
+      const start = Date.now();
+      let overlay = null;
+      while (Date.now() - start < 2000) {
+        overlay = document.querySelector(".ask-dialog-overlay");
+        if (overlay) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      if (!overlay) return false;
+      const input = overlay.querySelector(".ask-dialog-input");
+      if (input) input.value = value;
+      overlay.querySelector(".ask-dialog-ok").click();
+      return true;
+    };
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    set("apiProvider", "grsai");
+    set("apiKey", "sk-grsai-isolated-key");
+    set("model", "gpt-image-2-vip");
+    set("proxyEndpoint", "http://127.0.0.1:8787/grsai");
+    document.getElementById("saveConfig").click();
+    await answerAskDialog("同名完整配置");
+    await new Promise(r => setTimeout(r, 100));
+
+    set("apiProvider", "official");
+    const detachedAfterProviderSwitch = {
+      selected: document.getElementById("savedApis").value,
+      key: document.getElementById("apiKey").value,
+    };
+    set("apiKey", "sk-official-isolated-key");
+    set("model", "gpt-image-2");
+    set("proxyEndpoint", "http://127.0.0.1:8787/official");
+    setProviderSegmentValue("officialQuality", "high");
+    setProviderSegmentValue("officialOutputFormat", "webp");
+    document.getElementById("saveConfig").click();
+    await answerAskDialog("同名完整配置");
+    await new Promise(r => setTimeout(r, 100));
+
+    const apis = loadAllApis();
+    const grsaiIndex = apis.findIndex(api => api.apiProvider === "grsai");
+    const officialIndex = apis.findIndex(api => api.apiProvider === "official");
+    const selectProfile = async index => {
+      document.getElementById("savedApis").value = String(index);
+      document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(r => setTimeout(r, 80));
+      return {
+        provider: document.getElementById("apiProvider").value,
+        endpoint: document.getElementById("apiEndpoint").value,
+        key: document.getElementById("apiKey").value,
+        model: document.getElementById("model").value,
+        proxy: document.getElementById("proxyEndpoint").value,
+        quality: getOfficialImageOptions().quality,
+        outputFormat: getOfficialImageOptions().outputFormat,
+      };
+    };
+    const restoredGrsai = await selectProfile(grsaiIndex);
+    const restoredOfficial = await selectProfile(officialIndex);
+    return { detachedAfterProviderSwitch, apis, grsaiIndex, officialIndex, restoredGrsai, restoredOfficial };
+  })()`, true);
+  assertQa(isolatedProfiles.detachedAfterProviderSwitch.selected === "" && isolatedProfiles.detachedAfterProviderSwitch.key === "", "Switching provider from a saved profile must start a new draft and must not carry the previous profile's API key.", isolatedProfiles);
+  assertQa(isolatedProfiles.apis.length === 2 && isolatedProfiles.grsaiIndex >= 0 && isolatedProfiles.officialIndex >= 0 && isolatedProfiles.apis[0].id !== isolatedProfiles.apis[1].id && isolatedProfiles.apis.every(api => api.name === "同名完整配置"), "GrsAI and official API profiles must remain two records with distinct stable ids even when the user gives them the same display name.", isolatedProfiles);
+  assertQa(isolatedProfiles.restoredGrsai.provider === "grsai" && isolatedProfiles.restoredGrsai.endpoint.includes("grsai.dakka.com.cn") && isolatedProfiles.restoredGrsai.key === "sk-grsai-isolated-key" && isolatedProfiles.restoredGrsai.model === "gpt-image-2-vip" && isolatedProfiles.restoredGrsai.proxy.endsWith("/grsai"), "The GrsAI profile must restore its own provider, endpoint, key, model, and browser proxy.", isolatedProfiles);
+  assertQa(isolatedProfiles.restoredOfficial.provider === "official" && isolatedProfiles.restoredOfficial.endpoint.includes("api.openai.com") && isolatedProfiles.restoredOfficial.key === "sk-official-isolated-key" && isolatedProfiles.restoredOfficial.model === "gpt-image-2" && isolatedProfiles.restoredOfficial.proxy.endsWith("/official") && isolatedProfiles.restoredOfficial.quality === "high" && isolatedProfiles.restoredOfficial.outputFormat === "webp", "The official profile must restore its own key and all official-specific options without borrowing GrsAI values.", isolatedProfiles);
+
   const modelChoice = await cdp.eval(`(async () => {
     document.getElementById("configSection").open = true;
     await new Promise(r => setTimeout(r, 50));
@@ -4248,13 +4321,20 @@ async function testNativeSecureApiKeyMigration(cdp) {
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `
       localStorage.setItem("ai_image_gen_config", JSON.stringify({
-        id: "secure_primary", name: "Secure API", apiProvider: "custom",
-        endpoint: "https://api.example.test/v1/images/generations", apiKey: "sk-legacy-secret", model: "gpt-image-2"
+        id: "secure_grsai", name: "Secure GrsAI", apiProvider: "grsai",
+        endpoint: "https://grsai.dakka.com.cn/v1/api/generate", apiKey: "sk-grsai-secure", model: "gpt-image-2-vip"
       }));
-      localStorage.setItem("ai_image_gen_apis", JSON.stringify([{
-        id: "secure_primary", name: "Secure API", apiProvider: "custom",
-        endpoint: "https://api.example.test/v1/images/generations", apiKey: "sk-legacy-secret", model: "gpt-image-2"
-      }]));
+      localStorage.setItem("ai_image_gen_apis", JSON.stringify([
+        {
+          id: "secure_grsai", name: "Secure GrsAI", apiProvider: "grsai",
+          endpoint: "https://grsai.dakka.com.cn/v1/api/generate", apiKey: "sk-grsai-secure", model: "gpt-image-2-vip"
+        },
+        {
+          id: "secure_official", name: "Secure Official", apiProvider: "official",
+          endpoint: "https://api.openai.com/v1/images/generations", apiKey: "sk-official-secure", model: "gpt-image-2",
+          officialImageOptions: { quality: "high", background: "opaque", outputFormat: "webp", outputCompression: 80, moderation: "auto", inputFidelity: "high" }
+        }
+      ]));
       window.__AI_GEN_SECURE_STORAGE = true;
       window.__AI_GEN_NATIVE_PLATFORM = "windows";
       window.__secureSecrets = {};
@@ -4278,7 +4358,8 @@ async function testNativeSecureApiKeyMigration(cdp) {
       const start = Date.now();
       while (Date.now() - start < 3000) {
         const current = JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}");
-        if (current.hasSecureKey && !current.apiKey) break;
+        const saved = JSON.parse(localStorage.getItem("ai_image_gen_apis") || "[]");
+        if (current.hasSecureKey && !current.apiKey && saved.length === 2 && saved.every(item => item.hasSecureKey && !item.apiKey)) break;
         await new Promise(r => setTimeout(r, 30));
       }
       const current = JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}");
@@ -4287,18 +4368,44 @@ async function testNativeSecureApiKeyMigration(cdp) {
       document.getElementById("apiKey").value = "";
       applyConfig(current);
       await new Promise(r => setTimeout(r, 120));
+      const inputAfterReload = document.getElementById("apiKey").value;
+      const officialIndex = saved.findIndex(item => item.id === "secure_official");
+      document.getElementById("savedApis").value = String(officialIndex);
+      document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(r => setTimeout(r, 120));
+      const officialAfterSwitch = {
+        key: document.getElementById("apiKey").value,
+        provider: document.getElementById("apiProvider").value,
+        model: document.getElementById("model").value,
+        quality: getOfficialImageOptions().quality,
+        outputFormat: getOfficialImageOptions().outputFormat,
+      };
+      const grsaiIndex = saved.findIndex(item => item.id === "secure_grsai");
+      document.getElementById("savedApis").value = String(grsaiIndex);
+      document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(r => setTimeout(r, 120));
       return {
         current,
         saved,
         inputBeforeReload,
-        inputAfterReload: document.getElementById("apiKey").value,
+        inputAfterReload,
+        officialAfterSwitch,
+        grsaiAfterSwitch: {
+          key: document.getElementById("apiKey").value,
+          provider: document.getElementById("apiProvider").value,
+          model: document.getElementById("model").value,
+        },
+        secrets: window.__secureSecrets,
         saveCalls: window.__secureCalls.filter(call => call.action === "saveSecret"),
         loadCalls: window.__secureCalls.filter(call => call.action === "loadSecret"),
       };
     })()`, true);
     assertQa(result.current.hasSecureKey === true && result.current.apiKey === "", "The active native config must be redacted after secure storage succeeds.", result);
-    assertQa(result.saved[0]?.hasSecureKey === true && result.saved[0]?.apiKey === "", "Saved API profiles must be redacted too.", result);
-    assertQa(result.inputBeforeReload === "sk-legacy-secret" && result.inputAfterReload === "sk-legacy-secret", "Migration and secure reload must not lose the user's API key.", result);
+    assertQa(result.saved.length === 2 && result.saved.every(item => item.hasSecureKey === true && item.apiKey === ""), "Every saved API profile must be redacted independently.", result);
+    assertQa(result.inputBeforeReload === "sk-grsai-secure" && result.inputAfterReload === "sk-grsai-secure", "Migration and secure reload must not lose the active GrsAI key.", result);
+    assertQa(result.officialAfterSwitch.key === "sk-official-secure" && result.officialAfterSwitch.provider === "official" && result.officialAfterSwitch.model === "gpt-image-2" && result.officialAfterSwitch.quality === "high" && result.officialAfterSwitch.outputFormat === "webp", "Switching to the saved official profile must load its own secure key and complete official option snapshot.", result);
+    assertQa(result.grsaiAfterSwitch.key === "sk-grsai-secure" && result.grsaiAfterSwitch.provider === "grsai" && result.grsaiAfterSwitch.model === "gpt-image-2-vip", "Switching back to GrsAI must restore the GrsAI key instead of reusing the official key.", result);
+    assertQa(result.secrets["api_key:secure_grsai"] === "sk-grsai-secure" && result.secrets["api_key:secure_official"] === "sk-official-secure", "The native secure store must use distinct per-profile key names and values.", result);
     assertQa(result.saveCalls.length >= 1 && result.loadCalls.length >= 1, "Migration must write and later read the OS secure-storage bridge.", result);
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });

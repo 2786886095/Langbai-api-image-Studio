@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.30";
+const APP_VERSION = "1.3.31";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2062,6 +2062,9 @@ function secureApiKeyName(id) {
   return `api_key:${String(id || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 160)}`;
 }
 
+const secureApiKeyWriteChains = new Map();
+let apiConfigApplySequence = 0;
+
 function redactStoredApiKey(storageKey, id) {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || (storageKey === STORAGE_APIS ? "[]" : "{}"));
@@ -2088,9 +2091,15 @@ function redactStoredApiKey(storageKey, id) {
 function persistApiKeySecurely(config, storageKey) {
   if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey) return;
   const id = config.id;
-  void nativeDownload.saveSecret(secureApiKeyName(id), config.apiKey)
+  const secretName = secureApiKeyName(id);
+  const previous = secureApiKeyWriteChains.get(secretName) || Promise.resolve();
+  const next = previous.catch(() => {}).then(() => nativeDownload.saveSecret(secretName, config.apiKey))
     .then(() => redactStoredApiKey(storageKey, id))
     .catch(err => console.warn("系统安全存储写入失败，暂时保留本地配置以避免 Key 丢失", err));
+  secureApiKeyWriteChains.set(secretName, next);
+  void next.finally(() => {
+    if (secureApiKeyWriteChains.get(secretName) === next) secureApiKeyWriteChains.delete(secretName);
+  });
 }
 
 function saveConfig(config) {
@@ -2198,10 +2207,11 @@ function applyApiProvider(provider = "custom", options = {}) {
 }
 
 function applyConfig(cfg) {
+  const applySequence = ++apiConfigApplySequence;
   const endpoint = cfg.endpoint || API_PROVIDER_PRESETS[cfg.apiProvider || "grsai"]?.endpoint || "";
   const provider = cfg.apiProvider || cfg.provider || inferApiProvider(endpoint);
   applyApiProvider(provider, { forceEndpoint: false });
-  if (endpoint) dom.apiEndpoint.value = endpoint;
+  dom.apiEndpoint.value = endpoint;
   dom.apiKey.value = cfg.apiKey || "";
   if (!cfg.apiKey && cfg.hasSecureKey && cfg.id) {
     const expectedId = cfg.id;
@@ -2209,31 +2219,51 @@ function applyConfig(cfg) {
       if (!secureStorageBridgeAvailable()) return;
       void nativeDownload.loadSecret(secureApiKeyName(expectedId)).then(value => {
         const active = loadConfig();
-        if (active.id !== expectedId || !value) return;
+        if (applySequence !== apiConfigApplySequence || active.id !== expectedId || !value || dom.apiKey.value.trim()) return;
         dom.apiKey.value = String(value);
         updateApiQuickState();
       }).catch(err => console.warn("系统安全存储读取 API Key 失败", err));
     }, 0);
   }
-  if (cfg.model)    dom.model.value = cfg.model;
+  dom.model.value = cfg.model || "";
   applyOfficialImageOptions(cfg.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
-  if (cfg.proxyEndpoint) dom.proxyEndpoint.value = cfg.proxyEndpoint;
+  dom.proxyEndpoint.value = cfg.proxyEndpoint || "";
   if (!cfg.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
   if (!cfg.model && provider === "official") dom.model.value = "gpt-image-2";
   updateOfficialOptionAvailability();
   updateApiQuickState();
 }
 
-function currentApiConfig(name = loadConfig().name || "") {
+function apiConfigIdentityMatches(config, provider, endpoint) {
+  if (!config) return false;
+  const normalizeEndpoint = value => String(value || "").trim().replace(/\/+$/, "").toLowerCase();
+  const configProvider = config.apiProvider || config.provider || inferApiProvider(config.endpoint || "");
+  return configProvider === provider && normalizeEndpoint(config.endpoint) === normalizeEndpoint(endpoint);
+}
+
+function getSelectedSavedApiConfig(apis = loadAllApis()) {
+  const index = findSavedApiIndex(dom.savedApis?.value, apis);
+  return index >= 0 ? apis[index] : null;
+}
+
+function currentApiConfig(name = "", options = {}) {
   const endpoint = dom.apiEndpoint.value.trim();
   const active = loadConfig();
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const selected = getSelectedSavedApiConfig();
+  const identitySource = !options.forceNew && apiConfigIdentityMatches(selected, provider, endpoint)
+    ? selected
+    : !options.forceNew && apiConfigIdentityMatches(active, provider, endpoint)
+      ? active
+      : null;
+  const apiKey = dom.apiKey.value.trim();
   return {
-    id: active.id || makeApiId(),
-    name: name || readableEndpoint(endpoint) || "未命名",
+    id: identitySource?.id || makeApiId(),
+    name: name || identitySource?.name || readableEndpoint(endpoint) || apiProviderLabel(provider) || "未命名",
     apiProvider: provider,
     endpoint,
-    apiKey: dom.apiKey.value.trim(),
+    apiKey,
+    hasSecureKey: !apiKey && identitySource?.hasSecureKey === true,
     model: dom.model.value.trim(),
     officialImageOptions: provider === "official" ? getOfficialImageOptions() : undefined,
     proxyEndpoint: dom.proxyEndpoint.value.trim(),
@@ -2315,7 +2345,8 @@ function renderSavedApis() {
     const opt = document.createElement("option");
     opt.value = String(index);
     opt.dataset.apiId = api.id;
-    opt.textContent = `${api.id === defaultId ? "★ " : ""}${api.name || api.endpoint}`;
+    const provider = api.apiProvider || api.provider || inferApiProvider(api.endpoint || "");
+    opt.textContent = `${api.id === defaultId ? "★ " : ""}${apiProviderLabel(provider)} · ${api.name || api.endpoint}`;
     dom.savedApis.appendChild(opt);
   });
   customSelects.savedApis?.syncLabel();
@@ -2344,7 +2375,12 @@ function keepApiConfigVisible() {
 
 dom.savedApis.addEventListener("change", () => {
   const selectedId = dom.savedApis.value;
-  if (selectedId === "") return;
+  if (selectedId === "") {
+    detachSavedApiProfile();
+    saveConfig(currentApiConfig(apiProviderLabel(dom.apiProvider?.value || "custom"), { forceNew: true }));
+    updateApiQuickState();
+    return;
+  }
   const apis = loadAllApis();
   const api = apis[findSavedApiIndex(selectedId, apis)];
   if (api) {
@@ -2361,10 +2397,11 @@ dom.saveConfig.addEventListener("click", async () => {
   const cfg = currentApiConfig(name || "未命名");
   const apis = loadAllApis();
   const selectedId = dom.savedApis.value;
-  const active = loadConfig();
-  if (!selectedId && active.id && active.endpoint !== cfg.endpoint) cfg.id = makeApiId();
   const selectedIdx = findSavedApiIndex(selectedId, apis);
-  const existIdx = selectedIdx >= 0 ? selectedIdx : apis.findIndex(a => a.name === cfg.name);
+  const selectedMatches = selectedIdx >= 0 && apiConfigIdentityMatches(apis[selectedIdx], cfg.apiProvider, cfg.endpoint);
+  const existIdx = selectedMatches
+    ? selectedIdx
+    : apis.findIndex(a => a.name === cfg.name && apiConfigIdentityMatches(a, cfg.apiProvider, cfg.endpoint));
   if (existIdx >= 0) {
     cfg.id = apis[existIdx].id;
     apis[existIdx] = cfg;
@@ -2455,8 +2492,18 @@ if (config?.id) {
 dom.configSection.open = false;
 updateApiQuickState();
 
+function detachSavedApiProfile({ clearKey = true } = {}) {
+  apiConfigApplySequence++;
+  if (dom.savedApis) dom.savedApis.value = "";
+  customSelects.savedApis?.syncLabel();
+  if (clearKey && dom.apiKey) dom.apiKey.value = "";
+  if (dom.proxyEndpoint) dom.proxyEndpoint.value = "";
+  applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
+}
+
 dom.apiProvider?.addEventListener("change", () => {
   const provider = dom.apiProvider.value;
+  detachSavedApiProfile();
   applyApiProvider(provider, { forceEndpoint: true });
   if (provider === "grsai") {
     loadGrsaiModels();
@@ -2466,9 +2513,7 @@ dom.apiProvider?.addEventListener("change", () => {
   } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
     dom.model.value = "";
   }
-  if (dom.apiEndpoint.value.trim() || dom.apiKey.value.trim()) {
-    saveConfig(currentApiConfig());
-  }
+  saveConfig(currentApiConfig(apiProviderLabel(provider), { forceNew: true }));
   updateApiQuickState();
   scheduleOfficialCostSummaryUpdate();
   if (provider === "official") void refreshUsdCnyRate({ force: false, announce: false });
@@ -2481,7 +2526,7 @@ function persistCurrentProviderOptions() {
   if (!selectedId) return;
   const apis = loadAllApis();
   const index = findSavedApiIndex(selectedId, apis);
-  if (index < 0) return;
+  if (index < 0 || !apiConfigIdentityMatches(apis[index], cfg.apiProvider, cfg.endpoint)) return;
   cfg.id = apis[index].id;
   cfg.name = apis[index].name;
   apis[index] = cfg;
@@ -3432,20 +3477,7 @@ dom.model.addEventListener("change", () => {
   const m = dom.model.value.trim();
   updateOfficialOptionAvailability();
   if (KNOWN_PRICES[m]) showStatus(`已选: ${m} · ${KNOWN_PRICES[m]}`, "info");
-  const selectedId = dom.savedApis.value;
-  if (selectedId) {
-    const apis = loadAllApis();
-    const api = apis[findSavedApiIndex(selectedId, apis)];
-    if (api) {
-      api.model = m;
-      saveAllApis(apis);
-      renderSavedApis();
-      dom.savedApis.value = selectedId;
-    }
-  }
-  if (dom.apiEndpoint.value.trim() || dom.apiKey.value.trim()) {
-    saveConfig(currentApiConfig());
-  }
+  persistCurrentProviderOptions();
   updateApiQuickState();
   scheduleOfficialCostSummaryUpdate();
 });
@@ -3468,6 +3500,11 @@ if (!config.model)   dom.model.placeholder = "gpt-image-2";
 dom.apiEndpoint.addEventListener("change", () => {
   const ep = dom.apiEndpoint.value.trim();
   const provider = dom.apiProvider?.value || inferApiProvider(ep);
+  const selected = getSelectedSavedApiConfig();
+  if (selected && !apiConfigIdentityMatches(selected, provider, ep)) {
+    detachSavedApiProfile();
+    saveConfig(currentApiConfig(apiProviderLabel(provider), { forceNew: true }));
+  }
   if (provider !== "custom") {
     applyApiProvider(provider, { forceEndpoint: false });
   }
@@ -3501,10 +3538,11 @@ $("#exportBtn")?.addEventListener("click", () => void handleExportAction());
 // GrsAI 推荐地址一键填入
 $("#useGrsaiEndpoint")?.addEventListener("click", () => {
   if (dom.apiEndpoint) {
+    detachSavedApiProfile();
     applyApiProvider("grsai", { forceEndpoint: true });
     dom.apiEndpoint.value = GRSAI_API_ENDPOINT;
     dom.apiEndpoint.focus();
-    saveConfig(currentApiConfig());
+    saveConfig(currentApiConfig(apiProviderLabel("grsai"), { forceNew: true }));
     updateApiQuickState();
   }
 });

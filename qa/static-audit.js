@@ -24,14 +24,14 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.30", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.30\+54$/m);
-assert.match(html, /v1\.3\.30/);
-assert.match(html, /20260725-1-3-30/g);
-assert.match(sw, /ai-image-generator-1-3-30-20260725/);
+assert.equal(version, "1.3.31", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.31\+55$/m);
+assert.match(html, /v1\.3\.31/);
+assert.match(html, /20260725-1-3-31/g);
+assert.match(sw, /ai-image-generator-1-3-31-20260725/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,30,54/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.30"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,31,55/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.31"/);
 for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",

@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.30
+# Codex / Claude Handoff: AI 图片生成器 v1.3.31
 
 更新时间：2026-07-25
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,18 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.30+54`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.31+55`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.31 增量修复
+
+- 已保存 API 配置按记录 ID 分别使用系统安全存储，不同配置的密钥不再互相覆盖。
+- 切换 API 类型或改为不同端点时会退出当前已保存记录并清空界面密钥，避免把 GrsAI 记录误写成官方记录，反向切换同样适用。
+- 保存和恢复覆盖供应商、端点、密钥、模型、浏览器 CORS 转发地址及官方专属画质参数；空值也会正确恢复，不沿用上一条配置。
+- 安全存储写入按每个配置串行化，并用应用序列防止异步读取旧密钥后污染刚切换的新配置。
+- 回归新增 GrsAI 与官方 API 两套完整配置反复切换，以及两条安全存储密钥独立迁移的验证。
 
 ## v1.3.30 增量功能
 
@@ -218,9 +226,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.30"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.31"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.30` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.31` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -236,5 +244,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.30 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.31 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
