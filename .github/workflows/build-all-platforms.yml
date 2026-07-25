@@ -133,9 +133,12 @@ jobs:
           Add-Type @'
           using System;
           using System.Runtime.InteropServices;
+          using System.Text;
           public static class NativeInput {
             [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
             [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hWnd, ref POINT point);
+            [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT point);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, StringBuilder name, int maxCount);
             [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
             [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
             [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int command);
@@ -143,8 +146,20 @@ jobs:
           }
           '@
           $exe = Resolve-Path "build/windows/x64/runner/Release/ai_image_generator.exe"
+          $readyFile = Join-Path $env:TEMP "langbai_webview_input_ready.flag"
+          $eventFile = Join-Path $env:TEMP "langbai_webview_input_event.json"
+          Remove-Item $readyFile, $eventFile -Force -ErrorAction SilentlyContinue
           $process = Start-Process -FilePath $exe -ArgumentList "--windows-webview-input-self-test" -PassThru
-          $deadline = [DateTime]::UtcNow.AddSeconds(35)
+          $readyDeadline = [DateTime]::UtcNow.AddSeconds(20)
+          while ([DateTime]::UtcNow -lt $readyDeadline -and -not $process.HasExited -and -not (Test-Path $readyFile)) {
+            Start-Sleep -Milliseconds 250
+          }
+          if (-not (Test-Path $readyFile)) {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            throw "WebView2 input test page never became ready."
+          }
+          $deadline = [DateTime]::UtcNow.AddSeconds(15)
+          $loggedHitWindow = $false
           while ([DateTime]::UtcNow -lt $deadline -and -not $process.HasExited) {
             $process.Refresh()
             if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
@@ -154,6 +169,13 @@ jobs:
               $point.X = 64
               $point.Y = 40
               if ([NativeInput]::ClientToScreen($process.MainWindowHandle, [ref]$point)) {
+                if (-not $loggedHitWindow) {
+                  $hitWindow = [NativeInput]::WindowFromPoint($point)
+                  $className = New-Object System.Text.StringBuilder 256
+                  [NativeInput]::GetClassName($hitWindow, $className, $className.Capacity) | Out-Null
+                  Write-Host "WindowFromPoint: hwnd=$hitWindow class=$className screen=$($point.X),$($point.Y)"
+                  $loggedHitWindow = $true
+                }
                 [NativeInput]::SetCursorPos($point.X, $point.Y) | Out-Null
                 [NativeInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
                 Start-Sleep -Milliseconds 80
@@ -164,6 +186,11 @@ jobs:
           }
           if (-not $process.HasExited) {
             Stop-Process -Id $process.Id -Force
+            if (Test-Path $eventFile) {
+              Write-Host "Last WebView input event: $(Get-Content $eventFile -Raw)"
+            } else {
+              Write-Host "No pointer event reached WebView2."
+            }
             throw "Physical WebView2 click did not reach the real Settings control."
           }
           if ($process.ExitCode -ne 0) {

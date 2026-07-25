@@ -591,14 +591,6 @@ class _MobileWebShellState extends State<MobileWebShell>
     try {
       Object? result;
       switch (action) {
-        case 'inputSelfTestPassed':
-          if (!_windowsWebViewInputSelfTest) {
-            throw PlatformException(
-              code: 'forbidden_action',
-              message: 'Input self-test is not enabled.',
-            );
-          }
-          exit(0);
         case 'saveSecret':
         case 'loadSecret':
         case 'deleteSecret':
@@ -1024,12 +1016,14 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   const button = document.querySelector('#settingsBtn');
   const modal = document.querySelector('#settingsModal');
   if (!button || !modal || !window.chrome?.webview) return;
-  button.style.cssText += ';position:fixed!important;left:16px!important;top:16px!important;width:112px!important;height:48px!important;z-index:2147483647!important;display:flex!important;visibility:visible!important;pointer-events:auto!important;';
+  button.style.cssText += ';position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;display:flex!important;visibility:visible!important;pointer-events:auto!important;opacity:0.02!important;';
   let trustedPointerDown = false;
   button.addEventListener('pointerdown', event => {
     trustedPointerDown = event.isTrusted === true;
+    window.chrome.webview.postMessage({ id: '', action: 'inputSelfTestEvent', phase: 'pointerdown', trusted: event.isTrusted === true });
   }, { capture: true });
   button.addEventListener('click', event => {
+    window.chrome.webview.postMessage({ id: '', action: 'inputSelfTestEvent', phase: 'click', trusted: event.isTrusted === true });
     setTimeout(() => {
       if (event.isTrusted === true && trustedPointerDown && window.__AI_GEN_APP_READY === true && !modal.classList.contains('hidden')) {
         window.chrome.webview.postMessage({ id: '', action: 'inputSelfTestPassed' });
@@ -1039,6 +1033,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   window.__AI_GEN_WINDOWS_INPUT_TEST_READY = true;
 })()
 ''');
+      await File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}langbai_webview_input_ready.flag',
+      ).writeAsString('ready', flush: true);
     } catch (error) {
       debugPrint('Windows WebView input self-test setup failed: $error');
       exit(5);
@@ -1126,6 +1123,26 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     try {
       Object? result;
       switch (action) {
+        case 'inputSelfTestEvent':
+          if (!_windowsWebViewInputSelfTest) {
+            throw PlatformException(
+              code: 'forbidden_action',
+              message: 'Input self-test is not enabled.',
+            );
+          }
+          await File(
+            '${Directory.systemTemp.path}${Platform.pathSeparator}langbai_webview_input_event.json',
+          ).writeAsString(jsonEncode(payload), flush: true);
+          result = true;
+          break;
+        case 'inputSelfTestPassed':
+          if (!_windowsWebViewInputSelfTest) {
+            throw PlatformException(
+              code: 'forbidden_action',
+              message: 'Input self-test is not enabled.',
+            );
+          }
+          exit(0);
         case 'saveSecret':
         case 'loadSecret':
         case 'deleteSecret':
