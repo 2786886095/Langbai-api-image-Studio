@@ -5,18 +5,20 @@
 #include <flutter/plugin_registrar_windows.h>
 
 #include <memory>
+#include <optional>
 
 // Jacky {
-#include <windows.h>
-#include <map>
-#include <vector>
 #include "my_webview.h"
+#include <map>
+#include <set>
+#include <vector>
+#include <windows.h>
 // Jacky }
 
 namespace webview_win_floating {
 
 class WebviewWinFloatingPlugin : public flutter::Plugin {
- public:
+public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
   WebviewWinFloatingPlugin();
@@ -24,30 +26,44 @@ class WebviewWinFloatingPlugin : public flutter::Plugin {
   virtual ~WebviewWinFloatingPlugin();
 
   // Disallow copy and assign.
-  WebviewWinFloatingPlugin(const WebviewWinFloatingPlugin&) = delete;
-  WebviewWinFloatingPlugin& operator=(const WebviewWinFloatingPlugin&) = delete;
+  WebviewWinFloatingPlugin(const WebviewWinFloatingPlugin &) = delete;
+  WebviewWinFloatingPlugin &
+  operator=(const WebviewWinFloatingPlugin &) = delete;
 
- private:
+private:
   // Called when a method is called on this plugin's channel from Dart.
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
-
   // Jacky {
-  HWND m_nativeHWND;
-  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> m_MethodChannel;
+  HWND m_flutterHWND = nullptr;
+  HWND m_topLevelHWND = nullptr;
+  HWND m_webViewHostHWND = nullptr;
+  flutter::PluginRegistrarWindows *m_registrar = nullptr;
+  int m_windowProcDelegateId = -1;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      m_MethodChannel;
   std::map<int, std::shared_ptr<MyWebView>> m_webviewMap;
   std::map<int, std::shared_ptr<MyWebView>> m_pendingWebviewMap;
   std::vector<std::shared_ptr<MyWebView>> m_retiredWebviews;
+  std::set<int> m_topLevelHostedWebviews;
 
-  void createWebview(const flutter::MethodCall<flutter::EncodableValue> &method_call,
-    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> &result,
-    int webviewId, std::string url, std::string userDataFolder, std::string profileName);
+  void createWebview(
+      const flutter::MethodCall<flutter::EncodableValue> &method_call,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> &result,
+      int webviewId, std::string url, std::string userDataFolder,
+      std::string profileName);
   void destroyAllWebViews();
+  std::optional<LRESULT> HandleTopLevelWindowProc(HWND hwnd, UINT message,
+                                                  WPARAM wparam, LPARAM lparam);
+  void updateTopLevelHostedBounds();
+  void focusTopLevelHostedWebView();
+  bool ensureTopLevelHost();
+  void destroyTopLevelHostIfUnused();
   // Jacky }
 };
 
-}  // namespace webview_win_floating
+} // namespace webview_win_floating
 
-#endif  // FLUTTER_PLUGIN_WEBVIEW_WIN_FLOATING_PLUGIN_H_
+#endif // FLUTTER_PLUGIN_WEBVIEW_WIN_FLOATING_PLUGIN_H_

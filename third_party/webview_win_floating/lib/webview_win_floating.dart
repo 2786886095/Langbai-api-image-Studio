@@ -253,6 +253,7 @@ class WinWebViewController {
       initialUrl: null,
       userDataFolder: this.params.userDataFolder,
       profileName: this.params.profileName,
+      useTopLevelWindowHost: this.params.useTopLevelWindowHost,
     );
   }
 

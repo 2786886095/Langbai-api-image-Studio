@@ -40,6 +40,7 @@ abstract class WebviewWinFloatingPlatform extends PlatformInterface {
     String? initialUrl,
     String? userDataFolder,
     String? profileName,
+    bool useTopLevelWindowHost = false,
   }) {
     throw UnimplementedError();
   }

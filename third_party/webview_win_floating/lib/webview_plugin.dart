@@ -150,11 +150,17 @@ class WindowsWebViewControllerCreationParams
 
   final bool suspendDuringDeactive;
 
+  /// Hosts WebView2 directly in the top-level Win32 window instead of under
+  /// Flutter's render surface. This is intended for full-window desktop shells
+  /// where native input must not pass through Flutter hit testing.
+  final bool useTopLevelWindowHost;
+
   /// Creates a new [WindowsPlatformWebViewControllerCreationParams] instance.
   const WindowsWebViewControllerCreationParams({
     this.userDataFolder,
     this.profileName,
     this.suspendDuringDeactive = true,
+    this.useTopLevelWindowHost = false,
   }) : super();
 
   /// Creates a [WindowsPlatformWebViewControllerCreationParams] instance based on [PlatformWebViewControllerCreationParams].

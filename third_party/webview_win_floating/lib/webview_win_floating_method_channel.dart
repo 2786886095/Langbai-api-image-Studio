@@ -137,12 +137,14 @@ class MethodChannelWebviewWinFloating extends WebviewWinFloatingPlatform {
     String? initialUrl,
     String? userDataFolder,
     String? profileName,
+    bool useTopLevelWindowHost = false,
   }) async {
     return await methodChannel.invokeMethod<bool>('create', {
           "webviewId": webviewId,
           "url": initialUrl ?? "",
           "userDataFolder": userDataFolder ?? "",
           "profileName": profileName ?? "",
+          "useTopLevelWindowHost": useTopLevelWindowHost,
         }) ??
         false;
   }

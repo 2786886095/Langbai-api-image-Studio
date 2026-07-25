@@ -127,6 +127,48 @@ jobs:
           if ($process.ExitCode -ne 0) {
             throw "Windows WebView2 startup smoke test failed with exit code $($process.ExitCode)."
           }
+      - name: Run physical Windows WebView2 click smoke test
+        shell: pwsh
+        run: |
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class NativeInput {
+            [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
+            [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hWnd, ref POINT point);
+            [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+            [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int command);
+            [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
+          }
+          '@
+          $exe = Resolve-Path "build/windows/x64/runner/Release/ai_image_generator.exe"
+          $process = Start-Process -FilePath $exe -ArgumentList "--windows-webview-input-self-test" -PassThru
+          $deadline = [DateTime]::UtcNow.AddSeconds(35)
+          while ([DateTime]::UtcNow -lt $deadline -and -not $process.HasExited) {
+            $process.Refresh()
+            if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
+              [NativeInput]::ShowWindow($process.MainWindowHandle, 9) | Out-Null
+              [NativeInput]::SetForegroundWindow($process.MainWindowHandle) | Out-Null
+              $point = New-Object NativeInput+POINT
+              $point.X = 64
+              $point.Y = 40
+              if ([NativeInput]::ClientToScreen($process.MainWindowHandle, [ref]$point)) {
+                [NativeInput]::SetCursorPos($point.X, $point.Y) | Out-Null
+                [NativeInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+                Start-Sleep -Milliseconds 80
+                [NativeInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+              }
+            }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force
+            throw "Physical WebView2 click did not reach the real Settings control."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Physical WebView2 click smoke test failed with exit code $($process.ExitCode)."
+          }
       - name: Package Windows app
         shell: pwsh
         run: |

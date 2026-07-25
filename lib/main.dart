@@ -21,6 +21,7 @@ import 'proxy_config.dart';
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
 bool _windowsWebViewSelfTest = false;
+bool _windowsWebViewInputSelfTest = false;
 const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
 );
@@ -82,6 +83,8 @@ Future<Object?> _handleSecretAction(
 void main(List<String> arguments) {
   WidgetsFlutterBinding.ensureInitialized();
   _windowsWebViewSelfTest = arguments.contains('--windows-webview-self-test');
+  _windowsWebViewInputSelfTest =
+      arguments.contains('--windows-webview-input-self-test');
   runApp(const AiImageGeneratorApp());
 }
 
@@ -588,6 +591,14 @@ class _MobileWebShellState extends State<MobileWebShell>
     try {
       Object? result;
       switch (action) {
+        case 'inputSelfTestPassed':
+          if (!_windowsWebViewInputSelfTest) {
+            throw PlatformException(
+              code: 'forbidden_action',
+              message: 'Input self-test is not enabled.',
+            );
+          }
+          exit(0);
         case 'saveSecret':
         case 'loadSecret':
         case 'deleteSecret':
@@ -863,6 +874,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         params: windows_webview.WindowsWebViewControllerCreationParams(
           userDataFolder: _windowsWebViewDataPath(),
           suspendDuringDeactive: false,
+          useTopLevelWindowHost: true,
         ),
       );
       await controller.setJavaScriptMode(
@@ -896,6 +908,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
               unawaited(controller!.requestFocus());
               if (_windowsWebViewSelfTest) {
                 unawaited(_runWindowsWebViewSelfTest(controller));
+              }
+              if (_windowsWebViewInputSelfTest) {
+                unawaited(_prepareWindowsWebViewInputSelfTest(controller));
               }
             }
           },
@@ -997,6 +1012,36 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     } catch (error) {
       debugPrint('Windows WebView self-test failed: $error');
       exit(4);
+    }
+  }
+
+  Future<void> _prepareWindowsWebViewInputSelfTest(
+    windows_webview.WinWebViewController controller,
+  ) async {
+    try {
+      await controller.runJavaScript(r'''
+(() => {
+  const button = document.querySelector('#settingsBtn');
+  const modal = document.querySelector('#settingsModal');
+  if (!button || !modal || !window.chrome?.webview) return;
+  button.style.cssText += ';position:fixed!important;left:16px!important;top:16px!important;width:112px!important;height:48px!important;z-index:2147483647!important;display:flex!important;visibility:visible!important;pointer-events:auto!important;';
+  let trustedPointerDown = false;
+  button.addEventListener('pointerdown', event => {
+    trustedPointerDown = event.isTrusted === true;
+  }, { capture: true });
+  button.addEventListener('click', event => {
+    setTimeout(() => {
+      if (event.isTrusted === true && trustedPointerDown && window.__AI_GEN_APP_READY === true && !modal.classList.contains('hidden')) {
+        window.chrome.webview.postMessage({ id: '', action: 'inputSelfTestPassed' });
+      }
+    }, 100);
+  }, { capture: true });
+  window.__AI_GEN_WINDOWS_INPUT_TEST_READY = true;
+})()
+''');
+    } catch (error) {
+      debugPrint('Windows WebView input self-test setup failed: $error');
+      exit(5);
     }
   }
 

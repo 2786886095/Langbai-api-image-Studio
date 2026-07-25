@@ -10,6 +10,7 @@ const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
 const hash = relative => crypto.createHash("sha256").update(fs.readFileSync(path.join(root, relative))).digest("hex");
 
 const app = read("app.js");
+const bootstrapGuard = read("bootstrap-guard.js");
 const pubspec = read("pubspec.yaml");
 const html = read("index.html");
 const sw = read("sw.js");
@@ -30,14 +31,14 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.37", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.37\+61$/m);
-assert.match(html, /v1\.3\.37/);
-assert.match(html, /20260725-1-3-37/g);
-assert.match(sw, /ai-image-generator-1-3-37-20260725/);
+assert.equal(version, "1.4.0", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.4\.0\+62$/m);
+assert.match(html, /v1\.4\.0/);
+assert.match(html, /20260726-1-4-0/g);
+assert.match(sw, /ai-image-generator-1-4-0-20260726/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,37,61/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.37"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,0,62/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.0"/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);
@@ -52,13 +53,20 @@ assert.match(vendoredWindowsNativeWebview, /NotifyParentWindowPositionChanged/);
 assert.doesNotMatch(vendoredWindowsNativeWebview, /CompositionController|SendMouseInput/);
 assert.match(vendoredWindowsPlugin, /registrar->GetView\(\)->GetNativeWindow\(\)/);
 assert.match(vendoredWindowsPlugin, /m_pendingWebviewMap/);
+assert.match(vendoredWindowsPlugin, /ensureTopLevelHost/);
+assert.match(vendoredWindowsPlugin, /WS_CLIPCHILDREN/);
+assert.match(vendoredWindowsPlugin, /RegisterTopLevelWindowProcDelegate/);
 assert.match(vendoredWindowsPatches, /bbae6b84cc1f3119327701e187eee53283cae567/);
 assert.match(dartMain, /WinWebViewController/);
 assert.match(dartMain, /WinWebViewWidget/);
 assert.match(dartMain, /_recoverWindowsWebView/);
 assert.match(dartMain, /runJavaScriptReturningResult\('1'\)/);
 assert.match(dartMain, /--windows-webview-self-test/);
+assert.match(dartMain, /--windows-webview-input-self-test/);
 assert.match(workflow, /Run hidden Windows WebView2 startup smoke test/);
+assert.match(workflow, /Run physical Windows WebView2 click smoke test/);
+assert.match(bootstrapGuard, /__AI_GEN_APP_READY/);
+assert.match(app, /window\.__AI_GEN_APP_READY = true/);
 assert.match(dartMain, /'flutter_webview_windows',\s*'ai_image_generator',\s*\]\.join/);
 assert.match(dartMain, /addScriptToExecuteOnDocumentCreated/);
 assert.match(dartMain, /controller\.onWebMessageReceived/);
@@ -119,7 +127,7 @@ assert.match(html, /id="grsaiSubmit504RetryInterval"/);
 assert.match(app, /getGrsaiSubmit504RetryPolicy/);
 assert.match(app, /onSubmit504Retry/);
 
-for (const file of ["app.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
+for (const file of ["app.js", "bootstrap-guard.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
   assert.equal(
     hash(file),
     hash(`android/app/src/main/assets/${file}`),

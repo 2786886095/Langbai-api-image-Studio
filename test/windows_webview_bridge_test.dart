@@ -25,6 +25,7 @@ void main() {
       params: const WindowsWebViewControllerCreationParams(
         userDataFolder: r'C:\test-profile',
         suspendDuringDeactive: false,
+        useTopLevelWindowHost: true,
       ),
     );
     var failedKind = -1;
@@ -38,6 +39,7 @@ void main() {
     expect(await controller.runJavaScriptReturningResult('1'), 1);
 
     final create = calls.firstWhere((call) => call.method == 'create');
+    expect((create.arguments as Map)['useTopLevelWindowHost'], isTrue);
     final webviewId = (create.arguments as Map)['webviewId'] as int;
     final inboundDone = Completer<void>();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

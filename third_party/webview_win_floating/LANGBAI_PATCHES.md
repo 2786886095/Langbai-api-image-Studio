@@ -17,6 +17,14 @@ Local changes:
 - remove the unused `fullscreen_window` dependency from the desktop shell.
 - build against WebView2 SDK `1.0.2210.55`, matching the previous vendored
   Windows host and covering the controller/process APIs used here.
+- for full-window Windows shells, create a dedicated native child HWND under
+  the real top-level window after Flutter has attached its render surface;
+- keep that host above Flutter, size it from Win32 `WM_SIZE`/DPI/move events,
+  and route activation focus to WebView2 instead of Flutter's backing HWND;
+- expose a top-level-host creation option so other package users retain the
+  original embedded-widget behavior by default.
 
-This package uses a windowed WebView2 controller. Windows input is handled by
-the operating system instead of being forwarded through Flutter textures.
+This package uses a windowed WebView2 controller. In Langbai's full-window
+mode, WebView2 is the only visible native content host and Windows input is
+handled directly by the operating system instead of crossing Flutter hit
+testing or texture forwarding.
