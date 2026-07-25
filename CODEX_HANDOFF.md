@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.33
+# Codex / Claude Handoff: AI 图片生成器 v1.3.34
 
 更新时间：2026-07-25
 项目路径：`F:\AI\agent\图像生成`
@@ -6,10 +6,18 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.33+57`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.34+58`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.34 OpenCodex GPT 私有额度实测适配
+
+- 依据 19/19 常用/边界尺寸、14/14 提示词比例和 60 张原图双解码结果，OpenCodex GPT 私有额度路径按约 157 万像素输出，最大观测总像素 `1,573,770`、最大观测长边 `2172`、有效比例约不超过 `3:1`。
+- `auto / low / medium / high` 在该私有路径最终均为 `medium`；OpenCodex GPT 现固定发送 `quality: "medium"`，其余质量按钮禁用。OpenAI 官方 API 的质量选项不受影响。
+- 私有路径的 `size` 不能单独可靠控制方向。软件会从所选像素尺寸约分出比例，并在仅发送给 OpenCodex GPT 的请求提示词末尾补充横向/纵向/方形与目标比例；历史仍保存用户原始提示词。
+- 尺寸输入继续按公开 GPT Image 2 请求契约校验，因为私有端点会接收后自行缩放；界面明确显示实测输出策略，并以解码后的真实尺寸为准。
+- Nano Banana 2 代码保留，但不继续自动测试或消耗其额度；后续可另行接入 Google 官方 Gemini API。
 
 ## v1.3.33 OpenCodex 双模型、尺寸与局部重绘
 
@@ -247,9 +255,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.33"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.34"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.33` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.34` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -265,5 +273,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.33 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.34 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

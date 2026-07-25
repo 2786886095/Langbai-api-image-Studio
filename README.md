@@ -10,7 +10,7 @@
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
 - 软件内可选四种 API：`官方 API`、`OpenCodex 本地生图`、`GrsAI 生图 API`、`自定义 API`
 - Windows 本机可直接选择 `OpenCodex 本地生图`：地址固定为 `http://127.0.0.1:10100/v1/images/generations`，界面使用本地占位密钥 `opencodex-local-only`
-- OpenCodex 内可选 `gpt-image-2` 与 `gemini-3.1-flash-image`（Nano Banana 2）。GPT 使用尺寸与质量偏好；Nano 只发送 Google 官方比例和 `512 / 1K / 2K / 4K` 档位，不会混发参数
+- OpenCodex 内可选 `gpt-image-2` 与 `gemini-3.1-flash-image`（Nano Banana 2）。GPT 私有额度路径经 60 张样本实测约固定为 157 万像素和 `medium` 质量，软件会把所选尺寸的方向/比例同步写入提示词；Nano 只发送 Google 官方比例和 `512 / 1K / 2K / 4K` 档位，不会混发参数
 - Nano Banana 2 支持本地局部重绘：模型生成带上下文的语义补丁，软件按用户蒙版本地合成，蒙版外像素保持原图；这不是上游原生 mask 接口
 - OpenCodex 模式复用本机 OpenCodex 保存的 ChatGPT/Codex 或 Google Antigravity 登录；占位密钥不是上游凭据。上游如何计算图片额度由对应服务决定，项目不承诺额度归类
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用

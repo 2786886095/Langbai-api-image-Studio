@@ -24,14 +24,14 @@ const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
 const iosDelegate = read("ios/Runner/AppDelegate.swift");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.3.33", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.3\.33\+57$/m);
-assert.match(html, /v1\.3\.33/);
-assert.match(html, /20260725-1-3-33/g);
-assert.match(sw, /ai-image-generator-1-3-33-20260725/);
+assert.equal(version, "1.3.34", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.3\.34\+58$/m);
+assert.match(html, /v1\.3\.34/);
+assert.match(html, /20260725-1-3-34/g);
+assert.match(sw, /ai-image-generator-1-3-34-20260725/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,33,57/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.33"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,3,34,58/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.3\.34"/);
 for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",
@@ -49,6 +49,10 @@ assert.match(app, /provider:\s*"grsai"/);
 assert.match(app, /provider:\s*"opencodex"/);
 assert.match(app, /OPENCODEX_API_ENDPOINT\s*=\s*"http:\/\/127\.0\.0\.1:10100\/v1\/images\/generations"/);
 assert.match(app, /OPENCODEX_REQUEST_TIMEOUT_MS\s*=\s*620000/);
+assert.match(app, /OPENCODEX_GPT_PRIVATE_QUALITY\s*=\s*"medium"/);
+assert.match(app, /OPENCODEX_GPT_PRIVATE_MAX_PIXELS_OBSERVED\s*=\s*1573770/);
+assert.match(app, /OPENCODEX_GPT_PRIVATE_MAX_EDGE_OBSERVED\s*=\s*2172/);
+assert.match(app, /addOpenCodexGptAspectInstruction/);
 assert.match(app, /gemini-3\.1-flash-image/);
 assert.match(app, /OPENCODEX_NANO_ASPECT_RATIOS/);
 assert.match(app, /compositeInpaintPixels/);
