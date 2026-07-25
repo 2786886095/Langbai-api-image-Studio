@@ -2817,10 +2817,10 @@ async function testStartupUpdatePrompt(cdp) {
 }
 
 async function testDragDropHintReflectsPlatform(cdp) {
-  logStep("Drag-and-drop hint text must not promise drag support inside the packaged Windows exe (webview_windows off-screen mode never delivers HTML5 drag events into the page — upstream flutter-webview-windows#9 is still open/unresolved), but should still promise it for the browser/PWA build where real Chromium drag-and-drop works");
+  logStep("The windowed Windows WebView2 host and browser/PWA both advertise native drag-and-drop support");
 
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
-    source: `window.FlutterDownload = { postMessage() {} };`,
+    source: `window.FlutterDownload = { postMessage() {} }; window.__AI_GEN_WINDOWS_WINDOWED_WEBVIEW = true;`,
   });
   await cdp.send("Emulation.setUserAgentOverride", {
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -2828,8 +2828,7 @@ async function testDragDropHintReflectsPlatform(cdp) {
   try {
     await loadFresh(cdp, "dragdrop-native-windows");
     const nativeWindowsText = await cdp.eval(`document.querySelector(".image-upload .upload-zone > span:last-child")?.textContent || ""`, false);
-    assertQa(!/拖/.test(nativeWindowsText), "Packaged Windows exe should not tell users they can drag-and-drop reference images onto the upload zone.", { nativeWindowsText });
-    assertQa(/点击/.test(nativeWindowsText), "The click-to-upload affordance (the working fallback) should still be advertised.", { nativeWindowsText });
+    assertQa(/拖/.test(nativeWindowsText), "The windowed Windows WebView2 host should advertise its native drag-and-drop support.", { nativeWindowsText });
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
     await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
@@ -2872,7 +2871,7 @@ async function testUploadZoneHintTargetsCorrectSpan(cdp) {
 }
 
 async function testManualWheelScrollFallback(cdp) {
-  logStep("Native Windows keeps a JavaScript nested-scroll fallback so settings and custom dropdowns consume wheel input without moving the page behind them");
+  logStep("Legacy texture-based Windows shells keep an isolated nested-scroll fallback; the windowed host bypasses it");
 
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `window.FlutterDownload = { postMessage() {} };`,

@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.36";
+const APP_VERSION = "1.3.37";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -3973,7 +3973,7 @@ function resolveManualWheelScrollTarget(event) {
 }
 
 function initManualWheelScrollFix() {
-  if (!isNativeWindowsWebview()) return;
+  if (!isNativeWindowsWebview() || window.__AI_GEN_WINDOWS_WINDOWED_WEBVIEW) return;
   document.addEventListener("wheel", e => {
     if (e.defaultPrevented) return;
     if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -4297,8 +4297,8 @@ function getUpdateActionKey(platform = getRuntimePlatform()) {
   return "downloadUpdate";
 }
 
-// 是否运行在打包后的 Windows exe（webview_windows 离屏渲染）里，而不是纯浏览器/PWA。
-// 这个判定被多个"仅原生 Windows exe 才有"的已知插件缺陷复用（拖放、滚轮嵌套滚动等）。
+// 是否运行在打包后的 Windows exe 里，而不是纯浏览器/PWA。
+// 旧 texture 壳的兼容逻辑还会读取这个判定；windowed 壳另有能力标记。
 function isNativeWindowsWebview() {
   return nativeDownload.available() && getRuntimePlatform() === "windows";
 }
@@ -4307,11 +4307,9 @@ function isNativeDesktopWebview() {
   return nativeDownload.available() && ["windows", "macos", "linux"].includes(getRuntimePlatform());
 }
 
-// webview_windows 用离屏渲染（Windows.Graphics.Capture）承载页面内容，HTML5 拖放依赖的 OS 级
-// drop target 注册在这种模式下不生效（上游 flutter-webview-windows#9，长期未修）；纯浏览器/PWA
-// 端是真实浏览器，拖放完全正常，所以只在原生 Windows exe 里才判定为失效。
+// 只有旧 texture Windows 壳不支持 OS 级拖放。当前 windowed WebView2 壳与浏览器都支持。
 function isDragDropUnsupported() {
-  return isNativeWindowsWebview();
+  return isNativeWindowsWebview() && !window.__AI_GEN_WINDOWS_WINDOWED_WEBVIEW;
 }
 
 function selectUpdateAsset(release, platform = getRuntimePlatform()) {
@@ -8225,24 +8223,19 @@ function openHistoryBlobDb() {
       if (!request.result.objectStoreNames.contains(HISTORY_BLOB_STORE)) {
         request.result.createObjectStore(HISTORY_BLOB_STORE);
       }
-      const generatedStore = request.result.objectStoreNames.contains(GENERATED_CACHE_STORE)
-        ? request.transaction.objectStore(GENERATED_CACHE_STORE)
-        : request.result.createObjectStore(GENERATED_CACHE_STORE);
+      if (!request.result.objectStoreNames.contains(GENERATED_CACHE_STORE)) {
+        request.result.createObjectStore(GENERATED_CACHE_STORE);
+      }
       const metaStore = request.result.objectStoreNames.contains(GENERATED_CACHE_META_STORE)
         ? request.transaction.objectStore(GENERATED_CACHE_META_STORE)
         : request.result.createObjectStore(GENERATED_CACHE_META_STORE);
       if (!metaStore.indexNames.contains(GENERATED_CACHE_CREATED_AT_INDEX)) {
         metaStore.createIndex(GENERATED_CACHE_CREATED_AT_INDEX, "createdAt");
       }
-      if (request.oldVersion < 3) {
-        const legacyKeys = generatedStore.getAllKeys();
-        legacyKeys.onsuccess = () => {
-          const migratedAt = Date.now();
-          for (const key of legacyKeys.result || []) {
-            metaStore.put({ createdAt: migratedAt }, key);
-          }
-        };
-      }
+      // Legacy cache entries intentionally remain without metadata. Migrating a
+      // multi-gigabyte cache inside the versionchange transaction can block the
+      // packaged WebView at startup. New writes receive metadata normally, and
+      // users can still clear all legacy entries with the cache-clear action.
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("历史图片数据库打开失败"));
@@ -8400,7 +8393,7 @@ async function pruneHistoryBlobStore(list) {
     const db = await openHistoryBlobDb();
     await new Promise((resolve, reject) => {
       const tx = db.transaction(HISTORY_BLOB_STORE, "readwrite");
-      const request = tx.objectStore(HISTORY_BLOB_STORE).openCursor();
+      const request = tx.objectStore(HISTORY_BLOB_STORE).openKeyCursor();
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) return;
@@ -10053,11 +10046,7 @@ initManualWheelScrollFix();
 const runStartupCacheCleanup = () => {
   void cleanupGeneratedImageCache().catch(err => console.warn("启动时清理生成图片缓存失败", err));
 };
-if (typeof requestIdleCallback === "function") {
-  requestIdleCallback(runStartupCacheCleanup, { timeout: 30000 });
-} else {
-  setTimeout(runStartupCacheCleanup, 5000);
-}
+setTimeout(runStartupCacheCleanup, 15000);
 updateOfficialCostSummary();
 if ((dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "official") {
   setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);

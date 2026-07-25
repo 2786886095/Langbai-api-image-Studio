@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.3.36
+# Codex / Claude Handoff: AI 图片生成器 v1.3.37
 
 更新时间：2026-07-25
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio`
@@ -6,10 +6,20 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.3.36+60`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.3.37+61`；线上发布状态以 GitHub Releases 实际页面为准。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。
+
+## v1.3.37 Windows 全面无响应根因修复
+
+- 多路独立审计确认：反复出现的“页面仍显示、所有按钮和滚轮都像卡死”不是单个按钮监听器问题，根因是旧 Windows 壳使用 CompositionController + Flutter texture，并手工转发鼠标、滚轮与焦点。WebView2 进程失效后旧壳还会保留最后一帧，且没有恢复处理。
+- Windows 已迁移到 vendored `webview_win_floating` commit `bbae6b84`，使用真实 Flutter HWND 创建普通 windowed `CoreWebView2Controller`。点击、键盘、下拉、拖放和滚轮现在由 Windows/WebView2 原生处理，不再经过 Flutter MethodChannel 输入转发。
+- 继续使用 `%LOCALAPPDATA%\flutter_webview_windows\ai_image_generator` 作为 user data folder，复用原来的 `EBWebView/Default`，不会创建新 profile，也不会覆盖或清空用户保存的 API、Key 元数据、历史和设置。
+- vendored 插件新增 document-created bridge、`ProcessFailed` 上报、UTF-8 路径转换、空控制器销毁保护和原生拖放启用。Dart 壳收到任何 WebView2 进程失败会销毁并重建；每 20 秒做一次无界面健康检查，连续两次超时也会自动恢复。
+- 最小化时显式隐藏原生 WebView，恢复时同步显示并聚焦。windowed 模式下禁用旧 texture 专用的 JS 滚轮纠偏，避免设置弹窗滚动时反向滚动主界面；参考图拖放恢复为可用能力。
+- 大缓存升级不再在 versionchange 事务中批量迁移所有旧键；历史清理改用 `openKeyCursor()`，不反序列化图片 Blob；自动缓存清理延后 15 秒执行，避免启动抢占。
+- 发布前硬门槛：浏览器回归、Flutter analyze/test、GitHub Actions Windows 原生 C++ 编译全部通过。不得只凭浏览器 `.click()` 测试发布 Windows 包。
 
 ## v1.3.36 Windows 原子点击与大缓存启动修复
 
@@ -272,9 +282,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.36"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.3.37"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.36` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.3.37` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -290,5 +300,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.36 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.3.37 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

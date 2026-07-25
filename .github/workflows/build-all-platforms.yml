@@ -115,6 +115,18 @@ jobs:
 
           cmake -S windows -B build/windows/x64 -G "$generator" -A x64 -DFLUTTER_TARGET_PLATFORM=windows-x64
           cmake --build build/windows/x64 --config Release --target INSTALL
+      - name: Run hidden Windows WebView2 startup smoke test
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path "build/windows/x64/runner/Release/ai_image_generator.exe"
+          $process = Start-Process -FilePath $exe -ArgumentList "--windows-webview-self-test" -WindowStyle Hidden -PassThru
+          if (-not $process.WaitForExit(30000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "Windows WebView2 startup smoke test timed out."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Windows WebView2 startup smoke test failed with exit code $($process.ExitCode)."
+          }
       - name: Package Windows app
         shell: pwsh
         run: |

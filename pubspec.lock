@@ -557,13 +557,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.22.0"
-  webview_windows:
+  webview_win_floating:
     dependency: "direct main"
     description:
-      path: "third_party/webview_windows"
+      path: "third_party/webview_win_floating"
       relative: true
     source: path
-    version: "0.4.0"
+    version: "3.0.3"
   win32:
     dependency: transitive
     description:
