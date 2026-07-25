@@ -15,7 +15,7 @@
 - `third_party/webview_win_floating` 现支持 `useTopLevelWindowHost`：运行时解析真正的顶层 HWND，创建独立 `WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS` 宿主，再以它作为 WebView2 父窗口。
 - 宿主尺寸、Z 序、最小化/恢复、DPI、移动和焦点由 Win32 消息直接管理，不再使用 Flutter 的 `localToGlobal * DPR` 作为 Windows 全屏内容坐标。
 - `bootstrap-guard.js` 在主脚本异常时保留设置和模式切换的最低限度操作，并显示启动错误；正常加载结束由 `window.__AI_GEN_APP_READY` 接管。
-- CI 新增可见窗口的原生输入测试：先断言 `WindowFromPoint` 命中 `Chrome_RenderWidgetHostHWND`，再向该原生窗口发送鼠标消息点击真实 `#settingsBtn`；只有收到可信 `pointerdown/click` 且设置弹窗实际打开才通过。旧的隐藏 `ExecuteScript` 自测继续保留，但不再被当作点击验证。
+- CI 新增可见窗口的原生命中测试：页面完成启动后，`WindowFromPoint` 必须命中 `Chrome_RenderWidgetHostHWND`，不能再命中 Flutter 渲染窗口。GitHub 托管 Runner 不接收桌面鼠标注入，因此实际控件点击继续由浏览器回归覆盖，最终 Windows 行为必须由安装包实机确认。
 - 本轮完成的是一次跨 Web、Windows/macOS/Linux Flutter 壳、Android、iOS 的功能与安全深度审计。
 - Web 完整回归、代理专项、Flutter analyze/test、Android debug 实际构建均已通过。
 - 本机没有 Visual Studio/macOS，因此 Windows C++、macOS Swift、iOS Swift 的最终编译必须由四端 GitHub Actions 验证。

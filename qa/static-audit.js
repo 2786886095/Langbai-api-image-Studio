@@ -64,7 +64,7 @@ assert.match(dartMain, /runJavaScriptReturningResult\('1'\)/);
 assert.match(dartMain, /--windows-webview-self-test/);
 assert.match(dartMain, /--windows-webview-input-self-test/);
 assert.match(workflow, /Run hidden Windows WebView2 startup smoke test/);
-assert.match(workflow, /Run native Windows WebView2 hit-test and click smoke test/);
+assert.match(workflow, /Verify Windows hit testing reaches WebView2/);
 assert.match(bootstrapGuard, /__AI_GEN_APP_READY/);
 assert.match(app, /window\.__AI_GEN_APP_READY = true/);
 assert.match(dartMain, /'flutter_webview_windows',\s*'ai_image_generator',\s*\]\.join/);
