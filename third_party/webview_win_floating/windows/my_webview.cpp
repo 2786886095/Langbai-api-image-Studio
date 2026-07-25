@@ -53,6 +53,8 @@ public:
     HRESULT loadUrl(PCWSTR url);
     HRESULT loadHtmlString(PCWSTR html);
     HRESULT runJavascript(PCWSTR javaScriptString, bool ignoreResult, std::function<void(std::string)> callback);
+    HRESULT callDevToolsProtocolMethod(PCWSTR methodName, PCWSTR parametersAsJson,
+        std::function<void(HRESULT, std::string)> callback);
     HRESULT addScriptToExecuteOnDocumentCreated(
         PCWSTR javaScriptString,
         std::function<void(HRESULT)> callback);
@@ -616,6 +618,22 @@ HRESULT MyWebViewImpl::runJavascript(LPCWSTR javaScriptString, bool ignoreResult
             }
             return hr;
         }).Get());
+}
+
+HRESULT MyWebViewImpl::callDevToolsProtocolMethod(
+    LPCWSTR methodName, LPCWSTR parametersAsJson,
+    std::function<void(HRESULT, std::string)> callback)
+{
+    if (!m_pWebview) return E_POINTER;
+    return m_pWebview->CallDevToolsProtocolMethod(
+        methodName, parametersAsJson,
+        Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
+            [callback](HRESULT hr, LPCWSTR resultJson) -> HRESULT {
+                if (callback) {
+                    callback(hr, resultJson == nullptr ? std::string() : utf8_encode(resultJson));
+                }
+                return S_OK;
+            }).Get());
 }
 
 HRESULT MyWebViewImpl::addScriptChannelByName(LPCWSTR channelName)

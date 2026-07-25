@@ -528,6 +528,18 @@ class WinWebViewController {
         .runJavaScriptReturningResult(_webviewId, javaScriptString);
   }
 
+  Future<String> callDevToolsProtocolMethod(
+    String methodName,
+    String parametersAsJson,
+  ) async {
+    await _initFuture;
+    return WebviewWinFloatingPlatform.instance.callDevToolsProtocolMethod(
+      _webviewId,
+      methodName,
+      parametersAsJson,
+    );
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     String javaScriptString,
   ) async {

@@ -23,6 +23,8 @@ Local changes:
   and route activation focus to WebView2 instead of Flutter's backing HWND;
 - expose a top-level-host creation option so other package users retain the
   original embedded-widget behavior by default.
+- expose WebView2 DevTools protocol calls to Dart for the Windows-only trusted
+  input smoke test; production page code cannot invoke this method channel.
 
 This package uses a windowed WebView2 controller. In Langbai's full-window
 mode, WebView2 is the only visible native content host and Windows input is

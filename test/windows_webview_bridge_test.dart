@@ -18,6 +18,7 @@ void main() {
       calls.add(call);
       if (call.method == 'create') return true;
       if (call.method == 'runJavascript') return '1';
+      if (call.method == 'callDevToolsProtocolMethod') return '{}';
       return null;
     });
 
@@ -37,6 +38,13 @@ void main() {
       'window.__WINDOWED_TEST__ = true;',
     );
     expect(await controller.runJavaScriptReturningResult('1'), 1);
+    expect(
+      await controller.callDevToolsProtocolMethod(
+        'Input.dispatchMouseEvent',
+        '{"type":"mouseMoved","x":1,"y":1}',
+      ),
+      '{}',
+    );
 
     final create = calls.firstWhere((call) => call.method == 'create');
     expect((create.arguments as Map)['useTopLevelWindowHost'], isTrue);
