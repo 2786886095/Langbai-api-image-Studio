@@ -5,12 +5,13 @@ repository: https://github.com/jnschulze/flutter-webview-windows
 homepage: https://jns.io
 
 environment:
-  sdk: ">=2.15.0 <4.0.0"
-  flutter: ">=3.7.0"
+  sdk: ">=3.0.0"
+  flutter: ">=3.3.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  meta: ^1.9.0
 
 dev_dependencies:
   flutter_test:

@@ -803,7 +803,8 @@ class _WindowsFileTransfer {
 
 class _WindowsWebShellState extends State<WindowsWebShell>
     with WidgetsBindingObserver {
-  final _controller = windows_webview.WebviewController();
+  windows_webview.WebviewHost? _webviewHost;
+  windows_webview.WebviewController? _controller;
   final _subscriptions = <StreamSubscription<dynamic>>[];
   final _pendingFileTransfers = <String, _WindowsFileTransfer>{};
 
@@ -840,6 +841,8 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   }
 
   Future<void> _initializeWebView() async {
+    windows_webview.WebviewHost? host;
+    windows_webview.WebviewController? controller;
     try {
       final version =
           await windows_webview.WebviewController.getWebViewVersion();
@@ -850,24 +853,28 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         );
       }
 
-      await _controller.initialize();
-      _subscriptions.add(_controller.webMessage.listen(
+      host = await windows_webview.WebviewHost.create(
+        userDataPath: _windowsWebViewDataPath(),
+        areBrowserExtensionsEnabled: false,
+        enableTrackingPrevention: true,
+      );
+      controller = await windows_webview.WebviewController.create(host);
+      _webviewHost = host;
+      _controller = controller;
+
+      _subscriptions.add(controller.webMessage.listen(
         _handleWindowsBridgeMessage,
         onError: (Object error) => debugPrint('WebView message error: $error'),
       ));
-      _subscriptions.add(_controller.loadingState.listen((state) {
-        if (state == windows_webview.LoadingState.navigationCompleted) {
-          unawaited(_syncWindowsDownloadDirs());
-        }
-      }));
-      _subscriptions.add(_controller.url.listen((url) {
-        unawaited(_handleWindowsUrlChanged(url));
-      }));
+      controller.loadingState.addListener(_handleWindowsLoadingStateChanged);
+      controller.url.addListener(_handleWindowsUrlValueChanged);
 
-      await _controller.setBackgroundColor(_appBackground);
-      await _controller
-          .setPopupWindowPolicy(windows_webview.WebviewPopupWindowPolicy.deny);
-      await _controller
+      await controller.setBackgroundColor(_appBackground);
+      controller.setNewWindowRequestedDelegate((url, isUserInitiated) async {
+        if (_isExternalHttpUrl(url)) await _openSystemExternalUrl(url);
+        return windows_webview.NewWindowDecision.deny;
+      });
+      await controller
           .addScriptToExecuteOnDocumentCreated(_windowsBridgeScript);
 
       final indexFile = _windowsAssetFile('index.html');
@@ -880,15 +887,47 @@ class _WindowsWebShellState extends State<WindowsWebShell>
 
       _windowsIndexUrl = Uri.file(indexFile.path).toString();
       _trustedWindowsDocument = true;
-      await _controller.loadUrl(_windowsIndexUrl!);
+      await controller.loadUrl(_windowsIndexUrl!);
       if (!mounted) return;
       setState(() => _isReady = true);
     } on Object catch (error) {
+      if (controller != null) await controller.dispose();
+      if (host != null) await host.dispose();
+      _controller = null;
+      _webviewHost = null;
       if (!mounted) return;
       setState(() {
         _errorTitle = 'Windows WebView 启动失败';
         _errorMessage = error.toString();
       });
+    }
+  }
+
+  String _windowsWebViewDataPath() {
+    final localAppData = Platform.environment['LOCALAPPDATA'];
+    if (localAppData == null || localAppData.trim().isEmpty) {
+      throw const FileSystemException('LOCALAPPDATA is unavailable.');
+    }
+    return [
+      localAppData,
+      'flutter_webview_windows',
+      'ai_image_generator',
+      'EBWebView',
+    ].join(Platform.pathSeparator);
+  }
+
+  void _handleWindowsLoadingStateChanged() {
+    final controller = _controller;
+    if (controller?.loadingState.value ==
+        windows_webview.LoadingState.navigationCompleted) {
+      unawaited(_syncWindowsDownloadDirs());
+    }
+  }
+
+  void _handleWindowsUrlValueChanged() {
+    final url = _controller?.url.value;
+    if (url != null && url.isNotEmpty) {
+      unawaited(_handleWindowsUrlChanged(url));
     }
   }
 
@@ -923,11 +962,13 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     _trustedWindowsDocument = trusted;
     if (trusted || _windowsIndexUrl == null || url == 'about:blank') return;
 
-    await _controller.stop();
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.stop();
     if (_isExternalHttpUrl(url)) {
       await _openSystemExternalUrl(url);
     }
-    await _controller.loadUrl(_windowsIndexUrl!);
+    await controller.loadUrl(_windowsIndexUrl!);
   }
 
   Future<void> _handleWindowsBridgeMessage(dynamic rawMessage) async {
@@ -1505,19 +1546,25 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   }
 
   Future<void> _syncWindowsDownloadDirs() {
-    return _controller.executeScript(
+    final controller = _controller;
+    if (controller == null) return Future<void>.value();
+    return controller.executeScript(
       'window.AiGenAndroidBridge && window.AiGenAndroidBridge.setDirs(${jsonEncode(_windowsDownloadDirs())});',
     );
   }
 
   Future<void> _resolveWindowsJs(String id, Object? result) {
-    return _controller.executeScript(
+    final controller = _controller;
+    if (controller == null) return Future<void>.value();
+    return controller.executeScript(
       'window.AiGenAndroidBridge && window.AiGenAndroidBridge.resolve(${jsonEncode(id)}, ${jsonEncode(result)});',
     );
   }
 
   Future<void> _rejectWindowsJs(String id, String message) {
-    return _controller.executeScript(
+    final controller = _controller;
+    if (controller == null) return Future<void>.value();
+    return controller.executeScript(
       'window.AiGenAndroidBridge && window.AiGenAndroidBridge.reject(${jsonEncode(id)}, ${jsonEncode(message)});',
     );
   }
@@ -1533,7 +1580,14 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
-    unawaited(_controller.dispose());
+    final controller = _controller;
+    final host = _webviewHost;
+    controller?.loadingState.removeListener(_handleWindowsLoadingStateChanged);
+    controller?.url.removeListener(_handleWindowsUrlValueChanged);
+    unawaited(() async {
+      if (controller != null) await controller.dispose();
+      if (host != null) await host.dispose();
+    }());
     super.dispose();
   }
 
@@ -1588,7 +1642,8 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       );
     }
 
-    if (!_isReady || !_controller.value.isInitialized) {
+    final controller = _controller;
+    if (!_isReady || controller == null) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF879CFF)),
       );
@@ -1598,7 +1653,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       return const SizedBox.shrink();
     }
 
-    return windows_webview.Webview(_controller);
+    return windows_webview.Webview(controller: controller);
   }
 }
 

@@ -29,6 +29,11 @@ class TextureBridge {
   bool Start();
   void Stop();
 
+  // Releases the apartment-affine GraphicsCaptureItem. Must be called on
+  // the thread that constructed the bridge; otherwise COM marshaling the
+  // final Release back to the creating STA can deadlock during shutdown.
+  void ReleaseCaptureItem();
+
   void SetOnFrameAvailable(FrameAvailableCallback callback) {
     frame_available_ = std::move(callback);
   }
@@ -51,6 +56,8 @@ class TextureBridge {
   SurfaceSizeChangedCallback surface_size_changed_;
   std::atomic<bool> needs_update_ = false;
   winrt::com_ptr<ID3D11Texture2D> last_frame_;
+  Size pool_size_{0, 0};
+  Size last_content_size_{0, 0};
   std::optional<std::chrono::high_resolution_clock::time_point>
       last_frame_timestamp_;
 

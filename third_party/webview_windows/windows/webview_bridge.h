@@ -48,8 +48,21 @@ class WebviewBridge {
     }
   }
 
+  bool transparency_hit_testing_enabled_ = false;
+  std::optional<bool> last_hit_test_opaque_ = std::nullopt;
+  uint8_t hit_test_alpha_threshold_ = 0;
+
+  void CheckTransparencyAtCursor(double x, double y);
+
   void OnPermissionRequested(
       const std::string& url, WebviewPermissionKind permissionKind,
       bool is_user_initiated,
       Webview::WebviewPermissionRequestedCompleter completer);
+
+  void OnNavigationStarting(const std::string& url, bool is_user_initiated,
+                            bool is_redirected,
+                            Webview::NavigationStartingCompleter completer);
+
+  void OnNewWindowRequested(const std::string& url, bool is_user_initiated,
+                            Webview::NewWindowRequestedCompleter completer);
 };

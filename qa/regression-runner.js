@@ -2872,7 +2872,7 @@ async function testUploadZoneHintTargetsCorrectSpan(cdp) {
 }
 
 async function testManualWheelScrollFallback(cdp) {
-  logStep("Native Windows exe must manually redirect wheel-scroll to the nested scrollable ancestor under the cursor, working around webview_windows 0.4.0 not forwarding cursor position with wheel events (upstream flutter-webview-windows#313, merged upstream but never released to pub.dev — still stuck at 0.4.0 from 2024-02)");
+  logStep("Native Windows keeps a JavaScript nested-scroll fallback so settings and custom dropdowns consume wheel input without moving the page behind them");
 
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `window.FlutterDownload = { postMessage() {} };`,

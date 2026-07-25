@@ -75,12 +75,16 @@ Webview::Webview(
   webview_controller_->put_ShouldDetectMonitorScaleChanges(FALSE);
   webview_controller_->put_RasterizationScale(1.0);
 
-  wil::com_ptr<ICoreWebView2Settings> settings;
-  if (SUCCEEDED(webview_->get_Settings(settings.put()))) {
-    settings2_ = settings.try_query<ICoreWebView2Settings2>();
+  if (SUCCEEDED(webview_->get_Settings(settings_.put()))) {
+    settings2_ = settings_.try_query<ICoreWebView2Settings2>();
+    settings3_ = settings_.try_query<ICoreWebView2Settings3>();
+    settings4_ = settings_.try_query<ICoreWebView2Settings4>();
+    settings5_ = settings_.try_query<ICoreWebView2Settings5>();
+    settings6_ = settings_.try_query<ICoreWebView2Settings6>();
+    settings8_ = settings_.try_query<ICoreWebView2Settings8>();
 
-    settings->put_IsStatusBarEnabled(FALSE);
-    settings->put_AreDefaultContextMenusEnabled(FALSE);
+    settings_->put_IsStatusBarEnabled(FALSE);
+    settings_->put_AreDefaultContextMenusEnabled(FALSE);
   }
 
   EnableSecurityUpdates();
@@ -90,6 +94,13 @@ Webview::Webview(
 }
 
 Webview::~Webview() {
+  UnregisterEventHandlers();
+
+  if (webview_controller_) {
+    webview_controller_->Close();
+    webview_controller_ = nullptr;
+  }
+
   if (owns_window_) {
     DestroyWindow(hwnd_);
   }
@@ -106,9 +117,10 @@ bool Webview::CreateSurface(
   surface_ = root.try_as<ABI::Windows::UI::Composition::IVisual>();
   assert(surface_);
 
-  // initial size. doesn't matter as we resize the surface anyway.
-  surface_->put_Size({1280, 720});
-  surface_->put_IsVisible(true);
+  // Start invisible at zero size. It's made visible on the first SetSurfaceSize
+  // call, which happens when the Flutter Webview widget is first laid out.
+  surface_->put_Size({0, 0});
+  surface_->put_IsVisible(false);
 
   // Create on-screen window for debugging purposes
   if (!offscreen_only) {
@@ -173,6 +185,53 @@ void Webview::RegisterEventHandlers() {
     return;
   }
 
+  webview_->add_NavigationStarting(
+      Callback<ICoreWebView2NavigationStartingEventHandler>(
+          [this](ICoreWebView2* sender,
+                 ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
+            if (!navigation_starting_callback_) {
+              return S_OK;
+            }
+
+            wil::unique_cotaskmem_string wuri;
+            if (args->get_Uri(&wuri) != S_OK) {
+              return S_OK;
+            }
+
+            std::string uri = util::Utf8FromUtf16(wuri.get());
+
+            if (navigation_starting_allowed_url_.has_value() &&
+                navigation_starting_allowed_url_.value() == uri) {
+              navigation_starting_allowed_url_.reset();
+              return S_OK;
+            }
+
+            BOOL is_user_initiated = FALSE;
+            BOOL is_redirected = FALSE;
+            args->get_IsUserInitiated(&is_user_initiated);
+            args->get_IsRedirected(&is_redirected);
+
+            UINT64 nav_id = 0;
+            args->get_NavigationId(&nav_id);
+            intercepted_navigation_ids_.insert(nav_id);
+
+            auto intercept_id = ++navigation_intercept_id_;
+            args->put_Cancel(TRUE);
+
+            navigation_starting_callback_(
+                uri, is_user_initiated == TRUE, is_redirected == TRUE,
+                [this, uri, intercept_id](bool cancel) {
+                  if (!cancel && intercept_id == navigation_intercept_id_) {
+                    navigation_starting_allowed_url_ = uri;
+                    webview_->Navigate(util::Utf16FromUtf8(uri).c_str());
+                  }
+                });
+
+            return S_OK;
+          })
+          .Get(),
+      &event_registrations_.navigation_starting_token_);
+
   webview_->add_ContentLoading(
       Callback<ICoreWebView2ContentLoadingEventHandler>(
           [this](ICoreWebView2* sender, IUnknown* args) -> HRESULT {
@@ -189,6 +248,16 @@ void Webview::RegisterEventHandlers() {
       Callback<ICoreWebView2NavigationCompletedEventHandler>(
           [this](ICoreWebView2* sender,
                  ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+            UINT64 nav_id = 0;
+            wil::com_ptr<ICoreWebView2NavigationCompletedEventArgs2> args2;
+            if (SUCCEEDED(args->QueryInterface(IID_PPV_ARGS(&args2)))) {
+              args2->get_NavigationId(&nav_id);
+            }
+
+            if (intercepted_navigation_ids_.erase(nav_id)) {
+              return S_OK;
+            }
+
             BOOL is_success;
             args->get_IsSuccess(&is_success);
             if (!is_success && on_load_error_callback_) {
@@ -344,14 +413,37 @@ void Webview::RegisterEventHandlers() {
       Callback<ICoreWebView2NewWindowRequestedEventHandler>(
           [this](ICoreWebView2* sender,
                  ICoreWebView2NewWindowRequestedEventArgs* args) -> HRESULT {
-            switch (popup_window_policy_) {
-              case WebviewPopupWindowPolicy::Deny:
-                args->put_Handled(TRUE);
-                break;
-              case WebviewPopupWindowPolicy::ShowInSameWindow:
-                args->put_NewWindow(webview_.get());
-                args->put_Handled(TRUE);
-                break;
+            if (!new_window_requested_callback_) {
+              return S_OK;
+            }
+
+            wil::unique_cotaskmem_string wuri;
+            BOOL is_user_initiated = FALSE;
+
+            if (args->get_Uri(&wuri) == S_OK) {
+              args->get_IsUserInitiated(&is_user_initiated);
+
+              wil::com_ptr<ICoreWebView2Deferral> deferral;
+              args->GetDeferral(deferral.put());
+
+              const std::string uri = util::Utf8FromUtf16(wuri.get());
+              new_window_requested_callback_(
+                  uri, is_user_initiated == TRUE,
+                  [this, deferral, args](NewWindowDecision decision) {
+                    switch (decision) {
+                      case NewWindowDecision::Deny:
+                        args->put_Handled(TRUE);
+                        break;
+                      case NewWindowDecision::ShowInSameWindow:
+                        args->put_NewWindow(webview_.get());
+                        args->put_Handled(TRUE);
+                        break;
+                      case NewWindowDecision::Allow:
+                      default:
+                        break;
+                    }
+                    deferral->Complete();
+                  });
             }
 
             return S_OK;
@@ -417,6 +509,84 @@ void Webview::RegisterEventHandlers() {
             .Get(),
         &event_registrations_.download_starting_token_);
   }
+
+  webview_->add_ProcessFailed(
+      Callback<ICoreWebView2ProcessFailedEventHandler>(
+          [this](ICoreWebView2* sender,
+                 ICoreWebView2ProcessFailedEventArgs* args) -> HRESULT {
+            if (process_failed_callback_) {
+              COREWEBVIEW2_PROCESS_FAILED_KIND kind;
+              args->get_ProcessFailedKind(&kind);
+
+              COREWEBVIEW2_PROCESS_FAILED_REASON reason =
+                  COREWEBVIEW2_PROCESS_FAILED_REASON_UNEXPECTED;
+              auto args2 =
+                  wil::try_com_query<ICoreWebView2ProcessFailedEventArgs2>(
+                      args);
+              if (args2) {
+                args2->get_Reason(&reason);
+              }
+
+              process_failed_callback_(static_cast<int>(kind),
+                                       static_cast<int>(reason));
+            }
+            return S_OK;
+          })
+          .Get(),
+      &event_registrations_.process_failed_token_);
+}
+
+void Webview::UnregisterEventHandlers() {
+  if (webview_) {
+    webview_->remove_ContentLoading(
+        event_registrations_.content_loading_token_);
+    webview_->remove_NavigationCompleted(
+        event_registrations_.navigation_completed_token_);
+    webview_->remove_HistoryChanged(
+        event_registrations_.history_changed_token_);
+    webview_->remove_SourceChanged(event_registrations_.source_changed_token_);
+    webview_->remove_DocumentTitleChanged(
+        event_registrations_.document_title_changed_token_);
+    webview_->remove_WebMessageReceived(
+        event_registrations_.web_message_received_token_);
+    webview_->remove_PermissionRequested(
+        event_registrations_.permission_requested_token_);
+    webview_->remove_NewWindowRequested(
+        event_registrations_.new_windows_requested_token_);
+    webview_->remove_ContainsFullScreenElementChanged(
+        event_registrations_.contains_fullscreen_element_changed_token_);
+
+    webview_->remove_ProcessFailed(
+        event_registrations_.process_failed_token_);
+
+    if (extra_headers_filter_registered_) {
+      webview_->remove_WebResourceRequested(
+          event_registrations_.web_resource_requested_token_);
+    }
+
+    // Download events (ICoreWebView2_4)
+    auto webview24 = webview_.try_query<ICoreWebView2_4>();
+    if (webview24) {
+      webview24->remove_DownloadStarting(
+          event_registrations_.download_starting_token_);
+    }
+  }
+
+  if (composition_controller_) {
+    composition_controller_->remove_CursorChanged(
+        event_registrations_.cursor_changed_token_);
+  }
+
+  if (webview_controller_) {
+    webview_controller_->remove_GotFocus(event_registrations_.got_focus_token_);
+    webview_controller_->remove_LostFocus(
+        event_registrations_.lost_focus_token_);
+  }
+
+  if (devtools_protocol_event_receiver_) {
+    devtools_protocol_event_receiver_->remove_DevToolsProtocolEventReceived(
+        event_registrations_.devtools_protocol_event_token_);
+  }
 }
 
 void Webview::SetSurfaceSize(size_t width, size_t height, float scale_factor) {
@@ -437,6 +607,7 @@ void Webview::SetSurfaceSize(size_t width, size_t height, float scale_factor) {
     bounds.bottom = kBoundsOffset + static_cast<LONG>(scaled_height);
 
     surface_->put_Size({scaled_width, scaled_height});
+    surface_->put_IsVisible(true);
     webview_controller_->put_RasterizationScale(scale_factor);
     if (webview_controller_->put_Bounds(bounds) != S_OK) {
       std::cerr << "Setting webview bounds failed." << std::endl;
@@ -454,6 +625,103 @@ bool Webview::OpenDevTools() {
   }
   webview_->OpenDevToolsWindow();
   return true;
+}
+
+bool Webview::SetDevToolsEnabled(bool enabled) {
+  if (!settings_) return false;
+  return SUCCEEDED(settings_->put_AreDevToolsEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetScriptEnabled(bool enabled) {
+  if (!settings_) return false;
+  return SUCCEEDED(settings_->put_IsScriptEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetScriptDialogsEnabled(bool enabled) {
+  if (!settings_) return false;
+  return SUCCEEDED(
+      settings_->put_AreDefaultScriptDialogsEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetBuiltInErrorPageEnabled(bool enabled) {
+  if (!settings_) return false;
+  return SUCCEEDED(
+      settings_->put_IsBuiltInErrorPageEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetZoomControlEnabled(bool enabled) {
+  if (!settings_) return false;
+  return SUCCEEDED(settings_->put_IsZoomControlEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetBrowserAcceleratorKeysEnabled(bool enabled) {
+  if (!settings3_) return false;
+  return SUCCEEDED(
+      settings3_->put_AreBrowserAcceleratorKeysEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetGeneralAutofillEnabled(bool enabled) {
+  if (!settings4_) return false;
+  return SUCCEEDED(
+      settings4_->put_IsGeneralAutofillEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetPasswordAutosaveEnabled(bool enabled) {
+  if (!settings4_) return false;
+  return SUCCEEDED(
+      settings4_->put_IsPasswordAutosaveEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetPinchZoomEnabled(bool enabled) {
+  if (!settings5_) return false;
+  return SUCCEEDED(settings5_->put_IsPinchZoomEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetSwipeNavigationEnabled(bool enabled) {
+  if (!settings6_) return false;
+  return SUCCEEDED(
+      settings6_->put_IsSwipeNavigationEnabled(enabled ? TRUE : FALSE));
+}
+
+bool Webview::SetReputationCheckingEnabled(bool enabled) {
+  if (!settings8_) return false;
+  return SUCCEEDED(
+      settings8_->put_IsReputationCheckingRequired(enabled ? TRUE : FALSE));
+}
+
+void Webview::CallDevToolsProtocolMethod(
+    const std::string& method, const std::string& parameters,
+    std::function<void(bool, const std::string&)> callback) {
+  if (IsValid()) {
+    if (SUCCEEDED(webview_->CallDevToolsProtocolMethod(
+            util::Utf16FromUtf8(method).c_str(),
+            util::Utf16FromUtf8(parameters).c_str(),
+            Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
+                [callback](HRESULT result, LPCWSTR return_object) {
+                  callback(SUCCEEDED(result),
+                           return_object ? util::Utf8FromUtf16(return_object)
+                                         : std::string());
+                  return S_OK;
+                })
+                .Get()))) {
+      return;
+    }
+  }
+  callback(false, std::string());
+}
+
+bool Webview::SetTrackingPreventionLevel(int level) {
+  auto webview13 = webview_.try_query<ICoreWebView2_13>();
+  if (!webview13) return false;
+
+  wil::com_ptr<ICoreWebView2Profile> profile;
+  if (FAILED(webview13->get_Profile(&profile))) return false;
+
+  auto profile3 = profile.try_query<ICoreWebView2Profile3>();
+  if (!profile3) return false;
+
+  return SUCCEEDED(profile3->put_PreferredTrackingPreventionLevel(
+      static_cast<COREWEBVIEW2_TRACKING_PREVENTION_LEVEL>(level)));
 }
 
 bool Webview::ClearCookies() {
@@ -480,10 +748,6 @@ bool Webview::SetCacheDisabled(bool disabled) {
   return webview_->CallDevToolsProtocolMethod(L"Network.setCacheDisabled",
                                               util::Utf16FromUtf8(json).c_str(),
                                               nullptr) == S_OK;
-}
-
-void Webview::SetPopupWindowPolicy(WebviewPopupWindowPolicy policy) {
-  popup_window_policy_ = policy;
 }
 
 bool Webview::SetUserAgent(const std::string& user_agent) {
@@ -601,8 +865,7 @@ void Webview::SetPointerUpdate(int32_t pointer,
       });
 }
 
-void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down,
-                                    double x, double y) {
+void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down) {
   if (!IsValid()) {
     return;
   }
@@ -628,8 +891,6 @@ void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down,
       kind = static_cast<COREWEBVIEW2_MOUSE_EVENT_KIND>(0);
   }
 
-  last_cursor_pos_.x = static_cast<LONG>(x * scale_factor_);
-  last_cursor_pos_.y = static_cast<LONG>(y * scale_factor_);
   composition_controller_->SendMouseInput(kind, virtual_keys_.state(), 0,
                                           last_cursor_pos_);
 }
@@ -661,14 +922,10 @@ void Webview::SendScroll(double delta, bool horizontal) {
   }
 }
 
-void Webview::SetScrollDelta(double delta_x, double delta_y, double x,
-                             double y) {
+void Webview::SetScrollDelta(double delta_x, double delta_y) {
   if (!IsValid()) {
     return;
   }
-
-  last_cursor_pos_.x = static_cast<LONG>(x * scale_factor_);
-  last_cursor_pos_.y = static_cast<LONG>(y * scale_factor_);
 
   if (delta_x != 0.0) {
     SendScroll(delta_x, true);
@@ -678,9 +935,40 @@ void Webview::SetScrollDelta(double delta_x, double delta_y, double x,
   }
 }
 
-void Webview::LoadUrl(const std::string& url) {
-  if (IsValid()) {
+void Webview::LoadUrl(const std::string& url,
+                      const std::map<std::string, std::string>& headers) {
+  if (!IsValid()) {
+    return;
+  }
+
+  if (headers.empty()) {
     webview_->Navigate(util::Utf16FromUtf8(url).c_str());
+    return;
+  }
+
+  auto env = host_->environment();
+  wil::com_ptr<ICoreWebView2Environment2> env2;
+  if (FAILED(env->QueryInterface(IID_PPV_ARGS(&env2)))) {
+    return;
+  }
+
+  wil::com_ptr<ICoreWebView2WebResourceRequest> request;
+  if (FAILED(env2->CreateWebResourceRequest(util::Utf16FromUtf8(url).c_str(),
+                                            L"GET", nullptr, L"", &request))) {
+    return;
+  }
+
+  wil::com_ptr<ICoreWebView2HttpRequestHeaders> request_headers;
+  if (SUCCEEDED(request->get_Headers(&request_headers))) {
+    for (const auto& [key, value] : headers) {
+      request_headers->SetHeader(util::Utf16FromUtf8(key).c_str(),
+                                 util::Utf16FromUtf8(value).c_str());
+    }
+  }
+
+  wil::com_ptr<ICoreWebView2_2> webview2;
+  if (SUCCEEDED(webview_->QueryInterface(IID_PPV_ARGS(&webview2)))) {
+    webview2->NavigateWithWebResourceRequest(request.get());
   }
 }
 
@@ -809,6 +1097,39 @@ bool Webview::Resume() {
          webview_controller_->put_IsVisible(true) == S_OK;
 }
 
+bool Webview::SetMemoryUsageTargetLevel(int level) {
+  if (!IsValid()) {
+    return false;
+  }
+
+  auto webview19 = webview_.try_query<ICoreWebView2_19>();
+  if (!webview19) {
+    return false;
+  }
+
+  auto target = (level == 0) ? COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+                             : COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW;
+  return SUCCEEDED(webview19->put_MemoryUsageTargetLevel(target));
+}
+
+bool Webview::SetMuted(bool muted) {
+  if (!IsValid()) {
+    return false;
+  }
+
+  wil::com_ptr<ICoreWebView2_8> webview8;
+  if (FAILED(webview_.try_query_to(&webview8)) || !webview8) {
+    return false;
+  }
+
+  HRESULT hr = webview8->put_IsMuted(muted ? TRUE : FALSE);
+  if (SUCCEEDED(hr)) {
+    return true;
+  }
+
+  return false;
+}
+
 bool Webview::SetVirtualHostNameMapping(
     const std::string& hostName, const std::string& path,
     WebviewHostResourceAccessKind accessKind) {
@@ -839,6 +1160,92 @@ bool Webview::SetVirtualHostNameMapping(
   return webview->SetVirtualHostNameToFolderMapping(
       util::Utf16FromUtf8(hostName).c_str(), util::Utf16FromUtf8(path).c_str(),
       accessKindIntValue);
+}
+
+void Webview::EnsureExtraHeadersFilterRegistered() {
+  if (extra_headers_filter_registered_) {
+    return;
+  }
+
+  extra_headers_filter_registered_ = true;
+
+  webview_->add_WebResourceRequested(
+      Callback<ICoreWebView2WebResourceRequestedEventHandler>(
+          [this](ICoreWebView2* sender,
+                 ICoreWebView2WebResourceRequestedEventArgs* args) -> HRESULT {
+            wil::com_ptr<ICoreWebView2WebResourceRequest> request;
+            if (FAILED(args->get_Request(&request))) {
+              return S_OK;
+            }
+
+            wil::com_ptr<ICoreWebView2HttpRequestHeaders> request_headers;
+            if (FAILED(request->get_Headers(&request_headers))) {
+              return S_OK;
+            }
+
+            for (const auto& [key, value] : extra_headers_) {
+              request_headers->SetHeader(util::Utf16FromUtf8(key).c_str(),
+                                         util::Utf16FromUtf8(value).c_str());
+            }
+
+            for (const auto& [filter, headers] : domain_extra_headers_) {
+              for (const auto& [key, value] : headers) {
+                request_headers->SetHeader(util::Utf16FromUtf8(key).c_str(),
+                                           util::Utf16FromUtf8(value).c_str());
+              }
+            }
+
+            return S_OK;
+          })
+          .Get(),
+      &event_registrations_.web_resource_requested_token_);
+}
+
+void Webview::SetExtraHeaders(
+    const std::map<std::string, std::string>& headers) {
+  if (!IsValid()) {
+    return;
+  }
+
+  EnsureExtraHeadersFilterRegistered();
+
+  if (extra_headers_.empty() && !headers.empty()) {
+    webview_->AddWebResourceRequestedFilter(
+        L"*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+  } else if (!extra_headers_.empty() && headers.empty()) {
+    webview_->RemoveWebResourceRequestedFilter(
+        L"*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+  }
+
+  extra_headers_ = headers;
+}
+
+void Webview::SetDomainExtraHeaders(
+    const std::string& domain,
+    const std::map<std::string, std::string>& headers) {
+  if (!IsValid()) {
+    return;
+  }
+
+  EnsureExtraHeadersFilterRegistered();
+
+  auto wdomain = util::Utf16FromUtf8(domain);
+
+  if (headers.empty()) {
+    if (domain_extra_headers_.erase(domain)) {
+      webview_->RemoveWebResourceRequestedFilter(
+          wdomain.c_str(), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+    }
+  } else {
+    bool is_new =
+        domain_extra_headers_.find(domain) == domain_extra_headers_.end();
+    domain_extra_headers_[domain] = headers;
+
+    if (is_new) {
+      webview_->AddWebResourceRequestedFilter(
+          wdomain.c_str(), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+    }
+  }
 }
 
 bool Webview::ClearVirtualHostNameMapping(const std::string& hostName) {

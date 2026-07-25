@@ -5,6 +5,7 @@
 #include <wil/com.h>
 
 #include <functional>
+#include <memory>
 
 #include "graphics_context.h"
 #include "webview.h"
@@ -40,7 +41,9 @@ class WebviewHost {
       WebviewPlatform* platform,
       std::optional<std::wstring> user_data_directory = std::nullopt,
       std::optional<std::wstring> browser_exe_path = std::nullopt,
-      std::optional<std::string> arguments = std::nullopt);
+      std::optional<std::string> arguments = std::nullopt,
+      std::optional<bool> extensions_enabled = std::nullopt,
+      std::optional<bool> tracking_prevention_enabled = std::nullopt);
 
   void CreateWebview(HWND hwnd, bool offscreen_only, bool owns_window,
                      WebviewCreationCallback callback);
@@ -52,9 +55,14 @@ class WebviewHost {
     return compositor_;
   }
 
+  wil::com_ptr<ICoreWebView2Environment3> environment() const {
+    return webview_env_;
+  }
+
  private:
   winrt::com_ptr<ABI::Windows::UI::Composition::ICompositor> compositor_;
   wil::com_ptr<ICoreWebView2Environment3> webview_env_;
+  std::shared_ptr<bool> alive_flag_{std::make_shared<bool>(true)};
 
   WebviewHost(WebviewPlatform* platform,
               wil::com_ptr<ICoreWebView2Environment3> webview_env);

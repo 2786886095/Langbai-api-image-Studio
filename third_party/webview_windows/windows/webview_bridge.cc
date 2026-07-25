@@ -4,6 +4,7 @@
 #include <flutter/method_result_functions.h>
 
 #include <format>
+#include <map>
 
 #include "texture_bridge_gpu.h"
 
@@ -33,14 +34,34 @@ constexpr auto kMethodSetZoomFactor = "setZoomFactor";
 constexpr auto kMethodOpenDevTools = "openDevTools";
 constexpr auto kMethodSuspend = "suspend";
 constexpr auto kMethodResume = "resume";
+constexpr auto kMethodSetMemoryUsageTargetLevel = "setMemoryUsageTargetLevel";
 constexpr auto kMethodSetVirtualHostNameMapping = "setVirtualHostNameMapping";
 constexpr auto kMethodClearVirtualHostNameMapping =
     "clearVirtualHostNameMapping";
 constexpr auto kMethodClearCookies = "clearCookies";
 constexpr auto kMethodClearCache = "clearCache";
 constexpr auto kMethodSetCacheDisabled = "setCacheDisabled";
-constexpr auto kMethodSetPopupWindowPolicy = "setPopupWindowPolicy";
 constexpr auto kMethodSetFpsLimit = "setFpsLimit";
+constexpr auto kMethodSetMuted = "setMuted";
+constexpr auto kMethodSetDevToolsEnabled = "setDevToolsEnabled";
+constexpr auto kMethodSetTrackingPreventionLevel = "setTrackingPreventionLevel";
+constexpr auto kMethodSetTransparencyHitTestingEnabled =
+    "setTransparencyHitTestingEnabled";
+constexpr auto kMethodSetExtraHeaders = "setExtraHeaders";
+constexpr auto kMethodSetDomainExtraHeaders = "setDomainExtraHeaders";
+constexpr auto kMethodSetScriptEnabled = "setScriptEnabled";
+constexpr auto kMethodSetScriptDialogsEnabled = "setScriptDialogsEnabled";
+constexpr auto kMethodSetBuiltInErrorPageEnabled = "setBuiltInErrorPageEnabled";
+constexpr auto kMethodSetZoomControlEnabled = "setZoomControlEnabled";
+constexpr auto kMethodSetBrowserAcceleratorKeysEnabled =
+    "setBrowserAcceleratorKeysEnabled";
+constexpr auto kMethodSetGeneralAutofillEnabled = "setGeneralAutofillEnabled";
+constexpr auto kMethodSetPasswordAutosaveEnabled = "setPasswordAutosaveEnabled";
+constexpr auto kMethodSetPinchZoomEnabled = "setPinchZoomEnabled";
+constexpr auto kMethodSetSwipeNavigationEnabled = "setSwipeNavigationEnabled";
+constexpr auto kMethodSetReputationCheckingEnabled =
+    "setReputationCheckingEnabled";
+constexpr auto kMethodCallDevToolsProtocolMethod = "callDevToolsProtocolMethod";
 
 constexpr auto kEventType = "type";
 constexpr auto kEventValue = "value";
@@ -153,11 +174,14 @@ WebviewBridge::WebviewBridge(flutter::BinaryMessenger* messenger,
           }));
 
   texture_id_ = texture_registrar->RegisterTexture(flutter_texture_.get());
+  // Capture texture_registrar_ and texture_id_ by value so this callback does
+  // not depend on WebviewBridge staying alive. The callback may fire from the
+  // capture thread slightly after ~WebviewBridge begins, so it must not touch
+  // any member via `this`.
   texture_bridge_->SetOnFrameAvailable(
-      [this]() { texture_registrar_->MarkTextureFrameAvailable(texture_id_); });
-  // texture_bridge_->SetOnSurfaceSizeChanged([this](Size size) {
-  //  webview_->SetSurfaceSize(size.width, size.height);
-  //});
+      [registrar = texture_registrar_, id = texture_id_]() {
+        registrar->MarkTextureFrameAvailable(id);
+      });
 
   const auto method_channel_name =
       std::format("io.jns.webview.win/{}", texture_id_);
@@ -194,8 +218,39 @@ WebviewBridge::WebviewBridge(flutter::BinaryMessenger* messenger,
 }
 
 WebviewBridge::~WebviewBridge() {
-  method_channel_->SetMethodCallHandler(nullptr);
-  texture_registrar_->UnregisterTexture(texture_id_);
+  // Stop the capture pipeline first so no new frames can arrive and call
+  // MarkTextureFrameAvailable while we are dismantling the bridge.
+  if (texture_bridge_) {
+    texture_bridge_->Stop();
+    // Drop the apartment-affine capture item on this (UI) thread. Deferring
+    // to the async UnregisterTexture callback below would release it on an
+    // engine worker thread and deadlock during shutdown.
+    texture_bridge_->ReleaseCaptureItem();
+  }
+
+  // Destroy the webview itself. This kills the underlying WebView2 browser
+  // process and its Visual, so no new FrameArrived events will be dispatched
+  // by the capture source after this returns.
+  webview_.reset();
+
+  // Tear down the method/event channels synchronously. These are only ever
+  // touched on the platform thread, so it is safe to free them here.
+  method_channel_.reset();
+  event_channel_.reset();
+  event_sink_.reset();
+
+  // Unregister the texture asynchronously and keep flutter_texture_ and
+  // texture_bridge_ alive until Flutter confirms the raster thread has
+  // released its reference to the ObtainDescriptor callback. Without this,
+  // the raster thread could call into a freed TextureBridgeGpu.
+  std::shared_ptr<flutter::TextureVariant> tex(std::move(flutter_texture_));
+  std::shared_ptr<TextureBridge> bridge(std::move(texture_bridge_));
+
+  texture_registrar_->UnregisterTexture(
+      texture_id_, [tex = std::move(tex), bridge = std::move(bridge)]() {
+        // tex and bridge are freed here, after Flutter has guaranteed the
+        // raster thread will no longer invoke the descriptor callback.
+      });
 }
 
 void WebviewBridge::RegisterEventHandlers() {
@@ -286,6 +341,20 @@ void WebviewBridge::RegisterEventHandlers() {
 
   webview_->OnSurfaceSizeChanged([this](size_t width, size_t height) {
     texture_bridge_->NotifySurfaceSizeChanged();
+
+    const auto event = flutter::EncodableValue(flutter::EncodableMap{
+        {flutter::EncodableValue(kEventType),
+         flutter::EncodableValue("sizeChanged")},
+        {flutter::EncodableValue(kEventValue),
+         flutter::EncodableValue(flutter::EncodableMap{
+             {flutter::EncodableValue("width"),
+              flutter::EncodableValue(static_cast<double>(width))},
+             {flutter::EncodableValue("height"),
+              flutter::EncodableValue(static_cast<double>(height))},
+         })},
+    });
+
+    EmitEvent(event);
   });
 
   webview_->OnCursorChanged([this](const HCURSOR cursor) {
@@ -312,6 +381,18 @@ void WebviewBridge::RegisterEventHandlers() {
         OnPermissionRequested(url, kind, is_user_initiated, completer);
       });
 
+  webview_->OnNavigationStarting(
+      [this](const std::string& url, bool is_user_initiated, bool is_redirected,
+             Webview::NavigationStartingCompleter completer) {
+        OnNavigationStarting(url, is_user_initiated, is_redirected, completer);
+      });
+
+  webview_->OnNewWindowRequested(
+      [this](const std::string& url, bool is_user_initiated,
+             Webview::NewWindowRequestedCompleter completer) {
+        OnNewWindowRequested(url, is_user_initiated, completer);
+      });
+
   webview_->OnContainsFullScreenElementChanged(
       [this](bool contains_fullscreen_element) {
         const auto event = flutter::EncodableValue(flutter::EncodableMap{
@@ -321,11 +402,23 @@ void WebviewBridge::RegisterEventHandlers() {
              contains_fullscreen_element}});
         EmitEvent(event);
       });
+
+  webview_->OnProcessFailed([this](int kind, int reason) {
+    const auto event = flutter::EncodableValue(flutter::EncodableMap{
+        {flutter::EncodableValue(kEventType),
+         flutter::EncodableValue("processFailed")},
+        {flutter::EncodableValue(kEventValue),
+         flutter::EncodableValue(flutter::EncodableMap{
+             {flutter::EncodableValue("kind"), flutter::EncodableValue(kind)},
+             {flutter::EncodableValue("reason"),
+              flutter::EncodableValue(reason)},
+         })}});
+    EmitEvent(event);
+  });
 }
 
 void WebviewBridge::OnPermissionRequested(
-    const std::string& url,
-    WebviewPermissionKind permissionKind,
+    const std::string& url, WebviewPermissionKind permissionKind,
     bool isUserInitiated,
     Webview::WebviewPermissionRequestedCompleter completer) {
   auto args = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
@@ -352,6 +445,81 @@ void WebviewBridge::OnPermissionRequested(
           [completer]() { completer(WebviewPermissionState::Default); }));
 }
 
+void WebviewBridge::OnNavigationStarting(
+    const std::string& url, bool isUserInitiated, bool isRedirected,
+    Webview::NavigationStartingCompleter completer) {
+  auto args = std::make_unique<flutter::EncodableValue>(
+      flutter::EncodableMap{{"url", url},
+                            {"isUserInitiated", isUserInitiated},
+                            {"isRedirected", isRedirected}});
+
+  method_channel_->InvokeMethod(
+      "navigationStarting", std::move(args),
+      std::make_unique<flutter::MethodResultFunctions<flutter::EncodableValue>>(
+          [completer](const flutter::EncodableValue* result) {
+            auto allow = std::get_if<bool>(result);
+            if (allow != nullptr) {
+              completer(*allow);
+              return;
+            }
+            completer(false);
+          },
+          [completer](const std::string& error_code,
+                      const std::string& error_message,
+                      const flutter::EncodableValue* error_details) {
+            completer(false);
+          },
+          [completer]() { completer(false); }));
+}
+
+void WebviewBridge::OnNewWindowRequested(
+    const std::string& url, bool isUserInitiated,
+    Webview::NewWindowRequestedCompleter completer) {
+  auto args = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+      {"url", url}, {"isUserInitiated", isUserInitiated}});
+
+  method_channel_->InvokeMethod(
+      "newWindowRequested", std::move(args),
+      std::make_unique<flutter::MethodResultFunctions<flutter::EncodableValue>>(
+          [completer](const flutter::EncodableValue* result) {
+            auto decision = std::get_if<int32_t>(result);
+            if (decision != nullptr) {
+              completer(static_cast<NewWindowDecision>(*decision));
+              return;
+            }
+            completer(NewWindowDecision::Allow);
+          },
+          [completer](const std::string& error_code,
+                      const std::string& error_message,
+                      const flutter::EncodableValue* error_details) {
+            completer(NewWindowDecision::Allow);
+          },
+          [completer]() { completer(NewWindowDecision::Allow); }));
+}
+
+void WebviewBridge::CheckTransparencyAtCursor(double x, double y) {
+  auto scale_factor = webview_->scale_factor();
+  int px = static_cast<int>(x * scale_factor);
+  int py = static_cast<int>(y * scale_factor);
+
+  auto alpha =
+      static_cast<TextureBridgeGpu*>(texture_bridge_.get())->ReadAlpha(px, py);
+  bool is_opaque = alpha > hit_test_alpha_threshold_;
+
+  if (!last_hit_test_opaque_.has_value() ||
+      is_opaque != last_hit_test_opaque_.value()) {
+    last_hit_test_opaque_ = is_opaque;
+
+    const auto event = flutter::EncodableValue(flutter::EncodableMap{
+        {flutter::EncodableValue(kEventType),
+         flutter::EncodableValue("pointerTransparencyChanged")},
+        {flutter::EncodableValue(kEventValue),
+         flutter::EncodableValue(is_opaque)},
+    });
+    EmitEvent(event);
+  }
+}
+
 void WebviewBridge::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue>& method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
@@ -362,6 +530,11 @@ void WebviewBridge::HandleMethodCall(
     const auto point = GetPointFromArgs(method_call.arguments());
     if (point) {
       webview_->SetCursorPos(point->first, point->second);
+
+      if (transparency_hit_testing_enabled_) {
+        CheckTransparencyAtCursor(point->first, point->second);
+      }
+
       return result->Success();
     }
     return result->Error(kErrorInvalidArgs);
@@ -392,45 +565,29 @@ void WebviewBridge::HandleMethodCall(
     return result->Error(kErrorInvalidArgs);
   }
 
-  // setScrollDelta: [double dx, double dy, double x, double y]
+  // setScrollDelta: [double dx, double dy]
   if (method_name.compare(kMethodSetScrollDelta) == 0) {
-    const flutter::EncodableList* list =
-        std::get_if<flutter::EncodableList>(method_call.arguments());
-    if (list && list->size() == 4) {
-      const auto dx = std::get_if<double>(&(*list)[0]);
-      const auto dy = std::get_if<double>(&(*list)[1]);
-      const auto x = std::get_if<double>(&(*list)[2]);
-      const auto y = std::get_if<double>(&(*list)[3]);
-      if (dx && dy && x && y) {
-        webview_->SetScrollDelta(*dx, *dy, *x, *y);
-        return result->Success();
-      }
+    const auto delta = GetPointFromArgs(method_call.arguments());
+    if (delta) {
+      webview_->SetScrollDelta(delta->first, delta->second);
+      return result->Success();
     }
     return result->Error(kErrorInvalidArgs);
   }
 
-  // setPointerButton: {"button": int, "isDown": bool, "x": double,
-  //                    "y": double}
+  // setPointerButton: {"button": int, "isDown": bool}
   if (method_name.compare(kMethodSetPointerButton) == 0) {
-    const auto* map =
-        std::get_if<flutter::EncodableMap>(method_call.arguments());
-    if (map) {
-      const auto button = map->find(flutter::EncodableValue("button"));
-      const auto isDown = map->find(flutter::EncodableValue("isDown"));
-      const auto x = map->find(flutter::EncodableValue("x"));
-      const auto y = map->find(flutter::EncodableValue("y"));
-      if (button != map->end() && isDown != map->end() && x != map->end() &&
-          y != map->end()) {
-        const auto buttonValue = std::get_if<int32_t>(&button->second);
-        const auto isDownValue = std::get_if<bool>(&isDown->second);
-        const auto xValue = std::get_if<double>(&x->second);
-        const auto yValue = std::get_if<double>(&y->second);
-        if (buttonValue && isDownValue && xValue && yValue) {
-          webview_->SetPointerButtonState(
-              static_cast<WebviewPointerButton>(*buttonValue), *isDownValue,
-              *xValue, *yValue);
-          return result->Success();
-        }
+    const auto& map = std::get<flutter::EncodableMap>(*method_call.arguments());
+
+    const auto button = map.find(flutter::EncodableValue("button"));
+    const auto isDown = map.find(flutter::EncodableValue("isDown"));
+    if (button != map.end() && isDown != map.end()) {
+      const auto buttonValue = std::get_if<int32_t>(&button->second);
+      const auto isDownValue = std::get_if<bool>(&isDown->second);
+      if (buttonValue && isDownValue) {
+        webview_->SetPointerButtonState(
+            static_cast<WebviewPointerButton>(*buttonValue), *isDownValue);
+        return result->Success();
       }
     }
     return result->Error(kErrorInvalidArgs);
@@ -446,16 +603,46 @@ void WebviewBridge::HandleMethodCall(
                                static_cast<size_t>(height),
                                static_cast<float>(scale_factor));
 
+      if (auto* gpu_bridge =
+              static_cast<TextureBridgeGpu*>(texture_bridge_.get())) {
+        gpu_bridge->SetOutputScale(static_cast<float>(scale_factor));
+      }
+
       texture_bridge_->Start();
+
+      // Immediately notify the Flutter engine that the texture has changed.
+      // While no frame has been captured yet, this triggers the engine to call
+      // the `GetSurfaceDescriptor` callback which leads to the texture being
+      // resized immediately instead of it being delayed until after the first
+      // frame at the new size is captured.
+      texture_registrar_->MarkTextureFrameAvailable(texture_id_);
+
       return result->Success();
     }
     return result->Error(kErrorInvalidArgs);
   }
 
-  // loadUrl: string
+  // loadUrl: map with "url" (string) and optional "headers"
+  // (map<string,string>)
   if (method_name.compare(kMethodLoadUrl) == 0) {
-    if (const auto url = std::get_if<std::string>(method_call.arguments())) {
-      webview_->LoadUrl(*url);
+    if (const auto args =
+            std::get_if<flutter::EncodableMap>(method_call.arguments())) {
+      auto url_it = args->find(flutter::EncodableValue("url"));
+      if (url_it == args->end()) {
+        return result->Error(kErrorInvalidArgs);
+      }
+      const auto& url = std::get<std::string>(url_it->second);
+
+      std::map<std::string, std::string> headers;
+      auto headers_it = args->find(flutter::EncodableValue("headers"));
+      if (headers_it != args->end()) {
+        const auto& hmap = std::get<flutter::EncodableMap>(headers_it->second);
+        for (const auto& [k, v] : hmap) {
+          headers[std::get<std::string>(k)] = std::get<std::string>(v);
+        }
+      }
+
+      webview_->LoadUrl(url, headers);
       return result->Success();
     }
     return result->Error(kErrorInvalidArgs);
@@ -515,6 +702,18 @@ void WebviewBridge::HandleMethodCall(
     webview_->Resume();
     texture_bridge_->Start();
     return result->Success();
+  }
+
+  // setMemoryUsageTargetLevel: int (0 = normal, 1 = low)
+  if (method_name.compare(kMethodSetMemoryUsageTargetLevel) == 0) {
+    if (const auto* level = std::get_if<int32_t>(method_call.arguments())) {
+      if (webview_->SetMemoryUsageTargetLevel(*level)) {
+        return result->Success();
+      }
+      return result->Error("memory_target_level_failed",
+                           "Failed to set memory usage target level");
+    }
+    return result->Error("invalid_argument", "Expected an int argument");
   }
 
   // setVirtualHostNameMapping [string hostName, string path, int accessKind]
@@ -683,32 +882,248 @@ void WebviewBridge::HandleMethodCall(
     return result->Error(kErrorInvalidArgs);
   }
 
-  // setPopupWindowPolicy: int
-  if (method_name.compare(kMethodSetPopupWindowPolicy) == 0) {
-    if (const auto index = std::get_if<int32_t>(method_call.arguments())) {
-      switch (*index) {
-        case 1:
-          webview_->SetPopupWindowPolicy(WebviewPopupWindowPolicy::Deny);
-          break;
-        case 2:
-          webview_->SetPopupWindowPolicy(
-              WebviewPopupWindowPolicy::ShowInSameWindow);
-          break;
-        default:
-          webview_->SetPopupWindowPolicy(WebviewPopupWindowPolicy::Allow);
-          break;
-      }
-      return result->Success();
-    }
-    return result->Error(kErrorInvalidArgs);
-  }
-
+  // setFpsLimit: int
   if (method_name.compare(kMethodSetFpsLimit) == 0) {
     if (const auto value = std::get_if<int32_t>(method_call.arguments())) {
       texture_bridge_->SetFpsLimit(*value == 0 ? std::nullopt
                                                : std::make_optional(*value));
       return result->Success();
     }
+  }
+
+  // setMuted: bool
+  if (method_name.compare(kMethodSetMuted) == 0) {
+    if (const auto muted = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetMuted(*muted)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed, "Setting muted state failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setDevToolsEnabled: bool
+  if (method_name.compare(kMethodSetDevToolsEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetDevToolsEnabled(*enabled)) {
+        return result->Success();
+      }
+
+      return result->Error(kMethodFailed,
+                           "Setting devtools enabled state failed.");
+    }
+
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setTrackingPreventionLevel: int
+  if (method_name.compare(kMethodSetTrackingPreventionLevel) == 0) {
+    if (const auto level = std::get_if<int32_t>(method_call.arguments())) {
+      if (webview_->SetTrackingPreventionLevel(*level)) {
+        return result->Success();
+      }
+
+      return result->Error(kMethodFailed,
+                           "Setting tracking prevention level failed.");
+    }
+
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setExtraHeaders: map<string, string>
+  if (method_name.compare(kMethodSetExtraHeaders) == 0) {
+    if (const auto args =
+            std::get_if<flutter::EncodableMap>(method_call.arguments())) {
+      std::map<std::string, std::string> headers;
+      for (const auto& [k, v] : *args) {
+        headers[std::get<std::string>(k)] = std::get<std::string>(v);
+      }
+      webview_->SetExtraHeaders(headers);
+      return result->Success();
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  if (method_name.compare(kMethodSetDomainExtraHeaders) == 0) {
+    if (const auto args =
+            std::get_if<flutter::EncodableList>(method_call.arguments())) {
+      if (args->size() == 2) {
+        const auto* domain = std::get_if<std::string>(&(*args)[0]);
+        const auto* header_map =
+            std::get_if<flutter::EncodableMap>(&(*args)[1]);
+        if (domain && header_map) {
+          std::map<std::string, std::string> headers;
+          for (const auto& [k, v] : *header_map) {
+            headers[std::get<std::string>(k)] = std::get<std::string>(v);
+          }
+          webview_->SetDomainExtraHeaders(*domain, headers);
+          return result->Success();
+        }
+      }
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setTransparencyHitTestingEnabled: bool
+  if (method_name.compare(kMethodSetTransparencyHitTestingEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      transparency_hit_testing_enabled_ = *enabled;
+
+      if (!enabled) {
+        last_hit_test_opaque_ = std::nullopt;
+      }
+
+      return result->Success();
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setScriptEnabled: bool
+  if (method_name.compare(kMethodSetScriptEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetScriptEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed, "Setting script enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setScriptDialogsEnabled: bool
+  if (method_name.compare(kMethodSetScriptDialogsEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetScriptDialogsEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting script dialogs enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setBuiltInErrorPageEnabled: bool
+  if (method_name.compare(kMethodSetBuiltInErrorPageEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetBuiltInErrorPageEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting built-in error page enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setZoomControlEnabled: bool
+  if (method_name.compare(kMethodSetZoomControlEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetZoomControlEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting zoom control enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setBrowserAcceleratorKeysEnabled: bool
+  if (method_name.compare(kMethodSetBrowserAcceleratorKeysEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetBrowserAcceleratorKeysEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting browser accelerator keys enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setGeneralAutofillEnabled: bool
+  if (method_name.compare(kMethodSetGeneralAutofillEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetGeneralAutofillEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting general autofill enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setPasswordAutosaveEnabled: bool
+  if (method_name.compare(kMethodSetPasswordAutosaveEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetPasswordAutosaveEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting password autosave enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setPinchZoomEnabled: bool
+  if (method_name.compare(kMethodSetPinchZoomEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetPinchZoomEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed, "Setting pinch zoom enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setSwipeNavigationEnabled: bool
+  if (method_name.compare(kMethodSetSwipeNavigationEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetSwipeNavigationEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting swipe navigation enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // setReputationCheckingEnabled: bool
+  if (method_name.compare(kMethodSetReputationCheckingEnabled) == 0) {
+    if (const auto enabled = std::get_if<bool>(method_call.arguments())) {
+      if (webview_->SetReputationCheckingEnabled(*enabled)) {
+        return result->Success();
+      }
+      return result->Error(kMethodFailed,
+                           "Setting reputation checking enabled failed.");
+    }
+    return result->Error(kErrorInvalidArgs);
+  }
+
+  // callDevToolsProtocolMethod: [method, parameters]
+  if (method_name.compare(kMethodCallDevToolsProtocolMethod) == 0) {
+    if (const auto* list =
+            std::get_if<flutter::EncodableList>(method_call.arguments())) {
+      if (list->size() == 2) {
+        const auto* method_str = std::get_if<std::string>(&(*list)[0]);
+        const auto* params_str = std::get_if<std::string>(&(*list)[1]);
+        if (method_str && params_str) {
+          std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
+              shared_result = std::move(result);
+          webview_->CallDevToolsProtocolMethod(
+              *method_str, *params_str,
+              [shared_result](bool success, const std::string& json_result) {
+                if (success) {
+                  shared_result->Success(flutter::EncodableValue(json_result));
+                } else {
+                  shared_result->Error(
+                      kMethodFailed, "CDP method failed.",
+                      flutter::EncodableValue(json_result.empty()
+                                                  ? std::string("{}")
+                                                  : json_result));
+                }
+              });
+          return;
+        }
+      }
+    }
+    return result->Error(kErrorInvalidArgs);
   }
 
   result->NotImplemented();

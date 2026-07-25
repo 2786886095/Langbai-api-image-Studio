@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 
 # Set CMP0175 to NEW to properly handle add_custom_command arguments
 if(POLICY CMP0175)
@@ -8,7 +8,7 @@ endif()
 set(PROJECT_NAME "webview_windows")
 
 set(WIL_VERSION "1.0.220914.1")
-set(WEBVIEW_VERSION "1.0.1210.39")
+set(WEBVIEW_VERSION "1.0.2210.55")
 
 message(VERBOSE "CMake system version is ${CMAKE_SYSTEM_VERSION} (using SDK ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION})")
 
@@ -37,18 +37,68 @@ if(NOT NUGET)
   endif()
 endif()
 
-# Create custom target for dependencies
-add_custom_target(${PROJECT_NAME}_DEPENDENCIES_DOWNLOAD ALL)
+# Download dependencies using NuGet, re-downloading if the defined version changes.
+set(WIL_PKG_DIR "${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary")
+set(WEBVIEW_PKG_DIR "${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2")
+set(WIL_STAMP "${WIL_PKG_DIR}/.version")
+set(WEBVIEW_STAMP "${WEBVIEW_PKG_DIR}/.version")
 
-# Download dependencies using NuGet
-# Note: Removed DEPENDS keyword from TARGET version of add_custom_command
-add_custom_command(
-  TARGET ${PROJECT_NAME}_DEPENDENCIES_DOWNLOAD PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E echo "Downloading dependencies..."
-  COMMAND ${NUGET} install Microsoft.Windows.ImplementationLibrary -Version ${WIL_VERSION} -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages
-  COMMAND ${NUGET} install Microsoft.Web.WebView2 -Version ${WEBVIEW_VERSION} -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages
-  COMMENT "Downloading and installing NuGet packages"
-)
+set(WIL_NEEDS_INSTALL FALSE)
+set(WEBVIEW_NEEDS_INSTALL FALSE)
+
+if(EXISTS "${WIL_STAMP}")
+  file(READ "${WIL_STAMP}" WIL_INSTALLED_VERSION)
+  if(NOT WIL_INSTALLED_VERSION STREQUAL "${WIL_VERSION}")
+    message(NOTICE "WIL version changed (${WIL_INSTALLED_VERSION} -> ${WIL_VERSION}), re-downloading.")
+    file(REMOVE_RECURSE "${WIL_PKG_DIR}")
+    set(WIL_NEEDS_INSTALL TRUE)
+  endif()
+else()
+  if(EXISTS "${WIL_PKG_DIR}")
+    message(NOTICE "WIL version stamp missing, re-downloading to ensure correct version.")
+    file(REMOVE_RECURSE "${WIL_PKG_DIR}")
+  endif()
+  set(WIL_NEEDS_INSTALL TRUE)
+endif()
+
+if(EXISTS "${WEBVIEW_STAMP}")
+  file(READ "${WEBVIEW_STAMP}" WEBVIEW_INSTALLED_VERSION)
+  if(NOT WEBVIEW_INSTALLED_VERSION STREQUAL "${WEBVIEW_VERSION}")
+    message(NOTICE "WebView2 version changed (${WEBVIEW_INSTALLED_VERSION} -> ${WEBVIEW_VERSION}), re-downloading.")
+    file(REMOVE_RECURSE "${WEBVIEW_PKG_DIR}")
+    set(WEBVIEW_NEEDS_INSTALL TRUE)
+  endif()
+else()
+  if(EXISTS "${WEBVIEW_PKG_DIR}")
+    message(NOTICE "WebView2 version stamp missing, re-downloading to ensure correct version.")
+    file(REMOVE_RECURSE "${WEBVIEW_PKG_DIR}")
+  endif()
+  set(WEBVIEW_NEEDS_INSTALL TRUE)
+endif()
+
+if(WIL_NEEDS_INSTALL)
+  message(NOTICE "Fetching Microsoft.Windows.ImplementationLibrary ${WIL_VERSION}...")
+  execute_process(
+    COMMAND ${NUGET} install Microsoft.Windows.ImplementationLibrary -Version ${WIL_VERSION} -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages
+    RESULT_VARIABLE WIL_RESULT
+  )
+  if(NOT WIL_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to install Microsoft.Windows.ImplementationLibrary")
+  endif()
+  file(WRITE "${WIL_STAMP}" "${WIL_VERSION}")
+endif()
+
+if(WEBVIEW_NEEDS_INSTALL)
+  message(NOTICE "Fetching Microsoft.Web.WebView2 ${WEBVIEW_VERSION}...")
+  execute_process(
+    COMMAND ${NUGET} install Microsoft.Web.WebView2 -Version ${WEBVIEW_VERSION} -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages
+    RESULT_VARIABLE WEBVIEW_RESULT
+  )
+  if(NOT WEBVIEW_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to install Microsoft.Web.WebView2")
+  endif()
+  file(WRITE "${WEBVIEW_STAMP}" "${WEBVIEW_VERSION}")
+endif()
 
 # Define source files
 set(PLUGIN_SOURCES
@@ -70,11 +120,14 @@ add_library(${PLUGIN_NAME} SHARED ${PLUGIN_SOURCES})
 
 # Configure compiler options
 if(MSVC)
-  target_compile_options(${PLUGIN_NAME} PRIVATE "/await")
+  target_compile_options(${PLUGIN_NAME} PRIVATE "/await:strict")
 endif()
 
 # Apply standard settings
 apply_standard_settings(${PLUGIN_NAME})
+
+# Precompiled header to avoid re-parsing heavy SDK headers in every translation unit
+target_precompile_headers(${PLUGIN_NAME} PRIVATE pch.h)
 
 # Set C++ standard to 20 for std::format support
 target_compile_features(${PLUGIN_NAME} PUBLIC cxx_std_20)

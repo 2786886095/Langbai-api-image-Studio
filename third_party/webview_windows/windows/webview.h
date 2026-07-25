@@ -7,6 +7,9 @@
 #include <winrt/base.h>
 
 #include <functional>
+#include <map>
+#include <optional>
+#include <set>
 
 class WebviewHost;
 
@@ -34,7 +37,7 @@ enum class WebviewPermissionKind {
 
 enum class WebviewPermissionState { Default, Allow, Deny };
 
-enum class WebviewPopupWindowPolicy { Allow, Deny, ShowInSameWindow };
+enum class NewWindowDecision { Allow, Deny, ShowInSameWindow };
 
 enum class WebviewHostResourceAccessKind { Deny, Allow, DenyCors };
 
@@ -104,6 +107,9 @@ struct EventRegistrations {
   EventRegistrationToken download_starting_token_{};
   EventRegistrationToken download_bytes_received_token_{};
   EventRegistrationToken download_state_changed_token_{};
+  EventRegistrationToken navigation_starting_token_{};
+  EventRegistrationToken web_resource_requested_token_{};
+  EventRegistrationToken process_failed_token_{};
 };
 
 class Webview {
@@ -134,6 +140,17 @@ class Webview {
   typedef std::function<void(bool contains_fullscreen_element)>
       ContainsFullScreenElementChangedCallback;
   typedef std::function<void(WebviewDownloadEvent)> DownloadEventCallback;
+  typedef std::function<void(bool cancel)> NavigationStartingCompleter;
+  typedef std::function<void(const std::string& url, bool is_user_initiated,
+                             bool is_redirected,
+                             NavigationStartingCompleter completer)>
+      NavigationStartingCallback;
+  typedef std::function<void(NewWindowDecision decision)>
+      NewWindowRequestedCompleter;
+  typedef std::function<void(const std::string& url, bool is_user_initiated,
+                             NewWindowRequestedCompleter completer)>
+      NewWindowRequestedCallback;
+  typedef std::function<void(int kind, int reason)> ProcessFailedCallback;
 
   ~Webview();
 
@@ -143,14 +160,16 @@ class Webview {
 
   bool IsValid() { return is_valid_; }
 
+  float scale_factor() const { return scale_factor_; }
+
   void SetSurfaceSize(size_t width, size_t height, float scale_factor);
   void SetCursorPos(double x, double y);
   void SetPointerUpdate(int32_t pointer, WebviewPointerEventKind eventKind,
                         double x, double y, double size, double pressure);
-  void SetPointerButtonState(WebviewPointerButton button, bool isDown,
-                             double x, double y);
-  void SetScrollDelta(double delta_x, double delta_y, double x, double y);
-  void LoadUrl(const std::string& url);
+  void SetPointerButtonState(WebviewPointerButton button, bool isDown);
+  void SetScrollDelta(double delta_x, double delta_y);
+  void LoadUrl(const std::string& url,
+               const std::map<std::string, std::string>& headers = {});
   void LoadStringContent(const std::string& content);
   bool Stop();
   bool Reload();
@@ -166,18 +185,46 @@ class Webview {
   bool ClearCookies();
   bool ClearCache();
   bool SetCacheDisabled(bool disabled);
-  void SetPopupWindowPolicy(WebviewPopupWindowPolicy policy);
   bool SetUserAgent(const std::string& user_agent);
   bool OpenDevTools();
+  bool SetDevToolsEnabled(bool enabled);
+  bool SetTrackingPreventionLevel(int level);
   bool SetBackgroundColor(int32_t color);
   bool SetZoomFactor(double factor);
   bool Suspend();
   bool Resume();
+  bool SetMemoryUsageTargetLevel(int level);
+  bool SetMuted(bool muted);
+
+  // ICoreWebView2Settings v1
+  bool SetScriptEnabled(bool enabled);
+  bool SetScriptDialogsEnabled(bool enabled);
+  bool SetBuiltInErrorPageEnabled(bool enabled);
+  bool SetZoomControlEnabled(bool enabled);
+  // ICoreWebView2Settings3
+  bool SetBrowserAcceleratorKeysEnabled(bool enabled);
+  // ICoreWebView2Settings4
+  bool SetGeneralAutofillEnabled(bool enabled);
+  bool SetPasswordAutosaveEnabled(bool enabled);
+  // ICoreWebView2Settings5
+  bool SetPinchZoomEnabled(bool enabled);
+  // ICoreWebView2Settings6
+  bool SetSwipeNavigationEnabled(bool enabled);
+  // ICoreWebView2Settings8
+  bool SetReputationCheckingEnabled(bool enabled);
+
+  void CallDevToolsProtocolMethod(
+      const std::string& method, const std::string& parameters,
+      std::function<void(bool, const std::string&)> callback);
 
   bool SetVirtualHostNameMapping(const std::string& hostName,
                                  const std::string& path,
                                  WebviewHostResourceAccessKind accessKind);
   bool ClearVirtualHostNameMapping(const std::string& hostName);
+
+  void SetExtraHeaders(const std::map<std::string, std::string>& headers);
+  void SetDomainExtraHeaders(const std::string& domain,
+                             const std::map<std::string, std::string>& headers);
 
   void UpdateDownloadProgress(ICoreWebView2DownloadOperation* download);
 
@@ -234,6 +281,18 @@ class Webview {
     contains_fullscreen_element_changed_callback_ = std::move(callback);
   }
 
+  void OnNavigationStarting(NavigationStartingCallback callback) {
+    navigation_starting_callback_ = std::move(callback);
+  }
+
+  void OnNewWindowRequested(NewWindowRequestedCallback callback) {
+    new_window_requested_callback_ = std::move(callback);
+  }
+
+  void OnProcessFailed(ProcessFailedCallback callback) {
+    process_failed_callback_ = std::move(callback);
+  }
+
  private:
   HWND hwnd_;
   bool owns_window_;
@@ -244,11 +303,15 @@ class Webview {
   wil::com_ptr<ICoreWebView2> webview_;
   wil::com_ptr<ICoreWebView2DevToolsProtocolEventReceiver>
       devtools_protocol_event_receiver_;
+  wil::com_ptr<ICoreWebView2Settings> settings_;
   wil::com_ptr<ICoreWebView2Settings2> settings2_;
+  wil::com_ptr<ICoreWebView2Settings3> settings3_;
+  wil::com_ptr<ICoreWebView2Settings4> settings4_;
+  wil::com_ptr<ICoreWebView2Settings5> settings5_;
+  wil::com_ptr<ICoreWebView2Settings6> settings6_;
+  wil::com_ptr<ICoreWebView2Settings8> settings8_;
   POINT last_cursor_pos_ = {0, 0};
   VirtualKeyState virtual_keys_;
-  WebviewPopupWindowPolicy popup_window_policy_ =
-      WebviewPopupWindowPolicy::Allow;
 
   winrt::com_ptr<ABI::Windows::UI::Composition::IVisual> surface_;
   winrt::com_ptr<ABI::Windows::UI::Composition::Desktop::IDesktopWindowTarget>
@@ -271,6 +334,16 @@ class Webview {
   DevtoolsProtocolEventCallback devtools_protocol_event_callback_;
   ContainsFullScreenElementChangedCallback
       contains_fullscreen_element_changed_callback_;
+  NavigationStartingCallback navigation_starting_callback_;
+  NewWindowRequestedCallback new_window_requested_callback_;
+  ProcessFailedCallback process_failed_callback_;
+  std::optional<std::string> navigation_starting_allowed_url_;
+  std::set<UINT64> intercepted_navigation_ids_;
+  int navigation_intercept_id_ = 0;
+  std::map<std::string, std::string> extra_headers_;
+  std::map<std::string, std::map<std::string, std::string>>
+      domain_extra_headers_;
+  bool extra_headers_filter_registered_ = false;
 
   Webview(
       wil::com_ptr<ICoreWebView2CompositionController> composition_controller,
@@ -280,6 +353,9 @@ class Webview {
       winrt::com_ptr<ABI::Windows::UI::Composition::ICompositor> compositor,
       HWND hwnd, bool offscreen_only);
   void RegisterEventHandlers();
+  void UnregisterEventHandlers();
+
   void EnableSecurityUpdates();
   void SendScroll(double offset, bool horizontal);
+  void EnsureExtraHeadersFilterRegistered();
 };

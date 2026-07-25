@@ -57,13 +57,13 @@ GraphicsContext::CreateGraphicsCaptureItemFromVisual(
     return nullptr;
   }
 
-  ABI::Windows::Graphics::Capture::IGraphicsCaptureItemStatics*
+  winrt::com_ptr<ABI::Windows::Graphics::Capture::IGraphicsCaptureItemStatics>
       capture_item_statics;
   if (FAILED(rohelper_->GetActivationFactory(
           className,
           __uuidof(
               ABI::Windows::Graphics::Capture::IGraphicsCaptureItemStatics),
-          (void**)&capture_item_statics))) {
+          capture_item_statics.put_void()))) {
     return nullptr;
   }
 
@@ -91,13 +91,13 @@ GraphicsContext::CreateCaptureFramePool(
     return nullptr;
   }
 
-  ABI::Windows::Graphics::Capture::IDirect3D11CaptureFramePoolStatics*
+  winrt::com_ptr<ABI::Windows::Graphics::Capture::IDirect3D11CaptureFramePoolStatics>
       capture_frame_pool_statics;
   if (FAILED(rohelper_->GetActivationFactory(
           className,
           __uuidof(ABI::Windows::Graphics::Capture::
                        IDirect3D11CaptureFramePoolStatics),
-          (void**)&capture_frame_pool_statics))) {
+          capture_frame_pool_statics.put_void()))) {
     return nullptr;
   }
 
@@ -127,13 +127,13 @@ GraphicsContext::CreateFreeThreadedCaptureFramePool(
     return nullptr;
   }
 
-  ABI::Windows::Graphics::Capture::IDirect3D11CaptureFramePoolStatics2*
+  winrt::com_ptr<ABI::Windows::Graphics::Capture::IDirect3D11CaptureFramePoolStatics2>
       capture_frame_pool_statics;
   if (FAILED(rohelper_->GetActivationFactory(
           className,
           __uuidof(ABI::Windows::Graphics::Capture::
                        IDirect3D11CaptureFramePoolStatics2),
-          (void**)&capture_frame_pool_statics))) {
+          capture_frame_pool_statics.put_void()))) {
     return nullptr;
   }
 

@@ -1,16 +1,16 @@
 # Langbai patches
 
 This package is vendored from `theblitzapp/flutter-webview-windows` commit
-`571ac6168960ce434f6f8ed5172f06378028ef48`.
+`2ae79f8cda1c3846ea24b9c67d522162cdd8a846`.
 
-- The WebView pointer `Listener` uses `HitTestBehavior.translucent`. Without an
-  explicit hit-test behavior, recent Flutter Windows builds can render the
-  texture while dropping all mouse input, leaving every HTML control inert.
-- Mouse button and wheel messages carry their current local coordinates in the
-  same platform-channel call. The pinned native implementation otherwise uses
-  a stale `last_cursor_pos_`, so clicking one control can activate another.
-- Surface sizes below 2x2 are not reported while a window is minimized. This
-  avoids leaving the off-screen composition controller in a degenerate state.
+- Upstream's new `WebviewHost`, `RenderWebview`, and translucent pointer listener
+  replace the unpublished 2024 texture/input implementation used by v1.3.34.
+- Surface sizes below 2x2 are not reported while a window is minimized. The app
+  runner also avoids resizing its Flutter child to zero in `SIZE_MINIMIZED`.
+- `setBackgroundColor` uses `Color.value` so the vendored package remains
+  compatible with the Flutter 3.24 toolchain installed on the development PC.
+- The package explicitly imports and declares `meta` for its `@internal`
+  annotations; upstream currently relies on an analyzer-only transitive import.
 
-Keep this patch when updating the vendored package until the equivalent
-upstream widget implementation is adopted.
+Re-run the packaged Windows mouse, wheel, focus, and minimize/restore tests when
+updating this snapshot. Browser `.click()` tests do not exercise this code.

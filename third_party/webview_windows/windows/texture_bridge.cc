@@ -11,6 +11,7 @@
 
 namespace {
 const int kNumBuffers = 1;
+const float kPoolHeadroomMultiplier = 1.25f;
 }  // namespace
 
 TextureBridge::TextureBridge(GraphicsContext* graphics_context,
@@ -36,8 +37,23 @@ TextureBridge::TextureBridge(GraphicsContext* graphics_context,
 TextureBridge::~TextureBridge() {
   const std::lock_guard<std::mutex> lock(mutex_);
   StopInternal();
+
+  // Safety net; owners should call ReleaseCaptureItem() on the creating
+  // thread first. Releasing here may stall on cross-apartment COM marshaling.
   if (capture_item_) {
     capture_item_->remove_Closed(on_closed_token_);
+    on_closed_token_ = {};
+    capture_item_ = nullptr;
+  }
+}
+
+void TextureBridge::ReleaseCaptureItem() {
+  const std::lock_guard<std::mutex> lock(mutex_);
+
+  if (capture_item_) {
+    capture_item_->remove_Closed(on_closed_token_);
+    on_closed_token_ = {};
+    capture_item_ = nullptr;
   }
 }
 
@@ -50,12 +66,19 @@ bool TextureBridge::Start() {
   ABI::Windows::Graphics::SizeInt32 size;
   capture_item_->get_Size(&size);
 
+  ABI::Windows::Graphics::SizeInt32 pool_size;
+  pool_size.Width = static_cast<INT32>(size.Width * kPoolHeadroomMultiplier);
+  pool_size.Height = static_cast<INT32>(size.Height * kPoolHeadroomMultiplier);
+
   frame_pool_ = graphics_context_->CreateCaptureFramePool(
       graphics_context_->device(),
       static_cast<ABI::Windows::Graphics::DirectX::DirectXPixelFormat>(
           kPixelFormat),
-      kNumBuffers, size);
+      kNumBuffers, pool_size);
   assert(frame_pool_);
+
+  pool_size_ = {static_cast<size_t>(pool_size.Width),
+                static_cast<size_t>(pool_size.Height)};
 
   frame_pool_->add_FrameArrived(
       Microsoft::WRL::Callback<ABI::Windows::Foundation::ITypedEventHandler<
@@ -90,20 +113,48 @@ void TextureBridge::Stop() {
 }
 
 void TextureBridge::StopInternal() {
-  if (is_running_) {
-    is_running_ = false;
+  if (!is_running_) {
+    return;
+  }
+  is_running_ = false;
+
+  // Remove the FrameArrived handler first so the capture thread stops
+  // dispatching new events. Note: this does not guarantee that an already
+  // in-flight handler invocation has returned; the mutex in OnFrameArrived
+  // and the is_running_ guard together protect the remainder.
+  if (frame_pool_) {
     frame_pool_->remove_FrameArrived(on_frame_arrived_token_);
-    auto closable =
-        capture_session_.try_as<ABI::Windows::Foundation::IClosable>();
-    assert(closable);
-    closable->Close();
+  }
+  on_frame_arrived_token_ = {};
+
+  // Close the capture session before the frame pool so the pipeline drains
+  // in the correct order.
+  if (capture_session_) {
+    if (auto closable =
+            capture_session_.try_as<ABI::Windows::Foundation::IClosable>()) {
+      closable->Close();
+    }
     capture_session_ = nullptr;
   }
+
+  // Close the frame pool to release the underlying capture resources.
+  if (frame_pool_) {
+    if (auto closable =
+            frame_pool_.try_as<ABI::Windows::Foundation::IClosable>()) {
+      closable->Close();
+    }
+    frame_pool_ = nullptr;
+  }
+
+  // Null these out so any handler that already took the mutex before Stop
+  // began cannot fire the callback or touch the last frame after we return.
+  frame_available_ = nullptr;
+  last_frame_ = nullptr;
 }
 
 void TextureBridge::OnFrameArrived() {
   const std::lock_guard<std::mutex> lock(mutex_);
-  if (!is_running_) {
+  if (!is_running_ || !frame_pool_ || !capture_session_) {
     return;
   }
 
@@ -122,17 +173,64 @@ void TextureBridge::OnFrameArrived() {
           util::TryGetDXGIInterfaceFromObject<ID3D11Texture2D>(frame_surface);
       has_frame = !ShouldDropFrame();
     }
+
+    ABI::Windows::Graphics::SizeInt32 content_size;
+    if (SUCCEEDED(frame->get_ContentSize(&content_size))) {
+      last_content_size_ = {static_cast<size_t>(content_size.Width),
+                            static_cast<size_t>(content_size.Height)};
+    }
   }
 
   if (needs_update_) {
     ABI::Windows::Graphics::SizeInt32 size;
     capture_item_->get_Size(&size);
-    frame_pool_->Recreate(
-        graphics_context_->device(),
-        static_cast<ABI::Windows::Graphics::DirectX::DirectXPixelFormat>(
-            kPixelFormat),
-        kNumBuffers, size);
+
+    // If there's not enough space in the pool, resize it. We give it a bit of
+    // extra space to avoid resizing too often, which easily occurs if you are
+    // resizing the app window.
+    if (static_cast<size_t>(size.Width) > pool_size_.width ||
+        static_cast<size_t>(size.Height) > pool_size_.height) {
+      ABI::Windows::Graphics::SizeInt32 new_size;
+      new_size.Width = static_cast<INT32>(
+          (std::max)(size.Width, static_cast<INT32>(pool_size_.width)) *
+          kPoolHeadroomMultiplier);
+      new_size.Height = static_cast<INT32>(
+          (std::max)(size.Height, static_cast<INT32>(pool_size_.height)) *
+          kPoolHeadroomMultiplier);
+
+      frame_pool_->Recreate(
+          graphics_context_->device(),
+          static_cast<ABI::Windows::Graphics::DirectX::DirectXPixelFormat>(
+              kPixelFormat),
+          kNumBuffers, new_size);
+
+      pool_size_ = {static_cast<size_t>(new_size.Width),
+                    static_cast<size_t>(new_size.Height)};
+    }
+
     needs_update_ = false;
+  } else if (pool_size_.width > 0 && pool_size_.height > 0) {
+    ABI::Windows::Graphics::SizeInt32 size;
+    capture_item_->get_Size(&size);
+
+    // If the extra headroom is very large compared to the actual content size,
+    // reduce it to save on memory.
+    if (pool_size_.width > static_cast<size_t>(size.Width) * 2 ||
+        pool_size_.height > static_cast<size_t>(size.Height) * 2) {
+      ABI::Windows::Graphics::SizeInt32 new_size;
+      new_size.Width = static_cast<INT32>(size.Width * kPoolHeadroomMultiplier);
+      new_size.Height =
+          static_cast<INT32>(size.Height * kPoolHeadroomMultiplier);
+
+      frame_pool_->Recreate(
+          graphics_context_->device(),
+          static_cast<ABI::Windows::Graphics::DirectX::DirectXPixelFormat>(
+              kPixelFormat),
+          kNumBuffers, new_size);
+
+      pool_size_ = {static_cast<size_t>(new_size.Width),
+                    static_cast<size_t>(new_size.Height)};
+    }
   }
 
   if (has_frame && frame_available_) {
