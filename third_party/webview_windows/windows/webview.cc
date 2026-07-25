@@ -893,10 +893,8 @@ void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down,
   }
 
   POINT point;
-  if (!::GetCursorPos(&point) || !::ScreenToClient(hwnd_, &point)) {
-    point.x = static_cast<LONG>(x * scale_factor_);
-    point.y = static_cast<LONG>(y * scale_factor_);
-  }
+  point.x = static_cast<LONG>(x * scale_factor_);
+  point.y = static_cast<LONG>(y * scale_factor_);
   last_cursor_pos_ = point;
 
   if (is_down) {
@@ -940,12 +938,8 @@ void Webview::SetScrollDelta(double delta_x, double delta_y, double x,
     return;
   }
 
-  POINT point;
-  if (!::GetCursorPos(&point) || !::ScreenToClient(hwnd_, &point)) {
-    point.x = static_cast<LONG>(x * scale_factor_);
-    point.y = static_cast<LONG>(y * scale_factor_);
-  }
-  last_cursor_pos_ = point;
+  last_cursor_pos_.x = static_cast<LONG>(x * scale_factor_);
+  last_cursor_pos_.y = static_cast<LONG>(y * scale_factor_);
 
   if (delta_x != 0.0) {
     SendScroll(delta_x, true);

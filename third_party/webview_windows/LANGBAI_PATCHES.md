@@ -17,9 +17,6 @@ This package is vendored from `theblitzapp/flutter-webview-windows` commit
 - Wheel messages likewise carry their own coordinates, and a monitor-DPI change
   resubmits the last surface size with the new scale factor. Settings and custom
   lists no longer depend on a delayed hover position to receive scrolling.
-- On mouse-button and wheel delivery, the native layer resolves the current OS
-  cursor with `GetCursorPos`/`ScreenToClient`; Flutter local coordinates remain
-  only as a fallback. This avoids texture-transform offsets in packaged builds.
 
 Re-run the packaged Windows mouse, wheel, focus, and minimize/restore tests when
 updating this snapshot. Browser `.click()` tests do not exercise this code.
