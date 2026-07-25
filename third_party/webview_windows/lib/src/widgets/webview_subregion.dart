@@ -71,7 +71,11 @@ class _WebviewSubregionState extends State<WebviewSubregion> {
       ev.buttons,
     );
 
-    widget.controller.setPointerButtonState(button, true);
+    widget.controller.setPointerButtonState(
+      button,
+      true,
+      _transformCursorPosition(ev.localPosition),
+    );
   }
 
   void onPointerUp(PointerUpEvent ev) {
@@ -92,7 +96,11 @@ class _WebviewSubregionState extends State<WebviewSubregion> {
     final button = _downButtons.remove(ev.pointer);
 
     if (button != null) {
-      widget.controller.setPointerButtonState(button, false);
+      widget.controller.setPointerButtonState(
+        button,
+        false,
+        _transformCursorPosition(ev.localPosition),
+      );
     }
   }
 
@@ -102,7 +110,11 @@ class _WebviewSubregionState extends State<WebviewSubregion> {
     final button = _downButtons.remove(ev.pointer);
 
     if (button != null) {
-      widget.controller.setPointerButtonState(button, false);
+      widget.controller.setPointerButtonState(
+        button,
+        false,
+        _transformCursorPosition(ev.localPosition),
+      );
     }
   }
 
@@ -129,15 +141,24 @@ class _WebviewSubregionState extends State<WebviewSubregion> {
       widget.controller.setScrollDelta(
         -signal.scrollDelta.dx,
         -signal.scrollDelta.dy,
+        _transformCursorPosition(signal.localPosition),
       );
     }
   }
 
   void onPointerPanZoomUpdate(PointerPanZoomUpdateEvent signal) {
     if (signal.panDelta.dx.abs() > signal.panDelta.dy.abs()) {
-      widget.controller.setScrollDelta(-signal.panDelta.dx, 0);
+      widget.controller.setScrollDelta(
+        -signal.panDelta.dx,
+        0,
+        _transformCursorPosition(signal.localPosition),
+      );
     } else {
-      widget.controller.setScrollDelta(0, signal.panDelta.dy);
+      widget.controller.setScrollDelta(
+        0,
+        signal.panDelta.dy,
+        _transformCursorPosition(signal.localPosition),
+      );
     }
   }
 

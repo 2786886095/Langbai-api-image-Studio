@@ -865,7 +865,8 @@ void Webview::SetPointerUpdate(int32_t pointer,
       });
 }
 
-void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down) {
+void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down,
+                                    double x, double y) {
   if (!IsValid()) {
     return;
   }
@@ -891,8 +892,17 @@ void Webview::SetPointerButtonState(WebviewPointerButton button, bool is_down) {
       kind = static_cast<COREWEBVIEW2_MOUSE_EVENT_KIND>(0);
   }
 
+  POINT point;
+  point.x = static_cast<LONG>(x * scale_factor_);
+  point.y = static_cast<LONG>(y * scale_factor_);
+  last_cursor_pos_ = point;
+
+  if (is_down) {
+    webview_controller_->MoveFocus(
+        COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+  }
   composition_controller_->SendMouseInput(kind, virtual_keys_.state(), 0,
-                                          last_cursor_pos_);
+                                          point);
 }
 
 void Webview::SendScroll(double delta, bool horizontal) {
@@ -922,10 +932,14 @@ void Webview::SendScroll(double delta, bool horizontal) {
   }
 }
 
-void Webview::SetScrollDelta(double delta_x, double delta_y) {
+void Webview::SetScrollDelta(double delta_x, double delta_y, double x,
+                             double y) {
   if (!IsValid()) {
     return;
   }
+
+  last_cursor_pos_.x = static_cast<LONG>(x * scale_factor_);
+  last_cursor_pos_.y = static_cast<LONG>(y * scale_factor_);
 
   if (delta_x != 0.0) {
     SendScroll(delta_x, true);

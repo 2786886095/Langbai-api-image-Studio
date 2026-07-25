@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.3.35";
+const APP_VERSION = "1.3.36";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -8209,6 +8209,8 @@ const HISTORY_KEY = "ai_image_gen_history_v1";
 const HISTORY_BLOB_DB = "ai_image_generator_history";
 const HISTORY_BLOB_STORE = "images";
 const GENERATED_CACHE_STORE = "generated_cache";
+const GENERATED_CACHE_META_STORE = "generated_cache_meta";
+const GENERATED_CACHE_CREATED_AT_INDEX = "created_at";
 let historyBlobDbPromise = null;
 let historyBlobPruneQueue = Promise.resolve();
 let generatedCacheCleanupQueue = Promise.resolve();
@@ -8218,13 +8220,28 @@ function openHistoryBlobDb() {
   if (typeof indexedDB === "undefined") return Promise.reject(new Error("IndexedDB unavailable"));
   if (historyBlobDbPromise) return historyBlobDbPromise;
   historyBlobDbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(HISTORY_BLOB_DB, 2);
+    const request = indexedDB.open(HISTORY_BLOB_DB, 3);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(HISTORY_BLOB_STORE)) {
         request.result.createObjectStore(HISTORY_BLOB_STORE);
       }
-      if (!request.result.objectStoreNames.contains(GENERATED_CACHE_STORE)) {
-        request.result.createObjectStore(GENERATED_CACHE_STORE);
+      const generatedStore = request.result.objectStoreNames.contains(GENERATED_CACHE_STORE)
+        ? request.transaction.objectStore(GENERATED_CACHE_STORE)
+        : request.result.createObjectStore(GENERATED_CACHE_STORE);
+      const metaStore = request.result.objectStoreNames.contains(GENERATED_CACHE_META_STORE)
+        ? request.transaction.objectStore(GENERATED_CACHE_META_STORE)
+        : request.result.createObjectStore(GENERATED_CACHE_META_STORE);
+      if (!metaStore.indexNames.contains(GENERATED_CACHE_CREATED_AT_INDEX)) {
+        metaStore.createIndex(GENERATED_CACHE_CREATED_AT_INDEX, "createdAt");
+      }
+      if (request.oldVersion < 3) {
+        const legacyKeys = generatedStore.getAllKeys();
+        legacyKeys.onsuccess = () => {
+          const migratedAt = Date.now();
+          for (const key of legacyKeys.result || []) {
+            metaStore.put({ createdAt: migratedAt }, key);
+          }
+        };
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -8257,8 +8274,9 @@ async function putGeneratedCacheBlob(key, blob, createdAt = Date.now()) {
   if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("图片缓存字节为空");
   const db = await openHistoryBlobDb();
   await new Promise((resolve, reject) => {
-    const tx = db.transaction(GENERATED_CACHE_STORE, "readwrite");
+    const tx = db.transaction([GENERATED_CACHE_STORE, GENERATED_CACHE_META_STORE], "readwrite");
     tx.objectStore(GENERATED_CACHE_STORE).put({ blob, createdAt: Number(createdAt) || Date.now() }, key);
+    tx.objectStore(GENERATED_CACHE_META_STORE).put({ createdAt: Number(createdAt) || Date.now() }, key);
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error || new Error("生成图片缓存写入失败"));
     tx.onabort = () => reject(tx.error || new Error("生成图片缓存写入已中止"));
@@ -8280,12 +8298,13 @@ async function getGeneratedCacheBlob(key) {
 async function clearGeneratedCacheStore() {
   const db = await openHistoryBlobDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(GENERATED_CACHE_STORE, "readwrite");
+    const tx = db.transaction([GENERATED_CACHE_STORE, GENERATED_CACHE_META_STORE], "readwrite");
     let count = 0;
     const store = tx.objectStore(GENERATED_CACHE_STORE);
     const countRequest = store.count();
     countRequest.onsuccess = () => { count = Number(countRequest.result || 0); };
     store.clear();
+    tx.objectStore(GENERATED_CACHE_META_STORE).clear();
     tx.oncomplete = () => resolve(count);
     tx.onerror = () => reject(tx.error || new Error("生成图片缓存清理失败"));
   });
@@ -8300,16 +8319,17 @@ async function cleanupGeneratedImageCache({ now = Date.now(), updateStatus = fal
     const db = await openHistoryBlobDb();
     let removed = 0;
     await new Promise((resolve, reject) => {
-      const tx = db.transaction(GENERATED_CACHE_STORE, "readwrite");
-      const request = tx.objectStore(GENERATED_CACHE_STORE).openCursor();
+      const tx = db.transaction([GENERATED_CACHE_STORE, GENERATED_CACHE_META_STORE], "readwrite");
+      const generatedStore = tx.objectStore(GENERATED_CACHE_STORE);
+      const metaStore = tx.objectStore(GENERATED_CACHE_META_STORE);
+      const createdAtIndex = metaStore.index(GENERATED_CACHE_CREATED_AT_INDEX);
+      const request = createdAtIndex.openKeyCursor(IDBKeyRange.upperBound(cutoff, true));
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) return;
-        const createdAt = Number(cursor.value?.createdAt || 0);
-        if (!createdAt || createdAt < cutoff) {
-          cursor.delete();
-          removed += 1;
-        }
+        generatedStore.delete(cursor.primaryKey);
+        metaStore.delete(cursor.primaryKey);
+        removed += 1;
         cursor.continue();
       };
       tx.oncomplete = resolve;
@@ -10030,7 +10050,14 @@ async function checkForUpdatesOnLaunch() {
 initI18n();
 registerServiceWorker();
 initManualWheelScrollFix();
-void cleanupGeneratedImageCache().catch(err => console.warn("启动时清理生成图片缓存失败", err));
+const runStartupCacheCleanup = () => {
+  void cleanupGeneratedImageCache().catch(err => console.warn("启动时清理生成图片缓存失败", err));
+};
+if (typeof requestIdleCallback === "function") {
+  requestIdleCallback(runStartupCacheCleanup, { timeout: 30000 });
+} else {
+  setTimeout(runStartupCacheCleanup, 5000);
+}
 updateOfficialCostSummary();
 if ((dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "official") {
   setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);

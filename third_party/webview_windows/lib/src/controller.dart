@@ -833,23 +833,34 @@ class WebviewController {
 
   /// Indicates whether the specified [button] is currently down.
   @internal
-  Future<void> setPointerButtonState(PointerButton button, bool isDown) async {
+  Future<void> setPointerButtonState(
+    PointerButton button,
+    bool isDown,
+    Offset position,
+  ) async {
     if (_isDisposed) {
       return;
     }
 
-    return _methodChannel.invokeMethod('setPointerButton',
-        <String, dynamic>{'button': button.index, 'isDown': isDown});
+    return _methodChannel.invokeMethod('setPointerButton', <String, dynamic>{
+      'button': button.index,
+      'isDown': isDown,
+      'x': position.dx,
+      'y': position.dy,
+    });
   }
 
   /// Sets the horizontal and vertical scroll delta.
   @internal
-  Future<void> setScrollDelta(double dx, double dy) async {
+  Future<void> setScrollDelta(double dx, double dy, Offset position) async {
     if (_isDisposed) {
       return;
     }
 
-    return _methodChannel.invokeMethod('setScrollDelta', [dx, dy]);
+    return _methodChannel.invokeMethod(
+      'setScrollDelta',
+      [dx, dy, position.dx, position.dy],
+    );
   }
 
   /// Sets the surface size to the provided [size].

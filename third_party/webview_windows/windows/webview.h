@@ -166,8 +166,9 @@ class Webview {
   void SetCursorPos(double x, double y);
   void SetPointerUpdate(int32_t pointer, WebviewPointerEventKind eventKind,
                         double x, double y, double size, double pressure);
-  void SetPointerButtonState(WebviewPointerButton button, bool isDown);
-  void SetScrollDelta(double delta_x, double delta_y);
+  void SetPointerButtonState(WebviewPointerButton button, bool isDown,
+                             double x, double y);
+  void SetScrollDelta(double delta_x, double delta_y, double x, double y);
   void LoadUrl(const std::string& url,
                const std::map<std::string, std::string>& headers = {});
   void LoadStringContent(const std::string& content);

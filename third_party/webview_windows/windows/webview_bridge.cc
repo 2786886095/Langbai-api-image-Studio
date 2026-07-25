@@ -565,28 +565,41 @@ void WebviewBridge::HandleMethodCall(
     return result->Error(kErrorInvalidArgs);
   }
 
-  // setScrollDelta: [double dx, double dy]
+  // setScrollDelta: [double dx, double dy, double x, double y]
   if (method_name.compare(kMethodSetScrollDelta) == 0) {
-    const auto delta = GetPointFromArgs(method_call.arguments());
-    if (delta) {
-      webview_->SetScrollDelta(delta->first, delta->second);
-      return result->Success();
+    const flutter::EncodableList* list =
+        std::get_if<flutter::EncodableList>(method_call.arguments());
+    if (list && list->size() == 4) {
+      const auto dx = std::get_if<double>(&(*list)[0]);
+      const auto dy = std::get_if<double>(&(*list)[1]);
+      const auto x = std::get_if<double>(&(*list)[2]);
+      const auto y = std::get_if<double>(&(*list)[3]);
+      if (dx && dy && x && y) {
+        webview_->SetScrollDelta(*dx, *dy, *x, *y);
+        return result->Success();
+      }
     }
     return result->Error(kErrorInvalidArgs);
   }
 
-  // setPointerButton: {"button": int, "isDown": bool}
+  // setPointerButton: {"button": int, "isDown": bool, "x": double, "y": double}
   if (method_name.compare(kMethodSetPointerButton) == 0) {
     const auto& map = std::get<flutter::EncodableMap>(*method_call.arguments());
 
     const auto button = map.find(flutter::EncodableValue("button"));
     const auto isDown = map.find(flutter::EncodableValue("isDown"));
-    if (button != map.end() && isDown != map.end()) {
+    const auto x = map.find(flutter::EncodableValue("x"));
+    const auto y = map.find(flutter::EncodableValue("y"));
+    if (button != map.end() && isDown != map.end() && x != map.end() &&
+        y != map.end()) {
       const auto buttonValue = std::get_if<int32_t>(&button->second);
       const auto isDownValue = std::get_if<bool>(&isDown->second);
-      if (buttonValue && isDownValue) {
+      const auto xValue = std::get_if<double>(&x->second);
+      const auto yValue = std::get_if<double>(&y->second);
+      if (buttonValue && isDownValue && xValue && yValue) {
         webview_->SetPointerButtonState(
-            static_cast<WebviewPointerButton>(*buttonValue), *isDownValue);
+            static_cast<WebviewPointerButton>(*buttonValue), *isDownValue,
+            *xValue, *yValue);
         return result->Success();
       }
     }

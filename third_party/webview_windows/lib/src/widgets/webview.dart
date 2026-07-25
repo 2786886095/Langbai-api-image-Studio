@@ -40,7 +40,8 @@ class Webview extends StatefulWidget {
 }
 
 class _WebviewState extends State<Webview> {
-  late double _scaleFactor;
+  double _scaleFactor = 1.0;
+  Size? _surfaceSize;
 
   final _downButtons = <int, PointerButton>{};
 
@@ -78,7 +79,7 @@ class _WebviewState extends State<Webview> {
       ev.buttons,
     );
 
-    widget.controller.setPointerButtonState(button, true);
+    widget.controller.setPointerButtonState(button, true, ev.localPosition);
   }
 
   void onPointerUp(PointerUpEvent ev) {
@@ -99,7 +100,7 @@ class _WebviewState extends State<Webview> {
     final button = _downButtons.remove(ev.pointer);
 
     if (button != null) {
-      widget.controller.setPointerButtonState(button, false);
+      widget.controller.setPointerButtonState(button, false, ev.localPosition);
     }
   }
 
@@ -109,7 +110,7 @@ class _WebviewState extends State<Webview> {
     final button = _downButtons.remove(ev.pointer);
 
     if (button != null) {
-      widget.controller.setPointerButtonState(button, false);
+      widget.controller.setPointerButtonState(button, false, ev.localPosition);
     }
   }
 
@@ -134,15 +135,24 @@ class _WebviewState extends State<Webview> {
       widget.controller.setScrollDelta(
         -signal.scrollDelta.dx,
         -signal.scrollDelta.dy,
+        signal.localPosition,
       );
     }
   }
 
   void onPointerPanZoomUpdate(PointerPanZoomUpdateEvent signal) {
     if (signal.panDelta.dx.abs() > signal.panDelta.dy.abs()) {
-      widget.controller.setScrollDelta(-signal.panDelta.dx, 0);
+      widget.controller.setScrollDelta(
+        -signal.panDelta.dx,
+        0,
+        signal.localPosition,
+      );
     } else {
-      widget.controller.setScrollDelta(0, signal.panDelta.dy);
+      widget.controller.setScrollDelta(
+        0,
+        signal.panDelta.dy,
+        signal.localPosition,
+      );
     }
   }
 
@@ -159,7 +169,13 @@ class _WebviewState extends State<Webview> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    _scaleFactor = widget.scaleFactor ?? View.of(context).devicePixelRatio;
+    final nextScaleFactor =
+        widget.scaleFactor ?? View.of(context).devicePixelRatio;
+    final scaleChanged = _scaleFactor != nextScaleFactor;
+    _scaleFactor = nextScaleFactor;
+    if (scaleChanged && _surfaceSize != null) {
+      widget.controller.setSize(_surfaceSize!, _scaleFactor);
+    }
   }
 
   @override
@@ -189,6 +205,7 @@ class _WebviewState extends State<Webview> {
 
   void _updateSurfaceSize(Size size) {
     if (size.width < 2 || size.height < 2) return;
+    _surfaceSize = size;
     widget.controller.setSize(
       size,
       widget.scaleFactor ?? _scaleFactor,
