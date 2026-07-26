@@ -4397,8 +4397,133 @@ async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
   assertQa(result.gptUi.model === "gpt-image-2" && result.gptUi.globalSizeVisible && result.gptUi.officialPresets.join(",") === "1024x1024,1536x1024,1024x1536,2048x2048,2048x1152,3840x2160,2160x3840" && result.gptUi.allPresetCount >= 16, "GPT Image 2 must expose all seven official popular sizes plus additional compliant common presets.", result);
   assertQa(/157|1\.57/.test(result.gptUi.policy) && result.gptUi.quality === "medium" && result.gptUi.disabledQualities.join(",") === "auto,low,high" && gptGeneration.size === "832x1216" && gptGeneration.quality === "medium" && /vertical 13:19 aspect ratio/i.test(gptGeneration.prompt) && gptGeneration.background === "opaque" && !("aspect_ratio" in gptGeneration) && !("image_size" in gptGeneration), "OpenCodex GPT must force Medium, disable ineffective tiers, append direction/ratio guidance for compliant custom sizes, and disclose the measured private-route output cap.", result);
   assertQa(result.outsideUnchanged && result.insideChanged && result.featherOutsideZero, "Local inpaint compositing must preserve every RGBA channel outside the mask and alter only masked pixels.", result);
-  assertQa(expectedRatios.includes(result.crop.aspectRatio) && result.crop.x >= 0 && result.crop.y >= 0 && result.crop.x + result.crop.width <= 1200 && result.crop.y + result.crop.height <= 896, "The semantic-edit crop must stay inside the source image and map to an official Nano Banana ratio.", result);
+  assertQa(["1:1", "3:2", "2:3"].includes(result.crop.aspectRatio) && result.crop.x >= 0 && result.crop.y >= 0 && result.crop.x + result.crop.width <= 1200 && result.crop.y + result.crop.height <= 896, "The gpt-image-2 semantic-edit crop must stay inside the source image and map to a supported patch ratio.", result);
   assertQa(result.controlsPresent && result.resultMeta.actionCount === 5 && /Nano Banana 2/.test(result.resultMeta.text) && result.resultMeta.actual.width === 1 && result.resultMeta.actual.height === 1 && result.resultMeta.actual.bytes > 0, "Inpaint controls, card entry action, and requested-versus-actual OpenCodex metadata must be wired and persisted from decoded bytes.", result);
+}
+
+async function testGptImage2InpaintRoutes(cdp) {
+  logStep("Local inpaint is clickable only for OpenCodex/official gpt-image-2 and sends the correct mask protocol");
+  await loadFresh(cdp, "gpt-image-2-inpaint-routes");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    const originalFetch = window.fetch.bind(window);
+    const requests = [];
+    window.fetch = async (url, options = {}) => {
+      const target = String(url);
+      if (target === "http://127.0.0.1:10100/healthz") {
+        return new Response(JSON.stringify({ status: "ok", service: "opencodex", version: "2.7.36" }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target.includes("127.0.0.1:10100/v1/images/")) {
+        requests.push({ route: "opencodex", url: target, body: JSON.parse(options.body || "{}") });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng, mime_type: "image/png" }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (target.includes("api.openai.com/v1/images/edits")) {
+        const form = options.body;
+        const fields = {};
+        for (const [key, value] of form.entries()) {
+          fields[key] = value instanceof Blob
+            ? { type: value.type, size: value.size, name: value.name || "" }
+            : String(value);
+        }
+        requests.push({ route: "official", url: target, fields });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng, mime_type: "image/png" }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(url, options);
+    };
+
+    dom.inpaintSourceInput.click = () => {};
+    applyApiProvider("opencodex", { forceEndpoint: true });
+    applyOpenCodexImageOptions({ model: OPENCODEX_GPT_IMAGE_2 });
+    updateInpaintAvailability();
+    const openCodexEnabled = !dom.openInpaintFromFile.disabled;
+    dom.openInpaintFromFile.click();
+    const openCodexClickOpened = !dom.inpaintModal.classList.contains("hidden");
+    closeModal(dom.inpaintModal);
+
+    applyOpenCodexImageOptions({ model: OPENCODEX_NANO_BANANA_2, aspectRatio: "1:1", imageSize: "1K" });
+    updateInpaintAvailability();
+    const nanoDisabled = dom.openInpaintFromFile.disabled;
+
+    applyApiProvider("official", { forceEndpoint: true });
+    dom.apiKey.value = "test-official-key";
+    dom.model.value = "gpt-image-2";
+    updateOfficialOptionAvailability();
+    const officialEnabled = !dom.openInpaintFromFile.disabled;
+    dom.openInpaintFromFile.click();
+    const officialClickOpened = !dom.inpaintModal.classList.contains("hidden");
+
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = 4;
+    sourceCanvas.height = 4;
+    const sourceContext = sourceCanvas.getContext("2d");
+    sourceContext.fillStyle = "rgb(10,20,220)";
+    sourceContext.fillRect(0, 0, 4, 4);
+    await loadInpaintSourceBlob(dataUrlToBlob(sourceCanvas.toDataURL("image/png")), "source.png");
+    const maskContext = inpaintState.maskDataCanvas.getContext("2d");
+    maskContext.clearRect(0, 0, 4, 4);
+    maskContext.fillStyle = "#fff";
+    maskContext.fillRect(1, 1, 2, 2);
+    dom.inpaintPrompt.value = "replace the center with a red square";
+    dom.inpaintCandidateCount.value = "1";
+
+    const nativeMaskUrl = buildOfficialInpaintMaskDataUrl();
+    const nativeMaskImage = await loadImageElement(nativeMaskUrl);
+    const nativeMaskCanvas = document.createElement("canvas");
+    nativeMaskCanvas.width = 4;
+    nativeMaskCanvas.height = 4;
+    nativeMaskCanvas.getContext("2d").drawImage(nativeMaskImage, 0, 0);
+    const nativeMaskPixels = nativeMaskCanvas.getContext("2d").getImageData(0, 0, 4, 4).data;
+    const maskAlphaAt = index => nativeMaskPixels[index * 4 + 3];
+    const transparentInside = [5, 6, 9, 10].every(index => maskAlphaAt(index) === 0);
+    const opaqueOutside = [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15].every(index => maskAlphaAt(index) === 255);
+
+    await generateInpaintCandidates();
+    const officialCandidateCount = inpaintState.candidates.length;
+    const officialResultMode = inpaintState.providerMode;
+
+    applyApiProvider("opencodex", { forceEndpoint: true });
+    applyOpenCodexImageOptions({ model: OPENCODEX_GPT_IMAGE_2 });
+    dom.inpaintPrompt.value = "replace the center with a green square";
+    await generateInpaintCandidates();
+    const openCodexCandidateCount = inpaintState.candidates.length;
+    const openCodexResultMode = inpaintState.providerMode;
+
+    applyApiProvider("grsai", { forceEndpoint: true });
+    updateInpaintAvailability();
+    const grsaiDisabled = dom.openInpaintFromFile.disabled;
+    window.fetch = originalFetch;
+    return {
+      requests,
+      openCodexEnabled,
+      openCodexClickOpened,
+      nanoDisabled,
+      officialEnabled,
+      officialClickOpened,
+      grsaiDisabled,
+      transparentInside,
+      opaqueOutside,
+      officialCandidateCount,
+      officialResultMode,
+      openCodexCandidateCount,
+      openCodexResultMode,
+    };
+  })()`, true);
+
+  const official = result.requests.find(item => item.route === "official");
+  const openCodex = result.requests.find(item => item.route === "opencodex");
+  assertQa(result.openCodexEnabled && result.openCodexClickOpened && result.officialEnabled && result.officialClickOpened, "Both supported gpt-image-2 inpaint entries must be enabled and open the modal when clicked.", result);
+  assertQa(result.nanoDisabled && result.grsaiDisabled, "Nano Banana 2, GrsAI, and other providers must not expose the gpt-image-2 inpaint entry.", result);
+  assertQa(result.transparentInside && result.opaqueOutside, "The official PNG mask must invert the painted alpha so transparent pixels are exactly the edit area.", result);
+  assertQa(official?.fields?.model === "gpt-image-2" && official.fields.mask?.type === "image/png" && official.fields["image[]"]?.type === "image/png", "Official gpt-image-2 inpaint must send one PNG source plus a native PNG mask as multipart form data.", result);
+  assertQa(openCodex?.body?.model === "gpt-image-2" && openCodex.body.images?.length === 1 && !openCodex.body.mask && ["1024x1024", "1536x1024", "1024x1536"].includes(openCodex.body.size), "OpenCodex inpaint must use its JSON image-edit contract with gpt-image-2 and no unsupported mask field.", result);
+  assertQa(result.officialCandidateCount === 1 && result.officialResultMode === "official-native-mask" && result.openCodexCandidateCount === 1 && result.openCodexResultMode === "opencodex-local-mask", "Both inpaint routes must produce selectable candidates and retain the correct result mode.", result);
 }
 
 async function testGrsaiOfficialAdapter(cdp) {
@@ -4981,6 +5106,7 @@ async function main() {
     await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
     await testOpenAiOfficialProviderResponsiveLayout(cdp);
     await testOpenCodexDualModelsSizesAndLocalInpaint(cdp);
+    await testGptImage2InpaintRoutes(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
     await testSavePathsTextMenuAndWindowsZipChunks(cdp);

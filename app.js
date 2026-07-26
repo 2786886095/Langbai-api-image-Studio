@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.4.2";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -245,7 +245,7 @@ const CLEAN_LOCALES = {
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
     apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
     opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
-    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 并发 5", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintTitle: "局部重绘", inpaintDisclosure: "Nano Banana 2 生成语义补丁，软件只在蒙版内本地合成；这不是上游原生 mask 重绘。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
+    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 并发 5", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。", inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
@@ -630,8 +630,40 @@ const CLEAN_LOCALES = {
   }
 };
 
+const INPAINT_LOCALES = Object.freeze({
+  "zh-CN": Object.freeze({
+    inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2",
+    inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。",
+    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。",
+  }),
+  "zh-Hant": Object.freeze({
+    inpaintRequiresGptImage2: "局部重繪僅支援 OpenCodex 或官方 OpenAI 的 gpt-image-2",
+    inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；軟體仍會在本機保護蒙版外像素。",
+    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 產生語意補丁；軟體只在本機蒙版內合成。",
+  }),
+  en: Object.freeze({
+    inpaintRequiresGptImage2: "Local inpaint supports only gpt-image-2 through OpenCodex or the official OpenAI API",
+    inpaintOfficialDisclosure: "Official OpenAI gpt-image-2 receives a native mask; the app also preserves pixels outside the local mask.",
+    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 generates a semantic patch that the app composites only inside the local mask.",
+  }),
+  ja: Object.freeze({
+    inpaintRequiresGptImage2: "部分再描画は OpenCodex または公式 OpenAI の gpt-image-2 のみ対応します",
+    inpaintOfficialDisclosure: "公式 OpenAI gpt-image-2 にはネイティブ mask を送信し、アプリでもマスク外の画素を保護します。",
+    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 が意味パッチを生成し、アプリがローカルマスク内だけに合成します。",
+  }),
+  ko: Object.freeze({
+    inpaintRequiresGptImage2: "부분 다시 그리기는 OpenCodex 또는 공식 OpenAI의 gpt-image-2만 지원합니다",
+    inpaintOfficialDisclosure: "공식 OpenAI gpt-image-2에는 네이티브 mask를 보내며 앱도 마스크 밖 픽셀을 보호합니다.",
+    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다.",
+  }),
+});
+
 function cleanText(key) {
-  return CLEAN_LOCALES[currentLanguage]?.[key] || CLEAN_LOCALES["zh-CN"][key] || key;
+  return INPAINT_LOCALES[currentLanguage]?.[key]
+    || INPAINT_LOCALES["zh-CN"]?.[key]
+    || CLEAN_LOCALES[currentLanguage]?.[key]
+    || CLEAN_LOCALES["zh-CN"][key]
+    || key;
 }
 
 function localeTagForCurrentLanguage() {
@@ -1293,6 +1325,7 @@ const dom = {
   historyList:   $("#historyList"),
   // OpenCodex 局部重绘
   inpaintModal: $("#inpaintModal"),
+  inpaintDisclosure: $("#inpaintDisclosure"),
   closeInpaint: $("#closeInpaint"),
   inpaintChooseSource: $("#inpaintChooseSource"),
   inpaintBaseCanvas: $("#inpaintBaseCanvas"),
@@ -1550,6 +1583,7 @@ const inpaintState = {
   candidates: [],
   selectedCandidate: -1,
   cropPlan: null,
+  providerMode: "",
   generating: false,
   abortController: null,
   resultDataUrl: "",
@@ -2152,10 +2186,7 @@ function updateOpenCodexOptionAvailability() {
   document.querySelectorAll(".opencodex-gpt-option").forEach(element => element.classList.toggle("hidden", isNano));
   document.querySelectorAll(".opencodex-nano-option").forEach(element => element.classList.toggle("hidden", !isNano));
   if (dom.model && isOpenCodexSelected()) dom.model.value = model;
-  if (dom.openInpaintFromFile) {
-    dom.openInpaintFromFile.disabled = !isNano;
-    dom.openInpaintFromFile.title = isNano ? cleanText("openInpaint") : cleanText("inpaintRequiresNano");
-  }
+  updateInpaintAvailability();
   if ($("#openCodexFacts")) {
     $("#openCodexFacts").textContent = isNano
       ? interpolate(cleanText("openCodexNanoFacts"), { concurrency: getOpenCodexConcurrency(options) })
@@ -2286,6 +2317,7 @@ function updateOfficialOptionAvailability() {
     dom.officialCapabilityNote.textContent = cleanText(key);
   }
   updateSizePolicyUi();
+  updateInpaintAvailability();
 }
 
 function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "custom") {
@@ -2296,6 +2328,7 @@ function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "cus
   dom.grsaiRetrySettings?.classList.toggle("hidden", provider !== "grsai");
   if (provider === "official") updateOfficialOptionAvailability();
   updateSizePolicyUi();
+  updateInpaintAvailability();
 }
 
 function updateProviderOptionsLanguage() {
@@ -2370,6 +2403,7 @@ function updateInpaintLanguage() {
   if (dom.inpaintStatus && !hasSource && !isGenerating) {
     dom.inpaintStatus.textContent = cleanText("inpaintInitial");
   }
+  updateInpaintAvailability();
 }
 
 let openCodexHealthState = "idle";
@@ -2380,6 +2414,32 @@ let openCodexHealthPromise = null;
 
 function isOpenCodexSelected() {
   return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "opencodex";
+}
+
+function getInpaintProviderMode() {
+  const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
+  const model = String(dom.model?.value || "").trim();
+  if (provider === "official" && officialImageModelFamily(model) === "gpt-image-2") {
+    return "official-native-mask";
+  }
+  if (provider === "opencodex" && getOpenCodexImageOptions().model === OPENCODEX_GPT_IMAGE_2) {
+    return "opencodex-local-mask";
+  }
+  return "";
+}
+
+function updateInpaintAvailability() {
+  const mode = getInpaintProviderMode();
+  if (dom.openInpaintFromFile) {
+    dom.openInpaintFromFile.disabled = !mode;
+    dom.openInpaintFromFile.title = mode ? cleanText("openInpaint") : cleanText("inpaintRequiresGptImage2");
+  }
+  if (dom.inpaintDisclosure) {
+    dom.inpaintDisclosure.textContent = cleanText(
+      mode === "official-native-mask" ? "inpaintOfficialDisclosure" : "inpaintOpenCodexDisclosure"
+    );
+  }
+  return mode;
 }
 
 function setOpenCodexHealthState(state, detail = "") {
@@ -3064,9 +3124,9 @@ dom.officialPricingLink?.addEventListener("click", () => {
   void openExternalUrl(OPENAI_PRICING_URL);
 });
 
-// ─── OpenCodex / Nano Banana 2 局部重绘 ─────────────────────
-// 上游只接收“图片 + 文字”的语义编辑请求，不接收二值 mask。软件先让模型生成
-// 带上下文的候选补丁，再把候选严格限制在本地蒙版内合成，蒙版外像素不参与混合。
+// ─── gpt-image-2 局部重绘 ──────────────────────────────────
+// 官方 OpenAI 接收原生 mask；OpenCodex 接收“图片 + 文字”的语义编辑请求。
+// 两条路径最终都在本地按蒙版合成，保证蒙版外像素不参与混合。
 const INPAINT_PAINT_STATUS = Object.freeze({
   "zh-CN": "原图已载入，请涂抹要修改的区域。",
   "zh-Hant": "原圖已載入，請塗抹要修改的區域。",
@@ -3164,6 +3224,7 @@ function resetInpaintCandidates() {
   inpaintState.candidates = [];
   inpaintState.selectedCandidate = -1;
   inpaintState.cropPlan = null;
+  inpaintState.providerMode = "";
   inpaintState.resultDataUrl = "";
   if (dom.inpaintCandidateStrip) dom.inpaintCandidateStrip.innerHTML = "";
   dom.inpaintAlignment?.classList.add("hidden");
@@ -3213,8 +3274,8 @@ async function loadInpaintSourceBlob(blob, name = "image") {
 
 async function openInpaintFromCard(card) {
   if (!card) return;
-  if (!isOpenCodexSelected() || getOpenCodexImageOptions().model !== OPENCODEX_NANO_BANANA_2) {
-    showStatus(cleanText("inpaintRequiresNano"), "error");
+  if (!getInpaintProviderMode()) {
+    showStatus(cleanText("inpaintRequiresGptImage2"), "error");
     return;
   }
   openModal(dom.inpaintModal);
@@ -3272,11 +3333,13 @@ function analyzeInpaintMask(canvas = inpaintState.maskDataCanvas) {
   };
 }
 
-function nearestNanoAspectRatio(width, height) {
+const INPAINT_PATCH_ASPECT_RATIOS = Object.freeze(["1:1", "3:2", "2:3"]);
+
+function nearestInpaintAspectRatio(width, height) {
   const target = width / Math.max(1, height);
-  let best = OPENCODEX_NANO_ASPECT_RATIOS[0];
+  let best = INPAINT_PATCH_ASPECT_RATIOS[0];
   let bestDistance = Infinity;
-  OPENCODEX_NANO_ASPECT_RATIOS.forEach(value => {
+  INPAINT_PATCH_ASPECT_RATIOS.forEach(value => {
     const [w, h] = value.split(":").map(Number);
     const distance = Math.abs(Math.log(target / (w / h)));
     if (distance < bestDistance) {
@@ -3293,7 +3356,7 @@ function planInpaintCrop(mask, imageWidth, imageHeight, contextPercent = 15) {
   let top = Math.max(0, mask.minY - padding);
   let right = Math.min(imageWidth, mask.maxX + 1 + padding);
   let bottom = Math.min(imageHeight, mask.maxY + 1 + padding);
-  const aspectRatio = nearestNanoAspectRatio(right - left, bottom - top);
+  const aspectRatio = nearestInpaintAspectRatio(right - left, bottom - top);
   const [ratioWidth, ratioHeight] = aspectRatio.split(":").map(Number);
   const targetRatio = ratioWidth / ratioHeight;
   const centerX = (left + right) / 2;
@@ -3307,6 +3370,43 @@ function planInpaintCrop(mask, imageWidth, imageHeight, contextPercent = 15) {
   width = Math.min(imageWidth - left, Math.round(width));
   height = Math.min(imageHeight - top, Math.round(height));
   return { x: left, y: top, width, height, aspectRatio };
+}
+
+function buildOfficialInpaintMaskDataUrl(canvas = inpaintState.maskDataCanvas) {
+  if (!canvas?.width || !canvas?.height) throw new Error("蒙版尺寸无效");
+  const source = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+  const outputCanvas = document.createElement("canvas");
+  outputCanvas.width = canvas.width;
+  outputCanvas.height = canvas.height;
+  const outputContext = outputCanvas.getContext("2d");
+  const output = outputContext.createImageData(canvas.width, canvas.height);
+  for (let index = 0; index < canvas.width * canvas.height; index++) {
+    const offset = index * 4;
+    output.data[offset] = 255;
+    output.data[offset + 1] = 255;
+    output.data[offset + 2] = 255;
+    // OpenAI 的透明区域是编辑区域；软件内涂抹区域则是非透明，因此需要反转 alpha。
+    output.data[offset + 3] = 255 - source.data[offset + 3];
+  }
+  outputContext.putImageData(output, 0, 0);
+  return outputCanvas.toDataURL("image/png");
+}
+
+function getOfficialInpaintRequestSize(source) {
+  const exact = `${source.width}x${source.height}`;
+  try {
+    validateOfficialImageSize("gpt-image-2", exact);
+    return exact;
+  } catch {
+    return "auto";
+  }
+}
+
+function getOpenCodexInpaintRequestSize(crop) {
+  const ratio = crop.width / Math.max(1, crop.height);
+  if (ratio >= 1.2) return "1536x1024";
+  if (ratio <= (1 / 1.2)) return "1024x1536";
+  return "1024x1024";
 }
 
 function buildInwardFeatherAlpha(maskImageData, width, height, featherRadius) {
@@ -3437,61 +3537,95 @@ async function generateInpaintCandidates() {
   const prompt = String(dom.inpaintPrompt?.value || "").trim();
   if (!source) return setInpaintStatus(cleanText("inpaintNeedSource"), "error");
   if (!prompt) return setInpaintStatus(cleanText("inpaintNeedPrompt"), "error");
-  if (!isOpenCodexSelected() || getOpenCodexImageOptions().model !== OPENCODEX_NANO_BANANA_2) {
-    return setInpaintStatus(cleanText("inpaintRequiresNano"), "error");
-  }
+  const providerMode = getInpaintProviderMode();
+  if (!providerMode) return setInpaintStatus(cleanText("inpaintRequiresGptImage2"), "error");
   const mask = analyzeInpaintMask();
   if (!mask) return setInpaintStatus(cleanText("inpaintNeedMask"), "error");
   if (mask.coverage > 0.95) {
     return setInpaintStatus("蒙版覆盖超过 95%，请直接使用参考图编辑，或缩小蒙版区域。", "error");
   }
-  const crop = planInpaintCrop(mask, source.width, source.height, Number(dom.inpaintContext?.value || 15));
-  const cropCanvas = document.createElement("canvas");
-  cropCanvas.width = crop.width;
-  cropCanvas.height = crop.height;
-  cropCanvas.getContext("2d").drawImage(
-    dom.inpaintBaseCanvas,
-    crop.x, crop.y, crop.width, crop.height,
-    0, 0, crop.width, crop.height
-  );
-  const cropDataUrl = cropCanvas.toDataURL("image/png");
+
+  let crop;
+  let requestSize;
+  let requestPrompt;
+  let requestOptions;
+  if (providerMode === "official-native-mask") {
+    crop = {
+      x: 0,
+      y: 0,
+      width: source.width,
+      height: source.height,
+      aspectRatio: `${source.width}:${source.height}`,
+    };
+    const sourceDataUrl = dom.inpaintBaseCanvas.toDataURL("image/png");
+    requestSize = getOfficialInpaintRequestSize(source);
+    requestPrompt = [
+      "Edit only the area identified by the supplied mask according to the instruction below.",
+      "Preserve the composition, lighting, perspective, texture, and every unmasked detail.",
+      `Instruction: ${prompt}`,
+    ].join("\n");
+    requestOptions = {
+      references: [{ dataUrl: sourceDataUrl, width: source.width, height: source.height, fileName: "source.png" }],
+      officialMask: {
+        dataUrl: buildOfficialInpaintMaskDataUrl(),
+        width: source.width,
+        height: source.height,
+        fileName: "mask.png",
+      },
+    };
+  } else {
+    crop = planInpaintCrop(mask, source.width, source.height, Number(dom.inpaintContext?.value || 15));
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = crop.width;
+    cropCanvas.height = crop.height;
+    cropCanvas.getContext("2d").drawImage(
+      dom.inpaintBaseCanvas,
+      crop.x, crop.y, crop.width, crop.height,
+      0, 0, crop.width, crop.height
+    );
+    requestSize = getOpenCodexInpaintRequestSize(crop);
+    requestPrompt = [
+      "Edit the supplied image crop according to the instruction below.",
+      "Preserve the surrounding composition, lighting, perspective, texture, and unchanged objects.",
+      "Return one complete edited crop with no frame, labels, mask visualization, or explanation.",
+      `Instruction: ${prompt}`,
+    ].join("\n");
+    requestOptions = {
+      references: [{ dataUrl: cropCanvas.toDataURL("image/png"), width: crop.width, height: crop.height, fileName: "crop.png" }],
+      openCodexOptions: {
+        ...getOpenCodexImageOptions(),
+        model: OPENCODEX_GPT_IMAGE_2,
+      },
+    };
+  }
+
   const candidateCount = Math.max(1, Math.min(4, Number(dom.inpaintCandidateCount?.value || 2)));
   const controller = new AbortController();
   inpaintState.abortController?.abort();
   inpaintState.abortController = controller;
   inpaintState.generating = true;
-  inpaintState.cropPlan = crop;
   resetInpaintCandidates();
   inpaintState.cropPlan = crop;
+  inpaintState.providerMode = providerMode;
   dom.generateInpaint.disabled = true;
   dom.cancelInpaintGeneration?.classList.remove("hidden");
   let completed = 0;
   const generated = [];
   const failures = [];
-  const semanticPrompt = [
-    "Edit the supplied image crop according to the instruction below.",
-    "Preserve the surrounding composition, lighting, perspective, texture, and unchanged objects.",
-    "Return one complete edited crop with no frame, labels, mask visualization, or explanation.",
-    `Instruction: ${prompt}`,
-  ].join("\n");
   try {
     const results = await mapWithConcurrency(Array.from({ length: candidateCount }), 2, async (_, index) => {
       try {
-        const response = await callImageAPI(semanticPrompt, `${crop.width}x${crop.height}`, 1, `局部重绘候选 ${index + 1}`, {
+        const response = await callImageAPI(requestPrompt, requestSize, 1, `局部重绘候选 ${index + 1}`, {
+          ...requestOptions,
           signal: controller.signal,
-          references: [{ dataUrl: cropDataUrl, width: crop.width, height: crop.height }],
           maxRetries: 0,
-          openCodexOptions: {
-            ...getOpenCodexImageOptions(),
-            model: OPENCODEX_NANO_BANANA_2,
-            aspectRatio: crop.aspectRatio,
-          },
+          preserveRequestedSize: true,
         });
         const sourceUrl = responseImageToDataUrl(response);
         const blob = sourceUrl.startsWith("data:") ? dataUrlToBlob(sourceUrl) : await imageUrlToBlob(sourceUrl);
         const dataUrl = await blobToDataUrl(await normalizeImageBlob(blob));
         const image = await loadImageElement(dataUrl);
-        return { dataUrl, image, meta: response._openCodex || null };
+        return { dataUrl, image, meta: response._openCodex || null, providerMode };
       } catch (error) {
         if (error?.name === "AbortError") throw error;
         failures.push(interpolate(cleanText("inpaintCandidateFailed"), { index: index + 1, reason: error.message || error }));
@@ -3533,7 +3667,7 @@ function applyInpaintResult() {
   const prompt = String(dom.inpaintPrompt?.value || "").trim();
   const crop = inpaintState.cropPlan;
   const selected = inpaintState.candidates[inpaintState.selectedCandidate];
-  const openCodexOptions = getOpenCodexImageOptions();
+  const providerMode = inpaintState.providerMode || getInpaintProviderMode();
   const card = addResultPlaceholder(panelId, prompt, {
     mode: "single",
     prompt,
@@ -3541,19 +3675,23 @@ function applyInpaintResult() {
     size: `${inpaintState.source.width}x${inpaintState.source.height}`,
     references: [],
   });
-  replacePlaceholder(card, panelId, {
+  const resultPayload = {
     data: [{ b64_json: base64, mime_type: "image/png" }],
-    _openCodex: {
+  };
+  if (providerMode === "opencodex-local-mask") {
+    resultPayload._openCodex = {
       provider: "opencodex-local-image",
       operation: "inpaint",
       requested: {
-        model: OPENCODEX_NANO_BANANA_2,
+        model: OPENCODEX_GPT_IMAGE_2,
+        size: getOpenCodexInpaintRequestSize(crop),
+        quality: OPENCODEX_GPT_PRIVATE_QUALITY,
         aspectRatio: crop.aspectRatio,
-        imageSize: openCodexOptions.imageSize,
       },
       response: selected?.meta?.response || { mimeType: "image/png" },
-    },
-  }, prompt, {
+    };
+  }
+  replacePlaceholder(card, panelId, resultPayload, prompt, {
     mode: "single",
     operation: "inpaint",
     size: `${inpaintState.source.width}x${inpaintState.source.height}`,
@@ -3563,6 +3701,8 @@ function applyInpaintResult() {
       feather: Number(dom.inpaintFeather?.value || 0),
       context: Number(dom.inpaintContext?.value || 15),
       localMaskComposite: true,
+      nativeMask: providerMode === "official-native-mask",
+      providerMode,
     },
   });
   dom.emptyState?.classList.add("hidden");
@@ -3573,6 +3713,10 @@ function applyInpaintResult() {
 }
 
 dom.openInpaintFromFile?.addEventListener("click", () => {
+  if (!getInpaintProviderMode()) {
+    showStatus(cleanText("inpaintRequiresGptImage2"), "error");
+    return;
+  }
   openModal(dom.inpaintModal);
   if (!inpaintState.source) dom.inpaintSourceInput?.click();
 });
@@ -6258,6 +6402,19 @@ registerAdapter({
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
     const signal = options.signal;
     throwIfAborted(signal);
+    const officialMask = options.officialMask || null;
+    if (officialMask && officialImageModelFamily(model) !== "gpt-image-2") {
+      throw new Error("原生蒙版局部重绘仅支持官方 OpenAI gpt-image-2。");
+    }
+    if (officialMask && (!hasRef || refs.length !== 1)) {
+      throw new Error("原生蒙版局部重绘必须提供且只能提供一张原图。");
+    }
+    if (officialMask && !/^data:image\/png;base64,/i.test(String(officialMask.dataUrl || ""))) {
+      throw new Error("OpenAI 局部重绘蒙版必须是带透明通道的 PNG。");
+    }
+    if (officialMask && (Number(officialMask.width) !== Number(refs[0]?.width) || Number(officialMask.height) !== Number(refs[0]?.height))) {
+      throw new Error("OpenAI 局部重绘要求原图与蒙版尺寸完全一致。");
+    }
     const officialOptions = buildOfficialImageRequestOptions(model, size, hasRef);
     if (!hasRef || refs.length === 0) {
       const url = normalizeApiUrl(endpoint, "images/generations");
@@ -6272,9 +6429,23 @@ registerAdapter({
     form.append("n", String(n));
     form.append("size", size);
     Object.entries(officialOptions).forEach(([key, value]) => form.append(key, String(value)));
-    refs.forEach((ref, index) => {
-      form.append("image[]", dataUrlToBlob(ref.dataUrl), ref.fileName || `reference-${index + 1}.png`);
+    const referenceBlobs = refs.map(ref => dataUrlToBlob(ref.dataUrl));
+    if (referenceBlobs.some(blob => blob.size >= 50 * 1024 * 1024)) {
+      throw new Error("OpenAI 图片编辑要求每张原图小于 50 MB。");
+    }
+    referenceBlobs.forEach((blob, index) => {
+      form.append("image[]", blob, refs[index].fileName || `reference-${index + 1}.png`);
     });
+    if (officialMask) {
+      const maskBlob = dataUrlToBlob(officialMask.dataUrl);
+      if (referenceBlobs[0]?.type !== "image/png" || maskBlob.type !== "image/png") {
+        throw new Error("OpenAI 局部重绘要求原图与蒙版使用相同的 PNG 格式。");
+      }
+      if (maskBlob.size >= 50 * 1024 * 1024) {
+        throw new Error("OpenAI 图片编辑要求蒙版小于 50 MB。");
+      }
+      form.append("mask", maskBlob, officialMask.fileName || "mask.png");
+    }
     const response = await smartFetch(url, {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}` },
@@ -6476,7 +6647,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   console.log(`callImageAPI: provider=${provider} adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
 
   let finalSize = size;
-  if (dom.useOrigSize.checked && hasRef) {
+  if (!options.preserveRequestedSize && dom.useOrigSize.checked && hasRef) {
     const ref = refs[0];
     if (ref.width && ref.height) finalSize = `${ref.width}x${ref.height}`;
   }
@@ -6491,6 +6662,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
       signal,
       openCodexOptions: options.openCodexOptions,
+      officialMask: options.officialMask,
       onSubmit504Retry: ({ retryIndex, maxRetries, intervalSeconds, remainingSeconds }) => {
         showStatus(interpolate(cleanText("grsaiSubmit504Waiting"), {
           seconds: remainingSeconds,

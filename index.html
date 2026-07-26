@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260726-1-4-1">
+  <link rel="stylesheet" href="style.css?v=20260726-1-4-2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -757,7 +757,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.4.1</strong>
+            <strong id="currentVersionLabel">v1.4.2</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -812,7 +812,7 @@
       <div class="modal-header inpaint-header">
         <div>
           <h2 id="inpaintTitle">局部重绘</h2>
-          <p class="field-hint" id="inpaintDisclosure">Nano Banana 2 生成语义补丁，软件只在蒙版内本地合成；这不是上游原生 mask 重绘。</p>
+          <p class="field-hint" id="inpaintDisclosure">局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2。</p>
         </div>
         <button type="button" class="icon-btn" id="closeInpaint" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
@@ -951,7 +951,7 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260726-1-4-1"></script>
-  <script src="app.js?v=20260726-1-4-1"></script>
+  <script src="bootstrap-guard.js?v=20260726-1-4-2"></script>
+  <script src="app.js?v=20260726-1-4-2"></script>
 </body>
 </html>
