@@ -40,6 +40,8 @@ assert.match(sw, /ai-image-generator-1-4-2-20260726/);
 assert.match(sw, /ignoreSearch:\s*true/);
 assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,2,64/);
 assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.2"/);
+assert.match(workflow, /const APP_VERSION = "1\.4\.2";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260726-1-4-2/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);
