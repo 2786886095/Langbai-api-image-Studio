@@ -31,14 +31,15 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.4.0", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.4\.0\+62$/m);
-assert.match(html, /v1\.4\.0/);
-assert.match(html, /20260726-1-4-0/g);
-assert.match(sw, /ai-image-generator-1-4-0-20260726/);
+assert.equal(version, "1.4.1", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.4\.1\+63$/m);
+assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
+assert.match(html, /v1\.4\.1/);
+assert.match(html, /20260726-1-4-1/g);
+assert.match(sw, /ai-image-generator-1-4-1-20260726/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,0,62/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.0"/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,1,63/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.1"/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);
@@ -67,6 +68,12 @@ assert.match(workflow, /Run hidden Windows WebView2 startup smoke test/);
 assert.match(workflow, /Verify Windows hit testing reaches WebView2/);
 assert.match(bootstrapGuard, /__AI_GEN_APP_READY/);
 assert.match(app, /window\.__AI_GEN_APP_READY = true/);
+assert.match(app, /function restoreSavedConfigurationOnStartup\(\)/);
+assert.match(app, /function initializeApplication\(\)/);
+assert.ok(
+  app.indexOf("const KNOWN_PRICES") < app.indexOf("initializeApplication();"),
+  "Saved configuration restoration must run only after KNOWN_PRICES is initialized",
+);
 assert.match(dartMain, /'flutter_webview_windows',\s*'ai_image_generator',\s*\]\.join/);
 assert.match(dartMain, /addScriptToExecuteOnDocumentCreated/);
 assert.match(dartMain, /controller\.onWebMessageReceived/);
@@ -101,7 +108,7 @@ assert.match(app, /GENERATED_CACHE_META_STORE\s*=\s*"generated_cache_meta"/);
 assert.match(app, /createdAtIndex\.openKeyCursor\(IDBKeyRange\.upperBound\(cutoff, true\)\)/);
 assert.match(app, /objectStore\(HISTORY_BLOB_STORE\)\.openKeyCursor\(\)/);
 assert.doesNotMatch(app, /generatedStore\.getAllKeys\(\)/);
-assert.match(app, /setTimeout\(runStartupCacheCleanup, 15000\)/);
+assert.match(app, /setTimeout\(\(\) => \{\s*void cleanupGeneratedImageCache\(\)/);
 assert.match(app, /secureStorageMigrationStarted/);
 assert.match(dartMain, /_secureStorageOperationChain/);
 assert.match(app, /gemini-3\.1-flash-image/);

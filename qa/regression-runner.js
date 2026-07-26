@@ -208,17 +208,22 @@ async function loadFresh(cdp, query = "qa", viewport = { width: 1365, height: 76
     lastState = await cdp.eval(`(() => ({
       url: location.href,
       readyState: document.readyState,
+      appReady: window.__AI_GEN_APP_READY === true,
       hasGenerateButton: !!document.getElementById("generateBtn"),
       title: document.title,
       bodyLength: document.body?.textContent?.length || 0,
+      startupErrors: window.__AI_GEN_STARTUP_ERRORS || [],
     }))()`).catch(err => ({ transientNavigationError: String(err?.message || err) }));
-    if (lastState?.readyState === "complete" && lastState.hasGenerateButton) {
+    if (lastState?.readyState === "complete" && lastState.appReady && lastState.hasGenerateButton) {
       await sleep(150);
       return;
     }
     await sleep(100);
   }
-  throw new Error(`App did not become ready: ${JSON.stringify(lastState)}`);
+  throw new Error(`App did not become ready: ${JSON.stringify({
+    ...lastState,
+    runtimeIssues: cdp.runtimeIssues.slice(-8),
+  })}`);
 }
 
 async function testCustomSelects(cdp) {
@@ -1449,6 +1454,104 @@ async function testSequentialToggleSharedAcrossModes(cdp) {
   assertQa(result.nestedInNImagesField === false, "The toggle should live in the shared config area, not nested inside the single-image-only image-count field.", result);
   assertQa(result.checkedAfterClick === true, "Clicking the toggle should still work after being relocated.", result);
   assertQa(result.keyboardMode === "caption" && result.selectedStates.filter(tab => tab.selected === "true" && tab.tabIndex === 0).length === 1, "Mode tabs must expose one selected tab and support arrow-key switching as a Windows input fallback.", result);
+}
+
+async function testColdStartupProfilesAndCoreControls(cdp) {
+  logStep("Cold startup restores every API provider before core controls are exercised");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      const match = location.search.match(/[?&]cold-start-(official|grsai|opencodex|custom|corrupt)=/);
+      if (!match) return;
+      localStorage.clear();
+      const provider = match[1];
+      if (provider === "corrupt") {
+        localStorage.setItem("ai_image_gen_config", "{broken-json");
+        localStorage.setItem("ai_image_gen_apis", JSON.stringify([{
+          id: "preserved-profile", name: "Preserved profile", apiProvider: "custom",
+          endpoint: "https://example.invalid/v1/images/generations", model: "custom-image-model"
+        }]));
+        return;
+      }
+      const presets = {
+        official: { endpoint: "https://api.openai.com/v1/images/generations", model: "gpt-image-2" },
+        grsai: { endpoint: "https://grsai.dakka.com.cn/v1/api/generate", model: "gpt-image-2" },
+        opencodex: { endpoint: "http://127.0.0.1:10100/v1/images/generations", model: "gpt-image-2" },
+        custom: { endpoint: "https://example.invalid/v1/images/generations", model: "custom-image-model" },
+      };
+      const config = {
+        id: "cold-start-" + provider,
+        name: "Cold start " + provider,
+        apiProvider: provider,
+        endpoint: presets[provider].endpoint,
+        apiKey: provider === "opencodex" ? "opencodex-local-only" : "sk-test-only",
+        model: presets[provider].model,
+      };
+      localStorage.setItem("ai_image_gen_config", JSON.stringify(config));
+      localStorage.setItem("ai_image_gen_apis", JSON.stringify([config]));
+      localStorage.setItem("ai_image_gen_default_api_id", config.id);
+    })();`,
+  });
+
+  try {
+    for (const provider of ["official", "grsai", "opencodex", "custom", "corrupt"]) {
+      await loadFresh(cdp, `cold-start-${provider}`);
+      const result = await cdp.eval(`(async () => {
+        const click = id => document.getElementById(id)?.click();
+        click("settingsBtn");
+        const settingsOpened = !document.getElementById("settingsModal").classList.contains("hidden");
+        click("closeSettings");
+
+        document.querySelector('.mode-tab[data-mode="comic"]')?.click();
+        const comicOpened = document.querySelector('.mode-tab[data-mode="comic"]')?.classList.contains("active")
+          && !document.getElementById("comicPanelSection").classList.contains("hidden");
+
+        click("languageMenuButton");
+        const languageOpened = !document.getElementById("languageMenu").classList.contains("hidden");
+        document.querySelector('.language-option[data-lang="en"]')?.click();
+        const languageChanged = document.getElementById("languageSelect").value === "en";
+
+        const themeBefore = document.documentElement.getAttribute("data-theme");
+        click("themeToggle");
+        const themeChanged = document.documentElement.getAttribute("data-theme") !== themeBefore;
+
+        click("historyBtn");
+        const historyOpened = !document.getElementById("historyModal").classList.contains("hidden");
+        click("closeHistory");
+        click("exportBtn");
+        await new Promise(resolve => setTimeout(resolve, 30));
+        const exportResponded = document.getElementById("status").textContent.trim().length > 0;
+
+        return {
+          ready: window.__AI_GEN_APP_READY === true,
+          provider: document.getElementById("apiProvider").value,
+          settingsOpened, comicOpened, languageOpened, languageChanged,
+          themeChanged, historyOpened, exportResponded,
+          savedApisRaw: localStorage.getItem("ai_image_gen_apis"),
+          startupErrors: window.__AI_GEN_STARTUP_ERRORS || [],
+        };
+      })()`, true);
+      assertQa(
+        result.ready && result.settingsOpened && result.comicOpened && result.languageOpened
+          && result.languageChanged && result.themeChanged && result.historyOpened && result.exportResponded,
+        `Cold startup controls failed for ${provider}.`,
+        result,
+      );
+      if (provider === "official") {
+        assertQa(result.provider === "official", "The official API profile must restore during cold startup.", result);
+      }
+      if (provider === "corrupt") {
+        assertQa(
+          result.savedApisRaw?.includes("preserved-profile"),
+          "A corrupt active config must not delete or overwrite the saved API profile list.",
+          result,
+        );
+      }
+    }
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.eval(`localStorage.clear()`);
+    await loadFresh(cdp, "cold-start-clean");
+  }
 }
 
 async function testSaveComicFolder(cdp) {
@@ -4851,6 +4954,7 @@ async function main() {
   let cdp;
   try {
     cdp = await setupBrowserPage();
+    await testColdStartupProfilesAndCoreControls(cdp);
     await testCustomSelects(cdp);
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);

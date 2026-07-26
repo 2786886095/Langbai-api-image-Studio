@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.4.0
+# Codex / Claude Handoff: AI 图片生成器 v1.4.1
 
 更新时间：2026-07-25
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.4.0+62`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.4.1+63`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.4.1 官方 API 冷启动崩溃修复
+
+- 已确认根因：启动恢复官方 API 配置时，`applyConfig()` 调用 `setModelChoices()`，后者访问尚未初始化的 `KNOWN_PRICES`，导致 `app.js` 在绑定设置、漫画分镜、语言、主题等按钮前以 TDZ `ReferenceError` 中止。
+- 配置恢复现统一放在模块末尾执行，保证所有模型/价格常量已初始化；恢复失败仅使用临时空配置继续启动，不调用 `saveConfig()` 或 `clearConfig()`，不会覆盖用户 API、密钥或历史。
+- `bootstrap-guard.js` 已加入 Flutter assets。v1.4.0 虽在 `index.html` 引用该文件，但 `pubspec.yaml` 漏列，Windows 安装包内实际不存在。
+- 回归现在会在导航前分别预置官方、GrsAI、OpenCodex、自定义和损坏配置，要求 `window.__AI_GEN_APP_READY === true`，并调用设置、漫画、语言、主题、历史和导出入口。
+- Windows 隐藏自检不再只检查 DOM 存在，而是要求应用就绪并验证设置、漫画、语言和主题按钮确实改变界面状态。
 
 ## v1.4.0 Windows 原生内容宿主重构
 
@@ -291,9 +299,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.0"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.1"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.0` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.1` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -309,5 +317,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.0 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.1 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

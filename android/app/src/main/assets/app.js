@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2982,25 +2982,6 @@ dom.deleteSavedApi.addEventListener("click", async () => {
   updateApiQuickState();
 });
 
-// 初始化
-const config = loadConfig();
-applyConfig(config);
-renderSavedApis();
-if (apiProfileRepairNotice?.length) {
-  const repairedNames = [...apiProfileRepairNotice];
-  apiProfileRepairNotice = null;
-  setTimeout(() => showStatus(apiProfileRepairMessage(repairedNames), "error"), 150);
-}
-if (config?.id) {
-  const idx = findSavedApiIndex(config.id, loadAllApis());
-  if (idx >= 0) {
-    dom.savedApis.value = String(idx);
-    customSelects.savedApis?.syncLabel();
-  }
-}
-dom.configSection.open = false;
-updateApiQuickState();
-
 function detachSavedApiProfile({ clearKey = true } = {}) {
   apiConfigApplySequence++;
   if (dom.savedApis) dom.savedApis.value = "";
@@ -4637,10 +4618,6 @@ dom.toggleKey.addEventListener("click", () => {
   input.type = isPw ? "text" : "password";
   dom.toggleKey.innerHTML = icon(isPw ? "eye-off" : "eye");
 });
-
-// ─── 默认值 ────────────────────────────────────────────────
-if (!config.endpoint) dom.apiEndpoint.placeholder = GRSAI_API_ENDPOINT;
-if (!config.model)   dom.model.placeholder = "gpt-image-2";
 
 // 端点变化时自动检测平台并加载对应模型
 dom.apiEndpoint.addEventListener("change", () => {
@@ -10040,17 +10017,89 @@ async function checkForUpdatesOnLaunch() {
   }
 }
 
-initI18n();
-registerServiceWorker();
-initManualWheelScrollFix();
-const runStartupCacheCleanup = () => {
-  void cleanupGeneratedImageCache().catch(err => console.warn("启动时清理生成图片缓存失败", err));
-};
-setTimeout(runStartupCacheCleanup, 15000);
-updateOfficialCostSummary();
-if ((dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "official") {
-  setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);
+function recordApplicationStartupError(error) {
+  const message = String(error?.message || error || "Unknown startup error");
+  if (!Array.isArray(window.__AI_GEN_STARTUP_ERRORS)) window.__AI_GEN_STARTUP_ERRORS = [];
+  window.__AI_GEN_STARTUP_ERRORS.push(message);
+  if (window.__AI_GEN_STARTUP_ERRORS.length > 10) window.__AI_GEN_STARTUP_ERRORS.shift();
+  return message;
 }
-setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);
-window.__AI_GEN_APP_READY = true;
-window.dispatchEvent(new CustomEvent("ai-generator-ready"));
+
+function applyTemporaryStartupConfig() {
+  // Do not call saveConfig/clearConfig here. A failed restore must never alter
+  // the user's saved API profiles or their secure-storage keys.
+  applyApiProvider("custom", { forceEndpoint: true });
+  dom.apiEndpoint.value = "";
+  dom.apiKey.value = "";
+  dom.model.value = "";
+  dom.proxyEndpoint.value = "";
+  dom.savedApis.value = "";
+  customSelects.savedApis?.syncLabel();
+  updateApiQuickState();
+}
+
+function restoreSavedConfigurationOnStartup() {
+  const config = loadConfig();
+  applyConfig(config);
+  if (!config.endpoint) dom.apiEndpoint.placeholder = GRSAI_API_ENDPOINT;
+  if (!config.model) dom.model.placeholder = "gpt-image-2";
+  renderSavedApis();
+  if (apiProfileRepairNotice?.length) {
+    const repairedNames = [...apiProfileRepairNotice];
+    apiProfileRepairNotice = null;
+    setTimeout(() => showStatus(apiProfileRepairMessage(repairedNames), "error"), 150);
+  }
+  if (config?.id) {
+    const idx = findSavedApiIndex(config.id, loadAllApis());
+    if (idx >= 0) {
+      dom.savedApis.value = String(idx);
+      customSelects.savedApis?.syncLabel();
+    }
+  }
+  dom.configSection.open = false;
+  updateApiQuickState();
+}
+
+function initializeApplication() {
+  let recoverableStartupError = "";
+  try {
+    // This must remain at the end of the module. applyConfig may use model and
+    // pricing constants declared later in app.js.
+    restoreSavedConfigurationOnStartup();
+  } catch (error) {
+    recoverableStartupError = recordApplicationStartupError(error);
+    console.warn("Saved configuration restore failed; starting with temporary defaults.", error);
+    applyTemporaryStartupConfig();
+  }
+
+  initI18n();
+  registerServiceWorker();
+  initManualWheelScrollFix();
+  setTimeout(() => {
+    void cleanupGeneratedImageCache().catch(err => console.warn("启动时清理生成图片缓存失败", err));
+  }, 15000);
+  updateOfficialCostSummary();
+  if ((dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "official") {
+    setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);
+  }
+  setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);
+  window.__AI_GEN_APP_READY = true;
+  window.dispatchEvent(new CustomEvent("ai-generator-ready"));
+
+  if (recoverableStartupError) {
+    setTimeout(() => showStatus(`已跳过无法恢复的启动配置：${recoverableStartupError}`, "error"), 0);
+  }
+}
+
+try {
+  initializeApplication();
+} catch (error) {
+  const message = recordApplicationStartupError(error);
+  console.error("Application startup failed.", error);
+  const status = dom.status || document.querySelector("#status");
+  if (status) {
+    status.textContent = `程序初始化失败：${message}`;
+    status.classList.remove("hidden", "success");
+    status.classList.add("error");
+  }
+}

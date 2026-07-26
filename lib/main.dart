@@ -991,13 +991,35 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     try {
       final result = await controller.runJavaScriptReturningResult(r'''
 (() => Boolean(
+  window.__AI_GEN_APP_READY === true &&
   window.__AI_GEN_WINDOWS_WINDOWED_WEBVIEW === true &&
   window.__AI_GEN_NATIVE_PLATFORM === "windows" &&
   window.FlutterDownload &&
   typeof window.FlutterDownload.postMessage === "function" &&
-  document.querySelector('[data-mode="comic"]') &&
-  document.querySelector('#languageSelect') &&
-  document.querySelector('#settingsBtn')
+  (() => {
+    const settingsButton = document.querySelector('#settingsBtn');
+    const settingsModal = document.querySelector('#settingsModal');
+    const closeSettings = document.querySelector('#closeSettings');
+    const comicButton = document.querySelector('[data-mode="comic"]');
+    const comicPanel = document.querySelector('#comicPanelSection');
+    const languageButton = document.querySelector('#languageMenuButton');
+    const languageMenu = document.querySelector('#languageMenu');
+    const themeButton = document.querySelector('#themeToggle');
+    if (!settingsButton || !settingsModal || !closeSettings || !comicButton ||
+        !comicPanel || !languageButton || !languageMenu || !themeButton) return false;
+    settingsButton.click();
+    const settingsOpened = !settingsModal.classList.contains('hidden');
+    closeSettings.click();
+    comicButton.click();
+    const comicOpened = comicButton.classList.contains('active') &&
+      !comicPanel.classList.contains('hidden');
+    languageButton.click();
+    const languageOpened = !languageMenu.classList.contains('hidden');
+    const themeBefore = document.documentElement.getAttribute('data-theme');
+    themeButton.click();
+    const themeChanged = document.documentElement.getAttribute('data-theme') !== themeBefore;
+    return settingsOpened && comicOpened && languageOpened && themeChanged;
+  })()
 ))()
 ''').timeout(const Duration(seconds: 10));
       exit(result == true || result.toString() == 'true' ? 0 : 3);
