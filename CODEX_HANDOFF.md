@@ -1,12 +1,20 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.4.2
+# Codex / Claude Handoff: AI 图片生成器 v1.4.3
 
-更新时间：2026-07-25
+更新时间：2026-07-27
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.4.2+64`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.4.3+65`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.4.3 漫画分镜批量提示词覆盖确认
+
+- 漫画分镜已有提示词时，再次应用批量提示词必须先二次确认；取消后保留全部原内容并保持批量输入弹窗打开。
+- 确认后严格按行覆盖：非空行替换对应分镜，空行清空对应分镜；批量文本未覆盖到的后续分镜保持不变。
+- 显式输入全空行批次也可用于批量清空，但仍必须经过覆盖确认；仅完全没有任何输入行时才提示输入内容。
+- 简体中文、繁体中文、英文、日文和韩文均明确说明覆盖与空行清空规则。
+- 回归新增拒绝覆盖、确认覆盖、空行清除、全空批次清除及尾部分镜保持不变的专项检查。
 
 ## v1.4.2 gpt-image-2 局部重绘修复
 
@@ -306,9 +314,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.2"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.3"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.2` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.3` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -324,5 +332,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.2 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.3 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。

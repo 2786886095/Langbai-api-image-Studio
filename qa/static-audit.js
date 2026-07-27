@@ -31,17 +31,17 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.4.2", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.4\.2\+64$/m);
+assert.equal(version, "1.4.3", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.4\.3\+65$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
-assert.match(html, /v1\.4\.2/);
-assert.match(html, /20260726-1-4-2/g);
-assert.match(sw, /ai-image-generator-1-4-2-20260726/);
+assert.match(html, /v1\.4\.3/);
+assert.match(html, /20260727-1-4-3/g);
+assert.match(sw, /ai-image-generator-1-4-3-20260727/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,2,64/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.2"/);
-assert.match(workflow, /const APP_VERSION = "1\.4\.2";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260726-1-4-2/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,3,65/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.3"/);
+assert.match(workflow, /const APP_VERSION = "1\.4\.3";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260727-1-4-3/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);

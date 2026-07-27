@@ -3599,6 +3599,79 @@ async function testOrderedBulkPromptInput(cdp) {
   }
 }
 
+async function testComicBulkPromptOverwriteConfirmation(cdp) {
+  logStep("Comic bulk prompts require confirmation before replacing existing prompts, blank lines clear matching panels, and later panels remain unchanged");
+  await loadFresh(cdp, "comic-bulk-overwrite-confirmation");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const values = () => [...document.querySelectorAll("#panelTbody textarea")].map(input => input.value);
+    const waitForAsk = async () => {
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < 1500) {
+        const dialog = document.querySelector(".ask-dialog-overlay");
+        if (dialog) return dialog;
+        await sleep(20);
+      }
+      return null;
+    };
+
+    document.querySelector('[data-mode="comic"]').click();
+    await sleep(40);
+    document.getElementById("panelCount").value = "4";
+    document.getElementById("createPanels").click();
+    await sleep(60);
+    [...document.querySelectorAll("#panelTbody textarea")].forEach((input, index) => {
+      input.value = "old-" + (index + 1);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    openBulkPromptDialog("comic");
+    dom.bulkPromptText.value = "new-1\\n\\nnew-3";
+    dom.bulkPromptText.dispatchEvent(new Event("input", { bubbles: true }));
+    const declinedApply = applyBulkPromptLines();
+    const firstDialog = await waitForAsk();
+    const firstMessage = firstDialog?.querySelector(".ask-dialog-message")?.textContent || "";
+    firstDialog?.querySelector(".ask-dialog-cancel")?.click();
+    await declinedApply;
+    const afterDecline = values();
+    const modalStayedOpen = !dom.bulkPromptModal.classList.contains("hidden");
+
+    const confirmedApply = applyBulkPromptLines();
+    const secondDialog = await waitForAsk();
+    secondDialog?.querySelector(".ask-dialog-ok")?.click();
+    await confirmedApply;
+    const afterConfirm = values();
+
+    openBulkPromptDialog("comic");
+    dom.bulkPromptText.value = "\\n\\n\\n\\n";
+    dom.bulkPromptText.dispatchEvent(new Event("input", { bubbles: true }));
+    const clearApply = applyBulkPromptLines();
+    const clearDialog = await waitForAsk();
+    clearDialog?.querySelector(".ask-dialog-ok")?.click();
+    await clearApply;
+    const afterBlankClear = values();
+
+    return {
+      firstAsked: Boolean(firstDialog),
+      firstMessage,
+      afterDecline,
+      modalStayedOpen,
+      secondAsked: Boolean(secondDialog),
+      afterConfirm,
+      clearAsked: Boolean(clearDialog),
+      afterBlankClear,
+    };
+  })()`, true);
+
+  assertQa(result.firstAsked && result.secondAsked, "Applying comic bulk prompts over existing text must ask for confirmation every time until accepted.", result);
+  assertQa(result.firstMessage.includes("空行") || result.firstMessage.toLowerCase().includes("blank"), "The overwrite confirmation must explain that blank lines clear matching panels.", result);
+  assertQa(JSON.stringify(result.afterDecline) === JSON.stringify(["old-1", "old-2", "old-3", "old-4"]), "Declining the overwrite confirmation must preserve every existing comic prompt.", result);
+  assertQa(result.modalStayedOpen, "Declining overwrite must keep the bulk prompt dialog open so the user can review the input.", result);
+  assertQa(JSON.stringify(result.afterConfirm) === JSON.stringify(["new-1", "", "new-3", "old-4"]), "Confirmed bulk input must overwrite matching rows, clear the blank-line row, and leave later rows unchanged.", result);
+  assertQa(result.clearAsked && result.afterBlankClear.every(value => value === ""), "An explicitly all-blank batch must be accepted after confirmation and clear all matching comic prompts.", result);
+}
+
 async function testBulkPromptInputBeyondOneHundred(cdp) {
   logStep("Comic and caption bulk prompt workflows accept more than 100 ordered entries without an application hard limit");
   await loadFresh(cdp, "bulk-prompts-over-100");
@@ -5084,6 +5157,7 @@ async function main() {
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
     await testOrderedBulkPromptInput(cdp);
+    await testComicBulkPromptOverwriteConfirmation(cdp);
     await testBulkPromptInputBeyondOneHundred(cdp);
     await testUploadDebounceWindow(cdp);
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
