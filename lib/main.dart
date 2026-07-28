@@ -18,6 +18,7 @@ import 'package:webview_win_floating/webview_win_floating.dart'
 
 import 'proxy_config.dart';
 import 'codex_image_gateway_config.dart';
+import 'chatgpt_account_store.dart';
 
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
@@ -83,10 +84,270 @@ Future<Object?> _handleSecretAction(
 
 void main(List<String> arguments) {
   WidgetsFlutterBinding.ensureInitialized();
+  final authAccountArgument = arguments
+      .where((value) => value.startsWith('--chatgpt-account-id='))
+      .map((value) => value.substring('--chatgpt-account-id='.length))
+      .firstOrNull;
+  if (Platform.isWindows &&
+      arguments.contains('--chatgpt-auth-window') &&
+      authAccountArgument != null) {
+    runApp(ChatGptAuthApp(
+      accountId: validateLocalChatGptAccountId(authAccountArgument),
+      clearSession: arguments.contains('--chatgpt-auth-clear-session'),
+      closeAfterClear: arguments.contains('--chatgpt-auth-close-after-clear'),
+    ));
+    return;
+  }
   _windowsWebViewSelfTest = arguments.contains('--windows-webview-self-test');
   _windowsWebViewInputSelfTest =
       arguments.contains('--windows-webview-input-self-test');
   runApp(const AiImageGeneratorApp());
+}
+
+class ChatGptAuthApp extends StatelessWidget {
+  const ChatGptAuthApp({
+    super.key,
+    required this.accountId,
+    required this.clearSession,
+    required this.closeAfterClear,
+  });
+
+  final String accountId;
+  final bool clearSession;
+  final bool closeAfterClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'ChatGPT 登录',
+      theme: ThemeData.dark(useMaterial3: true),
+      home: ChatGptAuthShell(
+        accountId: accountId,
+        clearSession: clearSession,
+        closeAfterClear: closeAfterClear,
+      ),
+    );
+  }
+}
+
+class ChatGptAuthShell extends StatefulWidget {
+  const ChatGptAuthShell({
+    super.key,
+    required this.accountId,
+    required this.clearSession,
+    required this.closeAfterClear,
+  });
+
+  final String accountId;
+  final bool clearSession;
+  final bool closeAfterClear;
+
+  @override
+  State<ChatGptAuthShell> createState() => _ChatGptAuthShellState();
+}
+
+bool isAllowedChatGptAuthNavigation(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null) return false;
+  if (uri.scheme == 'about') return uri.toString() == 'about:blank';
+  if (uri.scheme != 'https') return false;
+  final host = uri.host.toLowerCase();
+  if (host == 'chatgpt.com' ||
+      host.endsWith('.chatgpt.com') ||
+      host == 'openai.com' ||
+      host.endsWith('.openai.com')) {
+    return true;
+  }
+  return const <String>{
+    'accounts.google.com',
+    'login.microsoftonline.com',
+    'login.live.com',
+    'appleid.apple.com',
+    'challenges.cloudflare.com',
+  }.contains(host);
+}
+
+class _ChatGptAuthShellState extends State<ChatGptAuthShell> {
+  final ChatGptAccountStore _store = ChatGptAccountStore();
+  windows_webview.WinWebViewController? _controller;
+  String? _error;
+  bool _ready = false;
+  bool _sessionReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initialize());
+  }
+
+  Future<void> _initialize() async {
+    try {
+      final previous = await _store.readState(widget.accountId);
+      await _store.writeState(previous.copyWith(
+        status: widget.closeAfterClear ? 'signed_out' : 'opening_login',
+      ));
+      final controller = windows_webview.WinWebViewController(
+        params: windows_webview.WindowsWebViewControllerCreationParams(
+          userDataFolder:
+              _store.profileDirectory(widget.accountId).absolute.path,
+          suspendDuringDeactive: false,
+          useTopLevelWindowHost: true,
+        ),
+      );
+      await controller.setJavaScriptMode(
+        mobile_webview.JavaScriptMode.unrestricted,
+      );
+      await controller.setBackgroundColor(const Color(0xFF101114));
+      controller.onWebMessageReceived = (message) {
+        unawaited(_handleAuthMessage(message));
+      };
+      await controller.addScriptToExecuteOnDocumentCreated(
+        _chatGptAuthProbeScript,
+      );
+      await controller.setNavigationDelegate(
+        windows_webview.WinNavigationDelegate(
+          onNavigationRequest: (request) {
+            return isAllowedChatGptAuthNavigation(request.url)
+                ? mobile_webview.NavigationDecision.navigate
+                : mobile_webview.NavigationDecision.prevent;
+          },
+          onPageFinished: (_) {
+            unawaited(controller.runJavaScript(
+              'window.__langbaiProbeChatGptSession && '
+              'window.__langbaiProbeChatGptSession();',
+            ));
+          },
+          onWebResourceError: (error) {
+            if (mounted) {
+              setState(() => _error = error.description);
+            }
+          },
+        ),
+      );
+      if (widget.clearSession) {
+        await controller.clearCookies();
+        await controller.clearLocalStorage();
+        await controller.clearCache();
+        if (widget.closeAfterClear) {
+          await _store.writeState(previous.copyWith(status: 'signed_out'));
+          await controller.dispose();
+          exit(0);
+        }
+      }
+      _controller = controller;
+      await controller.loadRequest(Uri.parse('https://chatgpt.com/'));
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _ready = true);
+    } catch (error) {
+      final previous = await _store.readState(widget.accountId);
+      await _store.writeState(previous.copyWith(status: 'error'));
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _handleAuthMessage(dynamic rawMessage) async {
+    try {
+      final decoded =
+          rawMessage is String ? jsonDecode(rawMessage) : rawMessage;
+      if (decoded is! Map || decoded['langbaiChatGptAuth'] != 1) return;
+      final previous = await _store.readState(widget.accountId);
+      final incomingStatus = sanitizeChatGptAuthStatus(decoded['status']);
+      final status = incomingStatus == 'signed_out' && !widget.closeAfterClear
+          ? 'waiting_for_user'
+          : incomingStatus;
+      final record = ChatGptAccountRecord.fromJson(
+        <String, Object?>{
+          'local_account_id': widget.accountId,
+          'display_name': decoded['display_name'],
+          'masked_email': decoded['masked_email'],
+          'plan_label': decoded['plan_label'],
+          'last_verified_at':
+              status == 'ready' ? DateTime.now().toUtc().toIso8601String() : '',
+          'status': status,
+        },
+        expectedAccountId: widget.accountId,
+      ).copyWith(
+        displayName: status == 'ready' ? null : previous.displayName,
+        maskedEmail: status == 'ready' ? null : previous.maskedEmail,
+        planLabel: status == 'ready' ? null : previous.planLabel,
+        lastVerifiedAt: status == 'ready' ? null : previous.lastVerifiedAt,
+      );
+      await _store.writeState(record);
+      if (mounted) {
+        setState(() {
+          _sessionReady = status == 'ready';
+          _error =
+              status == 'protocol_changed' ? 'ChatGPT 登录状态协议发生变化，请更新软件。' : null;
+        });
+      }
+    } catch (_) {
+      final previous = await _store.readState(widget.accountId);
+      await _store.writeState(previous.copyWith(status: 'protocol_changed'));
+      if (mounted) {
+        setState(() => _error = '登录状态解析失败，请更新软件后重试。');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    final controller = _controller;
+    unawaited(() async {
+      if (controller != null) await controller.dispose();
+      final current = await _store.readState(widget.accountId);
+      if (current.status != 'ready' && current.status != 'signed_out') {
+        await _store.writeState(current.copyWith(status: 'closed'));
+      }
+    }());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF101114),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF17191D),
+        title: const Text('登录 ChatGPT 官方账号'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                _sessionReady ? '已验证，可以关闭窗口' : '仅在官方页面完成登录',
+                style: TextStyle(
+                  color: _sessionReady
+                      ? const Color(0xFF6FE7B7)
+                      : const Color(0xFFB9BEC8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: _error != null
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFFFF8E9E)),
+                  ),
+                ),
+              ),
+            )
+          : !_ready || _controller == null
+              ? const Center(child: CircularProgressIndicator())
+              : windows_webview.WinWebViewWidget(controller: _controller!),
+    );
+  }
 }
 
 class AiImageGeneratorApp extends StatelessWidget {
@@ -815,6 +1076,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     with WidgetsBindingObserver {
   windows_webview.WinWebViewController? _controller;
   final _pendingFileTransfers = <String, _WindowsFileTransfer>{};
+  final ChatGptAccountStore _chatGptAccountStore = ChatGptAccountStore();
 
   bool _isReady = false;
   bool _isWindowSizeDegenerate = false;
@@ -823,6 +1085,10 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   int _webViewGeneration = 0;
   int _failedHealthChecks = 0;
   Timer? _webViewHealthTimer;
+  Timer? _chatGptAuthTimer;
+  String? _chatGptAccountId;
+  String? _lastChatGptAuthFingerprint;
+  bool _openingChatGptAuthWindow = false;
   String? _windowsIndexUrl;
   String? _errorTitle;
   String? _errorMessage;
@@ -832,6 +1098,70 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_initializeWebView());
+    unawaited(_initializeChatGptAuthMonitor());
+  }
+
+  Future<void> _initializeChatGptAuthMonitor() async {
+    final account = await _chatGptAccountStore.ensurePrimaryAccount();
+    _chatGptAccountId = account.localAccountId;
+    await _publishChatGptAuthState(force: true);
+    _chatGptAuthTimer?.cancel();
+    _chatGptAuthTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => unawaited(_publishChatGptAuthState()),
+    );
+  }
+
+  Future<Map<String, String>> _currentChatGptAuthState() async {
+    final accountId = _chatGptAccountId ??
+        (await _chatGptAccountStore.ensurePrimaryAccount()).localAccountId;
+    _chatGptAccountId = accountId;
+    return (await _chatGptAccountStore.readState(accountId)).toJson();
+  }
+
+  Future<void> _publishChatGptAuthState({bool force = false}) async {
+    final state = await _currentChatGptAuthState();
+    final fingerprint = jsonEncode(state);
+    if (!force && fingerprint == _lastChatGptAuthFingerprint) return;
+    final controller = _controller;
+    if (controller == null || !_trustedWindowsDocument) return;
+    await controller.runJavaScript(
+      'window.AiGenChatGptAuth && '
+      'window.AiGenChatGptAuth.onState(${jsonEncode(state)});',
+    );
+    _lastChatGptAuthFingerprint = fingerprint;
+  }
+
+  Future<Map<String, String>> _openChatGptAuthWindow({
+    required bool clearSession,
+    bool closeAfterClear = false,
+  }) async {
+    if (_openingChatGptAuthWindow) return _currentChatGptAuthState();
+    _openingChatGptAuthWindow = true;
+    try {
+      final accountId = _chatGptAccountId ??
+          (await _chatGptAccountStore.ensurePrimaryAccount()).localAccountId;
+      _chatGptAccountId = accountId;
+      final previous = await _chatGptAccountStore.readState(accountId);
+      await _chatGptAccountStore.writeState(previous.copyWith(
+        status: closeAfterClear ? 'signed_out' : 'opening_login',
+      ));
+      final arguments = <String>[
+        '--chatgpt-auth-window',
+        '--chatgpt-account-id=$accountId',
+        if (clearSession) '--chatgpt-auth-clear-session',
+        if (closeAfterClear) '--chatgpt-auth-close-after-clear',
+      ];
+      await Process.start(
+        Platform.resolvedExecutable,
+        arguments,
+        mode: ProcessStartMode.detached,
+      );
+      await _publishChatGptAuthState(force: true);
+      return _currentChatGptAuthState();
+    } finally {
+      _openingChatGptAuthWindow = false;
+    }
   }
 
   // webview_windows 有个已知上游问题（jnschulze/flutter-webview-windows#262、#207）：
@@ -1176,6 +1506,21 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           break;
         case 'loadCodexImageGatewayConfig':
           result = await loadCodexImageGatewayConfig();
+          break;
+        case 'getChatGptAuthState':
+          result = await _currentChatGptAuthState();
+          break;
+        case 'openChatGptLogin':
+          result = await _openChatGptAuthWindow(clearSession: false);
+          break;
+        case 'reloginChatGpt':
+          result = await _openChatGptAuthWindow(clearSession: true);
+          break;
+        case 'logoutChatGpt':
+          result = await _openChatGptAuthWindow(
+            clearSession: true,
+            closeAfterClear: true,
+          );
           break;
         case 'cancelNativeFetch':
           _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
@@ -1781,6 +2126,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _webViewHealthTimer?.cancel();
+    _chatGptAuthTimer?.cancel();
     for (final transfer in _pendingFileTransfers.values) {
       unawaited(
           transfer.tempFile.delete().catchError((_) => transfer.tempFile));
@@ -1893,5 +2239,100 @@ const _windowsBridgeScript = r'''
       url: anchor.href
     }));
   }, true);
+})();
+''';
+
+const _chatGptAuthProbeScript = r'''
+(() => {
+  if (window.__LANGBAI_CHATGPT_AUTH_PROBE_INSTALLED) return;
+  window.__LANGBAI_CHATGPT_AUTH_PROBE_INSTALLED = true;
+
+  const postSafeState = (state) => {
+    if (!window.chrome || !window.chrome.webview) return;
+    window.chrome.webview.postMessage(JSON.stringify({
+      langbaiChatGptAuth: 1,
+      status: String(state.status || "error"),
+      display_name: String(state.display_name || "").slice(0, 96),
+      masked_email: String(state.masked_email || "").slice(0, 160),
+      plan_label: String(state.plan_label || "").slice(0, 64)
+    }));
+  };
+
+  const maskEmail = (value) => {
+    const text = String(value || "").trim();
+    const at = text.lastIndexOf("@");
+    if (at <= 0 || at >= text.length - 1) return "";
+    const local = text.slice(0, at);
+    const domain = text.slice(at + 1);
+    return `${local.slice(0, 1)}${"*".repeat(Math.max(3, Math.min(8, local.length - 1)))}@${domain}`;
+  };
+
+  const safePlan = (session) => {
+    const candidates = [
+      session && session.plan,
+      session && session.plan_type,
+      session && session.user && session.user.plan,
+      session && session.account && session.account.plan_type
+    ];
+    const known = ["free", "plus", "pro", "team", "business", "enterprise"];
+    for (const candidate of candidates) {
+      const value = String(candidate || "").trim().toLowerCase();
+      if (known.includes(value)) return value;
+    }
+    return "";
+  };
+
+  window.__langbaiProbeChatGptSession = async () => {
+    if (location.hostname.toLowerCase() !== "chatgpt.com") return;
+    postSafeState({ status: "verifying" });
+    try {
+      const response = await fetch("/api/auth/session", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Accept": "application/json" }
+      });
+      if (response.status === 401 || response.status === 403) {
+        postSafeState({ status: "signed_out" });
+        return;
+      }
+      if (response.status === 429) {
+        postSafeState({ status: "rate_limited" });
+        return;
+      }
+      if (!response.ok) {
+        postSafeState({ status: "error" });
+        return;
+      }
+      const session = await response.json();
+      if (!session || typeof session !== "object") {
+        postSafeState({ status: "protocol_changed" });
+        return;
+      }
+      const user = session.user;
+      if (!user || typeof user !== "object") {
+        postSafeState({ status: "signed_out" });
+        return;
+      }
+      const expiresAt = Date.parse(String(session.expires || ""));
+      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+        postSafeState({ status: "expired" });
+        return;
+      }
+      postSafeState({
+        status: "ready",
+        display_name: String(user.name || "我的 ChatGPT"),
+        masked_email: maskEmail(user.email),
+        plan_label: safePlan(session)
+      });
+    } catch (_) {
+      postSafeState({ status: "error" });
+    }
+  };
+
+  if (location.hostname.toLowerCase() === "chatgpt.com") {
+    setTimeout(() => window.__langbaiProbeChatGptSession(), 500);
+    setInterval(() => window.__langbaiProbeChatGptSession(), 15000);
+  }
 })();
 ''';

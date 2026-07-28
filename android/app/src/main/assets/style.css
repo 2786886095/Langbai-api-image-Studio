@@ -393,6 +393,91 @@ details[open] .config-toggle::before { content: '▼ '; }
   color: color-mix(in srgb, #72a4ff 82%, var(--text));
 }
 
+.chatgpt-account-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #52c7a4 36%, var(--border));
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #52c7a4 8%, var(--surface2)), transparent 64%),
+    var(--surface2);
+}
+
+.chatgpt-account-main {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.chatgpt-account-avatar {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, #52c7a4 50%, var(--border));
+  border-radius: 9px;
+  background: color-mix(in srgb, #52c7a4 12%, var(--surface3));
+  color: color-mix(in srgb, #52c7a4 86%, var(--text));
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.chatgpt-account-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.chatgpt-account-copy strong {
+  color: var(--text);
+  font-size: 0.77rem;
+}
+
+.chatgpt-account-copy span,
+.chatgpt-account-copy small {
+  min-width: 0;
+  color: var(--text2);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.chatgpt-account-status {
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text2);
+  font-size: 0.64rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.chatgpt-account-status[data-state="ready"] {
+  border-color: color-mix(in srgb, var(--success) 52%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success);
+}
+
+.chatgpt-account-status[data-state="working"] { color: var(--warning); }
+.chatgpt-account-status[data-state="expired"],
+.chatgpt-account-status[data-state="error"] { color: var(--error); }
+
+.chatgpt-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+@media (max-width: 520px) {
+  .chatgpt-account-main { grid-template-columns: 34px minmax(0, 1fr); }
+  .chatgpt-account-status { grid-column: 2; justify-self: start; }
+  .chatgpt-account-actions .btn { flex: 1 1 120px; }
+}
+
 .provider-options-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

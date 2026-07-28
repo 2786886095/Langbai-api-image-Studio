@@ -22,6 +22,7 @@ const workflow = read(".github/workflows/build-all-platforms.yml");
 const dartMain = read("lib/main.dart");
 const proxyConfig = read("lib/proxy_config.dart");
 const codexGatewayConfig = read("lib/codex_image_gateway_config.dart");
+const chatGptAccountStore = read("lib/chatgpt_account_store.dart");
 const macWindow = read("macos/Runner/MainFlutterWindow.swift");
 const macDebugEntitlements = read("macos/Runner/DebugProfile.entitlements");
 const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
@@ -110,7 +111,7 @@ for (const id of [
 assert.match(app, /provider:\s*"official"/);
 assert.match(app, /provider:\s*"grsai"/);
 assert.match(app, /provider:\s*CODEX_IMAGE_GATEWAY_PROVIDER/);
-assert.match(codexImageGateway, /http:\/\/127\.0\.0\.1:18080\/v1/);
+assert.match(codexImageGateway, /http:\/\/127\.0\.0\.1:18081\/v1/);
 assert.match(codexImageGateway, /MAX_REFERENCE_IMAGES\s*=\s*20/);
 assert.match(codexImageGateway, /asyncTasks:\s*true/);
 assert.match(codexImageGateway, /dimensionMode:\s*"exact_output"/);
@@ -120,9 +121,9 @@ assert.match(app, /codexGatewayDownloadAsBase64/);
 assert.match(app, /function isCodexGatewayProtectedImageUrl/);
 assert.match(app, /function sanitizeHistoryOriginalUrl/);
 assert.match(app, /History metadata persistence skipped after quota exhaustion/);
-assert.match(app, /initialConcurrency:\s*2/);
-assert.match(codexImageGateway, /clientQueue:\s*2/);
-assert.match(html, /id="codexGatewayClientQueue"[^>]*max="2"[^>]*value="2"/);
+assert.match(app, /initialConcurrency:\s*100/);
+assert.match(codexImageGateway, /clientQueue:\s*10/);
+assert.match(html, /id="codexGatewayClientQueue"[^>]*max="100"[^>]*value="10"/);
 assert.match(app, /parsed\.origin === trustedOrigin/);
 assert.match(app, /Authorization:\s*`Bearer \$\{credentials\.apiKey\}`/);
 assert.match(app, /const \{\s*url:\s*protectedUrl,\s*original_url:\s*_legacyUrl,\s*\.\.\.safeItem\s*\}\s*=\s*item/);
@@ -130,6 +131,25 @@ assert.doesNotMatch(app, /normalizedData\.push\(\{\s*\.\.\.item,[^}]*original_ur
 assert.match(app, /gatewayTaskId/);
 assert.match(codexGatewayConfig, /local-api-key\.txt/);
 assert.match(codexGatewayConfig, /\^\[a-f0-9\]\{64\}\$/);
+for (const id of [
+  "chatGptAuthCard", "chatGptAuthStatus", "chatGptAuthIdentity",
+  "chatGptLogin", "chatGptRelogin", "chatGptLogout",
+]) {
+  assert.match(html, new RegExp(`id="${id}"`), `Missing ChatGPT account control: ${id}`);
+}
+assert.match(dartMain, /--chatgpt-auth-window/);
+assert.match(dartMain, /--chatgpt-account-id=/);
+assert.match(dartMain, /profileDirectory\(widget\.accountId\)\.absolute\.path/);
+assert.match(dartMain, /https:\/\/chatgpt\.com\//);
+assert.match(dartMain, /ProcessStartMode\.detached/);
+assert.match(dartMain, /window\.AiGenChatGptAuth/);
+assert.match(chatGptAccountStore, /ChatGPTProfiles/);
+assert.match(chatGptAccountStore, /auth-state\.json/);
+assert.doesNotMatch(chatGptAccountStore, /access[_-]?token|authorization|cookie|password/i);
+assert.match(app, /getChatGptAuthState/);
+assert.match(app, /openChatGptLogin/);
+assert.match(app, /reloginChatGpt/);
+assert.match(app, /logoutChatGpt/);
 assert.match(app, /repairDuplicateApiConfigIds/);
 assert.match(app, /queueSecureStorageOperation/);
 assert.match(app, /GENERATED_CACHE_META_STORE\s*=\s*"generated_cache_meta"/);

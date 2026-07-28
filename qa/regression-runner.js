@@ -5337,6 +5337,14 @@ async function testCodexImageGatewayIntegration(cdp) {
       window.__gatewayCalls = [];
       window.__gatewaySubmittedBodies = [];
       window.__gatewayKey = "${"a".repeat(64)}";
+      window.__chatGptAuthState = {
+        local_account_id: "11111111-1111-4111-8111-111111111111",
+        display_name: "QA ChatGPT",
+        masked_email: "q***@example.com",
+        plan_label: "plus",
+        last_verified_at: "",
+        status: "signed_out",
+      };
       window.__gatewayPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
       window.FlutterDownload = {
         postMessage(raw) {
@@ -5345,6 +5353,14 @@ async function testCodexImageGatewayIntegration(cdp) {
           let result = {};
           if (payload.action === "loadCodexImageGatewayConfig") {
             result = { baseUrl: "http://127.0.0.1:18081/v1", apiKey: window.__gatewayKey };
+          } else if (payload.action === "getChatGptAuthState") {
+            result = window.__chatGptAuthState;
+          } else if (["openChatGptLogin", "reloginChatGpt"].includes(payload.action)) {
+            window.__chatGptAuthState = { ...window.__chatGptAuthState, status: "opening_login" };
+            result = window.__chatGptAuthState;
+          } else if (payload.action === "logoutChatGpt") {
+            window.__chatGptAuthState = { ...window.__chatGptAuthState, status: "signed_out" };
+            result = window.__chatGptAuthState;
           } else if (payload.action === "loadSecret") {
             result = "";
           } else if (payload.action === "nativeFetch") {
@@ -5406,6 +5422,29 @@ async function testCodexImageGatewayIntegration(cdp) {
         calls: window.__gatewayCalls,
       };
       const submitted = [];
+      await new Promise(r => setTimeout(r, 30));
+      const authCardInitiallyVisible = !dom.chatGptAuthCard.classList.contains("hidden");
+      dom.chatGptLogin.click();
+      await new Promise(r => setTimeout(r, 30));
+      window.AiGenChatGptAuth.onState({
+        ...window.__chatGptAuthState,
+        status: "ready",
+        last_verified_at: new Date().toISOString(),
+      });
+      const authReady = {
+        state: dom.chatGptAuthStatus.dataset.state,
+        identity: dom.chatGptAuthIdentity.textContent,
+        loginHidden: dom.chatGptLogin.classList.contains("hidden"),
+        reloginHidden: dom.chatGptRelogin.classList.contains("hidden"),
+        logoutHidden: dom.chatGptLogout.classList.contains("hidden"),
+      };
+      dom.chatGptRelogin.click();
+      await new Promise(r => setTimeout(r, 30));
+      window.AiGenChatGptAuth.onState({ ...window.__chatGptAuthState, status: "ready" });
+      dom.chatGptLogout.click();
+      await new Promise(r => setTimeout(r, 10));
+      document.querySelector(".ask-dialog-ok")?.click();
+      await new Promise(r => setTimeout(r, 30));
       const generated = await callImageAPI("gateway generation", "832x1216", 1, "gateway", { maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
       const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
       const edited = await callImageAPI("gateway semantic edit", "1024x1024", 1, "gateway edit", { references: [reference], maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
@@ -5458,6 +5497,14 @@ async function testCodexImageGatewayIntegration(cdp) {
       }
       return {
         ready,
+        chatGptAuth: {
+          cardInitiallyVisible: authCardInitiallyVisible,
+          ready: authReady,
+          actions: window.__gatewayCalls
+            .filter(call => /^(?:getChatGptAuthState|openChatGptLogin|reloginChatGpt|logoutChatGpt)$/.test(call.action))
+            .map(call => call.action),
+          finalState: dom.chatGptAuthStatus.dataset.state,
+        },
         endpoint: dom.apiEndpoint.value,
         keyValue: dom.apiKey.value,
         keyReadOnly: dom.apiKey.readOnly,
@@ -5490,6 +5537,22 @@ async function testCodexImageGatewayIntegration(cdp) {
       };
     })()`, true);
     assertQa(result.ready && result.endpoint === "http://127.0.0.1:18081/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
+    assertQa(
+      result.chatGptAuth.cardInitiallyVisible
+        && result.chatGptAuth.ready.state === "ready"
+        && /QA ChatGPT/.test(result.chatGptAuth.ready.identity)
+        && /q\*\*\*@example\.com/.test(result.chatGptAuth.ready.identity)
+        && result.chatGptAuth.ready.loginHidden
+        && !result.chatGptAuth.ready.reloginHidden
+        && !result.chatGptAuth.ready.logoutHidden
+        && result.chatGptAuth.actions.includes("getChatGptAuthState")
+        && result.chatGptAuth.actions.includes("openChatGptLogin")
+        && result.chatGptAuth.actions.includes("reloginChatGpt")
+        && result.chatGptAuth.actions.includes("logoutChatGpt")
+        && result.chatGptAuth.finalState === "signed_out",
+      "The Windows account card must render sanitized state and keep login, relogin and logout controls wired to the native bridge.",
+      result.chatGptAuth,
+    );
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
     assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
     assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 100 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and accept concurrency up to 100.", result);

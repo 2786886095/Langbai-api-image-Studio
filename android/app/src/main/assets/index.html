@@ -218,6 +218,23 @@
                 </div>
               </div>
 
+              <section class="chatgpt-account-card hidden" id="chatGptAuthCard" aria-labelledby="chatGptAuthTitle">
+                <div class="chatgpt-account-main">
+                  <span class="chatgpt-account-avatar" aria-hidden="true">◎</span>
+                  <div class="chatgpt-account-copy">
+                    <strong id="chatGptAuthTitle">内置 ChatGPT 官方登录</strong>
+                    <span id="chatGptAuthIdentity">尚未登录</span>
+                    <small id="chatGptAuthStageHint">当前阶段只管理独立登录会话，生图仍沿用现有本地网关。</small>
+                  </div>
+                  <span class="chatgpt-account-status" id="chatGptAuthStatus" data-state="signed_out">未登录</span>
+                </div>
+                <div class="chatgpt-account-actions">
+                  <button type="button" id="chatGptLogin" class="btn btn-primary btn-xs">登录 ChatGPT</button>
+                  <button type="button" id="chatGptRelogin" class="btn btn-xs hidden">重新登录</button>
+                  <button type="button" id="chatGptLogout" class="btn btn-danger btn-xs hidden">退出账号</button>
+                </div>
+              </section>
+
               <div class="provider-option provider-option-wide">
                 <div class="provider-option-copy">
                   <strong id="codexGatewayQualityLabel">输出质量</strong>

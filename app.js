@@ -680,6 +680,12 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthFailed: "网关不可用：{reason}",
     codexGatewayKeyHint: "凭据由 Windows 软件从本机安全读取，不保存到配置中",
     codexGatewayReferenceBoards: "已接收 {count} 张参考图；网关将聚合为编号参考板",
+    chatGptAuthTitle: "内置 ChatGPT 官方登录",
+    chatGptAuthStageHint: "当前阶段只管理独立登录会话，生图仍沿用现有本地网关。",
+    chatGptLogin: "登录 ChatGPT", chatGptRelogin: "重新登录", chatGptLogout: "退出账号",
+    chatGptSignedOut: "尚未登录", chatGptReady: "登录有效",
+    chatGptWorking: "正在验证登录…", chatGptExpired: "登录已过期",
+    chatGptAuthError: "登录状态异常",
   }),
   "zh-Hant": Object.freeze({
     codexGatewayApi: "ChatGPT 網頁生圖", codexGatewayPanelTitle: "ChatGPT 網頁生圖",
@@ -694,6 +700,12 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthReady: "閘道可用 · {detail}", codexGatewayHealthFailed: "閘道不可用：{reason}",
     codexGatewayKeyHint: "憑證由 Windows 軟體從本機安全讀取，不儲存到設定中",
     codexGatewayReferenceBoards: "已接收 {count} 張參考圖；閘道將聚合為編號參考板",
+    chatGptAuthTitle: "內建 ChatGPT 官方登入",
+    chatGptAuthStageHint: "目前階段只管理獨立登入工作階段，生圖仍沿用現有本機閘道。",
+    chatGptLogin: "登入 ChatGPT", chatGptRelogin: "重新登入", chatGptLogout: "登出帳號",
+    chatGptSignedOut: "尚未登入", chatGptReady: "登入有效",
+    chatGptWorking: "正在驗證登入…", chatGptExpired: "登入已過期",
+    chatGptAuthError: "登入狀態異常",
   }),
   en: Object.freeze({
     codexGatewayApi: "ChatGPT Web Image", codexGatewayPanelTitle: "ChatGPT Web Image",
@@ -708,6 +720,12 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthReady: "Gateway ready · {detail}", codexGatewayHealthFailed: "Gateway unavailable: {reason}",
     codexGatewayKeyHint: "The Windows app loads the local credential securely in memory; it is not saved in API profiles",
     codexGatewayReferenceBoards: "{count} references received; the gateway will compile numbered contact sheets",
+    chatGptAuthTitle: "Built-in official ChatGPT sign-in",
+    chatGptAuthStageHint: "This stage manages an isolated sign-in session only; image generation still uses the existing local gateway.",
+    chatGptLogin: "Sign in to ChatGPT", chatGptRelogin: "Sign in again", chatGptLogout: "Sign out",
+    chatGptSignedOut: "Not signed in", chatGptReady: "Sign-in valid",
+    chatGptWorking: "Verifying sign-in…", chatGptExpired: "Sign-in expired",
+    chatGptAuthError: "Sign-in status error",
   }),
   ja: Object.freeze({
     codexGatewayApi: "ChatGPT Web 画像", codexGatewayPanelTitle: "ChatGPT Web 画像",
@@ -722,6 +740,12 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthReady: "ゲートウェイ利用可能 · {detail}", codexGatewayHealthFailed: "ゲートウェイ利用不可：{reason}",
     codexGatewayKeyHint: "Windows アプリがローカル資格情報を安全にメモリへ読み込み、API 設定には保存しません",
     codexGatewayReferenceBoards: "参照画像 {count} 枚を受信。番号付き参照ボードに統合します",
+    chatGptAuthTitle: "内蔵 ChatGPT 公式ログイン",
+    chatGptAuthStageHint: "この段階では分離ログインのみを管理し、画像生成は既存のローカルゲートウェイを使用します。",
+    chatGptLogin: "ChatGPT にログイン", chatGptRelogin: "再ログイン", chatGptLogout: "ログアウト",
+    chatGptSignedOut: "未ログイン", chatGptReady: "ログイン有効",
+    chatGptWorking: "ログインを確認中…", chatGptExpired: "ログイン期限切れ",
+    chatGptAuthError: "ログイン状態エラー",
   }),
   ko: Object.freeze({
     codexGatewayApi: "ChatGPT 웹 이미지", codexGatewayPanelTitle: "ChatGPT 웹 이미지",
@@ -736,6 +760,12 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthReady: "게이트웨이 사용 가능 · {detail}", codexGatewayHealthFailed: "게이트웨이 사용 불가: {reason}",
     codexGatewayKeyHint: "Windows 앱이 로컬 자격 증명을 안전하게 메모리에 읽으며 API 설정에는 저장하지 않습니다",
     codexGatewayReferenceBoards: "참고 이미지 {count}장을 받았습니다. 번호 참조 보드로 통합합니다",
+    chatGptAuthTitle: "내장 ChatGPT 공식 로그인",
+    chatGptAuthStageHint: "현재 단계는 분리된 로그인 세션만 관리하며 이미지 생성은 기존 로컬 게이트웨이를 사용합니다.",
+    chatGptLogin: "ChatGPT 로그인", chatGptRelogin: "다시 로그인", chatGptLogout: "로그아웃",
+    chatGptSignedOut: "로그인 안 됨", chatGptReady: "로그인 유효",
+    chatGptWorking: "로그인 확인 중…", chatGptExpired: "로그인 만료",
+    chatGptAuthError: "로그인 상태 오류",
   }),
 });
 
@@ -1254,6 +1284,14 @@ const dom = {
   codexGatewayClientQueue: $("#codexGatewayClientQueue"),
   testCodexGatewayHealth: $("#testCodexGatewayHealth"),
   codexGatewayHealthStatus: $("#codexGatewayHealthStatus"),
+  chatGptAuthCard: $("#chatGptAuthCard"),
+  chatGptAuthTitle: $("#chatGptAuthTitle"),
+  chatGptAuthIdentity: $("#chatGptAuthIdentity"),
+  chatGptAuthStageHint: $("#chatGptAuthStageHint"),
+  chatGptAuthStatus: $("#chatGptAuthStatus"),
+  chatGptLogin: $("#chatGptLogin"),
+  chatGptRelogin: $("#chatGptRelogin"),
+  chatGptLogout: $("#chatGptLogout"),
   openInpaintFromFile: $("#openInpaintFromFile"),
   inpaintSourceInput: $("#inpaintSourceInput"),
   officialQuality: $("#officialQuality"),
@@ -2452,6 +2490,7 @@ function updateProviderOptionsLanguage() {
     codexGatewayAsyncLabel: "codexGatewayAsync", codexGatewayAsyncHint: "codexGatewayAsyncHint",
     codexGatewayQueueLabel: "codexGatewayQueue", codexGatewayQueueHint: "codexGatewayQueueHint",
     codexGatewayFacts: "codexGatewayFacts", codexGatewayCapabilityNote: "codexGatewayCapability",
+    chatGptAuthTitle: "chatGptAuthTitle", chatGptAuthStageHint: "chatGptAuthStageHint",
     grsaiProviderTitle: "grsaiPanelTitle", grsaiProviderHint: "grsaiPanelHint", grsaiNodeHint: "grsaiNodeHint",
     grsaiWebsite: "grsaiWebsiteLabel", customProviderTitle: "customPanelTitle", customProviderHint: "customPanelHint",
     grsaiRetryTitle: "grsaiRetryTitle",
@@ -2476,6 +2515,10 @@ function updateProviderOptionsLanguage() {
   setButtonText(dom.testCodexGatewayHealth, "refresh", "codexGatewayHealthCheck");
   setButtonText(dom.openInpaintFromFile, "mask", "openInpaint");
   setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
+  if (dom.chatGptLogin) dom.chatGptLogin.textContent = cleanText("chatGptLogin");
+  if (dom.chatGptRelogin) dom.chatGptRelogin.textContent = cleanText("chatGptRelogin");
+  if (dom.chatGptLogout) dom.chatGptLogout.textContent = cleanText("chatGptLogout");
+  renderChatGptAuthState(chatGptAuthState);
   updateOfficialOptionAvailability();
   updateCodexGatewayOptionAvailability();
   setCodexGatewayHealthState(codexGatewayHealthState, codexGatewayHealthDetail);
@@ -10000,8 +10043,102 @@ const nativeDownload = (() => {
     loadSecret(key) { return request("loadSecret", { key }); },
     deleteSecret(key) { return request("deleteSecret", { key }); },
     loadCodexImageGatewayConfig() { return request("loadCodexImageGatewayConfig", {}, 10000); },
+    getChatGptAuthState() { return request("getChatGptAuthState", {}, 10000); },
+    openChatGptLogin() { return request("openChatGptLogin", {}, 10000); },
+    reloginChatGpt() { return request("reloginChatGpt", {}, 10000); },
+    logoutChatGpt() { return request("logoutChatGpt", {}, 10000); },
   };
 })();
+
+let chatGptAuthState = { status: "signed_out" };
+
+function chatGptAuthStatusPresentation(status) {
+  const normalized = String(status || "error");
+  if (normalized === "ready") return { key: "chatGptReady", state: "ready" };
+  if (["opening_login", "waiting_for_user", "verifying"].includes(normalized)) {
+    return { key: "chatGptWorking", state: "working" };
+  }
+  if (normalized === "expired" || normalized === "closed") {
+    return { key: "chatGptExpired", state: "expired" };
+  }
+  if (normalized === "signed_out") return { key: "chatGptSignedOut", state: "signed_out" };
+  return { key: "chatGptAuthError", state: "error" };
+}
+
+function renderChatGptAuthState(nextState = {}) {
+  chatGptAuthState = {
+    status: "signed_out",
+    display_name: "",
+    masked_email: "",
+    plan_label: "",
+    ...nextState,
+  };
+  const windowsOnly = isNativeWindowsWebview();
+  dom.chatGptAuthCard?.classList.toggle("hidden", !windowsOnly);
+  if (!windowsOnly) return;
+
+  const presentation = chatGptAuthStatusPresentation(chatGptAuthState.status);
+  if (dom.chatGptAuthStatus) {
+    dom.chatGptAuthStatus.dataset.state = presentation.state;
+    dom.chatGptAuthStatus.textContent = cleanText(presentation.key);
+  }
+  const identity = [
+    chatGptAuthState.display_name,
+    chatGptAuthState.masked_email,
+    chatGptAuthState.plan_label
+      ? String(chatGptAuthState.plan_label).toUpperCase()
+      : "",
+  ].filter(Boolean);
+  if (dom.chatGptAuthIdentity) {
+    dom.chatGptAuthIdentity.textContent =
+      identity.join(" · ") || cleanText("chatGptSignedOut");
+  }
+  const ready = chatGptAuthState.status === "ready";
+  const working = presentation.state === "working";
+  dom.chatGptLogin?.classList.toggle("hidden", ready);
+  dom.chatGptRelogin?.classList.toggle("hidden", !ready);
+  dom.chatGptLogout?.classList.toggle("hidden", !ready);
+  [dom.chatGptLogin, dom.chatGptRelogin, dom.chatGptLogout]
+    .filter(Boolean)
+    .forEach(button => { button.disabled = working; });
+}
+
+window.AiGenChatGptAuth = {
+  onState(nextState) {
+    renderChatGptAuthState(nextState && typeof nextState === "object" ? nextState : {});
+  },
+};
+
+async function runChatGptAuthAction(action) {
+  if (!nativeDownload.available() || !isNativeWindowsWebview()) return;
+  renderChatGptAuthState({ ...chatGptAuthState, status: "opening_login" });
+  try {
+    const state = await nativeDownload[action]();
+    renderChatGptAuthState(state);
+  } catch (error) {
+    renderChatGptAuthState({ ...chatGptAuthState, status: "error" });
+    showStatus(`ChatGPT 登录窗口启动失败：${error?.message || error}`, "error");
+  }
+}
+
+dom.chatGptLogin?.addEventListener("click", () => {
+  void runChatGptAuthAction("openChatGptLogin");
+});
+dom.chatGptRelogin?.addEventListener("click", () => {
+  void runChatGptAuthAction("reloginChatGpt");
+});
+dom.chatGptLogout?.addEventListener("click", async () => {
+  if (!(await askConfirm("退出后需要重新完成 ChatGPT 官方登录，确定继续？"))) return;
+  void runChatGptAuthAction("logoutChatGpt");
+});
+
+if (isNativeWindowsWebview()) {
+  nativeDownload.getChatGptAuthState()
+    .then(renderChatGptAuthState)
+    .catch(() => renderChatGptAuthState({ status: "error" }));
+} else {
+  renderChatGptAuthState({ status: "signed_out" });
+}
 
 document.body.classList.toggle("native-download", nativeDownload.available());
 document.body.classList.toggle("no-native-download", !nativeDownload.available());

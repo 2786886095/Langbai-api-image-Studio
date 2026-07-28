@@ -15,7 +15,7 @@ function test(name, fn) {
 
 test("uses the dedicated provider and local endpoint", () => {
   assert.equal(gateway.PROVIDER_ID, "codexImageGateway");
-  assert.equal(gateway.BASE_URL, "http://127.0.0.1:18080/v1");
+  assert.equal(gateway.BASE_URL, "http://127.0.0.1:18081/v1");
   assert.equal(gateway.MODEL, "gpt-image-2");
 });
 
@@ -33,6 +33,7 @@ test("requires the gateway image-only, async, reference, model and exact-output 
     async_tasks: true,
     models: ["gpt-image-2"],
     max_reference_images: 20,
+    max_concurrency: 100,
     dimension_modes: ["native", "exact_output"],
   });
   assert.equal(valid.ok, true);
@@ -70,7 +71,7 @@ test("builds exact-output generation and edit requests without leaking unsupport
   assert.equal(edit.body.dimension_mode, "native");
 });
 
-test("accepts twenty local references and marks contact-sheet aggregation after five", () => {
+test("accepts twenty direct local references without client-side aggregation", () => {
   const refs = Array.from({ length: 20 }, () => ({
     dataUrl: "data:image/jpeg;base64,AA==",
   }));
@@ -80,7 +81,7 @@ test("accepts twenty local references and marks contact-sheet aggregation after 
     refs,
   });
   assert.equal(request.referenceCount, 20);
-  assert.equal(request.referenceBoardsExpected, true);
+  assert.equal(request.referenceBoardsExpected, false);
   assert.throws(() => gateway.buildImageRequest({
     prompt: "too many",
     size: "1024x1024",
@@ -102,7 +103,7 @@ test("normalizes async task states and preserves task ids for resume", () => {
   const done = gateway.normalizeTask({
     id: "imgjob_1",
     status: "succeeded",
-    result: { data: [{ url: "http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0" }] },
+    result: { data: [{ url: "http://127.0.0.1:18081/v1/image-tasks/imgjob_1/files/0" }] },
   });
   assert.equal(done.succeeded, true);
   assert.equal(done.result.data[0].url.includes("imgjob_1"), true);
