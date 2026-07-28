@@ -1,6 +1,6 @@
 import 'dart:io';
 
-const String codexImageGatewayBaseUrl = 'http://127.0.0.1:18080/v1';
+const String codexImageGatewayBaseUrl = 'http://127.0.0.1:18081/v1';
 const String codexImageGatewayDirectoryName = 'LangbaiCodexImageGateway';
 const String codexImageGatewayKeyFileName = 'local-api-key.txt';
 
@@ -31,7 +31,7 @@ Future<Map<String, String>> loadCodexImageGatewayConfig({
 }) async {
   if (!(isWindows ?? Platform.isWindows)) {
     throw const FileSystemException(
-      'Codex image gateway is available only in the Windows app.',
+      'ChatGPT web image gateway is available only in the Windows app.',
     );
   }
   final env = environment ?? Platform.environment;

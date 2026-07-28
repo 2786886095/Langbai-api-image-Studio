@@ -6,18 +6,17 @@
   "use strict";
 
   const PROVIDER_ID = "codexImageGateway";
-  const BASE_URL = "http://127.0.0.1:18080/v1";
-  const HEALTH_URL = "http://127.0.0.1:18080/healthz";
+  const BASE_URL = "http://127.0.0.1:18081/v1";
+  const HEALTH_URL = "http://127.0.0.1:18081/healthz";
   const CAPABILITIES_URL = `${BASE_URL}/image-capabilities`;
   const MODEL = "gpt-image-2";
   const MAX_REFERENCE_IMAGES = 20;
-  const DIRECT_REFERENCE_IMAGES = 5;
+  const DIRECT_REFERENCE_IMAGES = 20;
   const DEFAULTS = Object.freeze({
-    routeMode: "codex",
     quality: "medium",
     dimensionMode: "exact_output",
     asyncTasks: true,
-    clientQueue: 2,
+    clientQueue: 10,
   });
 
   function normalizeBaseUrl(value) {
@@ -26,10 +25,10 @@
     try {
       parsed = new URL(raw);
     } catch {
-      throw new Error("Invalid Codex image gateway URL");
+      throw new Error("Invalid ChatGPT web image gateway URL");
     }
     if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.protocol !== "http:") {
-      throw new Error("The Codex image gateway must use a local HTTP URL");
+      throw new Error("The ChatGPT web image gateway must use a local HTTP URL");
     }
     const path = parsed.pathname.replace(/\/+$/, "");
     if (!path.endsWith("/v1")) parsed.pathname = `${path}/v1`.replace(/\/+/g, "/");
@@ -43,18 +42,18 @@
   }
 
   function normalizeOptions(value = {}) {
-    const routeMode = ["codex", "chatgpt_web"].includes(value.routeMode || value.route_mode)
-      ? (value.routeMode || value.route_mode)
-      : DEFAULTS.routeMode;
     const quality = ["low", "medium", "high"].includes(value.quality)
       ? value.quality
       : DEFAULTS.quality;
     const dimensionMode = ["native", "strict_native", "exact_output"].includes(value.dimensionMode || value.dimension_mode)
       ? (value.dimensionMode || value.dimension_mode)
       : DEFAULTS.dimensionMode;
-    const clientQueue = Math.max(1, Math.min(2, Math.floor(Number(value.clientQueue) || DEFAULTS.clientQueue)));
+    const parsedClientQueue = Number(value.clientQueue);
+    const clientQueue = Math.max(1, Math.min(
+      100,
+      Number.isFinite(parsedClientQueue) ? Math.floor(parsedClientQueue) : DEFAULTS.clientQueue,
+    ));
     return Object.freeze({
-      routeMode,
       quality,
       dimensionMode,
       asyncTasks: value.asyncTasks !== false,
@@ -71,6 +70,7 @@
     if (caps.async_tasks !== true) missing.push("async_tasks");
     if (!Array.isArray(caps.models) || !caps.models.includes(MODEL)) missing.push(`model:${MODEL}`);
     if (Number(caps.max_reference_images || 0) < MAX_REFERENCE_IMAGES) missing.push(`max_reference_images>=${MAX_REFERENCE_IMAGES}`);
+    if (Number(caps.max_concurrency || 0) < 100) missing.push("max_concurrency>=100");
     if (!Array.isArray(caps.dimension_modes) || !caps.dimension_modes.includes("exact_output")) missing.push("dimension_mode:exact_output");
     return Object.freeze({ ok: missing.length === 0, missing: Object.freeze(missing), capabilities: caps });
   }

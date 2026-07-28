@@ -275,9 +275,9 @@
     });
   }
 
-  function createOpenCodexRuntime({ initialConcurrency = 2, circuitFailureThreshold = 3, circuitMs = 45_000 } = {}) {
+  function createOpenCodexRuntime({ initialConcurrency = 100, circuitFailureThreshold = 3, circuitMs = 45_000 } = {}) {
     const state = {
-      concurrency: Math.max(1, Number(initialConcurrency) || 2),
+      concurrency: Math.max(1, Number(initialConcurrency) || 100),
       upstreamFailureStreak: 0,
       circuitOpenUntil: 0,
       referenceRoute: "unknown",
@@ -318,7 +318,7 @@
       resetAfterHealthCheck({ resetReference = false } = {}) {
         state.circuitOpenUntil = 0;
         state.upstreamFailureStreak = 0;
-        state.concurrency = Math.max(1, Number(initialConcurrency) || 2);
+        state.concurrency = Math.max(1, Number(initialConcurrency) || 100);
         if (resetReference) {
           state.referenceRoute = "unknown";
           state.referenceFailure = "";

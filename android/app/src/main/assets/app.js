@@ -632,107 +632,107 @@ const CLEAN_LOCALES = {
 
 const INPAINT_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
-    inpaintRequiresGptImage2: "局部重绘仅支持 Codex 生图网关或官方 OpenAI 的 gpt-image-2",
+    inpaintRequiresGptImage2: "局部重绘仅支持 ChatGPT 网页生图或官方 OpenAI 的 gpt-image-2",
     inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。",
-    inpaintOpenCodexDisclosure: "Codex 生图网关生成语义补丁；软件只在本地蒙版内合成。",
+    inpaintOpenCodexDisclosure: "ChatGPT 网页生图生成语义补丁；软件只在本地蒙版内合成。",
   }),
   "zh-Hant": Object.freeze({
-    inpaintRequiresGptImage2: "局部重繪僅支援 Codex 生圖閘道或官方 OpenAI 的 gpt-image-2",
+    inpaintRequiresGptImage2: "局部重繪僅支援 ChatGPT 網頁生圖或官方 OpenAI 的 gpt-image-2",
     inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；軟體仍會在本機保護蒙版外像素。",
-    inpaintOpenCodexDisclosure: "Codex 生圖閘道產生語意補丁；軟體只在本機蒙版內合成。",
+    inpaintOpenCodexDisclosure: "ChatGPT 網頁生圖產生語意補丁；軟體只在本機蒙版內合成。",
   }),
   en: Object.freeze({
-    inpaintRequiresGptImage2: "Local inpaint supports only gpt-image-2 through the Codex image gateway or the official OpenAI API",
+    inpaintRequiresGptImage2: "Local inpaint supports only gpt-image-2 through ChatGPT Web Image or the official OpenAI API",
     inpaintOfficialDisclosure: "Official OpenAI gpt-image-2 receives a native mask; the app also preserves pixels outside the local mask.",
-    inpaintOpenCodexDisclosure: "The Codex image gateway generates a semantic patch that the app composites only inside the local mask.",
+    inpaintOpenCodexDisclosure: "ChatGPT Web Image generates a semantic patch that the app composites only inside the local mask.",
   }),
   ja: Object.freeze({
-    inpaintRequiresGptImage2: "部分再描画は Codex 画像ゲートウェイまたは公式 OpenAI の gpt-image-2 のみ対応します",
+    inpaintRequiresGptImage2: "部分再描画は ChatGPT Web 画像または公式 OpenAI の gpt-image-2 のみ対応します",
     inpaintOfficialDisclosure: "公式 OpenAI gpt-image-2 にはネイティブ mask を送信し、アプリでもマスク外の画素を保護します。",
-    inpaintOpenCodexDisclosure: "Codex 画像ゲートウェイが意味パッチを生成し、アプリがローカルマスク内だけに合成します。",
+    inpaintOpenCodexDisclosure: "ChatGPT Web 画像が意味パッチを生成し、アプリがローカルマスク内だけに合成します。",
   }),
   ko: Object.freeze({
-    inpaintRequiresGptImage2: "부분 다시 그리기는 Codex 이미지 게이트웨이 또는 공식 OpenAI의 gpt-image-2만 지원합니다",
+    inpaintRequiresGptImage2: "부분 다시 그리기는 ChatGPT 웹 이미지 또는 공식 OpenAI의 gpt-image-2만 지원합니다",
     inpaintOfficialDisclosure: "공식 OpenAI gpt-image-2에는 네이티브 mask를 보내며 앱도 마스크 밖 픽셀을 보호합니다.",
-    inpaintOpenCodexDisclosure: "Codex 이미지 게이트웨이가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다.",
+    inpaintOpenCodexDisclosure: "ChatGPT 웹 이미지가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다.",
   }),
 });
 
 const CODEX_GATEWAY_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
-    codexGatewayApi: "Codex 生图网关",
-    codexGatewayPanelTitle: "Codex 专用生图网关",
-    codexGatewayPanelHint: "独立 image-only 网关；软件从本机安全读取凭据，直连 127.0.0.1，不经过桌面代理。",
+    codexGatewayApi: "ChatGPT 网页生图",
+    codexGatewayPanelTitle: "ChatGPT 网页生图",
+    codexGatewayPanelHint: "仅使用当前 Edge 登录账号的 ChatGPT 网页生图额度；本机直连 127.0.0.1，不经过桌面代理。",
     codexGatewayQuality: "输出质量",
     codexGatewayQualityHint: "草稿更快；标准适合批量分镜；高质量适合关键镜头。",
     codexGatewayDimensionMode: "尺寸处理",
     codexGatewayDimensionModeHint: "精确输出会无拉伸覆盖裁切；边缘内容可能被裁掉。原生模式保留上游尺寸。",
     codexGatewayAsync: "使用可恢复异步任务",
     codexGatewayAsyncHint: "批量分镜会保存任务 ID；网络中断或软件重启后继续轮询，不重新提交。",
-    codexGatewayQueue: "客户端排队数",
-    codexGatewayQueueHint: "最多同时送入 2 个任务；继续增加只会在网关排队，并更容易触发上游限流。",
-    codexGatewayFacts: "GPT Image 2 · 最多 20 张参考图 · Bearer 下载 · 异步任务最长轮询 20 分钟",
-    codexGatewayCapability: "6–20 张参考图会由网关聚合为最多 5 张编号参考板；局部重绘仍由软件在蒙版内合成。",
+    codexGatewayQueue: "同时生成数",
+    codexGatewayQueueHint: "可输入 1–100，默认 10；数值越高越容易触发网页端限流。",
+    codexGatewayFacts: "GPT Image 2 · 最多 20 张参考图 · ChatGPT 网页会话 · 异步任务最长轮询 20 分钟",
+    codexGatewayCapability: "并发可输入 1–100，默认 10；网页端实际速度、审核与限流由上游账号状态决定。",
     codexGatewayHealthCheck: "检测网关",
     codexGatewayHealthIdle: "尚未检测",
-    codexGatewayHealthChecking: "正在连接 Codex 生图网关…",
+    codexGatewayHealthChecking: "正在连接 ChatGPT 网页生图网关…",
     codexGatewayHealthReady: "网关可用 · {detail}",
     codexGatewayHealthFailed: "网关不可用：{reason}",
     codexGatewayKeyHint: "凭据由 Windows 软件从本机安全读取，不保存到配置中",
     codexGatewayReferenceBoards: "已接收 {count} 张参考图；网关将聚合为编号参考板",
   }),
   "zh-Hant": Object.freeze({
-    codexGatewayApi: "Codex 生圖閘道", codexGatewayPanelTitle: "Codex 專用生圖閘道",
+    codexGatewayApi: "ChatGPT 網頁生圖", codexGatewayPanelTitle: "ChatGPT 網頁生圖",
     codexGatewayPanelHint: "獨立 image-only 閘道；軟體從本機安全讀取憑證，直連 127.0.0.1，不經桌面代理。",
     codexGatewayQuality: "輸出品質", codexGatewayQualityHint: "草稿較快；標準適合批次分鏡；高品質適合關鍵鏡頭。",
     codexGatewayDimensionMode: "尺寸處理", codexGatewayDimensionModeHint: "精確輸出會無拉伸覆蓋裁切；邊緣內容可能被裁掉。原生模式保留上游尺寸。",
     codexGatewayAsync: "使用可恢復非同步任務", codexGatewayAsyncHint: "批次分鏡會儲存任務 ID；網路中斷或軟體重啟後繼續輪詢，不重新提交。",
-    codexGatewayQueue: "客戶端佇列數", codexGatewayQueueHint: "最多同時送入 2 個任務；繼續增加只會在閘道排隊，並更容易觸發上游限流。",
+    codexGatewayQueue: "同時生成數", codexGatewayQueueHint: "可輸入 1–100，預設 10；數值越高越容易觸發網頁端限流。",
     codexGatewayFacts: "GPT Image 2 · 最多 20 張參考圖 · Bearer 下載 · 非同步任務最長輪詢 20 分鐘",
-    codexGatewayCapability: "6–20 張參考圖會由閘道聚合為最多 5 張編號參考板；局部重繪仍由軟體在遮罩內合成。",
-    codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 Codex 生圖閘道…",
+    codexGatewayCapability: "並發可輸入 1–100，預設 10；實際速度、審核與限流由上游帳號狀態決定。",
+    codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 ChatGPT 網頁生圖…",
     codexGatewayHealthReady: "閘道可用 · {detail}", codexGatewayHealthFailed: "閘道不可用：{reason}",
     codexGatewayKeyHint: "憑證由 Windows 軟體從本機安全讀取，不儲存到設定中",
     codexGatewayReferenceBoards: "已接收 {count} 張參考圖；閘道將聚合為編號參考板",
   }),
   en: Object.freeze({
-    codexGatewayApi: "Codex Image Gateway", codexGatewayPanelTitle: "Dedicated Codex Image Gateway",
-    codexGatewayPanelHint: "A dedicated image-only gateway. The Windows app loads its local credential in memory and connects directly to 127.0.0.1.",
+    codexGatewayApi: "ChatGPT Web Image", codexGatewayPanelTitle: "ChatGPT Web Image",
+    codexGatewayPanelHint: "Uses only the current Edge ChatGPT web image session and connects directly to the local 127.0.0.1 gateway.",
     codexGatewayQuality: "Output quality", codexGatewayQualityHint: "Draft is faster, Standard suits batches, and High suits key frames.",
     codexGatewayDimensionMode: "Dimension handling", codexGatewayDimensionModeHint: "Exact output uses cover cropping without stretching, so edge content may be cropped. Native preserves upstream dimensions.",
     codexGatewayAsync: "Use resumable async tasks", codexGatewayAsyncHint: "Batch task IDs are checkpointed. Polling resumes after a disconnect or app restart without resubmission.",
-    codexGatewayQueue: "Client queue size", codexGatewayQueueHint: "Send at most 2 tasks concurrently; higher values only add gateway wait time and increase upstream throttling.",
-    codexGatewayFacts: "GPT Image 2 · up to 20 references · Bearer downloads · async task polling up to 20 minutes",
-    codexGatewayCapability: "6–20 references are compiled into up to 5 numbered contact sheets. Local inpaint is still composited inside the mask by the app.",
-    codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the Codex image gateway…",
+    codexGatewayQueue: "Concurrent generations", codexGatewayQueueHint: "Enter 1–100; the default is 10. Higher values are more likely to trigger web throttling.",
+    codexGatewayFacts: "GPT Image 2 · up to 20 references · ChatGPT web session · async task polling up to 20 minutes",
+    codexGatewayCapability: "Concurrency is configurable from 1–100 with a default of 10; actual speed and limits depend on the upstream account.",
+    codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the ChatGPT web image gateway…",
     codexGatewayHealthReady: "Gateway ready · {detail}", codexGatewayHealthFailed: "Gateway unavailable: {reason}",
     codexGatewayKeyHint: "The Windows app loads the local credential securely in memory; it is not saved in API profiles",
     codexGatewayReferenceBoards: "{count} references received; the gateway will compile numbered contact sheets",
   }),
   ja: Object.freeze({
-    codexGatewayApi: "Codex 画像ゲートウェイ", codexGatewayPanelTitle: "Codex 専用画像ゲートウェイ",
+    codexGatewayApi: "ChatGPT Web 画像", codexGatewayPanelTitle: "ChatGPT Web 画像",
     codexGatewayPanelHint: "画像専用ゲートウェイです。Windows アプリがローカル資格情報をメモリに読み込み、127.0.0.1 に直接接続します。",
     codexGatewayQuality: "出力品質", codexGatewayQualityHint: "草稿は高速、標準は一括生成、高品質は重要カット向けです。",
     codexGatewayDimensionMode: "サイズ処理", codexGatewayDimensionModeHint: "正確出力は引き伸ばさずカバー裁切するため、端が切れる場合があります。ネイティブは上流サイズを保持します。",
     codexGatewayAsync: "再開可能な非同期タスク", codexGatewayAsyncHint: "タスク ID を保存し、切断や再起動後も再送信せずポーリングを再開します。",
-    codexGatewayQueue: "クライアント待機数", codexGatewayQueueHint: "同時送信は最大 2 件です。それ以上は待機時間と上流のレート制限を増やします。",
+    codexGatewayQueue: "同時生成数", codexGatewayQueueHint: "1～100 を入力でき、既定値は 10 です。値が高いほど Web 側の制限を受けやすくなります。",
     codexGatewayFacts: "GPT Image 2 · 参照最大 20 枚 · Bearer ダウンロード · 非同期タスクを最大 20 分間ポーリング",
-    codexGatewayCapability: "6～20 枚の参照画像は最大 5 枚の番号付き参照ボードに統合されます。部分再描画はアプリがマスク内だけ合成します。",
-    codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "Codex 画像ゲートウェイに接続中…",
+    codexGatewayCapability: "同時生成数は 1～100、既定値は 10 です。実際の速度、審査、制限は上流アカウントに依存します。",
+    codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "ChatGPT Web 画像に接続中…",
     codexGatewayHealthReady: "ゲートウェイ利用可能 · {detail}", codexGatewayHealthFailed: "ゲートウェイ利用不可：{reason}",
     codexGatewayKeyHint: "Windows アプリがローカル資格情報を安全にメモリへ読み込み、API 設定には保存しません",
     codexGatewayReferenceBoards: "参照画像 {count} 枚を受信。番号付き参照ボードに統合します",
   }),
   ko: Object.freeze({
-    codexGatewayApi: "Codex 이미지 게이트웨이", codexGatewayPanelTitle: "Codex 전용 이미지 게이트웨이",
+    codexGatewayApi: "ChatGPT 웹 이미지", codexGatewayPanelTitle: "ChatGPT 웹 이미지",
     codexGatewayPanelHint: "이미지 전용 게이트웨이입니다. Windows 앱이 로컬 자격 증명을 메모리에 읽고 127.0.0.1로 직접 연결합니다.",
     codexGatewayQuality: "출력 품질", codexGatewayQualityHint: "초안은 빠르고 표준은 일괄 작업, 고품질은 주요 장면에 적합합니다.",
     codexGatewayDimensionMode: "크기 처리", codexGatewayDimensionModeHint: "정확 출력은 늘리지 않고 커버 자르기를 사용하므로 가장자리가 잘릴 수 있습니다. 원본 모드는 업스트림 크기를 유지합니다.",
     codexGatewayAsync: "재개 가능한 비동기 작업", codexGatewayAsyncHint: "작업 ID를 저장하여 연결 중단이나 앱 재시작 후 재제출 없이 폴링을 재개합니다.",
-    codexGatewayQueue: "클라이언트 대기열", codexGatewayQueueHint: "동시 전송은 최대 2개입니다. 더 높은 값은 대기와 업스트림 제한만 늘립니다.",
+    codexGatewayQueue: "동시 생성 수", codexGatewayQueueHint: "1–100을 입력할 수 있으며 기본값은 10입니다. 값이 높을수록 웹 제한 가능성이 커집니다.",
     codexGatewayFacts: "GPT Image 2 · 참고 이미지 최대 20장 · Bearer 다운로드 · 비동기 작업 최대 20분 폴링",
-    codexGatewayCapability: "6~20장 참고 이미지는 최대 5개의 번호 참조 보드로 통합됩니다. 부분 다시 그리기는 앱이 마스크 내부에만 합성합니다.",
-    codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "Codex 이미지 게이트웨이에 연결 중…",
+    codexGatewayCapability: "동시 생성 수는 1–100, 기본값은 10입니다. 실제 속도, 검토 및 제한은 업스트림 계정 상태에 따라 달라집니다.",
+    codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "ChatGPT 웹 이미지에 연결 중…",
     codexGatewayHealthReady: "게이트웨이 사용 가능 · {detail}", codexGatewayHealthFailed: "게이트웨이 사용 불가: {reason}",
     codexGatewayKeyHint: "Windows 앱이 로컬 자격 증명을 안전하게 메모리에 읽으며 API 설정에는 저장하지 않습니다",
     codexGatewayReferenceBoards: "참고 이미지 {count}장을 받았습니다. 번호 참조 보드로 통합합니다",
@@ -1248,7 +1248,6 @@ const dom = {
   codexGatewayProviderPanel: $("#codexGatewayProviderPanel"),
   grsaiProviderPanel: $("#grsaiProviderPanel"),
   customProviderPanel: $("#customProviderPanel"),
-  codexGatewayRouteMode: $("#codexGatewayRouteMode"),
   codexGatewayQuality: $("#codexGatewayQuality"),
   codexGatewayDimensionMode: $("#codexGatewayDimensionMode"),
   codexGatewayAsyncTasks: $("#codexGatewayAsyncTasks"),
@@ -1817,7 +1816,7 @@ const OFFICIAL_API_ENDPOINT = "https://api.openai.com/v1/images/generations";
 const imageTaskStability = window.ImageTaskStability;
 if (!imageTaskStability) throw new Error("image-task-stability.js 未加载，生图稳定层无法启动");
 const codexImageGateway = window.CodexImageGateway;
-if (!codexImageGateway) throw new Error("codex-image-gateway.js 未加载，Codex 生图网关适配层无法启动");
+if (!codexImageGateway) throw new Error("codex-image-gateway.js 未加载，ChatGPT 网页生图适配层无法启动");
 const CODEX_IMAGE_GATEWAY_PROVIDER = codexImageGateway.PROVIDER_ID;
 const CODEX_IMAGE_GATEWAY_BASE_URL = codexImageGateway.BASE_URL;
 const CODEX_IMAGE_GATEWAY_HEALTH_URL = codexImageGateway.HEALTH_URL;
@@ -1827,7 +1826,7 @@ const CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS = 300000;
 const CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS = 1200000;
 const CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS = 30000;
 const codexGatewayRuntime = imageTaskStability.createOpenCodexRuntime({
-  initialConcurrency: 2,
+  initialConcurrency: 100,
   circuitFailureThreshold: 3,
   circuitMs: 45_000,
 });
@@ -1843,9 +1842,9 @@ const IMAGE_ERROR_TEXT = Object.freeze({
     authentication_failed: "认证或账号权限失败",
     payload_too_large: "请求体过大",
     rate_limited: "上游限流或额度冷却",
-    upstream_disconnected: "Codex 生图网关上游连接断开",
-    upstream_unavailable: "Codex 生图网关暂不可用",
-    upstream_timeout: "Codex 生图网关生成超时",
+    upstream_disconnected: "ChatGPT 网页生图上游连接断开",
+    upstream_unavailable: "ChatGPT 网页生图暂不可用",
+    upstream_timeout: "ChatGPT 网页生图生成超时",
     decode_failed: "图片响应解码失败",
     unknown: "生图请求失败",
     editRequired: "请修改当前分镜提示词或参考图后再重试。",
@@ -1854,14 +1853,14 @@ const IMAGE_ERROR_TEXT = Object.freeze({
   }),
   "zh-Hant": Object.freeze({
     moderation_blocked: "內容審核攔截", invalid_parameters: "請求參數不受支援", authentication_failed: "驗證或帳號權限失敗",
-    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "Codex 生圖閘道上游連線中斷",
-    upstream_unavailable: "Codex 生圖閘道暫時無法使用", upstream_timeout: "Codex 生圖閘道生成逾時", decode_failed: "圖片回應解碼失敗",
+    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "ChatGPT 網頁生圖上游連線中斷",
+    upstream_unavailable: "ChatGPT 網頁生圖暫時無法使用", upstream_timeout: "ChatGPT 網頁生圖生成逾時", decode_failed: "圖片回應解碼失敗",
     unknown: "生圖請求失敗", editRequired: "請修改目前分鏡提示詞或參考圖後再重試。", requestId: "請求 ID", violations: "審核類別",
   }),
   en: Object.freeze({
     moderation_blocked: "Blocked by content moderation", invalid_parameters: "Unsupported request parameters", authentication_failed: "Authentication or account access failed",
-    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "Codex image gateway upstream connection closed",
-    upstream_unavailable: "Codex image gateway is unavailable", upstream_timeout: "Codex image gateway generation timed out", decode_failed: "Image response decoding failed",
+    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "ChatGPT web image upstream connection closed",
+    upstream_unavailable: "ChatGPT web image gateway is unavailable", upstream_timeout: "ChatGPT web image generation timed out", decode_failed: "Image response decoding failed",
     unknown: "Image request failed", editRequired: "Edit this panel prompt or its references before retrying.", requestId: "Request ID", violations: "Safety categories",
   }),
   ja: Object.freeze({
@@ -2287,7 +2286,6 @@ function normalizeCodexGatewayOptions(value = {}) {
 
 function getCodexGatewayOptions() {
   return normalizeCodexGatewayOptions({
-    routeMode: dom.codexGatewayRouteMode?.value,
     quality: dom.codexGatewayQuality?.value,
     dimensionMode: dom.codexGatewayDimensionMode?.value,
     asyncTasks: dom.codexGatewayAsyncTasks?.checked !== false,
@@ -2297,7 +2295,6 @@ function getCodexGatewayOptions() {
 
 function applyCodexGatewayOptions(value = {}) {
   const options = normalizeCodexGatewayOptions(value);
-  setProviderSegmentValue("codexGatewayRouteMode", options.routeMode);
   setProviderSegmentValue("codexGatewayQuality", options.quality);
   setProviderSegmentValue("codexGatewayDimensionMode", options.dimensionMode);
   if (dom.codexGatewayAsyncTasks) dom.codexGatewayAsyncTasks.checked = options.asyncTasks;
@@ -2315,7 +2312,7 @@ function updateCodexGatewayOptionAvailability() {
 const SIZE_POLICY_TEXT = Object.freeze({
   "zh-CN": Object.freeze({
     official: "gpt-image-2 支持满足约束的任意尺寸；带“官方”的七项是 OpenAI 常用预设。",
-    opencodex: "Codex 私有额度路径实测固定约 157 万像素；所选尺寸用于提示方向和比例，生成后请查看实际尺寸。",
+    opencodex: "ChatGPT 网页生图会请求所选方向与尺寸；原生模式保留实际像素，精确输出会在本地无拉伸裁切缩放。",
     nano: "Nano Banana 2 只使用上方的官方“比例 × 分辨率档位”；这里的像素尺寸不会发送。",
     generic: "预设尺寸会作为像素尺寸发送；自定义接口是否支持由服务端决定。",
   }),
@@ -2360,11 +2357,10 @@ function updateSizePolicyUi() {
 }
 
 function getCodexGatewayConcurrency(options = getCodexGatewayOptions()) {
-  if (options.routeMode === "chatgpt_web") return 1;
   return Math.max(1, Math.min(
-    2,
-    Number(options.clientQueue) || 2,
-    Number(codexGatewayRuntime.snapshot().concurrency) || 2
+    100,
+    Math.floor(Number(options.clientQueue) || 10),
+    Math.floor(Number(codexGatewayRuntime.snapshot().concurrency) || 100),
   ));
 }
 
@@ -2564,14 +2560,9 @@ function syncCodexGatewayProviderVisibility() {
 }
 
 async function loadCodexGatewayCredentials() {
-  if (!isNativeWindowsWebview()) throw new Error("Codex 生图网关仅在 Windows 软件中可用");
-  const options = getCodexGatewayOptions();
+  if (!isNativeWindowsWebview()) throw new Error("ChatGPT 网页生图仅在 Windows 软件中可用");
   const loaded = await nativeDownload.loadCodexImageGatewayConfig();
-  const baseUrl = codexImageGateway.normalizeBaseUrl(
-    options.routeMode === "chatgpt_web"
-      ? "http://127.0.0.1:18081/v1"
-      : loaded?.baseUrl
-  );
+  const baseUrl = codexImageGateway.normalizeBaseUrl(CODEX_IMAGE_GATEWAY_BASE_URL);
   const apiKey = String(loaded?.apiKey || "").trim();
   if (!codexImageGateway.validateLocalKey(apiKey)) throw new Error("本机网关凭据格式无效，请重新安装或修复网关");
   codexGatewayCredentials = { baseUrl, apiKey };
@@ -2604,15 +2595,14 @@ async function checkCodexGatewayHealth({ announce = false, force = true } = {}) 
       codexGatewayCapabilities = validated.capabilities;
       codexGatewayHealthCheckedAt = Date.now();
       codexGatewayRuntime.resetAfterHealthCheck({ resetReference: force });
-      const routeLabel = getCodexGatewayOptions().routeMode === "chatgpt_web" ? "ChatGPT 网页额度" : "Codex 额度";
-      setCodexGatewayHealthState("ready", `${routeLabel} · ${CODEX_IMAGE_GATEWAY_MODEL}`);
+      setCodexGatewayHealthState("ready", `ChatGPT 网页额度 · ${CODEX_IMAGE_GATEWAY_MODEL}`);
       if (announce) showStatus(interpolate(cleanText("codexGatewayHealthReady"), { detail: CODEX_IMAGE_GATEWAY_MODEL }), "success");
       return true;
     } catch (err) {
       codexGatewayCredentials = null;
       codexGatewayCapabilities = null;
       codexGatewayHealthCheckedAt = 0;
-      const reason = String(err?.message || err || "Codex 生图网关");
+      const reason = String(err?.message || err || "ChatGPT 网页生图网关");
       setCodexGatewayHealthState("error", reason);
       if (announce) showStatus(interpolate(cleanText("codexGatewayHealthFailed"), { reason }), "error");
       return false;
@@ -2762,7 +2752,7 @@ function getDefaultApiConfig() {
 
 function inferApiProvider(endpoint = "") {
   const ep = String(endpoint).toLowerCase();
-  if (/^https?:\/\/(?:127\.0\.0\.1|localhost):(?:18080|10100)(?:\/|$)/.test(ep)) return CODEX_IMAGE_GATEWAY_PROVIDER;
+  if (/^https?:\/\/(?:127\.0\.0\.1|localhost):(?:18080|18081|10100)(?:\/|$)/.test(ep)) return CODEX_IMAGE_GATEWAY_PROVIDER;
   if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) return "grsai";
   if (/api\.openai\.com/.test(ep)) return "official";
   return "custom";
@@ -3212,16 +3202,6 @@ document.querySelectorAll(".provider-segments[data-provider-control]").forEach(g
     if (!button || button.disabled) return;
     const controlId = group.dataset.providerControl;
     setProviderSegmentValue(controlId, button.dataset.value);
-    if (controlId === "codexGatewayRouteMode") {
-      codexGatewayCredentials = null;
-      codexGatewayCapabilities = null;
-      codexGatewayHealthCheckedAt = 0;
-      setCodexGatewayHealthState("idle");
-      if (dom.codexGatewayClientQueue && button.dataset.value === "chatgpt_web") {
-        dom.codexGatewayClientQueue.value = "1";
-      }
-      setTimeout(() => void checkCodexGatewayHealth({ announce: true, force: true }), 0);
-    }
     updateOfficialOptionAvailability();
     updateCodexGatewayOptionAvailability();
     persistCurrentProviderOptions();
@@ -6230,15 +6210,15 @@ async function pollCodexGatewayTask(taskId, { signal = null, requested, requestA
 }
 
 registerAdapter({
-  name: "Codex Image Gateway",
+  name: "ChatGPT Web Image Gateway",
   provider: CODEX_IMAGE_GATEWAY_PROVIDER,
   sizeFormat: "pixel",
   supportsReference: true,
-  concurrency: 2,
+  concurrency: 10,
   getConcurrency() { return getCodexGatewayConcurrency(); },
 
   async fetchModels() {
-    if (!(await checkCodexGatewayHealth({ announce: false, force: true }))) throw new Error("Codex image gateway is unavailable");
+    if (!(await checkCodexGatewayHealth({ announce: false, force: true }))) throw new Error("ChatGPT web image gateway is unavailable");
     setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
     dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
     showStatus(`${cleanText("codexGatewayApi")} ? ${CODEX_IMAGE_GATEWAY_MODEL}`, "success");
@@ -6247,8 +6227,8 @@ registerAdapter({
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
     const signal = options.signal;
     throwIfAborted(signal);
-    if (!(await checkCodexGatewayHealth({ announce: false, force: false }))) throw new Error("Codex image gateway is unavailable");
-    if (Number(n) !== 1) throw new Error("Codex image gateway fixes each request to n=1; batches queue separate tasks");
+    if (!(await checkCodexGatewayHealth({ announce: false, force: false }))) throw new Error("ChatGPT web image gateway is unavailable");
+    if (Number(n) !== 1) throw new Error("The web image gateway fixes each request to n=1; batches queue separate tasks");
     const gatewayOptions = normalizeCodexGatewayOptions(options.codexGatewayOptions || getCodexGatewayOptions());
     const built = codexImageGateway.buildImageRequest({ prompt, size, refs: hasRef ? refs : [], options: gatewayOptions });
     const requested = {

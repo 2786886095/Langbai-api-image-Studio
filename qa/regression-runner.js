@@ -4021,9 +4021,9 @@ async function testDesktopProxyControls(cdp) {
     await waitForCall(4);
     await nativeDownload.downloadUpdate("https://example.test/Setup.exe", "Setup.exe", false, "windows");
     await waitForCall(5);
-    await smartFetch("http://127.0.0.1:18080/healthz", { nativeTimeoutMs: 5000, forceDirectProxy: true });
+    await smartFetch("http://127.0.0.1:18081/healthz", { nativeTimeoutMs: 5000, forceDirectProxy: true });
     await waitForCall(6);
-    await apiFetch("http://127.0.0.1:18080/v1/images/generations", "a".repeat(64), {
+    await apiFetch("http://127.0.0.1:18081/v1/images/generations", "a".repeat(64), {
       model: "gpt-image-2", prompt: "test", size: "1024x1024", quality: "medium", dimension_mode: "exact_output", n: 1,
     }, { nativeTimeoutMs: 300000, forceDirectProxy: true });
     await waitForCall(7);
@@ -5292,14 +5292,14 @@ async function testRetainedProviderProfilesAndGatewayMigration(cdp) {
   assertQa(byId["official-profile"]?.apiKey === "sk-official-only" && byId["official-profile"]?.endpoint.includes("api.openai.com"), "Official OpenAI credentials must restore only into the official profile.", result);
   assertQa(byId["grsai-profile"]?.apiKey === "sk-grsai-only" && byId["grsai-profile"]?.endpoint.includes("grsai.dakka.com.cn"), "GrsAI credentials and its default endpoint must remain isolated and restorable.", result);
   assertQa(byId["custom-profile"]?.apiKey === "sk-custom-only" && byId["custom-profile"]?.endpoint.includes("custom.example.test"), "Custom API credentials must remain isolated and restorable.", result);
-  assertQa(result.legacy.provider === "codexImageGateway" && result.legacy.endpoint === "http://127.0.0.1:18080/v1" && result.legacy.apiKey === "", "Legacy OpenCodex profiles must migrate to the dedicated gateway without retaining the placeholder key.", result);
+  assertQa(result.legacy.provider === "codexImageGateway" && result.legacy.endpoint === "http://127.0.0.1:18081/v1" && result.legacy.apiKey === "", "Legacy OpenCodex profiles must migrate to the dedicated gateway without retaining the placeholder key.", result);
   assertQa(result.gatewayProfile.provider === "codexImageGateway" && result.gatewayProfile.apiKey === "" && result.gatewayProfile.model === "gpt-image-2", "Gateway profiles must never persist the local bearer credential.", result);
   assertQa(result.grsaiOptionPresent && result.officialOptionPresent && result.customOptionPresent, "GrsAI, Official OpenAI and Custom API choices must all be preserved.", result);
   assertQa(result.gatewayOptionHidden && !result.gatewayInBrowserList, "The Windows-only gateway must be absent from the plain-browser custom dropdown instead of leaving an unusable choice.", result);
 }
 
 async function testProviderPanelsResponsiveAfterGateway(cdp) {
-  logStep("Provider panels remain responsive and clickable after adding the Codex gateway");
+  logStep("Provider panels remain responsive and clickable after adding the ChatGPT web image gateway");
   for (const viewport of [
     { width: 1365, height: 768, mobile: false },
     { width: 430, height: 720, mobile: true },
@@ -5329,7 +5329,7 @@ async function testProviderPanelsResponsiveAfterGateway(cdp) {
 }
 
 async function testCodexImageGatewayIntegration(cdp) {
-  logStep("Dedicated Codex gateway loads its Windows credential in memory, gates on capabilities, and uses resumable n=1 tasks");
+  logStep("ChatGPT web image gateway loads its Windows credential in memory, gates on capabilities, and uses resumable n=1 tasks");
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `
       localStorage.clear();
@@ -5344,7 +5344,7 @@ async function testCodexImageGatewayIntegration(cdp) {
           window.__gatewayCalls.push(payload);
           let result = {};
           if (payload.action === "loadCodexImageGatewayConfig") {
-            result = { baseUrl: "http://127.0.0.1:18080/v1", apiKey: window.__gatewayKey };
+            result = { baseUrl: "http://127.0.0.1:18081/v1", apiKey: window.__gatewayKey };
           } else if (payload.action === "loadSecret") {
             result = "";
           } else if (payload.action === "nativeFetch") {
@@ -5353,7 +5353,7 @@ async function testCodexImageGatewayIntegration(cdp) {
             if (url.endsWith("/healthz")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "ok", service: "langbai-codex-image-gateway" }) };
             } else if (url.endsWith("/v1/image-capabilities")) {
-              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ image_only: true, generations: true, edits: true, async_tasks: true, models: ["gpt-image-2"], max_reference_images: 20, dimension_modes: ["native", "strict_native", "exact_output"] }) };
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ image_only: true, generations: true, edits: true, async_tasks: true, models: ["gpt-image-2"], max_reference_images: 20, default_concurrency: 10, max_concurrency: 100, dimension_modes: ["native", "strict_native", "exact_output"] }) };
             } else if (method === "POST" && url.endsWith("/v1/image-tasks")) {
               const body = JSON.parse(payload.body || "{}");
               window.__gatewaySubmittedBodies.push({ body, headers: payload.headers, proxyMode: payload.proxyMode, proxyUrl: payload.proxyUrl });
@@ -5370,7 +5370,7 @@ async function testCodexImageGatewayIntegration(cdp) {
             } else if (method === "GET" && url.includes("/v1/image-tasks/imgjob_")) {
               const id = url.split("/").pop();
               const submitted = window.__gatewaySubmittedBodies[Number(id.split("_").pop()) - 1]?.body || {};
-              result = { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ url: "http://127.0.0.1:18080/v1/image-tasks/" + id + "/files/0" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
+              result = { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ url: "http://127.0.0.1:18081/v1/image-tasks/" + id + "/files/0" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
             } else {
               result = { status: 404, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: { message: "not mocked" } }) };
             }
@@ -5394,7 +5394,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     const result = await cdp.eval(`(async () => {
       window.__AI_GEN_NATIVE_PLATFORM = "windows";
       applyApiProvider("codexImageGateway", { forceEndpoint: true });
-      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 2 });
+      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 10 });
       const ready = await checkCodexGatewayHealth({ announce: false, force: true });
       if (!ready) return {
         ready,
@@ -5409,7 +5409,7 @@ async function testCodexImageGatewayIntegration(cdp) {
       const generated = await callImageAPI("gateway generation", "832x1216", 1, "gateway", { maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
       const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
       const edited = await callImageAPI("gateway semantic edit", "1024x1024", 1, "gateway edit", { references: [reference], maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
-      applyCodexGatewayOptions({ quality: "medium", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 2, routeMode: "chatgpt_web" });
+      applyCodexGatewayOptions({ quality: "medium", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 100 });
       codexGatewayCredentials = null;
       const webCredentials = await loadCodexGatewayCredentials();
       const webRoute = {
@@ -5418,11 +5418,11 @@ async function testCodexImageGatewayIntegration(cdp) {
         concurrency: getCodexGatewayConcurrency(),
         credentialCalls: window.__gatewayCalls.filter(call => call.action === "loadCodexImageGatewayConfig").length,
       };
-      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 2, routeMode: "codex" });
+      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 10 });
       codexGatewayCredentials = null;
-      const legacyBlob = await imageUrlToBlob("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0");
+      const legacyBlob = await imageUrlToBlob("http://127.0.0.1:18081/v1/image-tasks/imgjob_1/files/0");
       const protectedUrlChecks = {
-        gateway: isCodexGatewayProtectedImageUrl("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0"),
+        gateway: isCodexGatewayProtectedImageUrl("http://127.0.0.1:18081/v1/image-tasks/imgjob_1/files/0"),
         wrongPort: isCodexGatewayProtectedImageUrl("http://127.0.0.1:9999/v1/image-tasks/imgjob_1/files/0"),
         remoteHost: isCodexGatewayProtectedImageUrl("https://example.test/v1/image-tasks/imgjob_1/files/0"),
       };
@@ -5481,7 +5481,7 @@ async function testCodexImageGatewayIntegration(cdp) {
         gatewayOptionHidden: dom.apiProvider.querySelector('option[value="codexImageGateway"]')?.hidden === true,
         historyPersistence: {
           dataUrlOriginal: sanitizeHistoryOriginalUrl("data:image/png;base64," + "A".repeat(256 * 1024)),
-          protectedOriginal: sanitizeHistoryOriginalUrl("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0"),
+          protectedOriginal: sanitizeHistoryOriginalUrl("http://127.0.0.1:18081/v1/image-tasks/imgjob_1/files/0"),
           compactImageUrl: compactedHistory.imageUrl,
           compactOriginalUrl: compactedHistory.originalUrl,
           quotaWriteAttempts,
@@ -5489,10 +5489,10 @@ async function testCodexImageGatewayIntegration(cdp) {
         },
       };
     })()`, true);
-    assertQa(result.ready && result.endpoint === "http://127.0.0.1:18080/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
+    assertQa(result.ready && result.endpoint === "http://127.0.0.1:18081/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
-    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 2, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
-    assertQa(result.webRoute.options.routeMode === "chatgpt_web" && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 1 && result.webRoute.credentialCalls >= 1, "The ChatGPT web quota route must reuse the protected local app credential, switch to its separate memory-session gateway, and clamp browser-account concurrency to one.", result);
+    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 100 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and accept concurrency up to 100.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 2 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission must expose a checkpointable async task id.", result);
     assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
