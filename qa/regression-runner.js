@@ -5453,6 +5453,7 @@ async function testCodexImageGatewayIntegration(cdp) {
         model: dom.model.value,
         modelReadOnly: dom.model.readOnly,
         options: getCodexGatewayOptions(),
+        taskWaitTimeoutMs: CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS,
         submitted,
         requestBodies: window.__gatewaySubmittedBodies,
         generated: { count: generated.data?.length || 0, item: generated.data?.[0], meta: generated._openCodex },
@@ -5479,6 +5480,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     assertQa(result.ready && result.endpoint === "http://127.0.0.1:18080/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
     assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 2, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 2 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission must expose a checkpointable async task id.", result);
     assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
     assertQa(!result.requestBodies[0].body.images && result.requestBodies[1].body.images?.length === 1, "Text generation must omit references while semantic edit must send the selected local reference.", result);

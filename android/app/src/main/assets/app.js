@@ -1823,6 +1823,7 @@ const CODEX_IMAGE_GATEWAY_HEALTH_URL = codexImageGateway.HEALTH_URL;
 const CODEX_IMAGE_GATEWAY_CAPABILITIES_URL = codexImageGateway.CAPABILITIES_URL;
 const CODEX_IMAGE_GATEWAY_MODEL = codexImageGateway.MODEL;
 const CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS = 300000;
+const CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS = 1200000;
 const CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS = 30000;
 const codexGatewayRuntime = imageTaskStability.createOpenCodexRuntime({
   initialConcurrency: 2,
@@ -6166,7 +6167,7 @@ async function normalizeCodexGatewayResult(result, { task = null, requested, req
 }
 
 async function pollCodexGatewayTask(taskId, { signal = null, requested, requestAudit, startedAt, operation = "generation" } = {}) {
-  const deadline = Date.now() + CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS;
+  const deadline = Date.now() + CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS;
   let lastNetworkError = null;
   try {
     while (Date.now() < deadline) {
@@ -6198,7 +6199,7 @@ async function pollCodexGatewayTask(taskId, { signal = null, requested, requestA
       }
       await sleep(1500, signal);
     }
-    throw lastNetworkError || new Error("Gateway task wait exceeded 300 seconds; the task id was preserved for resume");
+    throw lastNetworkError || new Error("Gateway task wait exceeded 1200 seconds; the task id was preserved for resume");
   } catch (err) {
     if (err?.name === "AbortError") {
       void codexGatewayJsonRequest(`image-tasks/${encodeURIComponent(taskId)}/cancel`, { method: "POST", body: {}, timeoutMs: 5000 }).catch(() => {});
