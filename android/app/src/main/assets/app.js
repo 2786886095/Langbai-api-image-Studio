@@ -6120,7 +6120,16 @@ async function normalizeCodexGatewayResult(result, { task = null, requested, req
   for (const item of data) {
     throwIfAborted(signal);
     if (item?.b64_json) normalizedData.push(item);
-    else if (item?.url) normalizedData.push({ ...item, ...(await codexGatewayDownloadAsBase64(item.url, signal)), original_url: item.url });
+    else if (item?.url) {
+      // Gateway file URLs are protected resources. Keeping the URL here makes
+      // the preview <img> prefer it over b64_json and retry without a Bearer
+      // header, which incorrectly surfaces an invalid_api_key response.
+      const { url: protectedUrl, original_url: _legacyUrl, ...safeItem } = item;
+      normalizedData.push({
+        ...safeItem,
+        ...(await codexGatewayDownloadAsBase64(protectedUrl, signal)),
+      });
+    }
   }
   if (!normalizedData.length) throw new Error("Gateway returned no usable image");
   const safeGatewayAudit = codexImageGateway.buildSafeGatewayAudit(result, task || {});
@@ -10180,6 +10189,17 @@ async function normalizeImageBlob(blob) {
   return blob.type === type ? blob : new Blob([blob], { type });
 }
 
+function isCodexGatewayProtectedImageUrl(value) {
+  try {
+    const parsed = new URL(String(value || ""));
+    const hostname = parsed.hostname.toLowerCase();
+    const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+    return isLoopback && /^\/v1\/image-tasks\/[^/]+\/files\/\d+$/.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function imageUrlToBlob(url, onProgress) {
   if (String(url).startsWith("cache://")) {
     const cached = await getGeneratedCacheBlob(String(url).slice(8));
@@ -10201,11 +10221,26 @@ async function imageUrlToBlob(url, onProgress) {
     return blob;
   }
   if (nativeDownload.available() && /^https?:/i.test(url)) {
-    const result = await nativeDownload.nativeFetchBlob(url);
+    let headers = {};
+    let options = {};
+    if (isCodexGatewayProtectedImageUrl(url)) {
+      // Repair/reload legacy v1.4.5 records that persisted the protected
+      // gateway URL instead of the already-downloaded image bytes.
+      const credentials = codexGatewayCredentials || await loadCodexGatewayCredentials();
+      headers = {
+        Authorization: `Bearer ${credentials.apiKey}`,
+        Accept: "image/*",
+      };
+      options = {
+        forceDirectProxy: true,
+        timeoutMs: CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS,
+      };
+    }
+    const result = await nativeDownload.nativeFetchBlob(url, headers, options);
     const status = Number(result?.status || 0);
     if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
-    const headers = result?.headers || {};
-    const type = headers["content-type"] || headers["Content-Type"] || "image/png";
+    const responseHeaders = result?.headers || {};
+    const type = responseHeaders["content-type"] || responseHeaders["Content-Type"] || "image/png";
     const sourceBlob = result?.blob instanceof Blob
       ? result.blob
       : new Blob([base64ToBytes(result?.base64 || "")], { type });

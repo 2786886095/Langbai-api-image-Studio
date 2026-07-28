@@ -5337,6 +5337,7 @@ async function testCodexImageGatewayIntegration(cdp) {
       window.__gatewayCalls = [];
       window.__gatewaySubmittedBodies = [];
       window.__gatewayKey = "${"a".repeat(64)}";
+      window.__gatewayPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
       window.FlutterDownload = {
         postMessage(raw) {
           const payload = JSON.parse(raw);
@@ -5357,13 +5358,30 @@ async function testCodexImageGatewayIntegration(cdp) {
               const body = JSON.parse(payload.body || "{}");
               window.__gatewaySubmittedBodies.push({ body, headers: payload.headers, proxyMode: payload.proxyMode, proxyUrl: payload.proxyUrl });
               result = { status: 202, headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "imgjob_" + window.__gatewaySubmittedBodies.length, status: "queued" }) };
+            } else if (method === "GET" && /\\/v1\\/image-tasks\\/imgjob_\\d+\\/files\\/0$/.test(url)) {
+              const source = Uint8Array.from(atob(window.__gatewayPng), c => c.charCodeAt(0));
+              result = {
+                status: 200,
+                headers: { "content-type": "image/png" },
+                transferId: "gateway-image-" + window.__gatewayCalls.length,
+                byteLength: source.length,
+                chunkSize: 17,
+              };
             } else if (method === "GET" && url.includes("/v1/image-tasks/imgjob_")) {
               const id = url.split("/").pop();
               const submitted = window.__gatewaySubmittedBodies[Number(id.split("_").pop()) - 1]?.body || {};
-              result = { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", mime_type: "image/png" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
+              result = { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ url: "http://127.0.0.1:18080/v1/image-tasks/" + id + "/files/0" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
             } else {
               result = { status: 404, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: { message: "not mocked" } }) };
             }
+          } else if (payload.action === "nativeFetchBlobChunk") {
+            const source = Uint8Array.from(atob(window.__gatewayPng), c => c.charCodeAt(0));
+            const end = Math.min(source.length, payload.offset + payload.length);
+            let binary = "";
+            for (const byte of source.slice(payload.offset, end)) binary += String.fromCharCode(byte);
+            result = { base64: btoa(binary), nextOffset: end, done: end >= source.length };
+          } else if (payload.action === "nativeFetchBlobRelease") {
+            result = true;
           }
           setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
         }
@@ -5391,6 +5409,7 @@ async function testCodexImageGatewayIntegration(cdp) {
       const generated = await callImageAPI("gateway generation", "832x1216", 1, "gateway", { maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
       const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
       const edited = await callImageAPI("gateway semantic edit", "1024x1024", 1, "gateway edit", { references: [reference], maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
+      const legacyBlob = await imageUrlToBlob("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0");
       updateInpaintAvailability();
       const inpaintEnabled = !dom.openInpaintFromFile.disabled;
       dom.openInpaintFromFile.click();
@@ -5409,8 +5428,10 @@ async function testCodexImageGatewayIntegration(cdp) {
         options: getCodexGatewayOptions(),
         submitted,
         requestBodies: window.__gatewaySubmittedBodies,
-        generated: { count: generated.data?.length || 0, meta: generated._openCodex },
-        edited: { count: edited.data?.length || 0, meta: edited._openCodex },
+        generated: { count: generated.data?.length || 0, item: generated.data?.[0], meta: generated._openCodex },
+        edited: { count: edited.data?.length || 0, item: edited.data?.[0], meta: edited._openCodex },
+        legacyBlob: { size: legacyBlob.size, type: legacyBlob.type },
+        fileCalls: window.__gatewayCalls.filter(call => /\\/v1\\/image-tasks\\/imgjob_\\d+\\/files\\/0$/.test(String(call.url || ""))),
         profile: gatewayProfile,
         leakedKey: localStorageText.includes(window.__gatewayKey),
         inpaintEnabled,
@@ -5426,6 +5447,8 @@ async function testCodexImageGatewayIntegration(cdp) {
     assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
     assertQa(!result.requestBodies[0].body.images && result.requestBodies[1].body.images?.length === 1, "Text generation must omit references while semantic edit must send the selected local reference.", result);
     assertQa(result.generated.count === 1 && result.edited.count === 1 && result.generated.meta?.audit?.taskId === "imgjob_1" && result.edited.meta?.audit?.taskId === "imgjob_2", "Completed task results must retain safe task and dimension audit metadata.", result);
+    assertQa(result.generated.item?.b64_json && !result.generated.item?.url && !result.generated.item?.original_url && result.edited.item?.b64_json && !result.edited.item?.url, "Protected gateway file URLs must be replaced by authenticated local image data before preview rendering.", result);
+    assertQa(result.legacyBlob.size > 0 && result.legacyBlob.type === "image/png" && result.fileCalls.length === 3 && result.fileCalls.every(call => call.headers?.Authorization === `Bearer ${"a".repeat(64)}` && call.proxyMode === "direct" && call.proxyUrl === ""), "Gateway downloads and legacy preview reloads must attach the in-memory bearer credential and bypass desktop proxies.", result);
     assertQa(result.inpaintEnabled && result.inpaintOpened, "Gateway gpt-image-2 must keep local mask inpainting clickable.", result);
     assertQa(result.providerOptions.includes("official") && result.providerOptions.includes("grsai") && result.providerOptions.includes("custom") && !result.gatewayOptionHidden, "The Windows provider list must keep Official, GrsAI and Custom while showing the gateway.", result);
   } finally {
