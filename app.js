@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.4.7";
+const APP_VERSION = "1.4.8";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -671,7 +671,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayAsyncHint: "批量分镜会保存任务 ID；网络中断或软件重启后继续轮询，不重新提交。",
     codexGatewayQueue: "客户端排队数",
     codexGatewayQueueHint: "最多同时送入 2 个任务；继续增加只会在网关排队，并更容易触发上游限流。",
-    codexGatewayFacts: "GPT Image 2 · 最多 20 张参考图 · Bearer 下载 · 300 秒客户端等待",
+    codexGatewayFacts: "GPT Image 2 · 最多 20 张参考图 · Bearer 下载 · 异步任务最长轮询 20 分钟",
     codexGatewayCapability: "6–20 张参考图会由网关聚合为最多 5 张编号参考板；局部重绘仍由软件在蒙版内合成。",
     codexGatewayHealthCheck: "检测网关",
     codexGatewayHealthIdle: "尚未检测",
@@ -688,7 +688,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayDimensionMode: "尺寸處理", codexGatewayDimensionModeHint: "精確輸出會無拉伸覆蓋裁切；邊緣內容可能被裁掉。原生模式保留上游尺寸。",
     codexGatewayAsync: "使用可恢復非同步任務", codexGatewayAsyncHint: "批次分鏡會儲存任務 ID；網路中斷或軟體重啟後繼續輪詢，不重新提交。",
     codexGatewayQueue: "客戶端佇列數", codexGatewayQueueHint: "最多同時送入 2 個任務；繼續增加只會在閘道排隊，並更容易觸發上游限流。",
-    codexGatewayFacts: "GPT Image 2 · 最多 20 張參考圖 · Bearer 下載 · 300 秒客戶端等待",
+    codexGatewayFacts: "GPT Image 2 · 最多 20 張參考圖 · Bearer 下載 · 非同步任務最長輪詢 20 分鐘",
     codexGatewayCapability: "6–20 張參考圖會由閘道聚合為最多 5 張編號參考板；局部重繪仍由軟體在遮罩內合成。",
     codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 Codex 生圖閘道…",
     codexGatewayHealthReady: "閘道可用 · {detail}", codexGatewayHealthFailed: "閘道不可用：{reason}",
@@ -702,7 +702,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayDimensionMode: "Dimension handling", codexGatewayDimensionModeHint: "Exact output uses cover cropping without stretching, so edge content may be cropped. Native preserves upstream dimensions.",
     codexGatewayAsync: "Use resumable async tasks", codexGatewayAsyncHint: "Batch task IDs are checkpointed. Polling resumes after a disconnect or app restart without resubmission.",
     codexGatewayQueue: "Client queue size", codexGatewayQueueHint: "Send at most 2 tasks concurrently; higher values only add gateway wait time and increase upstream throttling.",
-    codexGatewayFacts: "GPT Image 2 · up to 20 references · Bearer downloads · 300-second client wait",
+    codexGatewayFacts: "GPT Image 2 · up to 20 references · Bearer downloads · async task polling up to 20 minutes",
     codexGatewayCapability: "6–20 references are compiled into up to 5 numbered contact sheets. Local inpaint is still composited inside the mask by the app.",
     codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the Codex image gateway…",
     codexGatewayHealthReady: "Gateway ready · {detail}", codexGatewayHealthFailed: "Gateway unavailable: {reason}",
@@ -716,7 +716,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayDimensionMode: "サイズ処理", codexGatewayDimensionModeHint: "正確出力は引き伸ばさずカバー裁切するため、端が切れる場合があります。ネイティブは上流サイズを保持します。",
     codexGatewayAsync: "再開可能な非同期タスク", codexGatewayAsyncHint: "タスク ID を保存し、切断や再起動後も再送信せずポーリングを再開します。",
     codexGatewayQueue: "クライアント待機数", codexGatewayQueueHint: "同時送信は最大 2 件です。それ以上は待機時間と上流のレート制限を増やします。",
-    codexGatewayFacts: "GPT Image 2 · 参照最大 20 枚 · Bearer ダウンロード · 待機 300 秒",
+    codexGatewayFacts: "GPT Image 2 · 参照最大 20 枚 · Bearer ダウンロード · 非同期タスクを最大 20 分間ポーリング",
     codexGatewayCapability: "6～20 枚の参照画像は最大 5 枚の番号付き参照ボードに統合されます。部分再描画はアプリがマスク内だけ合成します。",
     codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "Codex 画像ゲートウェイに接続中…",
     codexGatewayHealthReady: "ゲートウェイ利用可能 · {detail}", codexGatewayHealthFailed: "ゲートウェイ利用不可：{reason}",
@@ -730,7 +730,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayDimensionMode: "크기 처리", codexGatewayDimensionModeHint: "정확 출력은 늘리지 않고 커버 자르기를 사용하므로 가장자리가 잘릴 수 있습니다. 원본 모드는 업스트림 크기를 유지합니다.",
     codexGatewayAsync: "재개 가능한 비동기 작업", codexGatewayAsyncHint: "작업 ID를 저장하여 연결 중단이나 앱 재시작 후 재제출 없이 폴링을 재개합니다.",
     codexGatewayQueue: "클라이언트 대기열", codexGatewayQueueHint: "동시 전송은 최대 2개입니다. 더 높은 값은 대기와 업스트림 제한만 늘립니다.",
-    codexGatewayFacts: "GPT Image 2 · 참고 이미지 최대 20장 · Bearer 다운로드 · 300초 대기",
+    codexGatewayFacts: "GPT Image 2 · 참고 이미지 최대 20장 · Bearer 다운로드 · 비동기 작업 최대 20분 폴링",
     codexGatewayCapability: "6~20장 참고 이미지는 최대 5개의 번호 참조 보드로 통합됩니다. 부분 다시 그리기는 앱이 마스크 내부에만 합성합니다.",
     codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "Codex 이미지 게이트웨이에 연결 중…",
     codexGatewayHealthReady: "게이트웨이 사용 가능 · {detail}", codexGatewayHealthFailed: "게이트웨이 사용 불가: {reason}",
