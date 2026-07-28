@@ -10,6 +10,7 @@ const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
 const hash = relative => crypto.createHash("sha256").update(fs.readFileSync(path.join(root, relative))).digest("hex");
 
 const app = read("app.js");
+const imageTaskStability = read("image-task-stability.js");
 const bootstrapGuard = read("bootstrap-guard.js");
 const pubspec = read("pubspec.yaml");
 const html = read("index.html");
@@ -31,17 +32,20 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.4.3", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.4\.3\+65$/m);
+assert.equal(version, "1.4.4", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.4\.4\+66$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
-assert.match(html, /v1\.4\.3/);
-assert.match(html, /20260727-1-4-3/g);
-assert.match(sw, /ai-image-generator-1-4-3-20260727/);
+assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
+assert.match(imageTaskStability, /moderation_blocked/);
+assert.match(imageTaskStability, /createOpenCodexRuntime/);
+assert.match(html, /v1\.4\.4/);
+assert.match(html, /20260728-1-4-4/g);
+assert.match(sw, /ai-image-generator-1-4-4-20260728/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,3,65/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.3"/);
-assert.match(workflow, /const APP_VERSION = "1\.4\.3";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260727-1-4-3/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,4,66/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.4"/);
+assert.match(workflow, /const APP_VERSION = "1\.4\.4";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260728-1-4-4/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);
@@ -136,7 +140,7 @@ assert.match(html, /id="grsaiSubmit504RetryInterval"/);
 assert.match(app, /getGrsaiSubmit504RetryPolicy/);
 assert.match(app, /onSubmit504Retry/);
 
-for (const file of ["app.js", "bootstrap-guard.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
+for (const file of ["app.js", "bootstrap-guard.js", "image-task-stability.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
   assert.equal(
     hash(file),
     hash(`android/app/src/main/assets/${file}`),
@@ -149,6 +153,8 @@ assert.match(app, /return \/HTTP\\s\*400\\b\/i\.test\(msg\)/);
 assert.match(app, /pollResp\.status === 504/);
 assert.match(app, /responseType:\s*"chunkedBase64"/);
 assert.match(dartMain, /nativeFetchBlobChunk/);
+assert.match(dartMain, /final partial = File\('\$\{file\.path\}\.part'\)/);
+assert.match(dartMain, /split\(RegExp\(r'\[\/\\\\\]\+'\)\)/);
 assert.match(app, /expectedSha256/);
 assert.match(app, /nativeTimeoutMs:\s*null/);
 assert.match(app, /imageUrlToBlobWithFallback/);

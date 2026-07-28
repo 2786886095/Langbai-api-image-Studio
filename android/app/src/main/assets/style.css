@@ -1611,6 +1611,13 @@ select.custom-select-native {
 }
 .result-actions .card-action { flex: 1 1 0; min-width: 0; padding: 9px 8px; }
 .result-actions .card-action .ui-icon { width: 1.2em; height: 1.2em; }
+
+.result-item[data-dimension-status="mismatch"] { border-color: color-mix(in srgb, var(--error) 72%, var(--border)); }
+.result-provider-meta.is-dimension-mismatch { color: var(--error); }
+.result-item.is-review-passed { box-shadow: inset 0 0 0 1px color-mix(in srgb, #3fb950 70%, transparent); }
+.result-item.is-review-rejected { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 75%, transparent); }
+.review-result[data-review="passed"] { color: #57d36b; }
+.review-result[data-review="rejected"] { color: var(--error); }
 .result-actions .btn { flex: 1; padding: 8px 12px; font-size: 0.8rem; }
 .result-error {
   padding: 34px 14px 18px;

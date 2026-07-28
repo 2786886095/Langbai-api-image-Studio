@@ -1480,9 +1480,13 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     var dir = baseDir;
     final trimmedFolder = folder.trim();
     if (trimmedFolder.isNotEmpty) {
-      final safeFolder = _sanitizeWindowsFileName(trimmedFolder);
-      if (safeFolder.isNotEmpty && safeFolder != '.' && safeFolder != '..') {
-        dir = [baseDir, safeFolder].join(Platform.pathSeparator);
+      final safeParts = trimmedFolder
+          .split(RegExp(r'[/\\]+'))
+          .map(_sanitizeWindowsFileName)
+          .where((part) => part.isNotEmpty && part != '.' && part != '..')
+          .toList(growable: false);
+      if (safeParts.isNotEmpty) {
+        dir = [baseDir, ...safeParts].join(Platform.pathSeparator);
         await Directory(dir).create(recursive: true);
       }
     }
@@ -1515,15 +1519,28 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       directory.path,
       uniqueName,
     ].join(Platform.pathSeparator));
-    await file.writeAsBytes(bytes, flush: true);
-    if (!await file.exists() || await file.length() != bytes.length) {
-      await file.delete().catchError((_) => file);
-      throw PlatformException(
-        code: 'incomplete_write',
-        message: 'Saved file size does not match the source data.',
-      );
+    final partial = File('${file.path}.part');
+    try {
+      if (await partial.exists()) await partial.delete();
+      await partial.writeAsBytes(bytes, flush: true);
+      if (!await partial.exists() || await partial.length() != bytes.length) {
+        throw PlatformException(
+          code: 'incomplete_write',
+          message: 'Saved file size does not match the source data.',
+        );
+      }
+      await partial.rename(file.path);
+      if (!await file.exists() || await file.length() != bytes.length) {
+        throw PlatformException(
+          code: 'incomplete_write',
+          message: 'Final file size does not match the verified partial file.',
+        );
+      }
+      return file.path;
+    } catch (_) {
+      if (await partial.exists()) await partial.delete();
+      rethrow;
     }
-    return file.path;
   }
 
   String _windowsTransferId(Map<String, dynamic> payload) {

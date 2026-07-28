@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.4.3";
+const APP_VERSION = "1.4.4";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -245,7 +245,7 @@ const CLEAN_LOCALES = {
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
     apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
     opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
-    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 并发 5", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。", inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
+    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 初始并发 2（断连后降为 1）", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。", inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
@@ -323,7 +323,7 @@ const CLEAN_LOCALES = {
     create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
     apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機生圖", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
     opencodexHint: "使用本機 OpenCodex 的 ChatGPT 登入轉發生圖；本機佔位密鑰不會傳送給 OpenAI，實際額度類型由 ChatGPT 上游決定。",
-    opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "重用本機 ChatGPT/Codex 或 Google Antigravity 登入；僅連線 127.0.0.1，不使用電腦端代理。", openCodexModel: "本機生圖模型", openCodexModelHint: "GPT Image 2 適合通用生成；Nano Banana 2 擅長多參考圖、文字與語意編輯。", opencodexQuality: "品質偏好", opencodexQualityHint: "私有額度上游實測固定為中等品質，其他檔位不會生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", openCodexAspectRatio: "畫面比例", openCodexAspectRatioHint: "只能選擇 Nano Banana 2 官方支援的畫面比例。", openCodexImageSize: "解析度檔位", openCodexImageSizeHint: "512/1K 最多並行 5，2K 最多 3，4K 固定單任務。", opencodexFacts: "JSON 圖片協議 · GPT Image 2 · 中等品質 · 約 157 萬像素 · 並行 5", opencodexCapability: "實測輸出約 157 萬像素、最長邊 2172、品質固定為中等；軟體會將尺寸比例寫入提示詞，並以實際回傳尺寸為準。", openCodexNanoFacts: "JSON 圖片協議 · Nano Banana 2 · 目前最多並行 {concurrency} · 單次逾時 620 秒", openCodexNanoCapability: "支援最多 8 張客戶端參考圖、文字渲染與語意編輯；比例與檔位是請求目標，以實際圖片為準。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}", openInpaint: "局部重繪", inpaintRequiresNano: "局部重繪需要選擇 Nano Banana 2", inpaintTitle: "局部重繪", inpaintDisclosure: "Nano Banana 2 產生語意補丁，軟體只在蒙版內本機合成；這不是上游原生 mask 重繪。", inpaintChooseSource: "選擇原圖", inpaintNoSource: "尚未選擇圖片", inpaintPromptLabel: "修改內容", inpaintGenerate: "產生候選補丁", inpaintApply: "套用並加入結果", inpaintInitial: "先選擇原圖，再塗抹要修改的區域。", inpaintNeedSource: "請先選擇原圖", inpaintNeedMask: "請先塗抹要修改的區域", inpaintNeedPrompt: "請輸入修改內容", inpaintGenerating: "正在產生候選補丁 {done}/{total}…", inpaintApplied: "局部重繪結果已加入結果清單", inpaintCandidateFailed: "候選 {index} 失敗：{reason}", inpaintRequestedActual: "請求：{requested} · 實際：{actual}",
+    opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "重用本機 ChatGPT/Codex 或 Google Antigravity 登入；僅連線 127.0.0.1，不使用電腦端代理。", openCodexModel: "本機生圖模型", openCodexModelHint: "GPT Image 2 適合通用生成；Nano Banana 2 擅長多參考圖、文字與語意編輯。", opencodexQuality: "品質偏好", opencodexQualityHint: "私有額度上游實測固定為中等品質，其他檔位不會生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", openCodexAspectRatio: "畫面比例", openCodexAspectRatioHint: "只能選擇 Nano Banana 2 官方支援的畫面比例。", openCodexImageSize: "解析度檔位", openCodexImageSizeHint: "512/1K 最多並行 5，2K 最多 3，4K 固定單任務。", opencodexFacts: "JSON 圖片協議 · GPT Image 2 · 中等品質 · 約 157 萬像素 · 初始並行 2（斷線後降為 1）", opencodexCapability: "實測輸出約 157 萬像素、最長邊 2172、品質固定為中等；軟體會將尺寸比例寫入提示詞，並以實際回傳尺寸為準。", openCodexNanoFacts: "JSON 圖片協議 · Nano Banana 2 · 目前最多並行 {concurrency} · 單次逾時 620 秒", openCodexNanoCapability: "支援最多 8 張客戶端參考圖、文字渲染與語意編輯；比例與檔位是請求目標，以實際圖片為準。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}", openInpaint: "局部重繪", inpaintRequiresNano: "局部重繪需要選擇 Nano Banana 2", inpaintTitle: "局部重繪", inpaintDisclosure: "Nano Banana 2 產生語意補丁，軟體只在蒙版內本機合成；這不是上游原生 mask 重繪。", inpaintChooseSource: "選擇原圖", inpaintNoSource: "尚未選擇圖片", inpaintPromptLabel: "修改內容", inpaintGenerate: "產生候選補丁", inpaintApply: "套用並加入結果", inpaintInitial: "先選擇原圖，再塗抹要修改的區域。", inpaintNeedSource: "請先選擇原圖", inpaintNeedMask: "請先塗抹要修改的區域", inpaintNeedPrompt: "請輸入修改內容", inpaintGenerating: "正在產生候選補丁 {done}/{total}…", inpaintApplied: "局部重繪結果已加入結果清單", inpaintCandidateFailed: "候選 {index} 失敗：{reason}", inpaintRequestedActual: "請求：{requested} · 實際：{actual}",
     savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
     apiProviderHint: "推薦生圖中轉網站：https://grsai.com/zh；請在瀏覽器開啟管理，軟體內不跳轉網站。",
     apiUrl: "API 位址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推薦生圖中轉網站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 位址",
@@ -401,7 +401,7 @@ const CLEAN_LOCALES = {
     create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
     apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "OpenCodex Local Images", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
     opencodexHint: "Routes images through the local OpenCodex ChatGPT login. The placeholder key is never sent to OpenAI; ChatGPT determines the actual quota category.",
-    opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Reuses the local ChatGPT/Codex or Google Antigravity login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", openCodexModel: "Local image model", openCodexModelHint: "GPT Image 2 is general purpose; Nano Banana 2 excels at multi-reference, text, and semantic editing.", opencodexQuality: "Quality preference", opencodexQualityHint: "The private quota upstream was measured at fixed Medium quality; the other tiers have no effect.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", openCodexAspectRatio: "Aspect ratio", openCodexAspectRatioHint: "Only official Nano Banana 2 aspect ratios are available.", openCodexImageSize: "Resolution tier", openCodexImageSizeHint: "512/1K: up to 5 concurrent; 2K: 3; 4K: one task.", opencodexFacts: "JSON image protocol · GPT Image 2 · Medium · about 1.57 MP · concurrency 5", opencodexCapability: "Measured output is about 1.57 MP with a 2172 px longest edge and fixed Medium quality. The requested ratio is added to the prompt; decoded dimensions are authoritative.", openCodexNanoFacts: "JSON image protocol · Nano Banana 2 · up to {concurrency} concurrent · 620-second timeout", openCodexNanoCapability: "Supports up to 8 client-side references, text rendering, and semantic edits. Ratio and tier are request targets; the decoded image is authoritative.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}", openInpaint: "Local inpaint", inpaintRequiresNano: "Local inpaint requires Nano Banana 2", inpaintTitle: "Local inpaint", inpaintDisclosure: "Nano Banana 2 generates a semantic patch and the app composites it only inside the local mask. This is not native upstream mask inpainting.", inpaintChooseSource: "Choose source image", inpaintNoSource: "No image selected", inpaintPromptLabel: "Requested change", inpaintGenerate: "Generate candidates", inpaintApply: "Apply and add to results", inpaintInitial: "Choose a source image, then paint the area to change.", inpaintNeedSource: "Choose a source image first", inpaintNeedMask: "Paint the area to change first", inpaintNeedPrompt: "Enter the requested change", inpaintGenerating: "Generating candidate patch {done}/{total}…", inpaintApplied: "The local inpaint result was added to results", inpaintCandidateFailed: "Candidate {index} failed: {reason}", inpaintRequestedActual: "Requested: {requested} · actual: {actual}",
+    opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Reuses the local ChatGPT/Codex or Google Antigravity login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", openCodexModel: "Local image model", openCodexModelHint: "GPT Image 2 is general purpose; Nano Banana 2 excels at multi-reference, text, and semantic editing.", opencodexQuality: "Quality preference", opencodexQualityHint: "The private quota upstream was measured at fixed Medium quality; the other tiers have no effect.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", openCodexAspectRatio: "Aspect ratio", openCodexAspectRatioHint: "Only official Nano Banana 2 aspect ratios are available.", openCodexImageSize: "Resolution tier", openCodexImageSizeHint: "512/1K: up to 5 concurrent; 2K: 3; 4K: one task.", opencodexFacts: "JSON image protocol · GPT Image 2 · Medium · about 1.57 MP · starts at 2 concurrent (drops to 1 after disconnects)", opencodexCapability: "Measured output is about 1.57 MP with a 2172 px longest edge and fixed Medium quality. The requested ratio is added to the prompt; decoded dimensions are authoritative.", openCodexNanoFacts: "JSON image protocol · Nano Banana 2 · up to {concurrency} concurrent · 620-second timeout", openCodexNanoCapability: "Supports up to 8 client-side references, text rendering, and semantic edits. Ratio and tier are request targets; the decoded image is authoritative.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}", openInpaint: "Local inpaint", inpaintRequiresNano: "Local inpaint requires Nano Banana 2", inpaintTitle: "Local inpaint", inpaintDisclosure: "Nano Banana 2 generates a semantic patch and the app composites it only inside the local mask. This is not native upstream mask inpainting.", inpaintChooseSource: "Choose source image", inpaintNoSource: "No image selected", inpaintPromptLabel: "Requested change", inpaintGenerate: "Generate candidates", inpaintApply: "Apply and add to results", inpaintInitial: "Choose a source image, then paint the area to change.", inpaintNeedSource: "Choose a source image first", inpaintNeedMask: "Paint the area to change first", inpaintNeedPrompt: "Enter the requested change", inpaintGenerating: "Generating candidate patch {done}/{total}…", inpaintApplied: "The local inpaint result was added to results", inpaintCandidateFailed: "Candidate {index} failed: {reason}", inpaintRequestedActual: "Requested: {requested} · actual: {actual}",
     savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
     apiProviderHint: "Recommended image gateway: https://grsai.com/zh. Manage it in your browser; the app will not open the website.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "Recommended image gateway: https://grsai.com/zh", useGrsaiEndpoint: "Use GrsAI URL",
@@ -479,7 +479,7 @@ const CLEAN_LOCALES = {
     create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
     apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "OpenCodex ローカル画像", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
     opencodexHint: "ローカル OpenCodex の ChatGPT ログイン経由で画像を生成します。プレースホルダーキーは OpenAI に送信されず、実際の利用枠は ChatGPT 側で決まります。",
-    opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex または Google Antigravity ログインを再利用します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", openCodexModel: "ローカル画像モデル", openCodexModelHint: "GPT Image 2 は汎用生成、Nano Banana 2 は複数参照・文字・意味編集に向いています。", opencodexQuality: "品質の希望", opencodexQualityHint: "非公開クォータ上流は実測で中品質固定です。他の品質段階は反映されません。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", openCodexAspectRatio: "画面比率", openCodexAspectRatioHint: "Nano Banana 2 が公式対応する画面比率のみ選択できます。", openCodexImageSize: "解像度段階", openCodexImageSizeHint: "512/1K は最大 5、2K は 3、4K は 1 タスクです。", opencodexFacts: "JSON 画像プロトコル · GPT Image 2 · 中品質 · 約 157 万画素 · 同時 5 件", opencodexCapability: "実測出力は約 157 万画素、最長辺 2172 px、品質は中固定です。サイズ比率をプロンプトへ追加し、実際の画像寸法を正とします。", openCodexNanoFacts: "JSON 画像プロトコル · Nano Banana 2 · 最大同時 {concurrency} 件 · 620 秒タイムアウト", openCodexNanoCapability: "クライアント側参照画像は最大 8 枚。文字描画と意味編集に対応します。比率と段階は要求値で、実画像を正とします。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}", openInpaint: "部分再描画", inpaintRequiresNano: "部分再描画には Nano Banana 2 が必要です", inpaintTitle: "部分再描画", inpaintDisclosure: "Nano Banana 2 が意味的なパッチを生成し、アプリがローカルマスク内だけに合成します。上流ネイティブの mask 再描画ではありません。", inpaintChooseSource: "元画像を選択", inpaintNoSource: "画像未選択", inpaintPromptLabel: "変更内容", inpaintGenerate: "候補を生成", inpaintApply: "適用して結果へ追加", inpaintInitial: "元画像を選び、変更する領域を塗ってください。", inpaintNeedSource: "先に元画像を選択してください", inpaintNeedMask: "先に変更する領域を塗ってください", inpaintNeedPrompt: "変更内容を入力してください", inpaintGenerating: "候補パッチを生成中 {done}/{total}…", inpaintApplied: "部分再描画結果を結果一覧へ追加しました", inpaintCandidateFailed: "候補 {index} 失敗：{reason}", inpaintRequestedActual: "要求：{requested} · 実際：{actual}",
+    opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex または Google Antigravity ログインを再利用します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", openCodexModel: "ローカル画像モデル", openCodexModelHint: "GPT Image 2 は汎用生成、Nano Banana 2 は複数参照・文字・意味編集に向いています。", opencodexQuality: "品質の希望", opencodexQualityHint: "非公開クォータ上流は実測で中品質固定です。他の品質段階は反映されません。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", openCodexAspectRatio: "画面比率", openCodexAspectRatioHint: "Nano Banana 2 が公式対応する画面比率のみ選択できます。", openCodexImageSize: "解像度段階", openCodexImageSizeHint: "512/1K は最大 5、2K は 3、4K は 1 タスクです。", opencodexFacts: "JSON 画像プロトコル · GPT Image 2 · 中品質 · 約 157 万画素 · 初期同時 2 件（切断後は 1 件）", opencodexCapability: "実測出力は約 157 万画素、最長辺 2172 px、品質は中固定です。サイズ比率をプロンプトへ追加し、実際の画像寸法を正とします。", openCodexNanoFacts: "JSON 画像プロトコル · Nano Banana 2 · 最大同時 {concurrency} 件 · 620 秒タイムアウト", openCodexNanoCapability: "クライアント側参照画像は最大 8 枚。文字描画と意味編集に対応します。比率と段階は要求値で、実画像を正とします。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}", openInpaint: "部分再描画", inpaintRequiresNano: "部分再描画には Nano Banana 2 が必要です", inpaintTitle: "部分再描画", inpaintDisclosure: "Nano Banana 2 が意味的なパッチを生成し、アプリがローカルマスク内だけに合成します。上流ネイティブの mask 再描画ではありません。", inpaintChooseSource: "元画像を選択", inpaintNoSource: "画像未選択", inpaintPromptLabel: "変更内容", inpaintGenerate: "候補を生成", inpaintApply: "適用して結果へ追加", inpaintInitial: "元画像を選び、変更する領域を塗ってください。", inpaintNeedSource: "先に元画像を選択してください", inpaintNeedMask: "先に変更する領域を塗ってください", inpaintNeedPrompt: "変更内容を入力してください", inpaintGenerating: "候補パッチを生成中 {done}/{total}…", inpaintApplied: "部分再描画結果を結果一覧へ追加しました", inpaintCandidateFailed: "候補 {index} 失敗：{reason}", inpaintRequestedActual: "要求：{requested} · 実際：{actual}",
     savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
     apiProviderHint: "推奨画像中継サイト：https://grsai.com/zh。管理はブラウザで開き、アプリ内では遷移しません。",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推奨画像中継サイト：https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL を入力",
@@ -557,7 +557,7 @@ const CLEAN_LOCALES = {
     create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
     apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "OpenCodex 로컬 이미지", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
     opencodexHint: "로컬 OpenCodex의 ChatGPT 로그인으로 이미지를 생성합니다. 자리표시자 키는 OpenAI로 전송되지 않으며 실제 사용 한도는 ChatGPT에서 결정합니다.",
-    opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 또는 Google Antigravity 로그인을 재사용합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", openCodexModel: "로컬 이미지 모델", openCodexModelHint: "GPT Image 2는 범용 생성, Nano Banana 2는 다중 참고·문자·의미 편집에 적합합니다.", opencodexQuality: "품질 선호", opencodexQualityHint: "비공개 할당량 업스트림은 실측상 중간 품질로 고정되며 다른 품질 단계는 적용되지 않습니다.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", openCodexAspectRatio: "화면 비율", openCodexAspectRatioHint: "Nano Banana 2가 공식 지원하는 화면 비율만 선택할 수 있습니다.", openCodexImageSize: "해상도 단계", openCodexImageSizeHint: "512/1K는 최대 5개, 2K는 3개, 4K는 1개 작업입니다.", opencodexFacts: "JSON 이미지 프로토콜 · GPT Image 2 · 중간 품질 · 약 157만 화소 · 동시 5개", opencodexCapability: "실측 출력은 약 157만 화소, 최장변 2172 px, 품질은 중간으로 고정됩니다. 크기 비율을 프롬프트에 추가하며 실제 이미지 크기를 기준으로 합니다.", openCodexNanoFacts: "JSON 이미지 프로토콜 · Nano Banana 2 · 최대 동시 {concurrency}개 · 620초 제한", openCodexNanoCapability: "클라이언트 참고 이미지는 최대 8장입니다. 문자 렌더링과 의미 편집을 지원하며 비율과 단계는 요청 목표이고 실제 이미지를 기준으로 합니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}", openInpaint: "부분 다시 그리기", inpaintRequiresNano: "부분 다시 그리기에는 Nano Banana 2가 필요합니다", inpaintTitle: "부분 다시 그리기", inpaintDisclosure: "Nano Banana 2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다. 업스트림 네이티브 mask 인페인팅이 아닙니다.", inpaintChooseSource: "원본 이미지 선택", inpaintNoSource: "선택된 이미지 없음", inpaintPromptLabel: "변경 내용", inpaintGenerate: "후보 생성", inpaintApply: "적용하고 결과에 추가", inpaintInitial: "원본 이미지를 선택한 뒤 변경할 영역을 칠하세요.", inpaintNeedSource: "먼저 원본 이미지를 선택하세요", inpaintNeedMask: "먼저 변경할 영역을 칠하세요", inpaintNeedPrompt: "변경 내용을 입력하세요", inpaintGenerating: "후보 패치 생성 중 {done}/{total}…", inpaintApplied: "부분 다시 그리기 결과를 결과 목록에 추가했습니다", inpaintCandidateFailed: "후보 {index} 실패: {reason}", inpaintRequestedActual: "요청: {requested} · 실제: {actual}",
+    opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 또는 Google Antigravity 로그인을 재사용합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", openCodexModel: "로컬 이미지 모델", openCodexModelHint: "GPT Image 2는 범용 생성, Nano Banana 2는 다중 참고·문자·의미 편집에 적합합니다.", opencodexQuality: "품질 선호", opencodexQualityHint: "비공개 할당량 업스트림은 실측상 중간 품질로 고정되며 다른 품질 단계는 적용되지 않습니다.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", openCodexAspectRatio: "화면 비율", openCodexAspectRatioHint: "Nano Banana 2가 공식 지원하는 화면 비율만 선택할 수 있습니다.", openCodexImageSize: "해상도 단계", openCodexImageSizeHint: "512/1K는 최대 5개, 2K는 3개, 4K는 1개 작업입니다.", opencodexFacts: "JSON 이미지 프로토콜 · GPT Image 2 · 중간 품질 · 초기 동시 2개(연결 끊김 후 1개)", opencodexCapability: "실측 출력은 약 157만 화소, 최장변 2172 px, 품질은 중간으로 고정됩니다. 크기 비율을 프롬프트에 추가하며 실제 이미지 크기를 기준으로 합니다.", openCodexNanoFacts: "JSON 이미지 프로토콜 · Nano Banana 2 · 최대 동시 {concurrency}개 · 620초 제한", openCodexNanoCapability: "클라이언트 참고 이미지는 최대 8장입니다. 문자 렌더링과 의미 편집을 지원하며 비율과 단계는 요청 목표이고 실제 이미지를 기준으로 합니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}", openInpaint: "부분 다시 그리기", inpaintRequiresNano: "부분 다시 그리기에는 Nano Banana 2가 필요합니다", inpaintTitle: "부분 다시 그리기", inpaintDisclosure: "Nano Banana 2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다. 업스트림 네이티브 mask 인페인팅이 아닙니다.", inpaintChooseSource: "원본 이미지 선택", inpaintNoSource: "선택된 이미지 없음", inpaintPromptLabel: "변경 내용", inpaintGenerate: "후보 생성", inpaintApply: "적용하고 결과에 추가", inpaintInitial: "원본 이미지를 선택한 뒤 변경할 영역을 칠하세요.", inpaintNeedSource: "먼저 원본 이미지를 선택하세요", inpaintNeedMask: "먼저 변경할 영역을 칠하세요", inpaintNeedPrompt: "변경 내용을 입력하세요", inpaintGenerating: "후보 패치 생성 중 {done}/{total}…", inpaintApplied: "부분 다시 그리기 결과를 결과 목록에 추가했습니다", inpaintCandidateFailed: "후보 {index} 실패: {reason}", inpaintRequestedActual: "요청: {requested} · 실제: {actual}",
     savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
     apiProviderHint: "추천 이미지 중계 사이트: https://grsai.com/zh. 관리는 브라우저에서 열고 앱 안에서는 이동하지 않습니다.",
     apiUrl: "API URL", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "추천 이미지 중계 사이트: https://grsai.com/zh", useGrsaiEndpoint: "GrsAI URL 입력",
@@ -1737,6 +1737,78 @@ const OPENCODEX_HEALTH_CACHE_MS = 30000;
 const OPENCODEX_GPT_IMAGE_2 = "gpt-image-2";
 const OPENCODEX_NANO_BANANA_2 = "gemini-3.1-flash-image";
 const OPENCODEX_GPT_PRIVATE_QUALITY = "medium";
+const imageTaskStability = window.ImageTaskStability;
+if (!imageTaskStability) throw new Error("image-task-stability.js 未加载，生图稳定层无法启动");
+const openCodexRuntime = imageTaskStability.createOpenCodexRuntime({
+  initialConcurrency: 2,
+  circuitFailureThreshold: 3,
+  circuitMs: 45_000,
+});
+
+const IMAGE_ERROR_TEXT = Object.freeze({
+  "zh-CN": Object.freeze({
+    moderation_blocked: "内容审核拦截",
+    invalid_parameters: "请求参数不受支持",
+    authentication_failed: "认证或账号权限失败",
+    payload_too_large: "请求体过大",
+    rate_limited: "上游限流或额度冷却",
+    upstream_disconnected: "OpenCodex 上游连接断开",
+    upstream_unavailable: "OpenCodex 上游服务暂不可用",
+    upstream_timeout: "OpenCodex 上游生成超时",
+    decode_failed: "图片响应解码失败",
+    unknown: "生图请求失败",
+    editRequired: "请修改当前分镜提示词或参考图后再重试。",
+    requestId: "请求 ID",
+    violations: "审核类别",
+  }),
+  "zh-Hant": Object.freeze({
+    moderation_blocked: "內容審核攔截", invalid_parameters: "請求參數不受支援", authentication_failed: "驗證或帳號權限失敗",
+    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "OpenCodex 上游連線中斷",
+    upstream_unavailable: "OpenCodex 上游服務暫時無法使用", upstream_timeout: "OpenCodex 上游生成逾時", decode_failed: "圖片回應解碼失敗",
+    unknown: "生圖請求失敗", editRequired: "請修改目前分鏡提示詞或參考圖後再重試。", requestId: "請求 ID", violations: "審核類別",
+  }),
+  en: Object.freeze({
+    moderation_blocked: "Blocked by content moderation", invalid_parameters: "Unsupported request parameters", authentication_failed: "Authentication or account access failed",
+    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "OpenCodex upstream connection closed",
+    upstream_unavailable: "OpenCodex upstream is unavailable", upstream_timeout: "OpenCodex upstream generation timed out", decode_failed: "Image response decoding failed",
+    unknown: "Image request failed", editRequired: "Edit this panel prompt or its references before retrying.", requestId: "Request ID", violations: "Safety categories",
+  }),
+  ja: Object.freeze({
+    moderation_blocked: "コンテンツ審査でブロックされました", invalid_parameters: "未対応のリクエストパラメータ", authentication_failed: "認証またはアカウント権限エラー",
+    payload_too_large: "リクエストが大きすぎます", rate_limited: "上流のレート制限またはクォータ待機", upstream_disconnected: "OpenCodex 上流接続が切断されました",
+    upstream_unavailable: "OpenCodex 上流サービスを利用できません", upstream_timeout: "OpenCodex 上流生成がタイムアウトしました", decode_failed: "画像レスポンスのデコードに失敗しました",
+    unknown: "画像生成リクエストに失敗しました", editRequired: "このコマのプロンプトまたは参照画像を修正してから再試行してください。", requestId: "リクエスト ID", violations: "審査カテゴリ",
+  }),
+  ko: Object.freeze({
+    moderation_blocked: "콘텐츠 검토에서 차단됨", invalid_parameters: "지원되지 않는 요청 매개변수", authentication_failed: "인증 또는 계정 권한 실패",
+    payload_too_large: "요청 데이터가 너무 큼", rate_limited: "업스트림 속도 제한 또는 할당량 대기", upstream_disconnected: "OpenCodex 업스트림 연결 끊김",
+    upstream_unavailable: "OpenCodex 업스트림 서비스를 사용할 수 없음", upstream_timeout: "OpenCodex 업스트림 생성 시간 초과", decode_failed: "이미지 응답 디코딩 실패",
+    unknown: "이미지 요청 실패", editRequired: "현재 컷 프롬프트나 참고 이미지를 수정한 뒤 다시 시도하세요.", requestId: "요청 ID", violations: "검토 범주",
+  }),
+});
+
+function classifyImageApiError(error, extra = {}) {
+  return error?.imageError || imageTaskStability.classifyApiError(error, extra);
+}
+
+function formatImageApiError(error, extra = {}) {
+  const detail = classifyImageApiError(error, extra);
+  const language = IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"];
+  const parts = [language[detail.category] || language.unknown];
+  if (detail.safetyViolations.length) parts.push(`${language.violations}: ${detail.safetyViolations.join(", ")}`);
+  if (detail.requiresEdit) parts.push(language.editRequired);
+  if (detail.requestId) parts.push(`${language.requestId}: ${detail.requestId}`);
+  if (detail.category !== "moderation_blocked" && detail.originalMessage) parts.push(detail.originalMessage);
+  return { detail, message: parts.filter(Boolean).join("。") };
+}
+
+function makeImageApiError(error, extra = {}) {
+  const formatted = formatImageApiError(error, extra);
+  const result = new Error(formatted.message);
+  result.name = "ImageApiError";
+  result.imageError = formatted.detail;
+  return result;
+}
 const OPENCODEX_GPT_PRIVATE_MAX_PIXELS_OBSERVED = 1573770;
 const OPENCODEX_GPT_PRIVATE_MAX_EDGE_OBSERVED = 2172;
 const OPENCODEX_MODELS = Object.freeze([OPENCODEX_GPT_IMAGE_2, OPENCODEX_NANO_BANANA_2]);
@@ -2252,7 +2324,7 @@ function updateSizePolicyUi() {
 }
 
 function getOpenCodexConcurrency(options = getOpenCodexImageOptions()) {
-  if (options.model !== OPENCODEX_NANO_BANANA_2) return 5;
+  if (options.model !== OPENCODEX_NANO_BANANA_2) return openCodexRuntime.snapshot().concurrency;
   if (options.imageSize === "4K") return 1;
   if (options.imageSize === "2K") return 3;
   return 5;
@@ -2485,6 +2557,7 @@ async function checkOpenCodexHealth({ announce = false, force = true } = {}) {
       if (payload?.status && payload.status !== "ok") throw new Error(payload.message || payload.status);
       openCodexHealthVersion = String(payload?.version || "OK");
       openCodexHealthCheckedAt = Date.now();
+      openCodexRuntime.resetAfterHealthCheck({ resetReference: force });
       setOpenCodexHealthState("ready");
       if (announce) showStatus(interpolate(cleanText("opencodexHealthReady"), { version: openCodexHealthVersion }), "success");
       return true;
@@ -6034,6 +6107,23 @@ registerAdapter({
     if (hasRef && refs.length) {
       body.images = refs.map(ref => ({ image_url: ref.dataUrl }));
     }
+    const runtimeGate = openCodexRuntime.beforeRequest({ hasReference: hasRef && refs.length > 0 });
+    if (!runtimeGate.allowed) {
+      if (runtimeGate.reason === "reference_route_unavailable") {
+        throw makeImageApiError(new Error(`HTTP 503: OpenCodex 当前参考图转发不可用。${runtimeGate.detail || "请先修复本地参考图链路，再点击测试本地服务重新探测。"}`));
+      }
+      const seconds = Math.max(1, Math.ceil(Number(runtimeGate.retryAfterMs || 0) / 1000));
+      throw makeImageApiError(new Error(`HTTP 503: OpenCodex 客户端熔断器已暂停新任务，请在 ${seconds} 秒后重新探测。`));
+    }
+    const startedAt = Date.now();
+    const requestAudit = await imageTaskStability.buildRequestAudit({
+      provider: "opencodex",
+      model: selectedModel,
+      prompt: body.prompt,
+      size: body.size || `${body.aspect_ratio || "auto"}/${body.image_size || "auto"}`,
+      quality: body.quality || selected.quality || "",
+      references: hasRef ? refs : [],
+    });
     try {
       const data = await apiFetch(url, OPENCODEX_PLACEHOLDER_KEY, body, {
         signal,
@@ -6044,6 +6134,7 @@ registerAdapter({
       if (!images.some(item => item?.b64_json || item?.url)) {
         throw new Error("OpenCodex 上游没有返回图片，可能只返回了文本或被安全策略终止。");
       }
+      openCodexRuntime.recordSuccess({ hasReference: hasRef && refs.length > 0 });
       data._openCodex = {
         provider: "opencodex-local-image",
         operation: hasRef && refs.length ? "edit" : "generation",
@@ -6053,29 +6144,23 @@ registerAdapter({
           size: data?.size || images[0]?.size || null,
           mimeType: images[0]?.mime_type || null,
         },
+        audit: {
+          ...requestAudit,
+          requestId: data?._responseMeta?.requestId || "",
+          startedAt: new Date(startedAt).toISOString(),
+          elapsedSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+        },
       };
       return data;
     } catch (err) {
       const message = String(err?.message || err || "");
       if (/HTTP\s*499\b/i.test(message)) throw createAbortError();
-      const guidance = /HTTP\s*400\b/i.test(message)
-        ? "请求参数不受支持，请检查模型、比例、分辨率、提示词或参考图。"
-        : /HTTP\s*401\b/i.test(message)
-          ? `${selectedModel === OPENCODEX_NANO_BANANA_2 ? "Google Antigravity" : "ChatGPT/Codex"} 授权已失效，请检查 ocx status 或重新登录。`
-          : /HTTP\s*403\b/i.test(message)
-            ? "当前上游账号策略或模型访问权限受限。"
-          : /HTTP\s*409\b/i.test(message)
-            ? "账号或任务状态已失效，请重新开始任务后再试。"
-            : /HTTP\s*413\b/i.test(message)
-              ? "参考图请求体过大，请减少图片数量或压缩图片。"
-              : /HTTP\s*429\b/i.test(message)
-                ? "上游正在限流或额度冷却，请稍后手动重试。"
-                : /HTTP\s*502\b/i.test(message)
-                  ? "OpenCodex 上游连接失败，任务不会自动重发，可稍后手动重试。"
-                  : /HTTP\s*504\b/i.test(message)
-                    ? "OpenCodex 上游生成超过 600 秒，任务不会自动重发，可稍后手动重试。"
-                    : "";
-      throw new Error(guidance ? `${guidance} ${message}` : message);
+      const classified = classifyImageApiError(err);
+      openCodexRuntime.recordFailure(classified, {
+        hasReference: hasRef && refs.length > 0,
+        message,
+      });
+      throw makeImageApiError(err);
     }
   },
 });
@@ -6815,15 +6900,19 @@ function getProviderConcurrency() {
 async function concurrentLimitSettled(tasks, limit = 20, signal = null) {
   const results = [];
   const executing = [];
+  const currentLimit = () => {
+    const value = Number(typeof limit === "function" ? limit() : limit);
+    return Math.max(1, Number.isFinite(value) ? Math.floor(value) : 1);
+  };
   for (const task of tasks) {
     if (signal?.aborted) break;
+    while (executing.length >= currentLimit()) await Promise.race(executing);
     const p = task()
       .then(r => ({ status: "fulfilled", value: r }))
       .catch(e => ({ status: "rejected", reason: e?.message || String(e) }));
     results.push(p);
     const tracker = p.then(r => { executing.splice(executing.indexOf(tracker), 1); return r; });
     executing.push(tracker);
-    if (executing.length >= limit) await Promise.race(executing);
   }
   return Promise.all(results);
 }
@@ -6986,18 +7075,34 @@ async function apiFetch(url, apiKey, body, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     let jsonSummary = "";
+    let errorPayload = null;
+    let errorCode = "";
+    let safetyViolations = [];
     try {
       const payload = JSON.parse(errorText);
+      errorPayload = payload;
       const apiError = payload?.error && typeof payload.error === "object" ? payload.error : payload;
       const message = apiError?.message || apiError?.error || payload?.message || "";
       const code = apiError?.code || payload?.code || "";
+      errorCode = String(code || "");
+      const violations = apiError?.safety_violations || payload?.safety_violations;
+      safetyViolations = Array.isArray(violations) ? violations : (violations ? [violations] : []);
       if (message) jsonSummary = `${code ? `[${code}] ` : ""}${typeof message === "string" ? message : JSON.stringify(message)}`;
     } catch {}
     const titleMatch = errorText.match(/<title[^>]*>([^<]*)<\/title>/i);
     const headingMatch = errorText.match(/<h1[^>]*>([^<]*)<\/h1>/i);
     const plainText = errorText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const summary = (jsonSummary || titleMatch?.[1] || headingMatch?.[1] || plainText || response.statusText || "请求失败").trim();
-    throw new Error(`HTTP ${response.status}: ${summary.slice(0, 300)}`);
+    const rawError = new Error(`HTTP ${response.status}: ${summary.slice(0, 500)}`);
+    rawError.status = response.status;
+    rawError.code = errorCode;
+    rawError.requestId = response.headers.get("x-request-id")
+      || response.headers.get("request-id")
+      || errorPayload?.request_id
+      || errorPayload?.error?.request_id
+      || "";
+    rawError.safety_violations = safetyViolations;
+    throw makeImageApiError(rawError);
   }
 
   const ct = response.headers.get("content-type") || "";
@@ -7008,7 +7113,14 @@ async function apiFetch(url, apiKey, body, options = {}) {
     throw new Error(`服务器返回了网页而非 API 数据${hint}。请检查 API 地址是否正确`);
   }
 
-  return response.json();
+  const payload = await response.json();
+  if (payload && typeof payload === "object") {
+    payload._responseMeta = {
+      requestId: response.headers.get("x-request-id") || response.headers.get("request-id") || payload.request_id || "",
+      status: response.status,
+    };
+  }
+  return payload;
 }
 
 function fileToBase64(file) {
@@ -7093,7 +7205,7 @@ async function generateSingle() {
           return;
         }
         if (!isGenerationCurrent(run)) return;
-        markPlaceholderFailed(placeholder, i + 1, err.message, { mode: "single", prompt, size, references, retryCount });
+        markPlaceholderFailed(placeholder, i + 1, err, { mode: "single", prompt, size, references, retryCount });
         fail++;
       }
     });
@@ -7104,7 +7216,7 @@ async function generateSingle() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, getProviderConcurrency(), run.signal);
+      await concurrentLimitSettled(tasks, getProviderConcurrency, run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
@@ -7183,6 +7295,31 @@ async function generateComic() {
     });
     return { panel, fullPrompt, size, references, retryCount, placeholder, globalPrompt };
   });
+  const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  initializeProjectCheckpoint({
+    id: projectId,
+    type: "comic-project",
+    mode: "comic",
+    title: `${cleanText("comicProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
+    createdAt: new Date().toISOString(),
+    globalPrompt,
+    model: dom.model.value.trim(),
+    endpoint: dom.apiEndpoint.value.trim(),
+    size: globalSize,
+    retryCount: globalRetryCount,
+    totalPanels: total,
+    panels: panelTasks.map(({ panel, size: panelSize, retryCount: panelRetries, references }) => ({
+      panelId: String(panel.id),
+      panelPrompt: panel.prompt,
+      prompt: panel.prompt,
+      size: panelSize,
+      retryCount: panelRetries,
+      references: [],
+      hadReferences: references.length > 0,
+      status: "pending",
+    })),
+  });
+  currentComicHistoryId = projectId;
 
   let done = 0;
   const tasks = panelTasks.map(({ panel, fullPrompt, size, references, retryCount, placeholder }) => async () => {
@@ -7210,12 +7347,13 @@ async function generateComic() {
         retryCount,
         _cachePromise: placeholder._imageCachePromise,
       });
+      if (record) await updateProjectCheckpoint(projectId, panel.id, { status: "success", record });
       completed++;
     } catch (err) {
       const isAbort = err.name === "AbortError";
       if (isAbort || isGenerationCurrent(run)) {
-        const message = isAbort ? (cardAbort.signal.aborted ? "已手动取消" : "已取消生成") : err.message;
-        markPlaceholderFailed(placeholder, panel.id, message, {
+        const failure = isAbort ? (cardAbort.signal.aborted ? "已手动取消" : "已取消生成") : err;
+        markPlaceholderFailed(placeholder, panel.id, failure, {
           references,
           size,
           mode: "comic",
@@ -7224,6 +7362,10 @@ async function generateComic() {
           prompt: fullPrompt,
           fullPrompt,
           retryCount,
+        });
+        await updateProjectCheckpoint(projectId, panel.id, {
+          status: isAbort ? "canceled" : "failed",
+          error: failure?.message || failure,
         });
         failed++;
       }
@@ -7240,40 +7382,13 @@ async function generateComic() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, getProviderConcurrency(), run.signal);
+      await concurrentLimitSettled(tasks, getProviderConcurrency, run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
     updateProgress(completed + failed, total, "✅");
 
-    if (completed > 0 || failed > 0) {
-      const newProjectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      await saveGenerationProject({
-        id: newProjectId,
-        type: "comic-project",
-        mode: "comic",
-        title: `${cleanText("comicProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
-        createdAt: new Date().toISOString(),
-        globalPrompt,
-        model: dom.model.value.trim(),
-        endpoint: dom.apiEndpoint.value.trim(),
-        size: globalSize,
-        retryCount: globalRetryCount,
-        totalPanels: total,
-        panels: panelTasks.map(({ panel, size, retryCount }) => ({
-          panelId: String(panel.id),
-          panelPrompt: panel.prompt,
-          prompt: panel.prompt,
-          size,
-          retryCount,
-          // 历史项目只恢复参数，不保存或恢复参考图，避免把大体积 data URL 塞进 localStorage。
-          references: [],
-          status: projectImages.some(img => String(img.panelId) === String(panel.id)) ? "success" : "failed",
-        })),
-        images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
-      });
-      currentComicHistoryId = newProjectId;
-    }
+    await finalizeProjectCheckpoint(projectId, completed, failed);
 
     if (failed > 0) {
       showStatus(`完成：${completed} 成功 / ${failed} 失败`, "error");
@@ -7345,6 +7460,31 @@ async function generateCaptions() {
     });
     return { row, fullPrompt, size, references, retryCount, placeholder, globalPrompt };
   });
+  const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  initializeProjectCheckpoint({
+    id: projectId,
+    type: "caption-project",
+    mode: "caption",
+    title: `${cleanText("captionProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
+    createdAt: new Date().toISOString(),
+    globalPrompt,
+    model: dom.model.value.trim(),
+    endpoint: dom.apiEndpoint.value.trim(),
+    size: globalSize,
+    retryCount: globalRetryCount,
+    totalPanels: total,
+    panels: rowTasks.map(({ row, size: rowSize, retryCount: rowRetries, references }) => ({
+      panelId: String(row.id),
+      panelPrompt: row.captionText,
+      prompt: row.captionText,
+      size: rowSize,
+      retryCount: rowRetries,
+      references: [],
+      hadReferences: references.length > 0,
+      status: "pending",
+    })),
+  });
+  currentComicHistoryId = projectId;
 
   let done = 0;
   const tasks = rowTasks.map(({ row, fullPrompt, size, references, retryCount, placeholder }) => async () => {
@@ -7372,12 +7512,13 @@ async function generateCaptions() {
         retryCount,
         _cachePromise: placeholder._imageCachePromise,
       });
+      if (record) await updateProjectCheckpoint(projectId, row.id, { status: "success", record });
       completed++;
     } catch (err) {
       const isAbort = err.name === "AbortError";
       if (isAbort || isGenerationCurrent(run)) {
-        const message = isAbort ? (cardAbort.signal.aborted ? "已手动取消" : "已取消生成") : err.message;
-        markPlaceholderFailed(placeholder, row.id, message, {
+        const failure = isAbort ? (cardAbort.signal.aborted ? "已手动取消" : "已取消生成") : err;
+        markPlaceholderFailed(placeholder, row.id, failure, {
           references,
           size,
           mode: "caption",
@@ -7386,6 +7527,10 @@ async function generateCaptions() {
           prompt: fullPrompt,
           fullPrompt,
           retryCount,
+        });
+        await updateProjectCheckpoint(projectId, row.id, {
+          status: isAbort ? "canceled" : "failed",
+          error: failure?.message || failure,
         });
         failed++;
       }
@@ -7402,39 +7547,13 @@ async function generateCaptions() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, getProviderConcurrency(), run.signal);
+      await concurrentLimitSettled(tasks, getProviderConcurrency, run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
     updateProgress(completed + failed, total, "✅");
 
-    if (completed > 0 || failed > 0) {
-      const newProjectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      await saveGenerationProject({
-        id: newProjectId,
-        type: "caption-project",
-        mode: "caption",
-        title: `${cleanText("captionProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
-        createdAt: new Date().toISOString(),
-        globalPrompt,
-        model: dom.model.value.trim(),
-        endpoint: dom.apiEndpoint.value.trim(),
-        size: globalSize,
-        retryCount: globalRetryCount,
-        totalPanels: total,
-        panels: rowTasks.map(({ row, size, retryCount }) => ({
-          panelId: String(row.id),
-          panelPrompt: row.captionText,
-          prompt: row.captionText,
-          size,
-          retryCount,
-          references: [],
-          status: projectImages.some(img => String(img.panelId) === String(row.id)) ? "success" : "failed",
-        })),
-        images: projectImages.sort((a, b) => Number(a.panelId) - Number(b.panelId)),
-      });
-      currentComicHistoryId = newProjectId;
-    }
+    await finalizeProjectCheckpoint(projectId, completed, failed);
 
     if (failed > 0) {
       showStatus(`完成：${completed} 成功 / ${failed} 失败`, "error");
@@ -7580,12 +7699,46 @@ function renderOpenCodexResultMeta(element, record) {
   if (actual.responseQuality) actualParts.push(String(actual.responseQuality));
   if (actual.mimeType) actualParts.push(String(actual.mimeType).replace("image/", "").toUpperCase());
   if (actual.bytes) actualParts.push(formatImageBytes(actual.bytes));
+  if (actual.dimensionStatus === "exact") actualParts.push(currentLanguage === "en" ? "exact" : "尺寸精确");
+  if (actual.dimensionStatus === "mismatch") actualParts.push(currentLanguage === "en" ? "size mismatch" : "尺寸不符·将隔离导出");
+  element.classList.toggle("is-dimension-mismatch", actual.dimensionStatus === "mismatch");
   element.innerHTML = `
     <strong>${escapeHtml(OPENCODEX_CAPABILITIES[record.model]?.label || record.model || "OpenCodex")}</strong>
     <span>${escapeHtml(interpolate(cleanText("inpaintRequestedActual"), {
       requested: requestedText,
       actual: actualParts.join(" · ") || "—",
     }))}</span>`;
+}
+
+function reviewStateLabel(state) {
+  const labels = {
+    pending: { "zh-CN": "待人工审核", "zh-Hant": "待人工審核", en: "Review pending", ja: "確認待ち", ko: "검토 대기" },
+    passed: { "zh-CN": "人工审核通过", "zh-Hant": "人工審核通過", en: "Review passed", ja: "確認済み", ko: "검토 통과" },
+    rejected: { "zh-CN": "人工审核不通过", "zh-Hant": "人工審核不通過", en: "Review rejected", ja: "要再生成", ko: "검토 반려" },
+  };
+  return labels[state]?.[currentLanguage] || labels[state]?.["zh-CN"] || state;
+}
+
+function setResultReviewState(card, record, state = "pending") {
+  const normalized = ["pending", "passed", "rejected"].includes(state) ? state : "pending";
+  card.dataset.review = normalized;
+  card.classList.toggle("is-review-passed", normalized === "passed");
+  card.classList.toggle("is-review-rejected", normalized === "rejected");
+  if (record) record.review = normalized;
+  if (card._zipImage) card._zipImage.review = normalized;
+  const button = card.querySelector(".review-result");
+  if (button) {
+    button.title = reviewStateLabel(normalized);
+    button.setAttribute("aria-label", reviewStateLabel(normalized));
+    button.dataset.review = normalized;
+  }
+}
+
+function cycleResultReviewState(card, record) {
+  const current = card.dataset.review || record?.review || "pending";
+  const next = current === "pending" ? "passed" : current === "passed" ? "rejected" : "pending";
+  setResultReviewState(card, record, next);
+  showStatus(reviewStateLabel(next), next === "rejected" ? "error" : next === "passed" ? "success" : "info");
 }
 
 function replacePlaceholder(card, panelId, data, prompt, options = {}) {
@@ -7786,8 +7939,10 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     makeCardActionBtn("copy", "copyLink", () => copyImageUrl(imageUrl, originalImageUrl)),
     makeCardActionBtn("retry", "retry", () => retryResultCard(card, false)),
     makeCardActionBtn("edit", "editRetry", () => retryResultCard(card, true)),
-    makeCardActionBtn("mask", "openInpaint", () => void openInpaintFromCard(card))
+    makeCardActionBtn("mask", "openInpaint", () => void openInpaintFromCard(card)),
+    makeCardActionBtn("eye", "review", () => cycleResultReviewState(card, record))
   );
+  actions.lastElementChild?.classList.add("review-result");
   card.appendChild(actions);
 
   record = {
@@ -7817,7 +7972,10 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
       width: null,
       height: null,
       bytes: null,
+      dimensionStatus: "unknown",
     } : null,
+    audit: openCodexMeta?.audit ? { ...openCodexMeta.audit, outputSha256: "" } : null,
+    review: options.review || "pending",
     inpaint: options.inpaint ? { ...options.inpaint } : null,
     _cachePromise: card._imageCachePromise,
     _cacheKey: card._generatedCacheKey,
@@ -7833,23 +7991,35 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     record._actualMetaPromise = Promise.all([
       Promise.race([actualDimensionPromise.catch(() => null), decodedBlobDimensions, dimensionFallback]),
       cachedBlobPromise,
-    ]).then(([dimensions, blob]) => {
+    ]).then(async ([dimensions, blob]) => {
       if (dimensions) {
         record.actual.width = dimensions.width;
         record.actual.height = dimensions.height;
+        const dimension = imageTaskStability.evaluateDimensions(record.requested?.size || record.size, dimensions.width, dimensions.height);
+        record.actual.dimensionStatus = dimension.status;
+        card.dataset.dimensionStatus = dimension.status;
       }
       if (blob instanceof Blob) {
         record.actual.bytes = blob.size;
         record.actual.mimeType = blob.type || record.actual.mimeType;
+        if (record.audit) record.audit.outputSha256 = await imageTaskStability.sha256Hex(blob).catch(() => "");
+      }
+      if (card._zipImage) {
+        card._zipImage.requested = record.requested ? { ...record.requested } : null;
+        card._zipImage.actual = record.actual ? { ...record.actual } : null;
+        card._zipImage.audit = record.audit ? { ...record.audit } : null;
+        card._zipImage.review = record.review;
       }
       renderOpenCodexResultMeta(providerMeta, record);
       return record.actual;
     });
+    if (card._zipImage) card._zipImage.metaPromise = record._actualMetaPromise;
   } else {
     actualDimensionResolve?.(null);
     actualDimensionResolve = null;
   }
   generatedImageUrls.push({ url: imageUrl, panelId: String(panelId), prompt, recordId: record.id });
+  setResultReviewState(card, record, record.review);
   if (!options.skipHistory && record.mode !== "comic") saveGenerationRecord(record);
   updateFailedRetryTools();
   return record;
@@ -7864,13 +8034,30 @@ function releaseCardImageCache(card) {
 }
 
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
-  const message = String(errMsg || "生成失败");
-  setRetryContext(card, panelId, { ...(card._retryContext || {}), ...(retryContext || {}) });
+  const structuredError = errMsg && typeof errMsg === "object" && errMsg.imageError;
+  const errorDetail = classifyImageApiError(errMsg);
+  const message = String(errMsg?.message || errMsg || "生成失败");
+  const requiresEdit = Boolean(structuredError && errorDetail.requiresEdit);
+  const retryBlocked = Boolean(structuredError && (
+    errorDetail.retryPolicy === "never"
+    || errorDetail.retryPolicy === "after_configuration_change"
+    || errorDetail.retryPolicy === "edit_required"
+  ));
+  setRetryContext(card, panelId, {
+    ...(card._retryContext || {}),
+    ...(retryContext || {}),
+    errorCategory: errorDetail.category,
+    retryPolicy: errorDetail.retryPolicy,
+  });
   card.classList.remove("is-retry-queued");
   card.classList.add("is-failed");
   card.dataset.failed = "true";
   card.dataset.status = "failed";
   card.dataset.errorMessage = message;
+  card.dataset.errorCategory = errorDetail.category;
+  card.dataset.retryPolicy = errorDetail.retryPolicy;
+  card.dataset.retryBlocked = retryBlocked ? "true" : "false";
+  card._lastImageError = errorDetail;
   delete card.dataset.queuePosition;
   delete card._retryQueuedSnapshot;
   delete card._zipImage;
@@ -7880,7 +8067,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
     <div class="result-media result-media-failed">
       <div class="result-error">
         <strong><span class="ui-icon ui-icon-retry"></span> ${escapeHtml(tr("失败"))}</strong>
-        <small>${escapeHtml(cleanText("failReason"))}</small>
+        <small>${escapeHtml(cleanText("failReason"))} · ${escapeHtml((IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"])[errorDetail.category] || errorDetail.category)}</small>
         <span class="result-error-message">${escapeHtml(message.slice(0, 500))}</span>
       </div>
     </div>
@@ -7890,7 +8077,12 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
     </div>`;
   card.style.borderColor = "var(--error)";
   card.title = message;
-  card.querySelector(".retry-now")?.addEventListener("click", () => retryResultCard(card, false));
+  const retryNow = card.querySelector(".retry-now");
+  if (retryNow) {
+    retryNow.disabled = retryBlocked;
+    retryNow.title = requiresEdit ? (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"]).editRequired : cleanText("retry");
+    retryNow.addEventListener("click", () => retryResultCard(card, false));
+  }
   card.querySelector(".edit-retry")?.addEventListener("click", () => retryResultCard(card, true));
   updateFailedRetryTools();
 }
@@ -7899,6 +8091,10 @@ function getFailedResultCards() {
   if (!dom.resultGrid) return [];
   return Array.from(dom.resultGrid.querySelectorAll(".result-item.is-failed, .result-item[data-failed='true']"))
     .filter(card => card.isConnected);
+}
+
+function getRetryEligibleFailedCards() {
+  return getFailedResultCards().filter(card => card.dataset.retryBlocked !== "true");
 }
 
 function setRetryFailedButtonText(count = getFailedResultCards().length) {
@@ -7969,7 +8165,7 @@ function restoreQueuedRetryCard(card) {
   markPlaceholderFailed(card, snapshot.panelId, snapshot.message, snapshot.context);
 }
 
-function enqueueFailedCardsForRetryRun(run, cards = getFailedResultCards()) {
+function enqueueFailedCardsForRetryRun(run, cards = getRetryEligibleFailedCards()) {
   if (!run || run.cancelRequested || run.finished) return 0;
   let added = 0;
   cards.forEach(card => {
@@ -7995,7 +8191,7 @@ function enqueueFailedCardsForRetryRun(run, cards = getFailedResultCards()) {
 
 function getUntrackedFailedCards(run = retryAllFailedRun) {
   if (!run) return [];
-  return getFailedResultCards().filter(card => !run.seenCards.has(card));
+  return getRetryEligibleFailedCards().filter(card => !run.seenCards.has(card));
 }
 
 function updateFailedRetryTools() {
@@ -8006,12 +8202,13 @@ function updateFailedRetryTools() {
     enqueueFailedCardsForRetryRun(retryAllFailedRun);
   }
   const count = getFailedResultCards().length;
+  const eligibleCount = getRetryEligibleFailedCards().length;
   const hasActiveRun = !!retryAllFailedRun;
   dom.retryFailedTools?.classList.toggle("hidden", count === 0 && !hasActiveRun);
   if (dom.retryFailedAll) {
-    dom.retryFailedAll.disabled = hasActiveRun ? !!retryAllFailedRun.cancelRequested : count === 0;
+    dom.retryFailedAll.disabled = hasActiveRun ? !!retryAllFailedRun.cancelRequested : eligibleCount === 0;
     dom.retryFailedAll.classList.toggle("is-cancel", hasActiveRun);
-    setRetryFailedButtonText(count);
+    setRetryFailedButtonText(eligibleCount);
   }
   if (dom.enqueueRemainingFailed) {
     const remaining = hasActiveRun ? getUntrackedFailedCards(retryAllFailedRun).length : 0;
@@ -8049,7 +8246,6 @@ function cancelRetryAllFailedRun({ announce = true } = {}) {
 }
 
 function executeRetryAllFailedRun(run) {
-  const concurrency = getProviderConcurrency();
   return new Promise(resolve => {
     const finish = () => {
       if (run.finished) return;
@@ -8063,7 +8259,7 @@ function executeRetryAllFailedRun(run) {
       if (run.finished) return;
       if (run.cancelRequested) run.pendingCards.length = 0;
 
-      while (!run.cancelRequested && run.activeCount < concurrency && run.pendingCards.length > 0) {
+      while (!run.cancelRequested && run.activeCount < getProviderConcurrency() && run.pendingCards.length > 0) {
         const card = run.pendingCards.shift();
         refreshRetryQueuePositions(run);
         const attempt = (run.attempts.get(card) || 0) + 1;
@@ -8133,7 +8329,7 @@ async function retryAllFailedResults() {
     cancelRetryAllFailedRun();
     return;
   }
-  const cards = getFailedResultCards();
+  const cards = getRetryEligibleFailedCards();
   if (!cards.length) {
     updateFailedRetryTools();
     showStatus(cleanText("noFailedToRetry"), "info");
@@ -8202,6 +8398,7 @@ function setRetryContext(card, panelId, context = {}) {
 
 function composeRetryPrompt(context) {
   if (context.mode === "comic" || context.mode === "caption") {
+    if (context.excludeGlobalPrompt === true) return (context.panelPrompt || context.prompt || "").trim();
     return context.globalPrompt ? `${context.globalPrompt}\n\n${context.panelPrompt || ""}`.trim() : (context.panelPrompt || context.prompt || "");
   }
   return context.prompt || "";
@@ -8210,13 +8407,17 @@ function composeRetryPrompt(context) {
 async function editRetryContext(context) {
   const next = { ...context };
   if (next.mode === "comic" || next.mode === "caption") {
-    const label = next.mode === "caption"
-      ? "修改气泡文字内容（全局提示词会自动引用当前页面里的内容）"
-      : "修改该分镜提示词（全局提示词会自动引用当前页面里的内容）";
+    const moderationRevision = next.errorCategory === "moderation_blocked";
+    const label = moderationRevision
+      ? "审核修订：修改当前分镜内容。本次重试只提交当前分镜提示词，不附加可能污染镜头的全局提示词"
+      : next.mode === "caption"
+        ? "修改气泡文字内容（全局提示词会自动引用当前页面里的内容）"
+        : "修改该分镜提示词（全局提示词会自动引用当前页面里的内容）";
     const panel = await askPrompt(label, next.panelPrompt || next.prompt || "");
     if (panel === null) return null;
     next.globalPrompt = getEffectivePrompt();
     next.panelPrompt = panel.trim();
+    next.excludeGlobalPrompt = moderationRevision;
     next.prompt = composeRetryPrompt(next);
     return next;
   }
@@ -8264,12 +8465,26 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     context = await editRetryContext(context);
     if (!context) return false;
   }
+  const panelId = context.panelId || card.dataset.panelId || "重试";
+  if (context.referencesMissing && !(Array.isArray(context.references) && context.references.length)) {
+    if (context.mode === "comic") {
+      const currentPanel = collectPanels().find(panel => String(panel.id) === String(panelId));
+      const restoredReferences = currentPanel ? getPanelRequestReferences(currentPanel) : [];
+      if (restoredReferences.length) context = { ...context, references: restoredReferences, referencesMissing: false };
+    } else if (context.mode === "caption") {
+      const currentRow = collectCaptionRows().find(row => String(row.id) === String(panelId));
+      if (currentRow?.reference) context = { ...context, references: [currentRow.reference], referencesMissing: false };
+    }
+    if (context.referencesMissing) {
+      showStatus("该分镜原任务使用了参考图。请先在对应分镜重新导入参考图，软件不会静默退化成纯文字生成。", "error");
+      return false;
+    }
+  }
   const promptText = composeRetryPrompt(context);
   if (!promptText) {
     showStatus("重试前请先填写提示词", "error");
     return false;
   }
-  const panelId = context.panelId || card.dataset.panelId || "重试";
   const size = context.size || getSelectedSize();
   const retryCount = clampRetryCount(options.retryCountOverride ?? context.retryCount, getGlobalRetryCount());
   const isProject = context.mode === "comic" || context.mode === "caption";
@@ -8309,7 +8524,13 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
       if (!options.quiet) showStatus(`${label} ${panelId} 已手动取消`, "info");
       return false;
     }
-    markPlaceholderFailed(card, panelId, err.message || String(err), { ...context, prompt: promptText, size, retryCount });
+    markPlaceholderFailed(card, panelId, err, { ...context, prompt: promptText, size, retryCount });
+    if (isProject) {
+      await updateProjectCheckpoint(currentComicHistoryId, panelId, {
+        status: "failed",
+        error: err?.message || err,
+      });
+    }
     if (!options.quiet) showStatus(`${label} ${panelId} 重试失败: ${err.message || err}`, "error");
     return false;
   }
@@ -8715,6 +8936,78 @@ async function saveGenerationProject(project) {
   saveHistory(list);
 }
 
+let projectCheckpointQueue = Promise.resolve();
+
+function initializeProjectCheckpoint(project) {
+  if (!project?.id || loadSettings().historyEnabled === false) return;
+  const list = loadHistory().filter(item => item.id !== project.id);
+  list.unshift({
+    ...project,
+    type: project.type || "comic-project",
+    mode: project.mode || "comic",
+    prompt: project.globalPrompt || "",
+    images: [],
+    imageUrl: "",
+    originalUrl: "",
+    status: "running",
+    updatedAt: new Date().toISOString(),
+  });
+  saveHistory(list);
+}
+
+function updateProjectCheckpoint(projectId, panelId, update = {}) {
+  if (!projectId || loadSettings().historyEnabled === false) return Promise.resolve();
+  const operation = async () => {
+    const list = loadHistory();
+    const project = list.find(item => item.id === projectId && isHistoryProject(item));
+    if (!project) return;
+    const panel = Array.isArray(project.panels)
+      ? project.panels.find(item => String(item.panelId || "") === String(panelId))
+      : null;
+    if (panel) {
+      panel.status = update.status || panel.status || "pending";
+      panel.error = update.error ? String(update.error).slice(0, 1000) : "";
+      panel.updatedAt = new Date().toISOString();
+    }
+    if (update.record?.imageUrl) {
+      const record = update.record;
+      await Promise.resolve(record._actualMetaPromise).catch(() => null);
+      const { fullPrompt: _fullPrompt, _cachePromise, _cacheKey, _actualMetaPromise, ...persisted } = record;
+      const panelPrompt = getPanelOnlyPrompt(record, project.globalPrompt || "");
+      const imageRecord = {
+        ...persisted,
+        prompt: panelPrompt,
+        panelPrompt,
+        imageUrl: await makeHistoryImageUrl(
+          record.imageUrl,
+          _cachePromise,
+          `${projectId}_${panelId}`,
+          _cacheKey,
+        ),
+        originalUrl: record.originalUrl || record.imageUrl,
+      };
+      project.images ||= [];
+      const index = project.images.findIndex(item => String(item.panelId || "") === String(panelId));
+      if (index >= 0) project.images[index] = imageRecord;
+      else project.images.push(imageRecord);
+      project.images.sort((left, right) => Number(left.panelId) - Number(right.panelId));
+      project.imageUrl = project.images[0]?.imageUrl || "";
+      project.originalUrl = project.images[0]?.originalUrl || "";
+    }
+    if (update.projectStatus) project.status = update.projectStatus;
+    project.updatedAt = new Date().toISOString();
+    saveHistory(list);
+  };
+  projectCheckpointQueue = projectCheckpointQueue.then(operation, operation);
+  return projectCheckpointQueue;
+}
+
+function finalizeProjectCheckpoint(projectId, completed, failed) {
+  return updateProjectCheckpoint(projectId, "", {
+    projectStatus: failed > 0 ? (completed > 0 ? "partial" : "failed") : "completed",
+  });
+}
+
 // 重试单图模式的某张图片成功后：删掉它原来那条历史记录，用新结果重新入一条
 // （而不是留着旧记录不管、平白多出一条重复记录）。
 async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
@@ -8734,41 +9027,7 @@ async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
 // 重试漫画分镜里的某一张成功后：原地替换该项目历史记录里对应分镜的图片，
 // 不新增记录、不改变项目在历史列表里的位置，旧图彻底不留痕迹。
 async function updateComicHistoryPanel(projectId, panelId, record) {
-  if (!projectId || loadSettings().historyEnabled === false) return;
-  await Promise.resolve(record._actualMetaPromise).catch(() => null);
-  const list = loadHistory();
-  const project = list.find(item => item.id === projectId && isHistoryProject(item));
-  if (!project || !Array.isArray(project.images)) return;
-  const idx = project.images.findIndex(img => String(img.panelId || "") === String(panelId));
-  if (idx === -1) return;
-  const panelPrompt = getPanelOnlyPrompt(record, project.globalPrompt || "");
-  project.images[idx] = {
-    ...project.images[idx],
-    prompt: panelPrompt,
-    panelPrompt,
-    fullPrompt: record.fullPrompt || project.images[idx].fullPrompt,
-    imageUrl: await makeHistoryImageUrl(
-      record.imageUrl,
-      record._cachePromise,
-      `${projectId}_${panelId}`,
-      record._cacheKey,
-    ),
-    originalUrl: record.originalUrl || record.imageUrl,
-    retryCount: record.retryCount ?? project.images[idx].retryCount,
-    size: record.size || project.images[idx].size,
-    billing: record.billing || null,
-    usage: record.usage || null,
-    provider: record.provider || project.images[idx].provider || "",
-    operation: record.operation || project.images[idx].operation || "",
-    requested: record.requested || project.images[idx].requested || null,
-    actual: record.actual || project.images[idx].actual || null,
-    inpaint: record.inpaint || project.images[idx].inpaint || null,
-  };
-  if (idx === 0) {
-    project.imageUrl = project.images[0].imageUrl;
-    project.originalUrl = project.images[0].originalUrl;
-  }
-  saveHistory(list);
+  return updateProjectCheckpoint(projectId, panelId, { status: "success", record });
 }
 
 async function makeHistoryImageUrl(imageUrl, cachedBlob = null, preferredKey = "", generatedCacheKey = "") {
@@ -9145,6 +9404,19 @@ function restoreHistoryItem(item) {
       card.className = "result-item";
       const panelId = image.panelId || index + 1;
       const data = { data: [{ url: image.imageUrl, originalUrl: image.originalUrl || "" }] };
+      if (image.provider === "opencodex-local-image" || image.requested || image.actual) {
+        data._openCodex = {
+          provider: image.provider || "opencodex-local-image",
+          operation: image.operation || "generation",
+          requested: image.requested || { model: image.model || item.model, size: image.size || item.size },
+          response: {
+            quality: image.actual?.responseQuality || null,
+            size: image.actual?.responseSize || null,
+            mimeType: image.actual?.mimeType || null,
+          },
+          audit: image.audit || null,
+        };
+      }
       const panelPrompt = getPanelOnlyPrompt(image, item.globalPrompt || "");
       const fullPrompt = image.fullPrompt || (item.globalPrompt ? `${item.globalPrompt}\n\n${panelPrompt}` : panelPrompt);
       replacePlaceholder(card, panelId, data, panelPrompt, {
@@ -9154,6 +9426,7 @@ function restoreHistoryItem(item) {
         size: image.size || item.size,
         billing: image.billing || null,
         usage: image.usage || null,
+        review: image.review || "pending",
         retryContext: {
           mode: item.mode || "comic",
           globalPrompt: item.globalPrompt || "",
@@ -9165,6 +9438,32 @@ function restoreHistoryItem(item) {
         },
       });
       dom.resultGrid.appendChild(card);
+    });
+    const restoredIds = new Set(images.map(image => String(image.panelId || "")));
+    (Array.isArray(item.panels) ? item.panels : []).forEach((panel, index) => {
+      const panelId = String(panel.panelId || index + 1);
+      if (restoredIds.has(panelId)) return;
+      const panelPrompt = getPanelOnlyPrompt(panel, item.globalPrompt || "");
+      const fullPrompt = item.globalPrompt ? `${item.globalPrompt}\n\n${panelPrompt}` : panelPrompt;
+      const card = document.createElement("div");
+      card.className = "result-item";
+      dom.resultGrid.appendChild(card);
+      markPlaceholderFailed(
+        card,
+        panelId,
+        panel.error || (panel.status === "pending" ? "上次任务中断，该分镜尚未生成" : "该分镜上次生成失败"),
+        {
+          mode: item.mode || "comic",
+          globalPrompt: item.globalPrompt || "",
+          panelPrompt,
+          prompt: fullPrompt,
+          fullPrompt,
+          size: panel.size || item.size,
+          retryCount: panel.retryCount ?? item.retryCount ?? getGlobalRetryCount(),
+          references: [],
+          referencesMissing: panel.hadReferences === true,
+        },
+      );
     });
     updateFailedRetryTools();
     closeModal(dom.historyModal);
@@ -9599,6 +9898,23 @@ function encodeUtf8(value) {
   return bytes;
 }
 
+function buildContactSheetHtml(images, meta = {}, rootFolder = "") {
+  const escapedRoot = rootFolder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const cards = images.map(image => {
+    const relativeName = String(image.filename || "").replace(new RegExp(`^${escapedRoot}/?`), "");
+    const actual = image.actual || {};
+    const requestedSize = image.requested?.size || image.size || "—";
+    const actualSize = actual.width && actual.height ? `${actual.width}×${actual.height}` : "—";
+    return `<article class="card" data-review="${escapeHtml(image.review || "pending")}">
+      <img src="${escapeHtml(relativeName)}" alt="Panel ${escapeHtml(image.panelId || "")}">
+      <div><strong>Panel ${escapeHtml(image.panelId || "")}</strong><span>${escapeHtml(requestedSize)} → ${escapeHtml(actualSize)}</span></div>
+      <p>${escapeHtml(getPanelOnlyPrompt(image, meta.globalPrompt || ""))}</p>
+      <small>review=${escapeHtml(image.review || "pending")} · dimension=${escapeHtml(actual.dimensionStatus || "unknown")}</small>
+    </article>`;
+  }).join("\n");
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(meta.title || "Contact Sheet")}</title><style>body{font:14px system-ui;margin:24px;background:#11151c;color:#edf2f7}h1{font-size:20px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}.card{background:#1c2330;border:1px solid #364152;border-radius:12px;overflow:hidden}.card[data-review=passed]{border-color:#3fb950}.card[data-review=rejected]{border-color:#f85149}.card img{width:100%;aspect-ratio:1/1;object-fit:contain;background:#090c10}.card div,.card p,.card small{display:block;margin:10px 12px}.card div{display:flex;justify-content:space-between;gap:8px}.card p{line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.card small{color:#9da7b3}</style></head><body><h1>${escapeHtml(meta.title || "Contact Sheet")}</h1><p>${escapeHtml(meta.model || "")} · ${escapeHtml(meta.createdAt || new Date().toISOString())}</p><main class="grid">${cards}</main></body></html>`;
+}
+
 function dataUrlToBlob(dataUrl) {
   const match = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,(.*)$/);
   if (!match) throw new Error("Invalid data URL");
@@ -9828,6 +10144,7 @@ async function buildImagesZip(images, meta = {}) {
   for (let i = 0; i < images.length; i++) {
     const image = images[i];
     try {
+      if (image.metaPromise) await Promise.resolve(image.metaPromise).catch(() => null);
       setDownloadProgress(8 + Math.round((i / Math.max(images.length, 1)) * 52), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
       // 优先用生成时抓下来的本地字节：远程生图 URL 可能已被中转站删除（约 2 小时），
       // 只有本地缓存能保证"页面上显示什么，ZIP 里就有什么"。
@@ -9843,7 +10160,8 @@ async function buildImagesZip(images, meta = {}) {
       const bytes = await blobToBytes(blob);
       const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
       const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
-      const filename = makeUniqueArchiveName(`${folder}/panel-${panelId}.${ext}`, usedNames);
+      const isolation = image.actual?.dimensionStatus === "mismatch" ? "/raw-nonexact" : "";
+      const filename = makeUniqueArchiveName(`${folder}${isolation}/panel-${panelId}.${ext}`, usedNames);
       entries.push({ name: filename, data: bytes });
       exported.push({ ...image, filename });
     } catch (err) {
@@ -9860,12 +10178,30 @@ async function buildImagesZip(images, meta = {}) {
       createdAt: meta.createdAt || new Date().toISOString(),
       model: meta.model || dom.model?.value?.trim?.() || "",
       globalPrompt: meta.globalPrompt || "",
-      images: exported.map(({ filename, panelId, prompt, panelPrompt, size, retryCount }) => {
+      images: exported.map(({ filename, panelId, prompt, panelPrompt, size, retryCount, requested, actual, audit, review }) => {
         const promptOnly = getPanelOnlyPrompt({ prompt, panelPrompt }, meta.globalPrompt || "");
-        return { filename, panelId, prompt: promptOnly, panelPrompt: promptOnly, size, retryCount };
+        return { filename, panelId, prompt: promptOnly, panelPrompt: promptOnly, size, retryCount, requested, actual, audit, review: review || "pending" };
       }),
       failures,
     }, null, 2)),
+  });
+  entries.push({
+    name: makeUniqueArchiveName(`${folder}/audit.json`, usedNames),
+    data: encodeUtf8(JSON.stringify(exported.map(image => ({
+      panelId: image.panelId,
+      requestId: image.audit?.requestId || "",
+      requestFingerprint: image.audit?.requestFingerprint || "",
+      promptSha256: image.audit?.promptSha256 || "",
+      referenceSha256: image.audit?.referenceSha256 || [],
+      outputSha256: image.audit?.outputSha256 || "",
+      requested: image.requested || null,
+      actual: image.actual || null,
+      review: image.review || "pending",
+    })), null, 2)),
+  });
+  entries.push({
+    name: makeUniqueArchiveName(`${folder}/contact-sheet.html`, usedNames),
+    data: encodeUtf8(buildContactSheetHtml(exported, meta, folder)),
   });
   if (failures.length) entries.push({ name: makeUniqueArchiveName(`${folder}/download-errors.txt`, usedNames), data: encodeUtf8(failures.join("\n")) });
   if (!exported.length && failures.length) throw new Error(failures.join("; "));
@@ -10055,12 +10391,14 @@ async function saveProjectResultsToFolder() {
     }
     const folder = buildProjectFolderName(isCaption ? "caption" : "comic");
     const failures = [];
+    const exported = [];
     let saved = 0;
 
     for (let i = 0; i < images.length; i++) {
       const image = images[i];
       const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
       try {
+        if (image.metaPromise) await Promise.resolve(image.metaPromise).catch(() => null);
         setDownloadProgress(4 + Math.round((i / Math.max(images.length, 1)) * 90), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
         // 与 buildImagesZip 相同的容错取字节顺序：生成时缓存的字节最可靠，远程 URL 可能已过期。
         let blob = image.blob instanceof Blob ? image.blob : null;
@@ -10071,11 +10409,38 @@ async function saveProjectResultsToFolder() {
         if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl);
         const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
         const base64 = await blobToBase64(blob);
-        await nativeDownload.saveFile("images", `${isCaption ? "image" : "panel"}-${panelId}.${ext}`, blob.type || "image/png", base64, folder);
+        const fileName = `${isCaption ? "image" : "panel"}-${panelId}.${ext}`;
+        const outputFolder = image.actual?.dimensionStatus === "mismatch" ? `${folder}/raw-nonexact` : folder;
+        await nativeDownload.saveFile("images", fileName, blob.type || "image/png", base64, outputFolder);
+        exported.push({ ...image, filename: `${outputFolder === folder ? "" : "raw-nonexact/"}${fileName}` });
         saved++;
       } catch (err) {
         failures.push(`${image.panelId || i + 1}: ${err.message || err}`);
       }
+    }
+
+    if (exported.length) {
+      const metadata = {
+        title: folder,
+        mode: currentMode,
+        createdAt: new Date().toISOString(),
+        model: dom.model.value.trim(),
+        globalPrompt: getEffectivePrompt(),
+        images: exported.map(image => ({
+          filename: image.filename,
+          panelId: image.panelId,
+          prompt: getPanelOnlyPrompt(image, getEffectivePrompt()),
+          requested: image.requested || null,
+          actual: image.actual || null,
+          audit: image.audit || null,
+          review: image.review || "pending",
+        })),
+        failures,
+      };
+      const projectBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
+      const contactBlob = new Blob([buildContactSheetHtml(exported, metadata, "")], { type: "text/html" });
+      await nativeDownload.saveFile("images", "project.json", "application/json", await blobToBase64(projectBlob), folder);
+      await nativeDownload.saveFile("images", "contact-sheet.html", "text/html", await blobToBase64(contactBlob), folder);
     }
 
     if (saved === 0) throw new Error(failures.join("; ") || cleanText("exportFailed"));

@@ -956,6 +956,66 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
   assertQa(result.restoredThumbsVisible.every(value => value === false), "Restored caption rows must show empty image slots until the user chooses references again.", result);
 }
 
+async function testInterruptedProjectCheckpointResume(cdp) {
+  logStep("Interrupted comic checkpoints preserve completed panels, expose missing panels for retry, and never restore reference bytes silently");
+  await loadFresh(cdp, "interrupted-project-checkpoint");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const projectId = "checkpoint-project";
+    const tiny = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    initializeProjectCheckpoint({
+      id: projectId,
+      type: "comic-project",
+      mode: "comic",
+      title: "Checkpoint project",
+      createdAt: new Date().toISOString(),
+      globalPrompt: "global style",
+      model: "gpt-image-2",
+      endpoint: "http://127.0.0.1:10100/v1/images/generations",
+      size: "1024x1536",
+      retryCount: 2,
+      totalPanels: 3,
+      panels: [1, 2, 3].map(id => ({
+        panelId: String(id), panelPrompt: "panel-" + id, prompt: "panel-" + id,
+        size: "1024x1536", retryCount: 2, references: [], hadReferences: id === 2, status: "pending",
+      })),
+    });
+    const blob = dataUrlToBlob(tiny);
+    const record = {
+      id: "checkpoint-image-1", createdAt: new Date().toISOString(), mode: "comic", panelId: "1",
+      prompt: "panel-1", panelPrompt: "panel-1", fullPrompt: "global style\\n\\npanel-1",
+      model: "gpt-image-2", endpoint: "http://127.0.0.1:10100", size: "1024x1536",
+      imageUrl: tiny, originalUrl: tiny, retryCount: 2, provider: "opencodex-local-image",
+      requested: { model: "gpt-image-2", size: "1024x1536" },
+      actual: { width: 1, height: 1, dimensionStatus: "mismatch", mimeType: "image/png", bytes: blob.size },
+      audit: { requestId: "req-checkpoint", promptSha256: "a".repeat(64), referenceSha256: [], requestFingerprint: "b".repeat(64), outputSha256: "c".repeat(64) },
+      review: "pending", _cachePromise: Promise.resolve(blob), _cacheKey: "checkpoint-image-1", _actualMetaPromise: Promise.resolve(),
+    };
+    await updateProjectCheckpoint(projectId, "1", { status: "success", record });
+    await updateProjectCheckpoint(projectId, "2", { status: "failed", error: "HTTP 502: socket closed" });
+    await finalizeProjectCheckpoint(projectId, 1, 1);
+    const stored = loadHistory().find(item => item.id === projectId);
+    restoreHistoryItem(stored);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const cards = [...document.querySelectorAll("#resultGrid .result-item")];
+    return {
+      projectStatus: stored.status,
+      images: stored.images.length,
+      imagePrompt: stored.images[0]?.prompt,
+      imageFullPrompt: stored.images[0]?.fullPrompt || "",
+      panelStatuses: stored.panels.map(panel => panel.status),
+      cardStatuses: cards.map(card => card.dataset.status),
+      failedPanels: cards.filter(card => card.dataset.status === "failed").map(card => card._retryContext?.panelId),
+      panel2ReferencesMissing: cards.find(card => card._retryContext?.panelId === "2")?._retryContext?.referencesMissing === true,
+    };
+  })()`, true);
+
+  assertQa(result.projectStatus === "partial" && result.images === 1 && result.panelStatuses.join(",") === "success,failed,pending", "Checkpoint history must retain per-panel success, failure, and pending states after interruption.", result);
+  assertQa(result.imagePrompt === "panel-1" && result.imageFullPrompt === "", "Checkpoint image records must keep only the panel prompt, never the combined global prompt body.", result);
+  assertQa(result.cardStatuses.filter(status => status === "success").length === 1 && result.failedPanels.join(",") === "2,3", "Restoring an interrupted project must show completed bytes and retry cards for every missing panel.", result);
+  assertQa(result.panel2ReferencesMissing, "A missing panel that originally used references must require the user to import them again instead of silently degrading to text-only generation.", result);
+}
+
 async function testHistoryRestoreAndExport(cdp) {
   logStep("Comic generation history as project, restore, and ZIP export");
   await loadFresh(cdp, "history");
@@ -1655,7 +1715,7 @@ async function testSaveComicFolder(cdp) {
 
   assertQa(result.singleHidden === true, "Save-to-folder button should stay hidden in single-image mode.", result);
   assertQa(result.comicHidden === false, "Save-to-folder button should become visible when switching to comic mode.", result);
-  assertQa(result.saveCallCount === 6, "Three 2-image project exports should call the native saveFile bridge once per image.", result);
+  assertQa(result.saveCallCount === 12 && result.fileNames.includes("project.json") && result.fileNames.includes("contact-sheet.html"), "Each 2-image project export should save both images plus its resumable audit manifest and contact sheet.", result);
   assertQa(result.namedComicFolders.length === 1 && /^海边-故事_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.namedComicFolders[0]), "An entered project name must become the folder name, with invalid filename characters sanitized and a timestamp appended.", result);
   assertQa(result.unnamedComicFolders.length === 1 && /^漫画项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedComicFolders[0]), "An unnamed comic export must use the localized comic-project prefix plus timestamp.", result);
   assertQa(result.unnamedCaptionFolders.length === 1 && /^嵌字项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedCaptionFolders[0]), "An unnamed caption export must use a different localized caption-project prefix plus timestamp.", result);
@@ -1663,7 +1723,7 @@ async function testSaveComicFolder(cdp) {
   assertQa(/项目.*文件夹/.test(result.projectNamePlaceholder) && /项目.*文件夹/.test(result.captionNamePlaceholder), "Comic and caption modes should explain that the name field controls both the project and folder name.", result);
   assertQa(result.kinds.length === 1 && result.kinds[0] === "images", "Folder save should use the 'images' download-directory kind, matching the existing image-dir picker.", result);
   assertQa(result.allHaveBase64, "Every saveFile call should carry the actual image bytes as base64.", result);
-  assertQa(result.fileNames.length === 4, "Comic panels and caption images should each get distinct filenames inside their project folder.", result);
+  assertQa(result.fileNames.length === 6 && result.fileNames.includes("panel-1.png") && result.fileNames.includes("image-1.png"), "Comic panels, caption images, manifests, and contact sheets should retain distinct filenames inside their project folder.", result);
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
@@ -4075,6 +4135,17 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
             status: 400, headers: { "Content-Type": "application/json" },
           });
         }
+        if (openCodexRequestMode === "moderation") {
+          return new Response(JSON.stringify({ error: {
+            code: "moderation_blocked",
+            message: "Your request was rejected by the safety system.",
+            request_id: "830ccca8-cd98-4812-a1b8-5260b3bca40d",
+            safety_violations: ["sexual"],
+          } }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", "x-request-id": "830ccca8-cd98-4812-a1b8-5260b3bca40d" },
+          });
+        }
         return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
           status: 200, headers: { "Content-Type": "application/json" },
         });
@@ -4209,7 +4280,35 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
       openCodex400Error = err.message || String(err);
     }
     const openCodex400RequestCount = requests.filter(item => item.kind === "opencodex-generation").length - beforeOpenCodex400;
+    openCodexRequestMode = "moderation";
+    let moderationError = null;
+    try {
+      await callImageAPI("moderation probe", "1024x1024", 1, "opencodex moderation", { references: [], maxRetries: 3 });
+    } catch (err) {
+      moderationError = { message: err.message || String(err), detail: err.imageError || null };
+    }
     openCodexRequestMode = "success";
+    const dimensionCard = document.createElement("div");
+    dimensionCard.className = "result-item";
+    dom.resultGrid.appendChild(dimensionCard);
+    const dimensionRecord = replacePlaceholder(dimensionCard, "dimension", {
+      data: [{ b64_json: tinyPng }],
+      _openCodex: {
+        provider: "opencodex-local-image",
+        operation: "generation",
+        requested: { model: "gpt-image-2", size: "1024x1536", quality: "medium" },
+        response: { mimeType: "image/png" },
+        audit: { requestId: "req-dimension", promptSha256: "a".repeat(64), referenceSha256: [], requestFingerprint: "b".repeat(64) },
+      },
+    }, "dimension probe", { skipHistory: true, size: "1024x1536" });
+    await dimensionRecord._actualMetaPromise;
+    const dimensionAudit = {
+      status: dimensionRecord.actual.dimensionStatus,
+      cardStatus: dimensionCard.dataset.dimensionStatus,
+      outputSha256: dimensionRecord.audit.outputSha256,
+      review: dimensionRecord.review,
+      concurrency: getProviderConcurrency(),
+    };
     const opencodexVisibility = {
       provider: dom.apiProvider.value,
       endpoint: dom.apiEndpoint.value,
@@ -4234,7 +4333,7 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
     };
 
     window.fetch = originalFetch;
-    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, estimate, autoEstimate, customEstimate, gpt2Generation, billing, cardCostText, storedBilling, refreshedRate, cachedAfterFailure, storedRate, grsaiVisibility, openCodexProfile, restoredOpenCodexOptions, healthReady, healthFailed, generateDisabledAfterHealthFailure, openCodex400Error, openCodex400RequestCount, openCodexMimeSniff, opencodexGeneration, opencodexEdit, opencodexVisibility };
+    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, estimate, autoEstimate, customEstimate, gpt2Generation, billing, cardCostText, storedBilling, refreshedRate, cachedAfterFailure, storedRate, grsaiVisibility, openCodexProfile, restoredOpenCodexOptions, healthReady, healthFailed, generateDisabledAfterHealthFailure, openCodex400Error, openCodex400RequestCount, moderationError, dimensionAudit, openCodexMimeSniff, opencodexGeneration, opencodexEdit, opencodexVisibility };
   })()`, true);
 
   const generated = result.requests.find(item => item.kind === "official-generation")?.body || {};
@@ -4263,6 +4362,8 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
   assertQa(result.openCodexProfile.openCodexImageOptions.quality === "medium" && result.openCodexProfile.openCodexImageOptions.background === "opaque" && result.restoredOpenCodexOptions.quality === "medium" && result.restoredOpenCodexOptions.background === "opaque", "OpenCodex GPT must normalize saved profiles to the private upstream's measured fixed Medium quality while preserving its background.", result);
   assertQa(result.healthReady && result.healthFailed && result.generateDisabledAfterHealthFailure && result.requests.filter(item => item.kind === "opencodex-health").length >= 2, "OpenCodex health checks must gate generation and expose a retryable failed state.", result);
   assertQa(result.openCodex400RequestCount === 1 && /参数|parameter|request|invalid/i.test(result.openCodex400Error), "OpenCodex HTTP 400 errors must be explained and must not enter the app's automatic retry loop.", result);
+  assertQa(result.moderationError?.detail?.category === "moderation_blocked" && result.moderationError.detail.retryPolicy === "edit_required" && result.moderationError.message.includes("sexual") && result.moderationError.message.includes("830ccca8-cd98-4812-a1b8-5260b3bca40d") && !result.moderationError.message.includes("请求参数不受支持"), "OpenCodex moderation blocks must preserve the safety category and request id, require editing, and never masquerade as unsupported parameters.", result);
+  assertQa(result.dimensionAudit.status === "mismatch" && result.dimensionAudit.cardStatus === "mismatch" && /^[a-f0-9]{64}$/.test(result.dimensionAudit.outputSha256) && result.dimensionAudit.review === "pending" && result.dimensionAudit.concurrency === 2, "OpenCodex results must decode real dimensions, flag mismatches, hash output bytes, start in pending review, and default to concurrency two.", result);
   assertQa(result.openCodexMimeSniff.png === "image/png" && result.openCodexMimeSniff.jpeg === "image/jpeg" && result.openCodexMimeSniff.webp === "image/webp", "OpenCodex base64 outputs must be labeled from their file signature instead of assuming every image is PNG.", result);
   assertQa(opencodexGeneration.auth === "Bearer opencodex-local-only" && opencodexGeneration.body.model === "gpt-image-2" && opencodexGeneration.body.n === 1 && opencodexGeneration.body.quality === "medium" && /square 1:1 aspect ratio/i.test(opencodexGeneration.body.prompt) && opencodexGeneration.body.background === "opaque" && !("images" in opencodexGeneration.body) && !("response_format" in opencodexGeneration.body) && !("output_format" in opencodexGeneration.body) && !("moderation" in opencodexGeneration.body) && !("input_fidelity" in opencodexGeneration.body), "OpenCodex GPT generation must force the measured Medium quality, add the selected aspect ratio to the prompt, keep n=1, and omit unsupported public-API fields.", result);
   assertQa(opencodexEdit.auth === "Bearer opencodex-local-only" && opencodexEdit.body.images?.[0]?.image_url?.startsWith("data:image/png;base64,") && opencodexEdit.body.model === "gpt-image-2" && opencodexEdit.body.n === 1 && opencodexEdit.body.quality === "medium" && /square 1:1 aspect ratio/i.test(opencodexEdit.body.prompt) && !("input_fidelity" in opencodexEdit.body), "OpenCodex GPT reference edits must use Medium, carry ratio guidance, and send JSON Data URLs with automatic high fidelity instead of multipart or input_fidelity.", result);
@@ -4471,7 +4572,7 @@ async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
   assertQa(/157|1\.57/.test(result.gptUi.policy) && result.gptUi.quality === "medium" && result.gptUi.disabledQualities.join(",") === "auto,low,high" && gptGeneration.size === "832x1216" && gptGeneration.quality === "medium" && /vertical 13:19 aspect ratio/i.test(gptGeneration.prompt) && gptGeneration.background === "opaque" && !("aspect_ratio" in gptGeneration) && !("image_size" in gptGeneration), "OpenCodex GPT must force Medium, disable ineffective tiers, append direction/ratio guidance for compliant custom sizes, and disclose the measured private-route output cap.", result);
   assertQa(result.outsideUnchanged && result.insideChanged && result.featherOutsideZero, "Local inpaint compositing must preserve every RGBA channel outside the mask and alter only masked pixels.", result);
   assertQa(["1:1", "3:2", "2:3"].includes(result.crop.aspectRatio) && result.crop.x >= 0 && result.crop.y >= 0 && result.crop.x + result.crop.width <= 1200 && result.crop.y + result.crop.height <= 896, "The gpt-image-2 semantic-edit crop must stay inside the source image and map to a supported patch ratio.", result);
-  assertQa(result.controlsPresent && result.resultMeta.actionCount === 5 && /Nano Banana 2/.test(result.resultMeta.text) && result.resultMeta.actual.width === 1 && result.resultMeta.actual.height === 1 && result.resultMeta.actual.bytes > 0, "Inpaint controls, card entry action, and requested-versus-actual OpenCodex metadata must be wired and persisted from decoded bytes.", result);
+  assertQa(result.controlsPresent && result.resultMeta.actionCount === 6 && /Nano Banana 2/.test(result.resultMeta.text) && result.resultMeta.actual.width === 1 && result.resultMeta.actual.height === 1 && result.resultMeta.actual.bytes > 0 && result.resultMeta.actual.dimensionStatus === "mismatch", "Inpaint, review, card actions, and requested-versus-actual OpenCodex metadata must be wired and persisted from decoded bytes.", result);
 }
 
 async function testGptImage2InpaintRoutes(cdp) {
@@ -5162,6 +5263,7 @@ async function main() {
     await testUploadDebounceWindow(cdp);
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
+    await testInterruptedProjectCheckpointResume(cdp);
     await testHistoryRestoreAndExport(cdp);
     await testHistoryImageCacheFallback(cdp);
     await testGeneratedImagePersistentCache(cdp);

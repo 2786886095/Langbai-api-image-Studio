@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.4.3
+# Codex / Claude Handoff: AI 图片生成器 v1.4.4
 
 更新时间：2026-07-27
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio`
@@ -6,7 +6,18 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.4.3+65`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.4.4+66`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.4.4 OpenCodex 客户端稳定层与项目审计
+
+- 本轮只修改 Langbai 软件端；本机 OpenCodex 2.7.40 安装目录保持原样。
+- 新增独立 `image-task-stability.js`：将审核拦截、参数、认证、413、429、502、503、超时和解码错误分开；`moderation_blocked` 会保留审核类别和 request ID，不再显示成参数不支持，也不会重复原请求。
+- OpenCodex GPT 默认并发从 5 调整为 2；连续两次 502/503 后降为 1，连续三次打开 45 秒客户端熔断器。参考图链路确认断开后会阻止本轮后续参考图提交，不会静默改成纯文字。
+- OpenCodex 结果解码后校验实际宽高；尺寸不符会在卡片标记并在 ZIP/文件夹导出时进入 `raw-nonexact/` 隔离目录。
+- 每张 OpenCodex 结果记录提示词、参考图、请求指纹和输出 SHA-256，以及 request ID、请求/实际尺寸、耗时和人工审核状态；不保存密钥或完整 Data URL 到审计清单。
+- 漫画与嵌字项目在任务开始时建立断点记录，每个分镜成功或失败后立即更新；恢复中断项目时，成功图片和未完成分镜会同时恢复。原任务使用参考图但参考图未恢复时，重试会要求重新导入，避免身份漂移。
+- Windows 文件保存改为同目录 `.part` 写入、长度校验、原子改名；导出附带 `project.json`、`audit.json` 和 `contact-sheet.html`。
+- 审核失败的“编辑重试”只提交当前分镜修订内容，不再自动拼接可能污染镜头的全局提示词；普通重试继续保持原有全局+分镜行为。
 
 ## v1.4.3 漫画分镜批量提示词覆盖确认
 
@@ -314,9 +325,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.3"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.4"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.3` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.4` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -332,5 +343,5 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.3 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.4 当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
