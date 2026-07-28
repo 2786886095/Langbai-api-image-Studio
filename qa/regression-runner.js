@@ -3363,7 +3363,7 @@ async function testCaptionMode(cdp) {
     let start = Date.now();
     while (Date.now() - start < 6000) {
       const h = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
-      if (h.length === 1 && document.querySelectorAll(".result-item img").length === 3) break;
+      if (h.length === 1 && (h[0]?.images || []).length === 3 && document.querySelectorAll(".result-item img").length === 3) break;
       await new Promise(r => setTimeout(r, 80));
     }
 
