@@ -19,8 +19,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: "pip"
-          cache-dependency-path: embedded_gateway/requirements-build.txt
       - run: flutter pub get
       - name: JavaScript syntax and proxy tests
         shell: pwsh
