@@ -5410,6 +5410,11 @@ async function testCodexImageGatewayIntegration(cdp) {
       const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
       const edited = await callImageAPI("gateway semantic edit", "1024x1024", 1, "gateway edit", { references: [reference], maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
       const legacyBlob = await imageUrlToBlob("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0");
+      const protectedUrlChecks = {
+        gateway: isCodexGatewayProtectedImageUrl("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0"),
+        wrongPort: isCodexGatewayProtectedImageUrl("http://127.0.0.1:9999/v1/image-tasks/imgjob_1/files/0"),
+        remoteHost: isCodexGatewayProtectedImageUrl("https://example.test/v1/image-tasks/imgjob_1/files/0"),
+      };
       updateInpaintAvailability();
       const inpaintEnabled = !dom.openInpaintFromFile.disabled;
       dom.openInpaintFromFile.click();
@@ -5431,6 +5436,7 @@ async function testCodexImageGatewayIntegration(cdp) {
         generated: { count: generated.data?.length || 0, item: generated.data?.[0], meta: generated._openCodex },
         edited: { count: edited.data?.length || 0, item: edited.data?.[0], meta: edited._openCodex },
         legacyBlob: { size: legacyBlob.size, type: legacyBlob.type },
+        protectedUrlChecks,
         fileCalls: window.__gatewayCalls.filter(call => /\\/v1\\/image-tasks\\/imgjob_\\d+\\/files\\/0$/.test(String(call.url || ""))),
         profile: gatewayProfile,
         leakedKey: localStorageText.includes(window.__gatewayKey),
@@ -5449,6 +5455,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     assertQa(result.generated.count === 1 && result.edited.count === 1 && result.generated.meta?.audit?.taskId === "imgjob_1" && result.edited.meta?.audit?.taskId === "imgjob_2", "Completed task results must retain safe task and dimension audit metadata.", result);
     assertQa(result.generated.item?.b64_json && !result.generated.item?.url && !result.generated.item?.original_url && result.edited.item?.b64_json && !result.edited.item?.url, "Protected gateway file URLs must be replaced by authenticated local image data before preview rendering.", result);
     assertQa(result.legacyBlob.size > 0 && result.legacyBlob.type === "image/png" && result.fileCalls.length === 3 && result.fileCalls.every(call => call.headers?.Authorization === `Bearer ${"a".repeat(64)}` && call.proxyMode === "direct" && call.proxyUrl === ""), "Gateway downloads and legacy preview reloads must attach the in-memory bearer credential and bypass desktop proxies.", result);
+    assertQa(result.protectedUrlChecks.gateway && !result.protectedUrlChecks.wrongPort && !result.protectedUrlChecks.remoteHost, "The in-memory gateway credential must be attached only to the fixed trusted gateway origin, never to another local port or remote host.", result);
     assertQa(result.inpaintEnabled && result.inpaintOpened, "Gateway gpt-image-2 must keep local mask inpainting clickable.", result);
     assertQa(result.providerOptions.includes("official") && result.providerOptions.includes("grsai") && result.providerOptions.includes("custom") && !result.gatewayOptionHidden, "The Windows provider list must keep Official, GrsAI and Custom while showing the gateway.", result);
   } finally {

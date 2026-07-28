@@ -325,9 +325,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.5"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.6"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.5` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.6` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -343,10 +343,10 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件末尾的 v1.4.5 部分是当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件末尾的 v1.4.6 部分是当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
 
-## v1.4.5：专用 Codex 生图网关接入（当前）
+## v1.4.5：专用 Codex 生图网关接入
 
 ### 供应商与配置
 
@@ -392,3 +392,14 @@ node qa\regression-runner.js
 - Android release 本地构建成功，APK 内包含 v1.4.5 的 `app.js`、`index.html`、`bootstrap-guard.js` 和 `codex-image-gateway.js`。
 - 本机缺少 Visual Studio C++ 工具链，Windows 构建必须以 GitHub Actions 为准。
 - 本机没有 `android/key.properties`，本地 APK 使用 debug fallback 签名；正式 Release 必须由 CI 恢复既有 keystore，并核对 SHA1 `C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
+
+## v1.4.6：Codex 网关预览鉴权修复（当前）
+
+- 修复异步任务成功后预览组件继续使用受保护 URL、导致无 Bearer 的 `<img>` 请求返回 401 的问题。
+- 网关文件 URL 会先由原生桥携带内存中的 Bearer Key 下载，结果只保留 `b64_json`，不再保留受保护的 `url` 或 `original_url`。
+- v1.4.5 旧历史记录点击“重新加载图片”时，会自动识别网关文件 URL并补充 Bearer 鉴权。
+- Bearer 只允许发送给固定可信源 `http://127.0.0.1:18080`，不会发送到其他本机端口、`localhost` 别名或远程主机。
+- 网关文件读取强制 `forceDirectProxy=true`，不经过桌面代理。
+- API Key 继续只存在 Windows 运行时内存，不进入 Local Storage、历史、项目导出或日志。
+- GrsAI、官方 OpenAI、自定义 API 及其配置保存逻辑没有改动。
+- Android 内嵌 `app.js` 与根资源同步；浏览器回归和静态审计覆盖新任务预览、旧任务重载、鉴权头、可信源和密钥泄漏检查。
