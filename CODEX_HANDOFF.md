@@ -422,3 +422,13 @@ node qa\regression-runner.js
 - 用户主动取消仍会终止轮询并调用任务取消接口。
 - Codex 网关有效并发仍为 2；官方 OpenAI、GrsAI、自定义 API 及其独立配置均保持不变。
 - 发布版本为 `1.4.8+70`，Web/Android 缓存标识为 `20260728-1-4-8`。
+
+## v1.4.9: Built-in ChatGPT sign-in foundation and web image route
+
+- The Windows desktop app now opens ChatGPT official sign-in in a separate window and supports sign-in, re-login, and sign-out. Each account uses an isolated WebView2 profile directory.
+- Only sanitized account id, display label, and sign-in state are persisted. Tokens, cookies, and passwords are excluded from app Local Storage, history, and exports.
+- The auth window enforces an approved-domain allowlist and opens unrelated external links in the system browser.
+- ChatGPT Web Image uses the dedicated local gateway route. Official OpenAI, GrsAI, and Custom API profiles remain separate and are preserved.
+- This release provides the account-isolation and sign-in-management foundation. The existing local image gateway remains responsible for image tasks and resume behavior.
+- Release version: `1.4.9+71`; Web/Android cache marker: `20260729-1-4-9`.
+
