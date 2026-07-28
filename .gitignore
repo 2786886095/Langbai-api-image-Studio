@@ -30,6 +30,9 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/embedded_gateway/.build/
+/embedded_gateway/dist/
+/embedded_gateway/**/__pycache__/
 
 # Symbolication related
 app.*.symbols

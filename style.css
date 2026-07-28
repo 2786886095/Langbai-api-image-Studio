@@ -472,10 +472,96 @@ details[open] .config-toggle::before { content: '▼ '; }
   gap: 7px;
 }
 
+.chatgpt-token-import {
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.chatgpt-token-import > label {
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.chatgpt-token-import textarea {
+  width: 100%;
+  min-height: 66px;
+  max-height: 132px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.chatgpt-token-import-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chatgpt-token-import-actions .compact-check {
+  min-width: 0;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--text2);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.chatgpt-account-list {
+  display: grid;
+  gap: 7px;
+}
+
+.chatgpt-account-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface3) 78%, transparent);
+}
+
+.chatgpt-account-item[data-active="true"] {
+  border-color: color-mix(in srgb, #52c7a4 58%, var(--border));
+  box-shadow: inset 3px 0 color-mix(in srgb, #52c7a4 76%, transparent);
+}
+
+.chatgpt-account-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.chatgpt-account-item-copy strong,
+.chatgpt-account-item-copy span,
+.chatgpt-account-item-copy small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chatgpt-account-item-copy strong { color: var(--text); font-size: 0.71rem; }
+.chatgpt-account-item-copy span,
+.chatgpt-account-item-copy small { color: var(--text2); font-size: 0.64rem; }
+
+.chatgpt-account-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 @media (max-width: 520px) {
   .chatgpt-account-main { grid-template-columns: 34px minmax(0, 1fr); }
   .chatgpt-account-status { grid-column: 2; justify-self: start; }
   .chatgpt-account-actions .btn { flex: 1 1 120px; }
+  .chatgpt-token-import-actions { align-items: stretch; flex-direction: column; }
+  .chatgpt-account-item { grid-template-columns: minmax(0, 1fr); }
+  .chatgpt-account-item-actions { justify-content: flex-end; }
 }
 
 .provider-options-grid {

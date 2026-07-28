@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260729-1-4-9">
+  <link rel="stylesheet" href="style.css?v=20260729-1-5-0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -222,17 +222,31 @@
                 <div class="chatgpt-account-main">
                   <span class="chatgpt-account-avatar" aria-hidden="true">◎</span>
                   <div class="chatgpt-account-copy">
-                    <strong id="chatGptAuthTitle">内置 ChatGPT 官方登录</strong>
-                    <span id="chatGptAuthIdentity">尚未登录</span>
-                    <small id="chatGptAuthStageHint">当前阶段只管理独立登录会话，生图仍沿用现有本地网关。</small>
+                    <strong id="chatGptAuthTitle">ChatGPT 网页账号</strong>
+                    <span id="chatGptAuthIdentity">尚未导入账号</span>
+                    <small id="chatGptAuthStageHint">令牌仅保存在系统安全存储；Windows 版会自动启动内置生图网关。</small>
                   </div>
-                  <span class="chatgpt-account-status" id="chatGptAuthStatus" data-state="signed_out">未登录</span>
+                  <span class="chatgpt-account-status" id="chatGptAuthStatus" data-state="signed_out">未连接</span>
                 </div>
                 <div class="chatgpt-account-actions">
-                  <button type="button" id="chatGptLogin" class="btn btn-primary btn-xs">登录 ChatGPT</button>
+                  <button type="button" id="chatGptLogin" class="btn btn-primary btn-xs">内置网页登录</button>
+                  <button type="button" id="openChatGptSessionPage" class="btn btn-xs">浏览器获取令牌</button>
                   <button type="button" id="chatGptRelogin" class="btn btn-xs hidden">重新登录</button>
-                  <button type="button" id="chatGptLogout" class="btn btn-danger btn-xs hidden">退出账号</button>
+                  <button type="button" id="chatGptLogout" class="btn btn-danger btn-xs hidden">退出当前账号</button>
                 </div>
+                <div class="chatgpt-token-import">
+                  <label for="chatGptSessionInput">粘贴 Session JSON 或 accessToken</label>
+                  <textarea id="chatGptSessionInput" rows="3" autocomplete="off" autocapitalize="off"
+                    spellcheck="false" placeholder="在系统浏览器中全选复制页面内容，然后粘贴到这里"></textarea>
+                  <div class="chatgpt-token-import-actions">
+                    <label class="compact-check">
+                      <input type="checkbox" id="chatGptAutoSwitch" checked>
+                      <span>额度不足或登录失效时自动切换账号</span>
+                    </label>
+                    <button type="button" id="importChatGptSession" class="btn btn-primary btn-xs">识别并导入</button>
+                  </div>
+                </div>
+                <div class="chatgpt-account-list" id="chatGptAccountList" role="list" aria-live="polite"></div>
               </section>
 
               <div class="provider-option provider-option-wide">
@@ -732,7 +746,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.4.9</strong>
+            <strong id="currentVersionLabel">v1.5.0</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -926,9 +940,9 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260729-1-4-9"></script>
-  <script src="image-task-stability.js?v=20260729-1-4-9"></script>
-  <script src="codex-image-gateway.js?v=20260729-1-4-9"></script>
-  <script src="app.js?v=20260729-1-4-9"></script>
+  <script src="bootstrap-guard.js?v=20260729-1-5-0"></script>
+  <script src="image-task-stability.js?v=20260729-1-5-0"></script>
+  <script src="codex-image-gateway.js?v=20260729-1-5-0"></script>
+  <script src="app.js?v=20260729-1-5-0"></script>
 </body>
 </html>

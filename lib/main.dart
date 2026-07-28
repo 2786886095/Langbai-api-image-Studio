@@ -19,6 +19,8 @@ import 'package:webview_win_floating/webview_win_floating.dart'
 import 'proxy_config.dart';
 import 'codex_image_gateway_config.dart';
 import 'chatgpt_account_store.dart';
+import 'chatgpt_multi_account.dart';
+import 'embedded_chatgpt_gateway.dart';
 
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
@@ -27,6 +29,104 @@ bool _windowsWebViewInputSelfTest = false;
 const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
 );
+final ChatGptMultiAccountStore _chatGptMultiAccountStore =
+    ChatGptMultiAccountStore(_secureStorage);
+final EmbeddedChatGptGatewayManager _embeddedChatGptGateway =
+    EmbeddedChatGptGatewayManager();
+
+Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
+  if (Platform.isWindows) {
+    try {
+      return await _embeddedChatGptGateway.configuration();
+    } catch (error) {
+      debugPrint('Bundled ChatGPT image gateway unavailable: $error');
+    }
+  }
+  final fallback = await loadCodexImageGatewayConfig();
+  return <String, Object?>{
+    ...fallback,
+    'embedded': false,
+    'port': Uri.tryParse(fallback['baseUrl'] ?? '')?.port ?? 18081,
+  };
+}
+
+Future<Map<String, Object?>> _chatGptAccountSnapshot() =>
+    _chatGptMultiAccountStore.snapshot();
+
+Future<void> _activateChatGptAccount(String localAccountId) async {
+  await _chatGptMultiAccountStore.selectAccount(localAccountId);
+  if (Platform.isWindows) {
+    final token = await _chatGptMultiAccountStore.readToken(localAccountId);
+    await _embeddedChatGptGateway.setSessionToken(
+      token,
+      accountId: localAccountId,
+    );
+  }
+}
+
+Future<Map<String, Object?>> _importChatGptSession(
+  Map<String, dynamic> payload,
+) async {
+  final input = payload['input']?.toString() ?? '';
+  final preferred = payload['preferredAccountId']?.toString();
+  final account = await _chatGptMultiAccountStore.importSession(
+    input,
+    preferredLocalAccountId:
+        preferred == null || preferred.trim().isEmpty ? null : preferred,
+  );
+  await _activateChatGptAccount(account.localAccountId);
+  return _chatGptAccountSnapshot();
+}
+
+Future<Map<String, Object?>> _selectChatGptAccount(
+  Map<String, dynamic> payload,
+) async {
+  final id = payload['accountId']?.toString() ?? '';
+  await _activateChatGptAccount(id);
+  return _chatGptAccountSnapshot();
+}
+
+Future<Map<String, Object?>> _deleteChatGptAccount(
+  Map<String, dynamic> payload,
+) async {
+  final id = payload['accountId']?.toString() ?? '';
+  final wasActive = await _chatGptMultiAccountStore.activeAccountId() == id;
+  await _chatGptMultiAccountStore.deleteAccount(id);
+  final active = await _chatGptMultiAccountStore.activeAccount();
+  if (Platform.isWindows) {
+    await _embeddedChatGptGateway.clearSessionToken(accountId: id);
+    if (wasActive && active != null) {
+      await _activateChatGptAccount(active.localAccountId);
+    }
+  }
+  return _chatGptAccountSnapshot();
+}
+
+Future<Map<String, Object?>> _setChatGptAutoSwitch(
+  Map<String, dynamic> payload,
+) async {
+  await _chatGptMultiAccountStore.setAutoSwitch(payload['enabled'] != false);
+  return _chatGptAccountSnapshot();
+}
+
+Future<Map<String, Object?>> _rotateChatGptAccount(
+  Map<String, dynamic> payload,
+) async {
+  final status = payload['failedStatus']?.toString() == 'rate_limited'
+      ? 'rate_limited'
+      : 'authentication_failed';
+  final reason = payload['reason']?.toString() ?? '';
+  final next = await _chatGptMultiAccountStore.rotateAfterFailure(
+    failedStatus: status,
+    reason: reason,
+  );
+  if (next != null) await _activateChatGptAccount(next.localAccountId);
+  return <String, Object?>{
+    ...await _chatGptAccountSnapshot(),
+    'rotated_to': next?.localAccountId ?? '',
+    'all_unavailable': next == null,
+  };
+}
 
 String _validateSecretKey(Object? value) {
   final key = value?.toString().trim() ?? '';
@@ -259,6 +359,18 @@ class _ChatGptAuthShellState extends State<ChatGptAuthShell> {
       final status = incomingStatus == 'signed_out' && !widget.closeAfterClear
           ? 'waiting_for_user'
           : incomingStatus;
+      if (status == 'ready') {
+        final sessionJson = decoded['session_json']?.toString() ?? '';
+        if (sessionJson.isEmpty) {
+          throw const FormatException(
+            'ChatGPT session token was not returned by the login page.',
+          );
+        }
+        await _chatGptMultiAccountStore.importSession(
+          sessionJson,
+          preferredLocalAccountId: widget.accountId,
+        );
+      }
       final record = ChatGptAccountRecord.fromJson(
         <String, Object?>{
           'local_account_id': widget.accountId,
@@ -283,6 +395,11 @@ class _ChatGptAuthShellState extends State<ChatGptAuthShell> {
           _error =
               status == 'protocol_changed' ? 'ChatGPT 登录状态协议发生变化，请更新软件。' : null;
         });
+      }
+      if (status == 'ready') {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        await _controller?.dispose();
+        exit(0);
       }
     } catch (_) {
       final previous = await _store.readState(widget.accountId);
@@ -858,8 +975,32 @@ class _MobileWebShellState extends State<MobileWebShell>
         case 'deleteSecret':
           result = await _handleSecretAction(action, payload);
           break;
+        case 'getChatGptAccounts':
+          result = await _chatGptAccountSnapshot();
+          break;
+        case 'importChatGptSession':
+          result = await _importChatGptSession(payload);
+          break;
+        case 'selectChatGptAccount':
+        case 'activateChatGptAccount':
+          result = await _selectChatGptAccount(payload);
+          break;
+        case 'deleteChatGptAccount':
+          result = await _deleteChatGptAccount(payload);
+          break;
+        case 'setChatGptAutoSwitch':
+          result = await _setChatGptAutoSwitch(payload);
+          break;
+        case 'rotateChatGptAccount':
+          result = await _rotateChatGptAccount(payload);
+          break;
+        case 'openChatGptSessionPage':
+          result = await _openSystemExternalUrl(
+            'https://chatgpt.com/api/auth/session',
+          );
+          break;
         case 'loadCodexImageGatewayConfig':
-          result = await loadCodexImageGatewayConfig();
+          result = await _loadChatGptImageGatewayConfig();
           break;
         case 'cancelNativeFetch':
           _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
@@ -1504,8 +1645,32 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         case 'deleteSecret':
           result = await _handleSecretAction(action, payload);
           break;
+        case 'getChatGptAccounts':
+          result = await _chatGptAccountSnapshot();
+          break;
+        case 'importChatGptSession':
+          result = await _importChatGptSession(payload);
+          break;
+        case 'selectChatGptAccount':
+        case 'activateChatGptAccount':
+          result = await _selectChatGptAccount(payload);
+          break;
+        case 'deleteChatGptAccount':
+          result = await _deleteChatGptAccount(payload);
+          break;
+        case 'setChatGptAutoSwitch':
+          result = await _setChatGptAutoSwitch(payload);
+          break;
+        case 'rotateChatGptAccount':
+          result = await _rotateChatGptAccount(payload);
+          break;
+        case 'openChatGptSessionPage':
+          result = await _openSystemExternalUrl(
+            'https://chatgpt.com/api/auth/session',
+          );
+          break;
         case 'loadCodexImageGatewayConfig':
-          result = await loadCodexImageGatewayConfig();
+          result = await _loadChatGptImageGatewayConfig();
           break;
         case 'getChatGptAuthState':
           result = await _currentChatGptAuthState();
@@ -2136,6 +2301,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     unawaited(() async {
       if (controller != null) await controller.dispose();
     }());
+    unawaited(_embeddedChatGptGateway.stop());
     super.dispose();
   }
 
@@ -2254,7 +2420,10 @@ const _chatGptAuthProbeScript = r'''
       status: String(state.status || "error"),
       display_name: String(state.display_name || "").slice(0, 96),
       masked_email: String(state.masked_email || "").slice(0, 160),
-      plan_label: String(state.plan_label || "").slice(0, 64)
+      plan_label: String(state.plan_label || "").slice(0, 64),
+      session_json: typeof state.session_json === "string"
+        ? state.session_json.slice(0, 131072)
+        : ""
     }));
   };
 
@@ -2323,7 +2492,8 @@ const _chatGptAuthProbeScript = r'''
         status: "ready",
         display_name: String(user.name || "我的 ChatGPT"),
         masked_email: maskEmail(user.email),
-        plan_label: safePlan(session)
+        plan_label: safePlan(session),
+        session_json: JSON.stringify(session)
       });
     } catch (_) {
       postSafeState({ status: "error" });

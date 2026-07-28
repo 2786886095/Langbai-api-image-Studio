@@ -16,10 +16,16 @@ jobs:
         with:
           flutter-version: "3.24.0"
           cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: embedded_gateway/requirements-build.txt
       - run: flutter pub get
       - name: JavaScript syntax and proxy tests
         shell: pwsh
         run: |
+          python -m compileall -q embedded_gateway/launcher.py embedded_gateway/vendor/chatgpt2api/api embedded_gateway/vendor/chatgpt2api/services embedded_gateway/vendor/chatgpt2api/utils
           node --check app.js
           node --check image-task-stability.js
           node --check codex-image-gateway.js
@@ -84,6 +90,11 @@ jobs:
         with:
           flutter-version: "3.24.0"
           cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: embedded_gateway/requirements-build.txt
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       - name: Generate Windows Flutter config
@@ -119,6 +130,24 @@ jobs:
 
           cmake -S windows -B build/windows/x64 -G "$generator" -A x64 -DFLUTTER_TARGET_PLATFORM=windows-x64
           cmake --build build/windows/x64 --config Release --target INSTALL
+      - name: Build and bundle the image-only ChatGPT gateway
+        shell: pwsh
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP "langbai-gateway-dist"
+          .\embedded_gateway\build-windows.ps1 -Python "python" -OutputDirectory $dist
+          $source = Join-Path $dist "langbai_chatgpt_gateway"
+          $target = "build/windows/x64/runner/Release/chatgpt_gateway"
+          if (-not (Test-Path (Join-Path $source "langbai_chatgpt_gateway.exe"))) {
+            throw "The embedded ChatGPT image gateway executable is missing."
+          }
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          Copy-Item (Join-Path $source "*") $target -Recurse -Force
+          if (-not (Test-Path (Join-Path $target "langbai_chatgpt_gateway.exe"))) {
+            throw "The embedded ChatGPT image gateway was not copied into the Windows release."
+          }
+          .\embedded_gateway\smoke-packaged.ps1 -Executable (Join-Path $target "langbai_chatgpt_gateway.exe")
+          $env:LANGBAI_EMBEDDED_GATEWAY_EXECUTABLE = (Resolve-Path (Join-Path $target "langbai_chatgpt_gateway.exe")).Path
+          flutter test test/embedded_gateway_process_test.dart
       - name: Verify packaged frontend assets
         shell: pwsh
         run: |
@@ -129,11 +158,11 @@ jobs:
               throw "Missing or empty packaged frontend asset: $name"
             }
           }
-          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.4.9";' -Quiet)) {
-            throw "Packaged app.js is not v1.4.9."
+          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.5.0";' -Quiet)) {
+            throw "Packaged app.js is not v1.5.0."
           }
-          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260729-1-4-9' -Quiet)) {
-            throw "Packaged index.html does not reference the v1.4.9 bootstrap guard."
+          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260729-1-5-0' -Quiet)) {
+            throw "Packaged index.html does not reference the v1.5.0 bootstrap guard."
           }
       - name: Run hidden Windows WebView2 startup smoke test
         shell: pwsh

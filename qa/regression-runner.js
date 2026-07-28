@@ -5345,6 +5345,34 @@ async function testCodexImageGatewayIntegration(cdp) {
         last_verified_at: "",
         status: "signed_out",
       };
+      window.__chatGptAccountsState = {
+        accounts: [
+          {
+            local_account_id: "11111111-1111-4111-8111-111111111111",
+            account_fingerprint: "${"b".repeat(64)}",
+            display_name: "QA ChatGPT",
+            masked_email: "q***@example.com",
+            plan_label: "plus",
+            expires_at: "",
+            last_verified_at: "",
+            status: "ready",
+            last_error: "",
+          },
+          {
+            local_account_id: "22222222-2222-4222-8222-222222222222",
+            account_fingerprint: "${"c".repeat(64)}",
+            display_name: "QA Backup",
+            masked_email: "b***@example.com",
+            plan_label: "free",
+            expires_at: "",
+            last_verified_at: "",
+            status: "ready",
+            last_error: "",
+          },
+        ],
+        active_account_id: "11111111-1111-4111-8111-111111111111",
+        auto_switch: true,
+      };
       window.__gatewayPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
       window.FlutterDownload = {
         postMessage(raw) {
@@ -5353,6 +5381,42 @@ async function testCodexImageGatewayIntegration(cdp) {
           let result = {};
           if (payload.action === "loadCodexImageGatewayConfig") {
             result = { baseUrl: "http://127.0.0.1:18081/v1", apiKey: window.__gatewayKey };
+          } else if (payload.action === "getChatGptAccounts") {
+            result = window.__chatGptAccountsState;
+          } else if (["selectChatGptAccount", "activateChatGptAccount"].includes(payload.action)) {
+            window.__chatGptAccountsState = {
+              ...window.__chatGptAccountsState,
+              active_account_id: payload.accountId,
+            };
+            result = window.__chatGptAccountsState;
+          } else if (payload.action === "setChatGptAutoSwitch") {
+            window.__chatGptAccountsState = {
+              ...window.__chatGptAccountsState,
+              auto_switch: payload.enabled !== false,
+            };
+            result = window.__chatGptAccountsState;
+          } else if (payload.action === "rotateChatGptAccount") {
+            const previous = window.__chatGptAccountsState.active_account_id;
+            const next = window.__chatGptAccountsState.accounts.find(item => item.local_account_id !== previous);
+            window.__chatGptAccountsState = {
+              ...window.__chatGptAccountsState,
+              active_account_id: next?.local_account_id || previous,
+              accounts: window.__chatGptAccountsState.accounts.map(item => (
+                item.local_account_id === previous
+                  ? { ...item, status: payload.failedStatus || "rate_limited", last_error: payload.reason || "" }
+                  : item
+              )),
+            };
+            result = { ...window.__chatGptAccountsState, rotated_to: next?.local_account_id || "" };
+          } else if (payload.action === "deleteChatGptAccount") {
+            window.__chatGptAccountsState = {
+              ...window.__chatGptAccountsState,
+              accounts: window.__chatGptAccountsState.accounts.filter(item => item.local_account_id !== payload.accountId),
+              active_account_id: "",
+            };
+            result = window.__chatGptAccountsState;
+          } else if (payload.action === "openChatGptSessionPage") {
+            result = true;
           } else if (payload.action === "getChatGptAuthState") {
             result = window.__chatGptAuthState;
           } else if (["openChatGptLogin", "reloginChatGpt"].includes(payload.action)) {
@@ -5386,7 +5450,9 @@ async function testCodexImageGatewayIntegration(cdp) {
             } else if (method === "GET" && url.includes("/v1/image-tasks/imgjob_")) {
               const id = url.split("/").pop();
               const submitted = window.__gatewaySubmittedBodies[Number(id.split("_").pop()) - 1]?.body || {};
-              result = { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ url: "http://127.0.0.1:18081/v1/image-tasks/" + id + "/files/0" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
+              result = id === "imgjob_1"
+                ? { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_quota" }, body: JSON.stringify({ id, status: "failed", error: { status: 429, type: "rate_limit_error", code: "quota_exhausted", message: "first account quota exhausted", request_id: "req_gateway_quota" } }) }
+                : { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ url: "http://127.0.0.1:18081/v1/image-tasks/" + id + "/files/0" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
             } else {
               result = { status: 404, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: { message: "not mocked" } }) };
             }
@@ -5431,19 +5497,18 @@ async function testCodexImageGatewayIntegration(cdp) {
         status: "ready",
         last_verified_at: new Date().toISOString(),
       });
+      await new Promise(r => setTimeout(r, 30));
       const authReady = {
         state: dom.chatGptAuthStatus.dataset.state,
         identity: dom.chatGptAuthIdentity.textContent,
         loginHidden: dom.chatGptLogin.classList.contains("hidden"),
         reloginHidden: dom.chatGptRelogin.classList.contains("hidden"),
         logoutHidden: dom.chatGptLogout.classList.contains("hidden"),
+        accountItems: dom.chatGptAccountList.querySelectorAll(".chatgpt-account-item").length,
       };
       dom.chatGptRelogin.click();
       await new Promise(r => setTimeout(r, 30));
       window.AiGenChatGptAuth.onState({ ...window.__chatGptAuthState, status: "ready" });
-      dom.chatGptLogout.click();
-      await new Promise(r => setTimeout(r, 10));
-      document.querySelector(".ask-dialog-ok")?.click();
       await new Promise(r => setTimeout(r, 30));
       const generated = await callImageAPI("gateway generation", "832x1216", 1, "gateway", { maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
       const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
@@ -5462,6 +5527,7 @@ async function testCodexImageGatewayIntegration(cdp) {
       const legacyBlob = await imageUrlToBlob("http://127.0.0.1:18081/v1/image-tasks/imgjob_1/files/0");
       const protectedUrlChecks = {
         gateway: isCodexGatewayProtectedImageUrl("http://127.0.0.1:18081/v1/image-tasks/imgjob_1/files/0"),
+        dynamicPort: isCodexGatewayProtectedImageUrl("http://127.0.0.1:18092/v1/image-tasks/imgjob_1/files/0"),
         wrongPort: isCodexGatewayProtectedImageUrl("http://127.0.0.1:9999/v1/image-tasks/imgjob_1/files/0"),
         remoteHost: isCodexGatewayProtectedImageUrl("https://example.test/v1/image-tasks/imgjob_1/files/0"),
       };
@@ -5501,7 +5567,7 @@ async function testCodexImageGatewayIntegration(cdp) {
           cardInitiallyVisible: authCardInitiallyVisible,
           ready: authReady,
           actions: window.__gatewayCalls
-            .filter(call => /^(?:getChatGptAuthState|openChatGptLogin|reloginChatGpt|logoutChatGpt)$/.test(call.action))
+            .filter(call => /^(?:getChatGptAccounts|getChatGptAuthState|openChatGptLogin|reloginChatGpt|activateChatGptAccount)$/.test(call.action))
             .map(call => call.action),
           finalState: dom.chatGptAuthStatus.dataset.state,
         },
@@ -5542,30 +5608,39 @@ async function testCodexImageGatewayIntegration(cdp) {
         && result.chatGptAuth.ready.state === "ready"
         && /QA ChatGPT/.test(result.chatGptAuth.ready.identity)
         && /q\*\*\*@example\.com/.test(result.chatGptAuth.ready.identity)
-        && result.chatGptAuth.ready.loginHidden
+        && !result.chatGptAuth.ready.loginHidden
         && !result.chatGptAuth.ready.reloginHidden
         && !result.chatGptAuth.ready.logoutHidden
+        && result.chatGptAuth.ready.accountItems === 2
+        && result.chatGptAuth.actions.includes("getChatGptAccounts")
         && result.chatGptAuth.actions.includes("getChatGptAuthState")
         && result.chatGptAuth.actions.includes("openChatGptLogin")
         && result.chatGptAuth.actions.includes("reloginChatGpt")
-        && result.chatGptAuth.actions.includes("logoutChatGpt")
-        && result.chatGptAuth.finalState === "signed_out",
-      "The Windows account card must render sanitized state and keep login, relogin and logout controls wired to the native bridge.",
+        && result.chatGptAuth.actions.includes("activateChatGptAccount")
+        && result.chatGptAuth.finalState === "ready",
+      "The Windows account card must render sanitized multi-account state and keep login, relogin and account activation wired to the native bridge.",
       result.chatGptAuth,
     );
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
     assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
     assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 100 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and accept concurrency up to 100.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
-    assertQa(result.submitted.length === 2 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission must expose a checkpointable async task id.", result);
-    assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
-    assertQa(!result.requestBodies[0].body.images && result.requestBodies[1].body.images?.length === 1, "Text generation must omit references while semantic edit must send the selected local reference.", result);
-    assertQa(result.generated.count === 1 && result.edited.count === 1 && result.generated.meta?.audit?.taskId === "imgjob_1" && result.edited.meta?.audit?.taskId === "imgjob_2", "Completed task results must retain safe task and dimension audit metadata.", result);
+    assertQa(result.submitted.length === 3 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission, including an account failover retry, must expose a checkpointable async task id.", result);
+    assertQa(
+      result.requestBodies.length === 3
+        && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === "")
+        && result.requestBodies[0].body.account_id === "11111111-1111-4111-8111-111111111111"
+        && result.requestBodies.slice(1).every(item => item.body.account_id === "22222222-2222-4222-8222-222222222222"),
+      "A terminal 429/quota result must switch accounts, retry only the current image once, bind subsequent tasks to the backup account, and bypass the desktop proxy.",
+      result,
+    );
+    assertQa(!result.requestBodies[0].body.images && !result.requestBodies[1].body.images && result.requestBodies[2].body.images?.length === 1, "Text generation and its account failover retry must omit references while semantic edit sends the selected local reference.", result);
+    assertQa(result.generated.count === 1 && result.edited.count === 1 && result.generated.meta?.audit?.taskId === "imgjob_2" && result.edited.meta?.audit?.taskId === "imgjob_3", "Completed task results must retain safe task and dimension audit metadata after account failover.", result);
     assertQa(result.generated.item?.b64_json && !result.generated.item?.url && !result.generated.item?.original_url && result.edited.item?.b64_json && !result.edited.item?.url, "Protected gateway file URLs must be replaced by authenticated local image data before preview rendering.", result);
     assertQa(result.legacyBlob.size > 0 && result.legacyBlob.type === "image/png" && result.fileCalls.length === 3 && result.fileCalls.every(call => call.headers?.Authorization === `Bearer ${"a".repeat(64)}` && call.proxyMode === "direct" && call.proxyUrl === ""), "Gateway downloads and legacy preview reloads must attach the in-memory bearer credential and bypass desktop proxies.", result);
     assertQa(result.historyPersistence.dataUrlOriginal === "" && result.historyPersistence.protectedOriginal === "" && result.historyPersistence.compactImageUrl === "cache://history-data-url" && result.historyPersistence.compactOriginalUrl === "", "Checkpoint history must keep the local cache pointer without persisting multi-megabyte Base64 or protected gateway URLs.", result);
     assertQa(result.historyPersistence.quotaWriteAttempts === 2 && !result.historyPersistence.quotaFailureEscaped, "History quota exhaustion must stay non-fatal after an image succeeds so it cannot erase the card or trigger a duplicate paid submission.", result);
-    assertQa(result.protectedUrlChecks.gateway && !result.protectedUrlChecks.wrongPort && !result.protectedUrlChecks.remoteHost, "The in-memory gateway credential must be attached only to the fixed trusted gateway origin, never to another local port or remote host.", result);
+    assertQa(result.protectedUrlChecks.gateway && result.protectedUrlChecks.dynamicPort && !result.protectedUrlChecks.wrongPort && !result.protectedUrlChecks.remoteHost, "Protected task URLs must recognize the embedded gateway's dynamic loopback port while rejecting unrelated local ports and remote hosts.", result);
     assertQa(result.inpaintEnabled && result.inpaintOpened, "Gateway gpt-image-2 must keep local mask inpainting clickable.", result);
     assertQa(result.providerOptions.includes("official") && result.providerOptions.includes("grsai") && result.providerOptions.includes("custom") && !result.gatewayOptionHidden, "The Windows provider list must keep Official, GrsAI and Custom while showing the gateway.", result);
   } finally {

@@ -1,12 +1,42 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.4.4
+# Codex / Claude Handoff: AI 图片生成器 v1.5.0
 
-更新时间：2026-07-27
-项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio`
+更新时间：2026-07-29
+项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.4.4+66`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.5.0+72`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.5.0 Windows 内置 ChatGPT 网页生图与多账号
+
+- Windows Release 现在必须打包 `chatgpt_gateway/langbai_chatgpt_gateway.exe` 及其 PyInstaller onedir 依赖。源码位于 `embedded_gateway/`，构建入口为 `embedded_gateway/build-windows.ps1`；`windows/installer/setup.iss` 会递归包含 Release 目录。
+- 内置服务只监听 `127.0.0.1`，在 `18081–18100` 中动态选择空闲端口；主程序每次启动生成随机 API Key 和会话桥密钥，子进程监控主进程 PID 并随其退出。
+- 服务只挂载健康检查、能力检查、Session bridge 和图片异步任务路由。文字接口必须保持 `404`。`embedded_gateway/smoke-packaged.ps1` 会对实际 PyInstaller EXE 验证这些边界。
+- `lib/chatgpt_multi_account.dart` 从完整 Session JSON、裸 `accessToken` 或 `Bearer` 文本中识别令牌，保存脱敏账号元数据；每个令牌使用独立的 Flutter Secure Storage 槽。令牌不能进入 Local Storage、历史记录、项目 JSON 或 ZIP。
+- Windows 可用独立官方网页登录窗口；登录完成后读取同源 `/api/auth/session`，导入安全存储并自动关闭。另一条路径使用系统默认浏览器打开 `https://chatgpt.com/api/auth/session`，用户手动全选复制并粘贴导入。
+- 多账号支持选择、删除、自动切换。只在明确的 `401`、`429`、认证失效或额度不足代码时切换；审核、普通 `400`、`502/503/504` 不切号。异步任务提交体必须携带 `account_id`，任务创建后始终绑定同一账号。
+- `makeImageApiError()` 必须保留 `gatewayTaskTerminal/status/code/requestId`。否则终态 429 会被误当成轮询网络故障，卡到 20 分钟截止时间，自动切号永远不会执行。
+- 受保护图片历史 URL 允许识别内置网关动态端口，但下载前必须把任务路径重写到本次运行的可信网关 origin，再附加内存 Bearer Key；不得把密钥发送到旧端口或远程主机。
+- OpenAI 官方 API、GrsAI 和自定义 API 入口完整保留；账号令牌与用户保存的 API 配置/密钥互不覆盖。
+- 当前内置 ChatGPT 网页兼容层仅随 Windows 发布。Android/iOS/macOS 继续使用官方 API、GrsAI 或自定义 API。它不是 OpenAI 官方 Image API，网页协议变化后可能需要客户端更新。
+
+### v1.5.0 发布硬门槛
+
+```powershell
+node --check app.js
+node --check qa/regression-runner.js
+node qa/static-audit.js
+node --test qa/api-proxy.test.js
+node --test qa/image-task-stability.test.js
+node qa/codex-image-gateway-adapter.test.js
+node qa/regression-runner.js
+python -m compileall -q embedded_gateway/launcher.py embedded_gateway/vendor/chatgpt2api/api embedded_gateway/vendor/chatgpt2api/services embedded_gateway/vendor/chatgpt2api/utils
+flutter analyze
+flutter test
+```
+
+Windows CI 还必须构建网关 EXE、运行 `smoke-packaged.ps1`、核对 Flutter assets 版本、通过 WebView2 启动与原生命中测试，最后再用 Inno Setup 打包。发布页使用中文，明确说明 ChatGPT 网页生图的 Windows 范围和非官方兼容层边界。
 
 ## v1.4.4 OpenCodex 客户端稳定层与项目审计
 

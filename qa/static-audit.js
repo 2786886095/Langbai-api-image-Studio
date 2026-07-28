@@ -23,6 +23,12 @@ const dartMain = read("lib/main.dart");
 const proxyConfig = read("lib/proxy_config.dart");
 const codexGatewayConfig = read("lib/codex_image_gateway_config.dart");
 const chatGptAccountStore = read("lib/chatgpt_account_store.dart");
+const chatGptMultiAccount = read("lib/chatgpt_multi_account.dart");
+const embeddedChatGptGateway = read("lib/embedded_chatgpt_gateway.dart");
+const embeddedGatewayLauncher = read("embedded_gateway/launcher.py");
+const embeddedGatewayCompat = read("embedded_gateway/vendor/chatgpt2api/api/langbai_compat.py");
+const embeddedGatewaySession = read("embedded_gateway/vendor/chatgpt2api/services/browser_session_service.py");
+const embeddedGatewaySmoke = read("embedded_gateway/smoke-packaged.ps1");
 const macWindow = read("macos/Runner/MainFlutterWindow.swift");
 const macDebugEntitlements = read("macos/Runner/DebugProfile.entitlements");
 const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
@@ -35,22 +41,22 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.4.9", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.4\.9\+71$/m);
+assert.equal(version, "1.5.0", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.5\.0\+72$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
 assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
 assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.4\.9/);
-assert.match(html, /20260729-1-4-9/g);
-assert.match(sw, /ai-image-generator-1-4-9-20260729/);
+assert.match(html, /v1\.5\.0/);
+assert.match(html, /20260729-1-5-0/g);
+assert.match(sw, /ai-image-generator-1-5-0-20260729/);
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,9,71/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.9"/);
-assert.match(workflow, /const APP_VERSION = "1\.4\.9";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-4-9/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,5,0,72/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.5\.0"/);
+assert.match(workflow, /const APP_VERSION = "1\.5\.0";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-5-0/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
@@ -124,7 +130,9 @@ assert.match(app, /History metadata persistence skipped after quota exhaustion/)
 assert.match(app, /initialConcurrency:\s*100/);
 assert.match(codexImageGateway, /clientQueue:\s*10/);
 assert.match(html, /id="codexGatewayClientQueue"[^>]*max="100"[^>]*value="10"/);
-assert.match(app, /parsed\.origin === trustedOrigin/);
+assert.match(app, /function codexGatewayProtectedImagePath/);
+assert.match(app, /port >= 18080 && port <= 18100/);
+assert.match(app, /requestUrl = new URL\(protectedPath,/);
 assert.match(app, /Authorization:\s*`Bearer \$\{credentials\.apiKey\}`/);
 assert.match(app, /const \{\s*url:\s*protectedUrl,\s*original_url:\s*_legacyUrl,\s*\.\.\.safeItem\s*\}\s*=\s*item/);
 assert.doesNotMatch(app, /normalizedData\.push\(\{\s*\.\.\.item,[^}]*original_url:\s*item\.url/);
@@ -134,6 +142,8 @@ assert.match(codexGatewayConfig, /\^\[a-f0-9\]\{64\}\$/);
 for (const id of [
   "chatGptAuthCard", "chatGptAuthStatus", "chatGptAuthIdentity",
   "chatGptLogin", "chatGptRelogin", "chatGptLogout",
+  "openChatGptSessionPage", "chatGptSessionInput", "importChatGptSession",
+  "chatGptAutoSwitch", "chatGptAccountList",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing ChatGPT account control: ${id}`);
 }
@@ -150,6 +160,29 @@ assert.match(app, /getChatGptAuthState/);
 assert.match(app, /openChatGptLogin/);
 assert.match(app, /reloginChatGpt/);
 assert.match(app, /logoutChatGpt/);
+assert.match(app, /getChatGptAccounts/);
+assert.match(app, /importChatGptSession/);
+assert.match(app, /activateChatGptAccount/);
+assert.match(app, /rotateChatGptAccount/);
+assert.match(app, /account_id:\s*account\.local_account_id/);
+assert.match(app, /shouldSwitchChatGptAccount/);
+assert.match(app, /result\.gatewayTaskTerminal = error\?\.gatewayTaskTerminal === true/);
+assert.match(chatGptMultiAccount, /FlutterSecureStorage/);
+assert.match(chatGptMultiAccount, /chatGptTokenSecureKeyPrefix/);
+assert.match(chatGptMultiAccount, /maskChatGptEmail/);
+assert.match(chatGptMultiAccount, /rotateAfterFailure/);
+assert.doesNotMatch(chatGptMultiAccount, /localStorage|SharedPreferences/);
+assert.match(embeddedChatGptGateway, /18081/);
+assert.match(embeddedChatGptGateway, /18100/);
+assert.match(embeddedChatGptGateway, /Process\.start/);
+assert.match(embeddedGatewayLauncher, /host = "127\.0\.0\.1"/);
+assert.match(embeddedGatewayLauncher, /docs_url=None/);
+assert.match(embeddedGatewayLauncher, /_install_runtime_streams/);
+assert.match(embeddedGatewayCompat, /account_id/);
+assert.match(embeddedGatewaySession, /self\._sessions/);
+assert.match(embeddedGatewaySmoke, /textStatus -ne 404/);
+assert.match(workflow, /smoke-packaged\.ps1/);
+assert.match(workflow, /embedded_gateway_process_test\.dart/);
 assert.match(app, /repairDuplicateApiConfigIds/);
 assert.match(app, /queueSecureStorageOperation/);
 assert.match(app, /GENERATED_CACHE_META_STORE\s*=\s*"generated_cache_meta"/);

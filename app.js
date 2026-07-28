@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.4.9";
+const APP_VERSION = "1.5.0";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -769,8 +769,118 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
   }),
 });
 
+const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
+  "zh-CN": Object.freeze({
+    chatGptAuthTitle: "ChatGPT 网页账号",
+    chatGptAuthStageHint: "令牌仅保存在系统安全存储；Windows 版会自动启动内置生图网关。",
+    chatGptLogin: "内置网页登录", chatGptRelogin: "重新登录", chatGptLogout: "移除当前账号",
+    chatGptOpenSession: "浏览器获取令牌", chatGptImport: "识别并导入",
+    chatGptImportLabel: "粘贴 Session JSON 或 accessToken",
+    chatGptImportPlaceholder: "在系统浏览器中全选复制页面内容，然后粘贴到这里",
+    chatGptAutoSwitch: "额度不足或登录失效时自动切换账号",
+    chatGptSignedOut: "尚未导入账号", chatGptReady: "账号可用", chatGptWorking: "正在验证登录…",
+    chatGptExpired: "账号不可用", chatGptAuthError: "账号状态异常",
+    chatGptUnnamedAccount: "ChatGPT 账号", chatGptUseAccount: "使用", chatGptSwitchFailed: "账号切换失败",
+    chatGptDeleteConfirm: "确定移除这个账号及其本机安全令牌吗？",
+    chatGptDeleteCurrentConfirm: "确定移除当前账号及其本机安全令牌吗？",
+    chatGptDeleteFailed: "账号移除失败", chatGptLoginFailed: "ChatGPT 登录窗口启动失败",
+    chatGptOpenSessionFailed: "打开 Session 页面失败", chatGptPasteRequired: "请粘贴 Session JSON 或 accessToken。",
+    chatGptImportSuccess: "账号已安全导入并设为当前账号。", chatGptImportFailed: "账号导入失败",
+    chatGptAutoSwitchFailed: "自动切换设置保存失败",
+    chatGptAccountStatus_ready: "可用", chatGptAccountStatus_unknown: "待验证",
+    chatGptAccountStatus_expired: "已过期", chatGptAccountStatus_authentication_failed: "登录失效",
+    chatGptAccountStatus_rate_limited: "额度不足或限流",
+  }),
+  "zh-Hant": Object.freeze({
+    chatGptAuthTitle: "ChatGPT 網頁帳號",
+    chatGptAuthStageHint: "權杖只保存在系統安全儲存；Windows 版會自動啟動內建生圖閘道。",
+    chatGptLogin: "內建網頁登入", chatGptRelogin: "重新登入", chatGptLogout: "移除目前帳號",
+    chatGptOpenSession: "瀏覽器取得權杖", chatGptImport: "辨識並匯入",
+    chatGptImportLabel: "貼上 Session JSON 或 accessToken",
+    chatGptImportPlaceholder: "在系統瀏覽器中全選複製頁面內容，再貼到這裡",
+    chatGptAutoSwitch: "額度不足或登入失效時自動切換帳號",
+    chatGptSignedOut: "尚未匯入帳號", chatGptReady: "帳號可用", chatGptWorking: "正在驗證登入…",
+    chatGptExpired: "帳號不可用", chatGptAuthError: "帳號狀態異常",
+    chatGptUnnamedAccount: "ChatGPT 帳號", chatGptUseAccount: "使用", chatGptSwitchFailed: "帳號切換失敗",
+    chatGptDeleteConfirm: "確定移除這個帳號及其本機安全權杖嗎？",
+    chatGptDeleteCurrentConfirm: "確定移除目前帳號及其本機安全權杖嗎？",
+    chatGptDeleteFailed: "帳號移除失敗", chatGptLoginFailed: "ChatGPT 登入視窗啟動失敗",
+    chatGptOpenSessionFailed: "開啟 Session 頁面失敗", chatGptPasteRequired: "請貼上 Session JSON 或 accessToken。",
+    chatGptImportSuccess: "帳號已安全匯入並設為目前帳號。", chatGptImportFailed: "帳號匯入失敗",
+    chatGptAutoSwitchFailed: "自動切換設定儲存失敗",
+    chatGptAccountStatus_ready: "可用", chatGptAccountStatus_unknown: "待驗證",
+    chatGptAccountStatus_expired: "已過期", chatGptAccountStatus_authentication_failed: "登入失效",
+    chatGptAccountStatus_rate_limited: "額度不足或限流",
+  }),
+  en: Object.freeze({
+    chatGptAuthTitle: "ChatGPT web accounts",
+    chatGptAuthStageHint: "Tokens stay in OS secure storage. Windows starts the bundled image gateway automatically.",
+    chatGptLogin: "Built-in web sign-in", chatGptRelogin: "Sign in again", chatGptLogout: "Remove active account",
+    chatGptOpenSession: "Get token in browser", chatGptImport: "Detect and import",
+    chatGptImportLabel: "Paste Session JSON or accessToken",
+    chatGptImportPlaceholder: "Copy all content from the page in your system browser, then paste it here",
+    chatGptAutoSwitch: "Switch accounts after quota or sign-in failure",
+    chatGptSignedOut: "No account imported", chatGptReady: "Account ready", chatGptWorking: "Verifying sign-in…",
+    chatGptExpired: "Account unavailable", chatGptAuthError: "Account status error",
+    chatGptUnnamedAccount: "ChatGPT account", chatGptUseAccount: "Use", chatGptSwitchFailed: "Account switch failed",
+    chatGptDeleteConfirm: "Remove this account and its device-secured token?",
+    chatGptDeleteCurrentConfirm: "Remove the active account and its device-secured token?",
+    chatGptDeleteFailed: "Account removal failed", chatGptLoginFailed: "ChatGPT sign-in window failed",
+    chatGptOpenSessionFailed: "Could not open the Session page", chatGptPasteRequired: "Paste Session JSON or an accessToken.",
+    chatGptImportSuccess: "Account imported securely and selected.", chatGptImportFailed: "Account import failed",
+    chatGptAutoSwitchFailed: "Could not save auto-switch setting",
+    chatGptAccountStatus_ready: "Ready", chatGptAccountStatus_unknown: "Needs verification",
+    chatGptAccountStatus_expired: "Expired", chatGptAccountStatus_authentication_failed: "Sign-in invalid",
+    chatGptAccountStatus_rate_limited: "Quota exhausted or rate limited",
+  }),
+  ja: Object.freeze({
+    chatGptAuthTitle: "ChatGPT Web アカウント",
+    chatGptAuthStageHint: "トークンは OS の安全な領域だけに保存され、Windows 版は内蔵画像ゲートウェイを自動起動します。",
+    chatGptLogin: "内蔵 Web ログイン", chatGptRelogin: "再ログイン", chatGptLogout: "現在のアカウントを削除",
+    chatGptOpenSession: "ブラウザーでトークン取得", chatGptImport: "検出して登録",
+    chatGptImportLabel: "Session JSON または accessToken を貼り付け",
+    chatGptImportPlaceholder: "システムブラウザーのページ内容をすべてコピーして、ここに貼り付けます",
+    chatGptAutoSwitch: "上限到達またはログイン無効時に自動切替",
+    chatGptSignedOut: "アカウント未登録", chatGptReady: "利用可能", chatGptWorking: "ログイン確認中…",
+    chatGptExpired: "利用不可", chatGptAuthError: "アカウント状態エラー",
+    chatGptUnnamedAccount: "ChatGPT アカウント", chatGptUseAccount: "使用", chatGptSwitchFailed: "切り替えに失敗",
+    chatGptDeleteConfirm: "このアカウントと端末内の安全なトークンを削除しますか？",
+    chatGptDeleteCurrentConfirm: "現在のアカウントと端末内の安全なトークンを削除しますか？",
+    chatGptDeleteFailed: "削除に失敗", chatGptLoginFailed: "ログイン画面の起動に失敗",
+    chatGptOpenSessionFailed: "Session ページを開けません", chatGptPasteRequired: "Session JSON または accessToken を貼り付けてください。",
+    chatGptImportSuccess: "安全に登録して選択しました。", chatGptImportFailed: "登録に失敗",
+    chatGptAutoSwitchFailed: "自動切替設定を保存できません",
+    chatGptAccountStatus_ready: "利用可能", chatGptAccountStatus_unknown: "要確認",
+    chatGptAccountStatus_expired: "期限切れ", chatGptAccountStatus_authentication_failed: "ログイン無効",
+    chatGptAccountStatus_rate_limited: "上限到達または制限中",
+  }),
+  ko: Object.freeze({
+    chatGptAuthTitle: "ChatGPT 웹 계정",
+    chatGptAuthStageHint: "토큰은 OS 보안 저장소에만 보관되며 Windows 앱은 내장 이미지 게이트웨이를 자동으로 시작합니다.",
+    chatGptLogin: "내장 웹 로그인", chatGptRelogin: "다시 로그인", chatGptLogout: "현재 계정 삭제",
+    chatGptOpenSession: "브라우저에서 토큰 받기", chatGptImport: "인식 후 가져오기",
+    chatGptImportLabel: "Session JSON 또는 accessToken 붙여넣기",
+    chatGptImportPlaceholder: "시스템 브라우저 페이지 전체를 복사한 뒤 여기에 붙여 넣으세요",
+    chatGptAutoSwitch: "한도 소진 또는 로그인 실패 시 계정 자동 전환",
+    chatGptSignedOut: "가져온 계정 없음", chatGptReady: "계정 사용 가능", chatGptWorking: "로그인 확인 중…",
+    chatGptExpired: "계정 사용 불가", chatGptAuthError: "계정 상태 오류",
+    chatGptUnnamedAccount: "ChatGPT 계정", chatGptUseAccount: "사용", chatGptSwitchFailed: "계정 전환 실패",
+    chatGptDeleteConfirm: "이 계정과 기기의 보안 토큰을 삭제할까요?",
+    chatGptDeleteCurrentConfirm: "현재 계정과 기기의 보안 토큰을 삭제할까요?",
+    chatGptDeleteFailed: "계정 삭제 실패", chatGptLoginFailed: "로그인 창 실행 실패",
+    chatGptOpenSessionFailed: "Session 페이지를 열지 못했습니다", chatGptPasteRequired: "Session JSON 또는 accessToken을 붙여 넣으세요.",
+    chatGptImportSuccess: "계정을 안전하게 가져오고 선택했습니다.", chatGptImportFailed: "계정 가져오기 실패",
+    chatGptAutoSwitchFailed: "자동 전환 설정 저장 실패",
+    chatGptAccountStatus_ready: "사용 가능", chatGptAccountStatus_unknown: "확인 필요",
+    chatGptAccountStatus_expired: "만료됨", chatGptAccountStatus_authentication_failed: "로그인 무효",
+    chatGptAccountStatus_rate_limited: "한도 소진 또는 제한됨",
+  }),
+});
+
 function cleanText(key) {
-  return CODEX_GATEWAY_LOCALES[currentLanguage]?.[key]
+  return CHATGPT_ACCOUNT_LOCALES[currentLanguage]?.[key]
+    || CHATGPT_ACCOUNT_LOCALES["zh-CN"]?.[key]
+    || CODEX_GATEWAY_LOCALES[currentLanguage]?.[key]
     || CODEX_GATEWAY_LOCALES["zh-CN"]?.[key]
     || INPAINT_LOCALES[currentLanguage]?.[key]
     || INPAINT_LOCALES["zh-CN"]?.[key]
@@ -1292,6 +1402,11 @@ const dom = {
   chatGptLogin: $("#chatGptLogin"),
   chatGptRelogin: $("#chatGptRelogin"),
   chatGptLogout: $("#chatGptLogout"),
+  openChatGptSessionPage: $("#openChatGptSessionPage"),
+  chatGptSessionInput: $("#chatGptSessionInput"),
+  importChatGptSession: $("#importChatGptSession"),
+  chatGptAutoSwitch: $("#chatGptAutoSwitch"),
+  chatGptAccountList: $("#chatGptAccountList"),
   openInpaintFromFile: $("#openInpaintFromFile"),
   inpaintSourceInput: $("#inpaintSourceInput"),
   officialQuality: $("#officialQuality"),
@@ -1935,6 +2050,15 @@ function makeImageApiError(error, extra = {}) {
   const result = new Error(formatted.message);
   result.name = "ImageApiError";
   result.imageError = formatted.detail;
+  // Preserve transport/task markers used by the caller's control flow. Losing
+  // these fields previously turned a terminal async-task failure (including a
+  // 429 quota result) into a polling loop that lasted until the 20-minute
+  // deadline, so account failover never got a chance to run.
+  result.status = Number(error?.status || formatted.detail?.status || 0);
+  result.code = String(error?.code || formatted.detail?.code || "");
+  result.requestId = String(error?.requestId || formatted.detail?.requestId || "");
+  result.gatewayTaskTerminal = error?.gatewayTaskTerminal === true;
+  result.cause = error;
   return result;
 }
 const OPENCODEX_MODELS = Object.freeze([OPENCODEX_GPT_IMAGE_2]);
@@ -2518,7 +2642,14 @@ function updateProviderOptionsLanguage() {
   if (dom.chatGptLogin) dom.chatGptLogin.textContent = cleanText("chatGptLogin");
   if (dom.chatGptRelogin) dom.chatGptRelogin.textContent = cleanText("chatGptRelogin");
   if (dom.chatGptLogout) dom.chatGptLogout.textContent = cleanText("chatGptLogout");
-  renderChatGptAuthState(chatGptAuthState);
+  if (dom.openChatGptSessionPage) dom.openChatGptSessionPage.textContent = cleanText("chatGptOpenSession");
+  if (dom.importChatGptSession) dom.importChatGptSession.textContent = cleanText("chatGptImport");
+  const chatGptImportLabel = document.querySelector('label[for="chatGptSessionInput"]');
+  if (chatGptImportLabel) chatGptImportLabel.textContent = cleanText("chatGptImportLabel");
+  if (dom.chatGptSessionInput) dom.chatGptSessionInput.placeholder = cleanText("chatGptImportPlaceholder");
+  const chatGptAutoSwitchLabel = dom.chatGptAutoSwitch?.closest("label")?.querySelector("span");
+  if (chatGptAutoSwitchLabel) chatGptAutoSwitchLabel.textContent = cleanText("chatGptAutoSwitch");
+  renderChatGptAccounts(chatGptAccountsState);
   updateOfficialOptionAvailability();
   updateCodexGatewayOptionAvailability();
   setCodexGatewayHealthState(codexGatewayHealthState, codexGatewayHealthDetail);
@@ -2605,7 +2736,7 @@ function syncCodexGatewayProviderVisibility() {
 async function loadCodexGatewayCredentials() {
   if (!isNativeWindowsWebview()) throw new Error("ChatGPT 网页生图仅在 Windows 软件中可用");
   const loaded = await nativeDownload.loadCodexImageGatewayConfig();
-  const baseUrl = codexImageGateway.normalizeBaseUrl(CODEX_IMAGE_GATEWAY_BASE_URL);
+  const baseUrl = codexImageGateway.normalizeBaseUrl(loaded?.baseUrl || CODEX_IMAGE_GATEWAY_BASE_URL);
   const apiKey = String(loaded?.apiKey || "").trim();
   if (!codexImageGateway.validateLocalKey(apiKey)) throw new Error("本机网关凭据格式无效，请重新安装或修复网关");
   codexGatewayCredentials = { baseUrl, apiKey };
@@ -6252,6 +6383,35 @@ async function pollCodexGatewayTask(taskId, { signal = null, requested, requestA
   }
 }
 
+function shouldSwitchChatGptAccount(error) {
+  const status = Number(error?.imageError?.status || error?.status || 0);
+  if (status === 401 || status === 429) return true;
+  const code = String(error?.imageError?.code || error?.code || "").toLowerCase();
+  return [
+    "insufficient_quota",
+    "quota_exhausted",
+    "usage_limit",
+    "rate_limited",
+    "authentication_failed",
+    "invalid_token",
+  ].includes(code);
+}
+
+async function activateCurrentChatGptAccount(attemptedAccounts) {
+  const state = await nativeDownload.getChatGptAccounts();
+  renderChatGptAccounts(state);
+  const account = activeChatGptAccount();
+  if (!account?.local_account_id) {
+    throw makeImageApiError(new Error("HTTP 401: 请先导入或登录 ChatGPT 账号"));
+  }
+  if (attemptedAccounts.has(account.local_account_id)) {
+    throw makeImageApiError(new Error("HTTP 429: 所有可用 ChatGPT 账号均已尝试"));
+  }
+  await nativeDownload.activateChatGptAccount(account.local_account_id);
+  attemptedAccounts.add(account.local_account_id);
+  return account;
+}
+
 registerAdapter({
   name: "ChatGPT Web Image Gateway",
   provider: CODEX_IMAGE_GATEWAY_PROVIDER,
@@ -6287,34 +6447,62 @@ registerAdapter({
     });
     const runtimeGate = codexGatewayRuntime.beforeRequest({ hasReference: hasRef && refs.length > 0 });
     if (!runtimeGate.allowed) throw makeImageApiError(new Error("HTTP 503: Gateway client circuit breaker temporarily blocked new work"));
-    try {
-      let data;
-      if (gatewayOptions.asyncTasks) {
-        const submitted = await codexGatewayJsonRequest("image-tasks", { method: "POST", body: built.body, signal });
-        const taskId = codexImageGateway.extractTaskId(submitted);
-        if (!taskId) throw new Error("Gateway did not return a task id");
-        await options.onTaskSubmitted?.({
-          id: taskId,
-          status: String(submitted.status || "queued"),
-          submittedAt: new Date().toISOString(),
+    const attemptedAccounts = new Set();
+    const accountFailures = [];
+    while (true) {
+      const account = await activateCurrentChatGptAccount(attemptedAccounts);
+      const accountBoundBody = { ...built.body, account_id: account.local_account_id };
+      try {
+        let data;
+        if (gatewayOptions.asyncTasks) {
+          const submitted = await codexGatewayJsonRequest("image-tasks", { method: "POST", body: accountBoundBody, signal });
+          const taskId = codexImageGateway.extractTaskId(submitted);
+          if (!taskId) throw new Error("Gateway did not return a task id");
+          await options.onTaskSubmitted?.({
+            id: taskId,
+            status: String(submitted.status || "queued"),
+            accountId: account.local_account_id,
+            submittedAt: new Date().toISOString(),
+          });
+          data = await pollCodexGatewayTask(taskId, {
+            signal, requested, requestAudit, startedAt,
+            operation: hasRef && refs.length ? "edit" : "generation",
+          });
+        } else {
+          const result = await codexGatewayJsonRequest(built.route, { method: "POST", body: accountBoundBody, signal });
+          data = await normalizeCodexGatewayResult(result, {
+            requested, requestAudit, startedAt, signal,
+            operation: hasRef && refs.length ? "edit" : "generation",
+          });
+        }
+        codexGatewayRuntime.recordSuccess({ hasReference: hasRef && refs.length > 0 });
+        return data;
+      } catch (err) {
+        if (err?.name === "AbortError") throw err;
+        const normalized = err?.imageError ? err : makeImageApiError(err);
+        if (shouldSwitchChatGptAccount(normalized) && chatGptAccountsState.auto_switch !== false) {
+          const status = Number(normalized?.imageError?.status || normalized?.status || 0);
+          const reason = String(normalized?.message || normalized);
+          accountFailures.push(`${account.display_name || account.masked_email || account.local_account_id}: ${reason.slice(0, 180)}`);
+          const rotated = await nativeDownload.rotateChatGptAccount(
+            status === 429 ? "rate_limited" : "authentication_failed",
+            reason,
+          );
+          renderChatGptAccounts(rotated);
+          if (rotated?.rotated_to && !attemptedAccounts.has(rotated.rotated_to)) {
+            showStatus(`当前账号不可用，已切换账号并重试当前图片（${attemptedAccounts.size + 1}）`, "warning");
+            continue;
+          }
+          const aggregate = new Error(`所有 ChatGPT 账号均不可用：${accountFailures.join("；")}`);
+          aggregate.status = status || 429;
+          throw makeImageApiError(aggregate);
+        }
+        codexGatewayRuntime.recordFailure(classifyImageApiError(normalized), {
+          hasReference: hasRef && refs.length > 0,
+          message: String(normalized?.message || normalized),
         });
-        data = await pollCodexGatewayTask(taskId, {
-          signal, requested, requestAudit, startedAt,
-          operation: hasRef && refs.length ? "edit" : "generation",
-        });
-      } else {
-        const result = await codexGatewayJsonRequest(built.route, { method: "POST", body: built.body, signal });
-        data = await normalizeCodexGatewayResult(result, {
-          requested, requestAudit, startedAt, signal,
-          operation: hasRef && refs.length ? "edit" : "generation",
-        });
+        throw normalized;
       }
-      codexGatewayRuntime.recordSuccess({ hasReference: hasRef && refs.length > 0 });
-      return data;
-    } catch (err) {
-      if (err?.name === "AbortError") throw err;
-      codexGatewayRuntime.recordFailure(classifyImageApiError(err), { hasReference: hasRef && refs.length > 0, message: String(err?.message || err) });
-      throw err?.imageError ? err : makeImageApiError(err);
     }
   },
 });
@@ -10043,6 +10231,28 @@ const nativeDownload = (() => {
     loadSecret(key) { return request("loadSecret", { key }); },
     deleteSecret(key) { return request("deleteSecret", { key }); },
     loadCodexImageGatewayConfig() { return request("loadCodexImageGatewayConfig", {}, 10000); },
+    getChatGptAccounts() { return request("getChatGptAccounts", {}, 10000); },
+    importChatGptSession(input, preferredAccountId = "") {
+      return request("importChatGptSession", { input, preferredAccountId }, 20000);
+    },
+    selectChatGptAccount(accountId) {
+      return request("selectChatGptAccount", { accountId }, 20000);
+    },
+    activateChatGptAccount(accountId) {
+      return request("activateChatGptAccount", { accountId }, 20000);
+    },
+    deleteChatGptAccount(accountId) {
+      return request("deleteChatGptAccount", { accountId }, 20000);
+    },
+    setChatGptAutoSwitch(enabled) {
+      return request("setChatGptAutoSwitch", { enabled: !!enabled }, 10000);
+    },
+    rotateChatGptAccount(failedStatus, reason) {
+      return request("rotateChatGptAccount", { failedStatus, reason }, 20000);
+    },
+    openChatGptSessionPage() {
+      return request("openChatGptSessionPage", {}, 10000);
+    },
     getChatGptAuthState() { return request("getChatGptAuthState", {}, 10000); },
     openChatGptLogin() { return request("openChatGptLogin", {}, 10000); },
     reloginChatGpt() { return request("reloginChatGpt", {}, 10000); },
@@ -10051,6 +10261,7 @@ const nativeDownload = (() => {
 })();
 
 let chatGptAuthState = { status: "signed_out" };
+let chatGptAccountsState = { accounts: [], active_account_id: "", auto_switch: true };
 
 function chatGptAuthStatusPresentation(status) {
   const normalized = String(status || "error");
@@ -10065,42 +10276,124 @@ function chatGptAuthStatusPresentation(status) {
   return { key: "chatGptAuthError", state: "error" };
 }
 
-function renderChatGptAuthState(nextState = {}) {
-  chatGptAuthState = {
-    status: "signed_out",
-    display_name: "",
-    masked_email: "",
-    plan_label: "",
-    ...nextState,
-  };
-  const windowsOnly = isNativeWindowsWebview();
-  dom.chatGptAuthCard?.classList.toggle("hidden", !windowsOnly);
-  if (!windowsOnly) return;
+function activeChatGptAccount() {
+  const accounts = Array.isArray(chatGptAccountsState.accounts) ? chatGptAccountsState.accounts : [];
+  return accounts.find(item => item?.local_account_id === chatGptAccountsState.active_account_id) || accounts[0] || null;
+}
 
-  const presentation = chatGptAuthStatusPresentation(chatGptAuthState.status);
+function renderChatGptAccountList() {
+  if (!dom.chatGptAccountList) return;
+  dom.chatGptAccountList.replaceChildren();
+  const accounts = Array.isArray(chatGptAccountsState.accounts) ? chatGptAccountsState.accounts : [];
+  for (const account of accounts) {
+    const id = String(account?.local_account_id || "");
+    if (!id) continue;
+    const active = id === chatGptAccountsState.active_account_id;
+    const item = document.createElement("div");
+    item.className = "chatgpt-account-item";
+    item.dataset.active = String(active);
+    item.setAttribute("role", "listitem");
+
+    const copy = document.createElement("div");
+    copy.className = "chatgpt-account-item-copy";
+    const title = document.createElement("strong");
+    title.textContent = String(account.display_name || account.masked_email || cleanText("chatGptUnnamedAccount"));
+    const meta = document.createElement("span");
+    meta.textContent = [account.masked_email, account.plan_label ? String(account.plan_label).toUpperCase() : ""]
+      .filter(Boolean).join(" · ");
+    const status = document.createElement("small");
+    status.textContent = account.last_error
+      ? `${cleanText(`chatGptAccountStatus_${account.status}`)} · ${String(account.last_error).slice(0, 160)}`
+      : cleanText(`chatGptAccountStatus_${account.status || "unknown"}`);
+    copy.append(title, meta, status);
+
+    const actions = document.createElement("div");
+    actions.className = "chatgpt-account-item-actions";
+    if (!active) {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "btn btn-xs";
+      use.textContent = cleanText("chatGptUseAccount");
+      use.addEventListener("click", async () => {
+        use.disabled = true;
+        try {
+          renderChatGptAccounts(await nativeDownload.selectChatGptAccount(id));
+          codexGatewayCredentials = null;
+          codexGatewayHealthCheckedAt = 0;
+          await checkCodexGatewayHealth({ announce: true, force: true });
+        } catch (error) {
+          showStatus(`${cleanText("chatGptSwitchFailed")}：${error?.message || error}`, "error");
+        } finally {
+          use.disabled = false;
+        }
+      });
+      actions.append(use);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn btn-danger btn-xs";
+    remove.textContent = cleanText("delete");
+    remove.addEventListener("click", async () => {
+      if (!(await askConfirm(cleanText("chatGptDeleteConfirm")))) return;
+      remove.disabled = true;
+      try {
+        renderChatGptAccounts(await nativeDownload.deleteChatGptAccount(id));
+      } catch (error) {
+        showStatus(`${cleanText("chatGptDeleteFailed")}：${error?.message || error}`, "error");
+      } finally {
+        remove.disabled = false;
+      }
+    });
+    actions.append(remove);
+    item.append(copy, actions);
+    dom.chatGptAccountList.append(item);
+  }
+}
+
+function renderChatGptAccounts(nextState = {}) {
+  chatGptAccountsState = {
+    accounts: [],
+    active_account_id: "",
+    auto_switch: true,
+    ...(nextState && typeof nextState === "object" ? nextState : {}),
+  };
+  const nativeAvailable = nativeDownload.available();
+  dom.chatGptAuthCard?.classList.toggle("hidden", !nativeAvailable);
+  if (!nativeAvailable) return;
+  const account = activeChatGptAccount();
+  if (dom.chatGptAutoSwitch) dom.chatGptAutoSwitch.checked = chatGptAccountsState.auto_switch !== false;
   if (dom.chatGptAuthStatus) {
+    const ready = !!account && account.status === "ready";
+    dom.chatGptAuthStatus.dataset.state = ready ? "ready" : account ? "expired" : "signed_out";
+    dom.chatGptAuthStatus.textContent = ready
+      ? cleanText("chatGptReady")
+      : account
+        ? cleanText(`chatGptAccountStatus_${account.status || "unknown"}`)
+        : cleanText("chatGptSignedOut");
+  }
+  if (dom.chatGptAuthIdentity) {
+    dom.chatGptAuthIdentity.textContent = account
+      ? [account.display_name, account.masked_email, account.plan_label ? String(account.plan_label).toUpperCase() : ""]
+          .filter(Boolean).join(" · ")
+      : cleanText("chatGptSignedOut");
+  }
+  const windows = isNativeWindowsWebview();
+  dom.chatGptLogin?.classList.toggle("hidden", !windows);
+  dom.chatGptRelogin?.classList.toggle("hidden", !windows || !account);
+  dom.chatGptLogout?.classList.toggle("hidden", !account);
+  renderChatGptAccountList();
+}
+
+function renderChatGptAuthState(nextState = {}) {
+  chatGptAuthState = { status: "signed_out", ...nextState };
+  const presentation = chatGptAuthStatusPresentation(chatGptAuthState.status);
+  if (dom.chatGptAuthStatus && presentation.state === "working") {
     dom.chatGptAuthStatus.dataset.state = presentation.state;
     dom.chatGptAuthStatus.textContent = cleanText(presentation.key);
   }
-  const identity = [
-    chatGptAuthState.display_name,
-    chatGptAuthState.masked_email,
-    chatGptAuthState.plan_label
-      ? String(chatGptAuthState.plan_label).toUpperCase()
-      : "",
-  ].filter(Boolean);
-  if (dom.chatGptAuthIdentity) {
-    dom.chatGptAuthIdentity.textContent =
-      identity.join(" · ") || cleanText("chatGptSignedOut");
+  if (chatGptAuthState.status === "ready") {
+    nativeDownload.getChatGptAccounts().then(renderChatGptAccounts).catch(() => {});
   }
-  const ready = chatGptAuthState.status === "ready";
-  const working = presentation.state === "working";
-  dom.chatGptLogin?.classList.toggle("hidden", ready);
-  dom.chatGptRelogin?.classList.toggle("hidden", !ready);
-  dom.chatGptLogout?.classList.toggle("hidden", !ready);
-  [dom.chatGptLogin, dom.chatGptRelogin, dom.chatGptLogout]
-    .filter(Boolean)
-    .forEach(button => { button.disabled = working; });
 }
 
 window.AiGenChatGptAuth = {
@@ -10113,11 +10406,10 @@ async function runChatGptAuthAction(action) {
   if (!nativeDownload.available() || !isNativeWindowsWebview()) return;
   renderChatGptAuthState({ ...chatGptAuthState, status: "opening_login" });
   try {
-    const state = await nativeDownload[action]();
-    renderChatGptAuthState(state);
+    renderChatGptAuthState(await nativeDownload[action]());
   } catch (error) {
-    renderChatGptAuthState({ ...chatGptAuthState, status: "error" });
-    showStatus(`ChatGPT 登录窗口启动失败：${error?.message || error}`, "error");
+    renderChatGptAccounts(chatGptAccountsState);
+    showStatus(`${cleanText("chatGptLoginFailed")}：${error?.message || error}`, "error");
   }
 }
 
@@ -10127,17 +10419,63 @@ dom.chatGptLogin?.addEventListener("click", () => {
 dom.chatGptRelogin?.addEventListener("click", () => {
   void runChatGptAuthAction("reloginChatGpt");
 });
+dom.openChatGptSessionPage?.addEventListener("click", async () => {
+  try {
+    await nativeDownload.openChatGptSessionPage();
+  } catch (error) {
+    showStatus(`${cleanText("chatGptOpenSessionFailed")}：${error?.message || error}`, "error");
+  }
+});
+dom.importChatGptSession?.addEventListener("click", async () => {
+  const input = String(dom.chatGptSessionInput?.value || "").trim();
+  if (!input) {
+    showStatus(cleanText("chatGptPasteRequired"), "error");
+    dom.chatGptSessionInput?.focus();
+    return;
+  }
+  dom.importChatGptSession.disabled = true;
+  try {
+    const state = await nativeDownload.importChatGptSession(input, chatGptAccountsState.active_account_id || "");
+    if (dom.chatGptSessionInput) dom.chatGptSessionInput.value = "";
+    renderChatGptAccounts(state);
+    codexGatewayCredentials = null;
+    codexGatewayHealthCheckedAt = 0;
+    showStatus(cleanText("chatGptImportSuccess"), "success");
+    if (isCodexGatewaySelected()) await checkCodexGatewayHealth({ announce: true, force: true });
+  } catch (error) {
+    if (dom.chatGptSessionInput) dom.chatGptSessionInput.value = "";
+    showStatus(`${cleanText("chatGptImportFailed")}：${error?.message || error}`, "error");
+  } finally {
+    dom.importChatGptSession.disabled = false;
+  }
+});
+dom.chatGptAutoSwitch?.addEventListener("change", async () => {
+  try {
+    renderChatGptAccounts(await nativeDownload.setChatGptAutoSwitch(dom.chatGptAutoSwitch.checked));
+  } catch (error) {
+    dom.chatGptAutoSwitch.checked = chatGptAccountsState.auto_switch !== false;
+    showStatus(`${cleanText("chatGptAutoSwitchFailed")}：${error?.message || error}`, "error");
+  }
+});
 dom.chatGptLogout?.addEventListener("click", async () => {
-  if (!(await askConfirm("退出后需要重新完成 ChatGPT 官方登录，确定继续？"))) return;
-  void runChatGptAuthAction("logoutChatGpt");
+  const account = activeChatGptAccount();
+  if (!account || !(await askConfirm(cleanText("chatGptDeleteCurrentConfirm")))) return;
+  try {
+    renderChatGptAccounts(await nativeDownload.deleteChatGptAccount(account.local_account_id));
+  } catch (error) {
+    showStatus(`${cleanText("chatGptDeleteFailed")}：${error?.message || error}`, "error");
+  }
 });
 
-if (isNativeWindowsWebview()) {
-  nativeDownload.getChatGptAuthState()
-    .then(renderChatGptAuthState)
-    .catch(() => renderChatGptAuthState({ status: "error" }));
+if (nativeDownload.available()) {
+  nativeDownload.getChatGptAccounts()
+    .then(renderChatGptAccounts)
+    .catch(() => renderChatGptAccounts({ accounts: [], active_account_id: "", auto_switch: true }));
+  if (isNativeWindowsWebview()) {
+    nativeDownload.getChatGptAuthState().then(renderChatGptAuthState).catch(() => {});
+  }
 } else {
-  renderChatGptAuthState({ status: "signed_out" });
+  dom.chatGptAuthCard?.classList.add("hidden");
 }
 
 document.body.classList.toggle("native-download", nativeDownload.available());
@@ -10372,15 +10710,24 @@ async function normalizeImageBlob(blob) {
   return blob.type === type ? blob : new Blob([blob], { type });
 }
 
-function isCodexGatewayProtectedImageUrl(value) {
+function codexGatewayProtectedImagePath(value) {
   try {
     const parsed = new URL(String(value || ""));
-    const trustedOrigin = new URL(CODEX_IMAGE_GATEWAY_BASE_URL).origin;
-    return parsed.origin === trustedOrigin
-      && /^\/v1\/image-tasks\/[^/]+\/files\/\d+$/.test(parsed.pathname);
+    const hostname = parsed.hostname.toLowerCase();
+    const port = Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80));
+    const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+    const isGatewayPort = port >= 18080 && port <= 18100;
+    if (!isLoopback || !isGatewayPort) return "";
+    return /^\/v1\/image-tasks\/[^/]+\/files\/\d+$/.test(parsed.pathname)
+      ? `${parsed.pathname}${parsed.search}`
+      : "";
   } catch {
-    return false;
+    return "";
   }
+}
+
+function isCodexGatewayProtectedImageUrl(value) {
+  return !!codexGatewayProtectedImagePath(value);
 }
 
 async function imageUrlToBlob(url, onProgress) {
@@ -10406,10 +10753,16 @@ async function imageUrlToBlob(url, onProgress) {
   if (nativeDownload.available() && /^https?:/i.test(url)) {
     let headers = {};
     let options = {};
+    let requestUrl = url;
     if (isCodexGatewayProtectedImageUrl(url)) {
       // Repair/reload legacy v1.4.5 records that persisted the protected
-      // gateway URL instead of the already-downloaded image bytes.
+      // gateway URL instead of the already-downloaded image bytes. The
+      // embedded gateway can select another loopback port after a restart,
+      // so always rebase the protected task path onto the current trusted
+      // origin instead of sending the bearer token to the stale origin.
       const credentials = codexGatewayCredentials || await loadCodexGatewayCredentials();
+      const protectedPath = codexGatewayProtectedImagePath(url);
+      requestUrl = new URL(protectedPath, `${credentials.baseUrl.replace(/\/+$/, "")}/`).toString();
       headers = {
         Authorization: `Bearer ${credentials.apiKey}`,
         Accept: "image/*",
@@ -10419,7 +10772,7 @@ async function imageUrlToBlob(url, onProgress) {
         timeoutMs: CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS,
       };
     }
-    const result = await nativeDownload.nativeFetchBlob(url, headers, options);
+    const result = await nativeDownload.nativeFetchBlob(requestUrl, headers, options);
     const status = Number(result?.status || 0);
     if (status < 200 || status >= 300) throw new Error(`HTTP ${status || "?"}`);
     const responseHeaders = result?.headers || {};

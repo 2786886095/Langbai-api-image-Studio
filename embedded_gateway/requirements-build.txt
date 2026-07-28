@@ -1,0 +1,11 @@
+curl-cffi==0.15.0
+fastapi==0.136.0
+pillow==12.2.0
+pybase64==1.4.3
+python-multipart==0.0.26
+tiktoken==0.12.0
+uvicorn==0.44.0
+sqlalchemy==2.0.46
+psycopg2-binary==2.9.11
+gitpython==3.1.46
+pyinstaller==6.18.0
