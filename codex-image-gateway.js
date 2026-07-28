@@ -16,7 +16,7 @@
     quality: "medium",
     dimensionMode: "exact_output",
     asyncTasks: true,
-    clientQueue: 5,
+    clientQueue: 2,
   });
 
   function normalizeBaseUrl(value) {
@@ -48,7 +48,7 @@
     const dimensionMode = ["native", "strict_native", "exact_output"].includes(value.dimensionMode || value.dimension_mode)
       ? (value.dimensionMode || value.dimension_mode)
       : DEFAULTS.dimensionMode;
-    const clientQueue = Math.max(1, Math.min(5, Math.floor(Number(value.clientQueue) || DEFAULTS.clientQueue)));
+    const clientQueue = Math.max(1, Math.min(2, Math.floor(Number(value.clientQueue) || DEFAULTS.clientQueue)));
     return Object.freeze({
       quality,
       dimensionMode,

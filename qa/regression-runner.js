@@ -5394,7 +5394,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     const result = await cdp.eval(`(async () => {
       window.__AI_GEN_NATIVE_PLATFORM = "windows";
       applyApiProvider("codexImageGateway", { forceEndpoint: true });
-      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 5 });
+      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 2 });
       const ready = await checkCodexGatewayHealth({ announce: false, force: true });
       if (!ready) return {
         ready,
@@ -5423,6 +5423,28 @@ async function testCodexImageGatewayIntegration(cdp) {
       const gatewayProfile = currentApiConfig("Gateway");
       const localStorageText = Object.keys(localStorage).map(key => localStorage.getItem(key)).join("\\n");
       const providerOptions = [...dom.apiProvider.options].map(option => option.value);
+      const compactedHistory = compactHistoryItem({
+        id: "history-data-url",
+        imageUrl: "cache://history-data-url",
+        originalUrl: "data:image/png;base64," + "A".repeat(256 * 1024),
+      });
+      const originalStorageSetItem = Storage.prototype.setItem;
+      let quotaWriteAttempts = 0;
+      let quotaFailureEscaped = false;
+      try {
+        Storage.prototype.setItem = function(key, value) {
+          if (key === HISTORY_KEY) {
+            quotaWriteAttempts += 1;
+            throw new DOMException("quota test", "QuotaExceededError");
+          }
+          return originalStorageSetItem.call(this, key, value);
+        };
+        saveHistory([{ id: "quota-test", imageUrl: "data:image/png;base64," + window.__gatewayPng, createdAt: new Date().toISOString() }]);
+      } catch {
+        quotaFailureEscaped = true;
+      } finally {
+        Storage.prototype.setItem = originalStorageSetItem;
+      }
       return {
         ready,
         endpoint: dom.apiEndpoint.value,
@@ -5444,17 +5466,27 @@ async function testCodexImageGatewayIntegration(cdp) {
         inpaintOpened,
         providerOptions,
         gatewayOptionHidden: dom.apiProvider.querySelector('option[value="codexImageGateway"]')?.hidden === true,
+        historyPersistence: {
+          dataUrlOriginal: sanitizeHistoryOriginalUrl("data:image/png;base64," + "A".repeat(256 * 1024)),
+          protectedOriginal: sanitizeHistoryOriginalUrl("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0"),
+          compactImageUrl: compactedHistory.imageUrl,
+          compactOriginalUrl: compactedHistory.originalUrl,
+          quotaWriteAttempts,
+          quotaFailureEscaped,
+        },
       };
     })()`, true);
     assertQa(result.ready && result.endpoint === "http://127.0.0.1:18080/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
-    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 5, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 2, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
     assertQa(result.submitted.length === 2 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission must expose a checkpointable async task id.", result);
     assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
     assertQa(!result.requestBodies[0].body.images && result.requestBodies[1].body.images?.length === 1, "Text generation must omit references while semantic edit must send the selected local reference.", result);
     assertQa(result.generated.count === 1 && result.edited.count === 1 && result.generated.meta?.audit?.taskId === "imgjob_1" && result.edited.meta?.audit?.taskId === "imgjob_2", "Completed task results must retain safe task and dimension audit metadata.", result);
     assertQa(result.generated.item?.b64_json && !result.generated.item?.url && !result.generated.item?.original_url && result.edited.item?.b64_json && !result.edited.item?.url, "Protected gateway file URLs must be replaced by authenticated local image data before preview rendering.", result);
     assertQa(result.legacyBlob.size > 0 && result.legacyBlob.type === "image/png" && result.fileCalls.length === 3 && result.fileCalls.every(call => call.headers?.Authorization === `Bearer ${"a".repeat(64)}` && call.proxyMode === "direct" && call.proxyUrl === ""), "Gateway downloads and legacy preview reloads must attach the in-memory bearer credential and bypass desktop proxies.", result);
+    assertQa(result.historyPersistence.dataUrlOriginal === "" && result.historyPersistence.protectedOriginal === "" && result.historyPersistence.compactImageUrl === "cache://history-data-url" && result.historyPersistence.compactOriginalUrl === "", "Checkpoint history must keep the local cache pointer without persisting multi-megabyte Base64 or protected gateway URLs.", result);
+    assertQa(result.historyPersistence.quotaWriteAttempts === 2 && !result.historyPersistence.quotaFailureEscaped, "History quota exhaustion must stay non-fatal after an image succeeds so it cannot erase the card or trigger a duplicate paid submission.", result);
     assertQa(result.protectedUrlChecks.gateway && !result.protectedUrlChecks.wrongPort && !result.protectedUrlChecks.remoteHost, "The in-memory gateway credential must be attached only to the fixed trusted gateway origin, never to another local port or remote host.", result);
     assertQa(result.inpaintEnabled && result.inpaintOpened, "Gateway gpt-image-2 must keep local mask inpainting clickable.", result);
     assertQa(result.providerOptions.includes("official") && result.providerOptions.includes("grsai") && result.providerOptions.includes("custom") && !result.gatewayOptionHidden, "The Windows provider list must keep Official, GrsAI and Custom while showing the gateway.", result);

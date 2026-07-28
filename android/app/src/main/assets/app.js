@@ -670,7 +670,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayAsync: "使用可恢复异步任务",
     codexGatewayAsyncHint: "批量分镜会保存任务 ID；网络中断或软件重启后继续轮询，不重新提交。",
     codexGatewayQueue: "客户端排队数",
-    codexGatewayQueueHint: "最多排队 5 个任务；网关内部最多同时运行 2 个上游请求。",
+    codexGatewayQueueHint: "最多同时送入 2 个任务；继续增加只会在网关排队，并更容易触发上游限流。",
     codexGatewayFacts: "GPT Image 2 · 最多 20 张参考图 · Bearer 下载 · 300 秒客户端等待",
     codexGatewayCapability: "6–20 张参考图会由网关聚合为最多 5 张编号参考板；局部重绘仍由软件在蒙版内合成。",
     codexGatewayHealthCheck: "检测网关",
@@ -687,7 +687,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayQuality: "輸出品質", codexGatewayQualityHint: "草稿較快；標準適合批次分鏡；高品質適合關鍵鏡頭。",
     codexGatewayDimensionMode: "尺寸處理", codexGatewayDimensionModeHint: "精確輸出會無拉伸覆蓋裁切；邊緣內容可能被裁掉。原生模式保留上游尺寸。",
     codexGatewayAsync: "使用可恢復非同步任務", codexGatewayAsyncHint: "批次分鏡會儲存任務 ID；網路中斷或軟體重啟後繼續輪詢，不重新提交。",
-    codexGatewayQueue: "客戶端佇列數", codexGatewayQueueHint: "最多排隊 5 個任務；閘道內部最多同時執行 2 個上游請求。",
+    codexGatewayQueue: "客戶端佇列數", codexGatewayQueueHint: "最多同時送入 2 個任務；繼續增加只會在閘道排隊，並更容易觸發上游限流。",
     codexGatewayFacts: "GPT Image 2 · 最多 20 張參考圖 · Bearer 下載 · 300 秒客戶端等待",
     codexGatewayCapability: "6–20 張參考圖會由閘道聚合為最多 5 張編號參考板；局部重繪仍由軟體在遮罩內合成。",
     codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 Codex 生圖閘道…",
@@ -701,7 +701,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayQuality: "Output quality", codexGatewayQualityHint: "Draft is faster, Standard suits batches, and High suits key frames.",
     codexGatewayDimensionMode: "Dimension handling", codexGatewayDimensionModeHint: "Exact output uses cover cropping without stretching, so edge content may be cropped. Native preserves upstream dimensions.",
     codexGatewayAsync: "Use resumable async tasks", codexGatewayAsyncHint: "Batch task IDs are checkpointed. Polling resumes after a disconnect or app restart without resubmission.",
-    codexGatewayQueue: "Client queue size", codexGatewayQueueHint: "Queue up to 5 tasks; the gateway runs at most 2 upstream requests concurrently.",
+    codexGatewayQueue: "Client queue size", codexGatewayQueueHint: "Send at most 2 tasks concurrently; higher values only add gateway wait time and increase upstream throttling.",
     codexGatewayFacts: "GPT Image 2 · up to 20 references · Bearer downloads · 300-second client wait",
     codexGatewayCapability: "6–20 references are compiled into up to 5 numbered contact sheets. Local inpaint is still composited inside the mask by the app.",
     codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the Codex image gateway…",
@@ -715,7 +715,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayQuality: "出力品質", codexGatewayQualityHint: "草稿は高速、標準は一括生成、高品質は重要カット向けです。",
     codexGatewayDimensionMode: "サイズ処理", codexGatewayDimensionModeHint: "正確出力は引き伸ばさずカバー裁切するため、端が切れる場合があります。ネイティブは上流サイズを保持します。",
     codexGatewayAsync: "再開可能な非同期タスク", codexGatewayAsyncHint: "タスク ID を保存し、切断や再起動後も再送信せずポーリングを再開します。",
-    codexGatewayQueue: "クライアント待機数", codexGatewayQueueHint: "最大 5 件を待機。ゲートウェイの上流同時実行は最大 2 件です。",
+    codexGatewayQueue: "クライアント待機数", codexGatewayQueueHint: "同時送信は最大 2 件です。それ以上は待機時間と上流のレート制限を増やします。",
     codexGatewayFacts: "GPT Image 2 · 参照最大 20 枚 · Bearer ダウンロード · 待機 300 秒",
     codexGatewayCapability: "6～20 枚の参照画像は最大 5 枚の番号付き参照ボードに統合されます。部分再描画はアプリがマスク内だけ合成します。",
     codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "Codex 画像ゲートウェイに接続中…",
@@ -729,7 +729,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayQuality: "출력 품질", codexGatewayQualityHint: "초안은 빠르고 표준은 일괄 작업, 고품질은 주요 장면에 적합합니다.",
     codexGatewayDimensionMode: "크기 처리", codexGatewayDimensionModeHint: "정확 출력은 늘리지 않고 커버 자르기를 사용하므로 가장자리가 잘릴 수 있습니다. 원본 모드는 업스트림 크기를 유지합니다.",
     codexGatewayAsync: "재개 가능한 비동기 작업", codexGatewayAsyncHint: "작업 ID를 저장하여 연결 중단이나 앱 재시작 후 재제출 없이 폴링을 재개합니다.",
-    codexGatewayQueue: "클라이언트 대기열", codexGatewayQueueHint: "최대 5개 작업을 대기시키며 게이트웨이는 업스트림 요청을 최대 2개 동시 실행합니다.",
+    codexGatewayQueue: "클라이언트 대기열", codexGatewayQueueHint: "동시 전송은 최대 2개입니다. 더 높은 값은 대기와 업스트림 제한만 늘립니다.",
     codexGatewayFacts: "GPT Image 2 · 참고 이미지 최대 20장 · Bearer 다운로드 · 300초 대기",
     codexGatewayCapability: "6~20장 참고 이미지는 최대 5개의 번호 참조 보드로 통합됩니다. 부분 다시 그리기는 앱이 마스크 내부에만 합성합니다.",
     codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "Codex 이미지 게이트웨이에 연결 중…",
@@ -1825,7 +1825,7 @@ const CODEX_IMAGE_GATEWAY_MODEL = codexImageGateway.MODEL;
 const CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS = 300000;
 const CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS = 30000;
 const codexGatewayRuntime = imageTaskStability.createOpenCodexRuntime({
-  initialConcurrency: 5,
+  initialConcurrency: 2,
   circuitFailureThreshold: 3,
   circuitMs: 45_000,
 });
@@ -2356,7 +2356,11 @@ function updateSizePolicyUi() {
 }
 
 function getCodexGatewayConcurrency(options = getCodexGatewayOptions()) {
-  return Math.max(1, Math.min(5, Number(options.clientQueue) || 5));
+  return Math.max(1, Math.min(
+    2,
+    Number(options.clientQueue) || 2,
+    Number(codexGatewayRuntime.snapshot().concurrency) || 2
+  ));
 }
 
 function greatestCommonDivisor(a, b) {
@@ -6208,7 +6212,7 @@ registerAdapter({
   provider: CODEX_IMAGE_GATEWAY_PROVIDER,
   sizeFormat: "pixel",
   supportsReference: true,
-  concurrency: 5,
+  concurrency: 2,
   getConcurrency() { return getCodexGatewayConcurrency(); },
 
   async fetchModels() {
@@ -7881,8 +7885,12 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     return;
   }
   const recordId = `img_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  const originalImageUrl = item?.originalUrl || options.originalImageUrl ||
-    (!/^(?:idb|cache):\/\//.test(String(imageUrl)) ? imageUrl : "");
+  const originalImageUrl = sanitizeHistoryOriginalUrl(
+    item?.originalUrl
+      || item?.original_url
+      || options.originalImageUrl
+      || (item?.url ? imageUrl : "")
+  );
 
   card.classList.remove("is-failed", "is-retry-queued");
   delete card.dataset.failed;
@@ -8990,11 +8998,37 @@ function clearAllReferenceImages() {
   renderThumbGrid();
 }
 
+function sanitizeHistoryOriginalUrl(value) {
+  const url = String(value || "").trim();
+  if (/^data:image\//i.test(url)) {
+    // Keep tiny legacy inline fallbacks, but never place a normal generated
+    // multi-megabyte image in localStorage checkpoint metadata.
+    return url.length <= 128 * 1024 ? url : "";
+  }
+  if (!/^https?:\/\//i.test(url)) return "";
+  if (isCodexGatewayProtectedImageUrl(url)) return "";
+  return url;
+}
+
+function compactHistoryImageUrl(imageUrl, originalUrl = "") {
+  const current = String(imageUrl || "");
+  if (/^(?:idb|cache):\/\//.test(current)) return current;
+  return sanitizeHistoryOriginalUrl(originalUrl || current);
+}
+
 function compactHistoryItem(item) {
-  if (!isHistoryProject(item)) return { ...item, imageUrl: item.originalUrl || item.imageUrl };
+  if (!isHistoryProject(item)) {
+    const originalUrl = sanitizeHistoryOriginalUrl(item.originalUrl);
+    return {
+      ...item,
+      imageUrl: compactHistoryImageUrl(item.imageUrl, originalUrl),
+      originalUrl,
+    };
+  }
   const images = getHistoryImages(item).map(img => ({
     ...img,
-    imageUrl: img.originalUrl || img.imageUrl,
+    imageUrl: compactHistoryImageUrl(img.imageUrl, img.originalUrl),
+    originalUrl: sanitizeHistoryOriginalUrl(img.originalUrl),
   }));
   // 项目历史按产品规则不恢复参考图；这里同时兼容清理旧版本曾保存的参考图。
   const panels = Array.isArray(item.panels) ? item.panels.map(p => ({ ...p, references: [] })) : item.panels;
@@ -9002,7 +9036,8 @@ function compactHistoryItem(item) {
     ...item,
     images,
     panels,
-    imageUrl: images[0]?.imageUrl || item.originalUrl || item.imageUrl,
+    imageUrl: images[0]?.imageUrl || compactHistoryImageUrl(item.imageUrl, item.originalUrl),
+    originalUrl: sanitizeHistoryOriginalUrl(item.originalUrl),
   };
 }
 
@@ -9019,8 +9054,15 @@ function saveHistory(list) {
     const compact = normalized
       .map(compactHistoryItem)
       .slice(0, Math.max(20, Math.floor(limit / 2)));
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(compact));
-    void scheduleHistoryBlobPrune();
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(compact));
+      void scheduleHistoryBlobPrune();
+    } catch (compactError) {
+      // History persistence is secondary to a successful image result. A
+      // storage quota failure must not turn a completed image into a failed
+      // card and cause another paid submission.
+      console.warn("History metadata persistence skipped after quota exhaustion", compactError);
+    }
     console.warn("历史项目元数据超出 localStorage 限制，已裁剪旧记录并退回 URL 存储", err);
   }
 }
@@ -9030,6 +9072,7 @@ async function saveGenerationRecord(record) {
   await Promise.resolve(record._actualMetaPromise).catch(() => null);
   const { _cachePromise, _cacheKey, _actualMetaPromise, ...persisted } = record;
   persisted.imageUrl = await makeHistoryImageUrl(record.imageUrl, _cachePromise, record.id, _cacheKey);
+  persisted.originalUrl = sanitizeHistoryOriginalUrl(record.originalUrl);
   const list = loadHistory();
   list.unshift(persisted);
   saveHistory(list);
@@ -9054,7 +9097,7 @@ async function saveGenerationProject(project) {
         `${project.id || "project"}_${img.panelId || images.length + 1}`,
         _cacheKey,
       ),
-      originalUrl: img.originalUrl || img.imageUrl,
+      originalUrl: sanitizeHistoryOriginalUrl(img.originalUrl),
     });
   }
 
@@ -9127,7 +9170,7 @@ function updateProjectCheckpoint(projectId, panelId, update = {}) {
           `${projectId}_${panelId}`,
           _cacheKey,
         ),
-        originalUrl: record.originalUrl || record.imageUrl,
+        originalUrl: sanitizeHistoryOriginalUrl(record.originalUrl),
       };
       project.images ||= [];
       const index = project.images.findIndex(item => String(item.panelId || "") === String(panelId));
@@ -9211,7 +9254,7 @@ async function resumeCodexGatewayCheckpointTasks() {
         panelPrompt,
         fullPrompt,
         imageUrl,
-        originalUrl: imageUrl,
+        originalUrl: "",
         size: requested.size,
         model: CODEX_IMAGE_GATEWAY_MODEL,
         provider: "codex-image-gateway",
@@ -9260,6 +9303,7 @@ async function replaceSingleHistoryRecord(oldRecordId, newRecord) {
   const record = {
     ...persisted,
     imageUrl: await makeHistoryImageUrl(newRecord.imageUrl, _cachePromise, newRecord.id, _cacheKey),
+    originalUrl: sanitizeHistoryOriginalUrl(newRecord.originalUrl),
   };
   const list = loadHistory();
   const filtered = oldRecordId ? list.filter(item => item.id !== oldRecordId) : list;

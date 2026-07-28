@@ -252,8 +252,8 @@
                 </label>
                 <label class="provider-option field">
                   <span id="codexGatewayQueueLabel">客户端排队数</span>
-                  <input type="number" id="codexGatewayClientQueue" min="1" max="5" step="1" value="5">
-                  <small id="codexGatewayQueueHint">最多排队 5 个任务；网关内部最多同时运行 2 个上游请求。</small>
+                  <input type="number" id="codexGatewayClientQueue" min="1" max="2" step="1" value="2">
+                  <small id="codexGatewayQueueHint">最多同时送入 2 个任务；继续增加只会在网关排队，并更容易触发上游限流。</small>
                 </label>
               </div>
 
