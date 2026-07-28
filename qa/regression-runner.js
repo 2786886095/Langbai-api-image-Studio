@@ -818,7 +818,8 @@ async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
     const start = Date.now();
     while (Date.now() - start < 6000) {
       const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
-      if (history.length === 1) break;
+      const panels = history[0]?.panels || [];
+      if (panels.length === 2 && panels.every(panel => ["success", "failed"].includes(panel.status))) break;
       await new Promise(r => setTimeout(r, 80));
     }
 
@@ -918,7 +919,8 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
     const start = Date.now();
     while (Date.now() - start < 6000) {
       const history = JSON.parse(localStorage.getItem("ai_image_gen_history_v1") || "[]");
-      if (history.length === 1) break;
+      const panels = history[0]?.panels || [];
+      if (panels.length === 2 && panels.every(panel => ["success", "failed"].includes(panel.status))) break;
       await new Promise(r => setTimeout(r, 80));
     }
 
