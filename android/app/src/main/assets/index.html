@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260728-1-4-4">
+  <link rel="stylesheet" href="style.css?v=20260728-1-4-5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -82,7 +82,7 @@
               </div>
               <select id="apiProvider" class="custom-select-native" tabindex="-1" aria-hidden="true">
                 <option value="official">官方 API</option>
-                <option value="opencodex">OpenCodex 本地 GPT</option>
+                <option value="codexImageGateway" data-windows-native-only="true">Codex 生图网关</option>
                 <option value="grsai" selected>GrsAI 生图 API</option>
                 <option value="custom">自定义 API</option>
               </select>
@@ -209,105 +209,63 @@
               <p class="provider-capability-note" id="officialCapabilityNote" role="status">选择模型后会显示该模型的尺寸、透明背景和参考图能力。</p>
             </section>
 
-            <section class="provider-panel provider-panel-opencodex hidden" id="openCodexProviderPanel" aria-labelledby="openCodexProviderTitle">
+            <section class="provider-panel provider-panel-opencodex hidden" id="codexGatewayProviderPanel" aria-labelledby="codexGatewayProviderTitle">
               <div class="provider-panel-head">
-                <span class="provider-badge provider-badge-opencodex">LOCAL</span>
+                <span class="provider-badge provider-badge-opencodex">CODEX</span>
                 <div>
-                  <h3 id="openCodexProviderTitle">OpenCodex 本地图片代理</h3>
-                  <p id="openCodexProviderHint">复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。</p>
+                  <h3 id="codexGatewayProviderTitle">Codex 专用生图网关</h3>
+                  <p id="codexGatewayProviderHint">独立 image-only 网关；软件从本机安全读取凭据，直连 127.0.0.1，不经过桌面代理。</p>
                 </div>
               </div>
 
               <div class="provider-option provider-option-wide">
                 <div class="provider-option-copy">
-                  <strong id="openCodexModelLabel">本地生图模型</strong>
-                  <small id="openCodexModelHint">GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。</small>
+                  <strong id="codexGatewayQualityLabel">输出质量</strong>
+                  <small id="codexGatewayQualityHint">草稿更快；标准适合批量分镜；高质量适合关键镜头。</small>
                 </div>
-                <div class="provider-segments provider-segments-two opencodex-model-segments" data-provider-control="openCodexModel" role="group" aria-labelledby="openCodexModelLabel">
-                  <button type="button" data-value="gpt-image-2">GPT Image 2</button>
-                  <button type="button" data-value="gemini-3.1-flash-image">Nano Banana 2</button>
-                </div>
-                <input type="hidden" id="openCodexModel" value="gpt-image-2">
-              </div>
-
-              <div class="provider-option provider-option-wide opencodex-gpt-option">
-                <div class="provider-option-copy">
-                  <strong id="openCodexQualityLabel">输出质量</strong>
-                  <small id="openCodexQualityHint">私有额度上游实测固定为中等质量，其他档位不会生效。</small>
-                </div>
-                <div class="provider-segments provider-segments-four" data-provider-control="openCodexQuality" role="group" aria-labelledby="openCodexQualityLabel">
-                  <button type="button" data-value="auto">自动</button>
+                <div class="provider-segments provider-segments-three" data-provider-control="codexGatewayQuality" role="group" aria-labelledby="codexGatewayQualityLabel">
                   <button type="button" data-value="low">草稿</button>
                   <button type="button" data-value="medium">标准</button>
                   <button type="button" data-value="high">高质量</button>
                 </div>
-                <input type="hidden" id="openCodexQuality" value="medium">
+                <input type="hidden" id="codexGatewayQuality" value="medium">
               </div>
 
-              <div class="provider-option opencodex-gpt-option">
+              <div class="provider-option provider-option-wide">
                 <div class="provider-option-copy">
-                  <strong id="openCodexBackgroundLabel">背景</strong>
-                  <small id="openCodexBackgroundHint">gpt-image-2 仅发送自动或不透明；不会发送透明背景。</small>
+                  <strong id="codexGatewayDimensionModeLabel">尺寸处理</strong>
+                  <small id="codexGatewayDimensionModeHint">精确输出会无拉伸覆盖裁切；边缘内容可能被裁掉。原生模式保留上游尺寸。</small>
                 </div>
-                <div class="provider-segments provider-segments-two" data-provider-control="openCodexBackground" role="group" aria-labelledby="openCodexBackgroundLabel">
-                  <button type="button" data-value="auto">自动</button>
-                  <button type="button" data-value="opaque">不透明</button>
+                <div class="provider-segments provider-segments-three" data-provider-control="codexGatewayDimensionMode" role="group" aria-labelledby="codexGatewayDimensionModeLabel">
+                  <button type="button" data-value="native">保留原生</button>
+                  <button type="button" data-value="exact_output">精确输出</button>
+                  <button type="button" data-value="strict_native">严格诊断</button>
                 </div>
-                <input type="hidden" id="openCodexBackground" value="auto">
+                <input type="hidden" id="codexGatewayDimensionMode" value="exact_output">
               </div>
 
-              <div class="provider-options-grid opencodex-nano-option hidden">
-                <div class="provider-option">
-                  <div class="provider-option-copy">
-                    <strong id="openCodexAspectRatioLabel">画面比例</strong>
-                    <small id="openCodexAspectRatioHint">只能选择 Nano Banana 2 官方支持的画面比例。</small>
-                  </div>
-                  <div class="custom-select" id="openCodexAspectRatioCustomSelect">
-                    <button type="button" class="custom-select-trigger" id="openCodexAspectRatioTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
-                    <div class="custom-select-list hidden" id="openCodexAspectRatioCustomList" role="listbox"></div>
-                  </div>
-                  <select id="openCodexAspectRatio" class="custom-select-native" tabindex="-1" aria-hidden="true">
-                    <option value="1:1">1:1</option>
-                    <option value="1:4">1:4</option>
-                    <option value="1:8">1:8</option>
-                    <option value="2:3">2:3</option>
-                    <option value="3:2">3:2</option>
-                    <option value="3:4">3:4</option>
-                    <option value="4:1">4:1</option>
-                    <option value="4:3">4:3</option>
-                    <option value="4:5">4:5</option>
-                    <option value="5:4">5:4</option>
-                    <option value="8:1">8:1</option>
-                    <option value="9:16">9:16</option>
-                    <option value="16:9">16:9</option>
-                    <option value="21:9">21:9</option>
-                  </select>
-                </div>
-
-                <div class="provider-option">
-                  <div class="provider-option-copy">
-                    <strong id="openCodexImageSizeLabel">分辨率档位</strong>
-                    <small id="openCodexImageSizeHint">512/1K 最多并发 5，2K 最多 3，4K 固定单任务。</small>
-                  </div>
-                  <div class="provider-segments provider-segments-four" data-provider-control="openCodexImageSize" role="group" aria-labelledby="openCodexImageSizeLabel">
-                    <button type="button" data-value="512">512</button>
-                    <button type="button" data-value="1K">1K</button>
-                    <button type="button" data-value="2K">2K</button>
-                    <button type="button" data-value="4K">4K</button>
-                  </div>
-                  <input type="hidden" id="openCodexImageSize" value="1K">
-                </div>
+              <div class="provider-options-grid">
+                <label class="provider-option checkbox-field">
+                  <input type="checkbox" id="codexGatewayAsyncTasks" checked>
+                  <span id="codexGatewayAsyncLabel">使用可恢复异步任务</span>
+                  <small id="codexGatewayAsyncHint">批量分镜会保存任务 ID；网络中断或软件重启后继续轮询，不重新提交。</small>
+                </label>
+                <label class="provider-option field">
+                  <span id="codexGatewayQueueLabel">客户端排队数</span>
+                  <input type="number" id="codexGatewayClientQueue" min="1" max="5" step="1" value="5">
+                  <small id="codexGatewayQueueHint">最多排队 5 个任务；网关内部最多同时运行 2 个上游请求。</small>
+                </label>
               </div>
 
               <div class="provider-facts">
-                <span id="openCodexFacts">JSON 图片协议 · GPT Image 2 · 最多并发 5 · 单次超时 620 秒</span>
+                <span id="codexGatewayFacts">GPT Image 2 · 最多 20 张参考图 · Bearer 下载 · 300 秒客户端等待</span>
               </div>
-              <p class="provider-capability-note" id="openCodexCapabilityNote">实测输出约 157 万像素、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。</p>
+              <p class="provider-capability-note" id="codexGatewayCapabilityNote">6–20 张参考图会由网关聚合为最多 5 张编号参考板；局部重绘仍由软件在蒙版内合成。</p>
               <div class="opencodex-health-row">
-                <button type="button" id="testOpenCodexHealth" class="btn btn-xs"><span class="ui-icon ui-icon-refresh"></span> 检测本地服务</button>
+                <button type="button" id="testCodexGatewayHealth" class="btn btn-xs"><span class="ui-icon ui-icon-refresh"></span> 检测网关</button>
                 <button type="button" id="openInpaintFromFile" class="btn btn-xs"><span class="ui-icon ui-icon-mask"></span> 局部重绘</button>
                 <input type="file" id="inpaintSourceInput" accept="image/png,image/jpeg,image/webp" hidden>
-                <span id="openCodexHealthStatus" class="opencodex-health-status" data-state="idle" role="status">尚未检测</span>
+                <span id="codexGatewayHealthStatus" class="opencodex-health-status" data-state="idle" role="status">尚未检测</span>
               </div>
             </section>
 
@@ -757,7 +715,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.4.4</strong>
+            <strong id="currentVersionLabel">v1.4.5</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -812,7 +770,7 @@
       <div class="modal-header inpaint-header">
         <div>
           <h2 id="inpaintTitle">局部重绘</h2>
-          <p class="field-hint" id="inpaintDisclosure">局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2。</p>
+          <p class="field-hint" id="inpaintDisclosure">局部重绘支持 Codex 生图网关与官方 OpenAI 的 gpt-image-2。</p>
         </div>
         <button type="button" class="icon-btn" id="closeInpaint" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
@@ -951,8 +909,9 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260728-1-4-4"></script>
-  <script src="image-task-stability.js?v=20260728-1-4-4"></script>
-  <script src="app.js?v=20260728-1-4-4"></script>
+  <script src="bootstrap-guard.js?v=20260728-1-4-5"></script>
+  <script src="image-task-stability.js?v=20260728-1-4-5"></script>
+  <script src="codex-image-gateway.js?v=20260728-1-4-5"></script>
+  <script src="app.js?v=20260728-1-4-5"></script>
 </body>
 </html>

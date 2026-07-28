@@ -325,9 +325,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.4"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.5"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.4` Release；不要在 CI 未绿前创建 Release。
+5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.5` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -343,5 +343,52 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件是 v1.4.4 当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件末尾的 v1.4.5 部分是当前状态的权威摘要。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
+
+## v1.4.5：专用 Codex 生图网关接入（当前）
+
+### 供应商与配置
+
+- 保留官方 OpenAI、GrsAI、自定义 API，以及 Windows 专用 Codex 生图网关。
+- GrsAI 仍使用 `https://grsai.dakka.com.cn/v1/api/generate`，其密钥、模型和配置与官方/自定义配置独立保存。
+- 原 `OpenCodex` 入口迁移为：
+  - API：`http://127.0.0.1:18080/v1`
+  - 健康检查：`http://127.0.0.1:18080/healthz`
+  - 模型：`gpt-image-2`
+- 旧 `opencodex` 或 `127.0.0.1:10100` 配置会迁移到新网关，旧占位密钥不会带入。
+- 网关只在 Windows 原生软件显示；浏览器、PWA 和其他平台的自绘下拉会跳过该隐藏选项。
+
+### 本机凭据
+
+- Windows 壳通过 `loadCodexImageGatewayConfig` 读取 `%LOCALAPPDATA%\LangbaiCodexImageGateway\local-api-key.txt`。
+- 仅接受 64 位小写十六进制密钥。
+- 密钥只进入运行时内存和请求 Authorization，不写入 localStorage、API 配置、历史、导出或日志。
+- 不要把该凭据合并进现有 API Key secure-storage 配置，也不要在界面显示它。
+
+### 请求、尺寸与局部重绘
+
+- 每个上游请求固定 `n=1`；客户端最多排队 5 个，网关内部并发由网关管理。
+- 支持文生图、1–20 张参考图语义编辑、同步请求和可恢复异步任务。
+- 6–20 张参考图由网关聚合为最多 5 张编号参考板。
+- 异步任务 ID 会立即写入漫画/嵌字项目检查点；断线或重启后继续轮询，不重新提交。
+- 服务端任务进入 `failed` 终态后立即返回具体错误，不能继续轮询到 300 秒超时。
+- 网关结果 URL 必须通过原生分块下载并携带 Bearer；网关请求固定直连 `127.0.0.1`。
+- UI 提供 `low/medium/high`、`native/strict_native/exact_output`、异步开关和 1–5 客户端队列数。
+- HTTP 422 / `image_dimension_mismatch` 分类为参数/尺寸问题，要求调整参数。
+- 局部重绘使用“网关语义编辑整图 + 软件仅在用户蒙版内本地合成”；官方 OpenAI 仍走原生 mask；GrsAI 不进入该协议。
+
+### 新增文件
+
+- `codex-image-gateway.js`
+- `lib/codex_image_gateway_config.dart`
+- `test/codex_image_gateway_config_test.dart`
+- `qa/codex-image-gateway-adapter.test.js`
+
+### 验证状态
+
+- 全量浏览器交互回归、静态审计、网关/错误分类 Node 测试全部通过。
+- `flutter analyze`：`No issues found`；`flutter test`：19 项通过。
+- Android release 本地构建成功，APK 内包含 v1.4.5 的 `app.js`、`index.html`、`bootstrap-guard.js` 和 `codex-image-gateway.js`。
+- 本机缺少 Visual Studio C++ 工具链，Windows 构建必须以 GitHub Actions 为准。
+- 本机没有 `android/key.properties`，本地 APK 使用 debug fallback 签名；正式 Release 必须由 CI 恢复既有 keystore，并核对 SHA1 `C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。

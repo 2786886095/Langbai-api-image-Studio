@@ -11,6 +11,7 @@ const hash = relative => crypto.createHash("sha256").update(fs.readFileSync(path
 
 const app = read("app.js");
 const imageTaskStability = read("image-task-stability.js");
+const codexImageGateway = read("codex-image-gateway.js");
 const bootstrapGuard = read("bootstrap-guard.js");
 const pubspec = read("pubspec.yaml");
 const html = read("index.html");
@@ -20,6 +21,7 @@ const manifest = read("android/app/src/main/AndroidManifest.xml");
 const workflow = read(".github/workflows/build-all-platforms.yml");
 const dartMain = read("lib/main.dart");
 const proxyConfig = read("lib/proxy_config.dart");
+const codexGatewayConfig = read("lib/codex_image_gateway_config.dart");
 const macWindow = read("macos/Runner/MainFlutterWindow.swift");
 const macDebugEntitlements = read("macos/Runner/DebugProfile.entitlements");
 const macReleaseEntitlements = read("macos/Runner/Release.entitlements");
@@ -32,20 +34,23 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.4.4", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.4\.4\+66$/m);
+assert.equal(version, "1.4.5", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.4\.5\+67$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
 assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
+assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.4\.4/);
-assert.match(html, /20260728-1-4-4/g);
-assert.match(sw, /ai-image-generator-1-4-4-20260728/);
+assert.match(html, /v1\.4\.5/);
+assert.match(html, /20260728-1-4-5/g);
+assert.match(sw, /ai-image-generator-1-4-5-20260728/);
+assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,4,66/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.4"/);
-assert.match(workflow, /const APP_VERSION = "1\.4\.4";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260728-1-4-4/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,4,5,67/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.4\.5"/);
+assert.match(workflow, /const APP_VERSION = "1\.4\.5";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260728-1-4-5/);
+assert.match(workflow, /codex-image-gateway\.js/);
 assert.match(pubspec, /webview_win_floating:\s*\n\s*path:\s*third_party\/webview_win_floating/);
 assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);
@@ -74,6 +79,7 @@ assert.match(workflow, /Run hidden Windows WebView2 startup smoke test/);
 assert.match(workflow, /Verify Windows hit testing reaches WebView2/);
 assert.match(bootstrapGuard, /__AI_GEN_APP_READY/);
 assert.match(app, /window\.__AI_GEN_APP_READY = true/);
+assert.match(app, /gatewayTaskTerminal = true/);
 assert.match(app, /function restoreSavedConfigurationOnStartup\(\)/);
 assert.match(app, /function initializeApplication\(\)/);
 assert.ok(
@@ -91,8 +97,8 @@ for (const id of [
   "officialProviderPanel", "officialQuality", "officialBackground", "officialOutputFormat",
   "officialOutputCompression", "officialModeration", "officialInputFidelity",
   "officialCostSummary", "officialEstimatedCost", "officialRateStatus", "officialPricingLink", "refreshOfficialRate",
-  "openCodexProviderPanel", "openCodexModel", "openCodexQuality", "openCodexBackground",
-  "openCodexAspectRatio", "openCodexImageSize", "testOpenCodexHealth", "openCodexHealthStatus",
+  "codexGatewayProviderPanel", "codexGatewayQuality", "codexGatewayDimensionMode",
+  "codexGatewayAsyncTasks", "codexGatewayClientQueue", "testCodexGatewayHealth", "codexGatewayHealthStatus",
   "openInpaintFromFile", "inpaintModal", "inpaintMaskCanvas", "inpaintBrush", "inpaintEraser",
   "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
@@ -101,13 +107,17 @@ for (const id of [
 }
 assert.match(app, /provider:\s*"official"/);
 assert.match(app, /provider:\s*"grsai"/);
-assert.match(app, /provider:\s*"opencodex"/);
-assert.match(app, /OPENCODEX_API_ENDPOINT\s*=\s*"http:\/\/127\.0\.0\.1:10100\/v1\/images\/generations"/);
-assert.match(app, /OPENCODEX_REQUEST_TIMEOUT_MS\s*=\s*620000/);
-assert.match(app, /OPENCODEX_GPT_PRIVATE_QUALITY\s*=\s*"medium"/);
-assert.match(app, /OPENCODEX_GPT_PRIVATE_MAX_PIXELS_OBSERVED\s*=\s*1573770/);
-assert.match(app, /OPENCODEX_GPT_PRIVATE_MAX_EDGE_OBSERVED\s*=\s*2172/);
-assert.match(app, /addOpenCodexGptAspectInstruction/);
+assert.match(app, /provider:\s*CODEX_IMAGE_GATEWAY_PROVIDER/);
+assert.match(codexImageGateway, /http:\/\/127\.0\.0\.1:18080\/v1/);
+assert.match(codexImageGateway, /MAX_REFERENCE_IMAGES\s*=\s*20/);
+assert.match(codexImageGateway, /asyncTasks:\s*true/);
+assert.match(codexImageGateway, /dimensionMode:\s*"exact_output"/);
+assert.match(app, /loadCodexImageGatewayConfig/);
+assert.match(app, /image-tasks/);
+assert.match(app, /codexGatewayDownloadAsBase64/);
+assert.match(app, /gatewayTaskId/);
+assert.match(codexGatewayConfig, /local-api-key\.txt/);
+assert.match(codexGatewayConfig, /\^\[a-f0-9\]\{64\}\$/);
 assert.match(app, /repairDuplicateApiConfigIds/);
 assert.match(app, /queueSecureStorageOperation/);
 assert.match(app, /GENERATED_CACHE_META_STORE\s*=\s*"generated_cache_meta"/);
@@ -117,15 +127,14 @@ assert.doesNotMatch(app, /generatedStore\.getAllKeys\(\)/);
 assert.match(app, /setTimeout\(\(\) => \{\s*void cleanupGeneratedImageCache\(\)/);
 assert.match(app, /secureStorageMigrationStarted/);
 assert.match(dartMain, /_secureStorageOperationChain/);
-assert.match(app, /gemini-3\.1-flash-image/);
-assert.match(app, /OPENCODEX_NANO_ASPECT_RATIOS/);
+assert.doesNotMatch(html, /gemini-3\.1-flash-image/);
 assert.match(app, /compositeInpaintPixels/);
 assert.match(app, /buildInwardFeatherAlpha/);
 for (const size of ["1024x1024", "1536x1024", "1024x1536", "2048x2048", "2048x1152", "3840x2160", "2160x3840"]) {
   assert.match(html, new RegExp(`value="${size}"`), `Missing GPT Image 2 popular size: ${size}`);
 }
-assert.match(html, /option value="opencodex"/);
-assert.match(app, /body\.images\s*=\s*refs\.map\(ref => \(\{\s*image_url:\s*ref\.dataUrl\s*\}\)\)/);
+assert.match(html, /option value="codexImageGateway"/);
+assert.match(codexImageGateway, /images\s*=\s*refs\.map/);
 assert.match(app, /forceDirectProxy:\s*true/);
 assert.ok(app.includes("gpt-image-2|gpt-image-1\\.5|gpt-image-1-mini"), "Official model aliases/snapshots must be matched explicitly");
 assert.match(app, /output_compression/);
@@ -140,7 +149,7 @@ assert.match(html, /id="grsaiSubmit504RetryInterval"/);
 assert.match(app, /getGrsaiSubmit504RetryPolicy/);
 assert.match(app, /onSubmit504Retry/);
 
-for (const file of ["app.js", "bootstrap-guard.js", "image-task-stability.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
+for (const file of ["app.js", "bootstrap-guard.js", "image-task-stability.js", "codex-image-gateway.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
   assert.equal(
     hash(file),
     hash(`android/app/src/main/assets/${file}`),

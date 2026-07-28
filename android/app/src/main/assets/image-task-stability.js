@@ -114,7 +114,11 @@
     } else if (status === 504 || /timed?\s*out|timeout/.test(lower)) {
       category = ERROR_CATEGORIES.timeout;
       retryPolicy = "manual_unknown_outcome";
-    } else if (status === 400 || /invalid[_\s-]*(request|parameter)|unsupported parameter|not supported/.test(lower)) {
+    } else if (
+      status === 400
+      || status === 422
+      || /invalid[_\s-]*(request|parameter)|unsupported parameter|not supported|image_dimension_mismatch/.test(lower)
+    ) {
       category = ERROR_CATEGORIES.parameters;
       retryPolicy = "edit_required";
       requiresEdit = true;

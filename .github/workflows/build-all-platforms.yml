@@ -22,12 +22,14 @@ jobs:
         run: |
           node --check app.js
           node --check image-task-stability.js
+          node --check codex-image-gateway.js
           node --check api-proxy.js
           node --check qa/regression-runner.js
           node --check qa/static-audit.js
           node qa/static-audit.js
           node --test qa/api-proxy.test.js
           node --test qa/image-task-stability.test.js
+          node qa/codex-image-gateway-adapter.test.js
       - name: Browser regression suite
         run: node qa/regression-runner.js
       - run: flutter analyze
@@ -121,17 +123,17 @@ jobs:
         shell: pwsh
         run: |
           $assets = "build/windows/x64/runner/Release/data/flutter_assets"
-          foreach ($name in @("index.html", "bootstrap-guard.js", "image-task-stability.js", "app.js", "style.css")) {
+          foreach ($name in @("index.html", "bootstrap-guard.js", "image-task-stability.js", "codex-image-gateway.js", "app.js", "style.css")) {
             $path = Join-Path $assets $name
             if (-not (Test-Path $path) -or (Get-Item $path).Length -le 0) {
               throw "Missing or empty packaged frontend asset: $name"
             }
           }
-          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.4.4";' -Quiet)) {
-            throw "Packaged app.js is not v1.4.4."
+          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.4.5";' -Quiet)) {
+            throw "Packaged app.js is not v1.4.5."
           }
-          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260728-1-4-4' -Quiet)) {
-            throw "Packaged index.html does not reference the v1.4.4 bootstrap guard."
+          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260728-1-4-5' -Quiet)) {
+            throw "Packaged index.html does not reference the v1.4.5 bootstrap guard."
           }
       - name: Run hidden Windows WebView2 startup smoke test
         shell: pwsh

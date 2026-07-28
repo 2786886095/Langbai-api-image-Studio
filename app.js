@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.4.4";
+const APP_VERSION = "1.4.5";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -632,34 +632,117 @@ const CLEAN_LOCALES = {
 
 const INPAINT_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
-    inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2",
+    inpaintRequiresGptImage2: "局部重绘仅支持 Codex 生图网关或官方 OpenAI 的 gpt-image-2",
     inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。",
-    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。",
+    inpaintOpenCodexDisclosure: "Codex 生图网关生成语义补丁；软件只在本地蒙版内合成。",
   }),
   "zh-Hant": Object.freeze({
-    inpaintRequiresGptImage2: "局部重繪僅支援 OpenCodex 或官方 OpenAI 的 gpt-image-2",
+    inpaintRequiresGptImage2: "局部重繪僅支援 Codex 生圖閘道或官方 OpenAI 的 gpt-image-2",
     inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；軟體仍會在本機保護蒙版外像素。",
-    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 產生語意補丁；軟體只在本機蒙版內合成。",
+    inpaintOpenCodexDisclosure: "Codex 生圖閘道產生語意補丁；軟體只在本機蒙版內合成。",
   }),
   en: Object.freeze({
-    inpaintRequiresGptImage2: "Local inpaint supports only gpt-image-2 through OpenCodex or the official OpenAI API",
+    inpaintRequiresGptImage2: "Local inpaint supports only gpt-image-2 through the Codex image gateway or the official OpenAI API",
     inpaintOfficialDisclosure: "Official OpenAI gpt-image-2 receives a native mask; the app also preserves pixels outside the local mask.",
-    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 generates a semantic patch that the app composites only inside the local mask.",
+    inpaintOpenCodexDisclosure: "The Codex image gateway generates a semantic patch that the app composites only inside the local mask.",
   }),
   ja: Object.freeze({
-    inpaintRequiresGptImage2: "部分再描画は OpenCodex または公式 OpenAI の gpt-image-2 のみ対応します",
+    inpaintRequiresGptImage2: "部分再描画は Codex 画像ゲートウェイまたは公式 OpenAI の gpt-image-2 のみ対応します",
     inpaintOfficialDisclosure: "公式 OpenAI gpt-image-2 にはネイティブ mask を送信し、アプリでもマスク外の画素を保護します。",
-    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 が意味パッチを生成し、アプリがローカルマスク内だけに合成します。",
+    inpaintOpenCodexDisclosure: "Codex 画像ゲートウェイが意味パッチを生成し、アプリがローカルマスク内だけに合成します。",
   }),
   ko: Object.freeze({
-    inpaintRequiresGptImage2: "부분 다시 그리기는 OpenCodex 또는 공식 OpenAI의 gpt-image-2만 지원합니다",
+    inpaintRequiresGptImage2: "부분 다시 그리기는 Codex 이미지 게이트웨이 또는 공식 OpenAI의 gpt-image-2만 지원합니다",
     inpaintOfficialDisclosure: "공식 OpenAI gpt-image-2에는 네이티브 mask를 보내며 앱도 마스크 밖 픽셀을 보호합니다.",
-    inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다.",
+    inpaintOpenCodexDisclosure: "Codex 이미지 게이트웨이가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다.",
+  }),
+});
+
+const CODEX_GATEWAY_LOCALES = Object.freeze({
+  "zh-CN": Object.freeze({
+    codexGatewayApi: "Codex 生图网关",
+    codexGatewayPanelTitle: "Codex 专用生图网关",
+    codexGatewayPanelHint: "独立 image-only 网关；软件从本机安全读取凭据，直连 127.0.0.1，不经过桌面代理。",
+    codexGatewayQuality: "输出质量",
+    codexGatewayQualityHint: "草稿更快；标准适合批量分镜；高质量适合关键镜头。",
+    codexGatewayDimensionMode: "尺寸处理",
+    codexGatewayDimensionModeHint: "精确输出会无拉伸覆盖裁切；边缘内容可能被裁掉。原生模式保留上游尺寸。",
+    codexGatewayAsync: "使用可恢复异步任务",
+    codexGatewayAsyncHint: "批量分镜会保存任务 ID；网络中断或软件重启后继续轮询，不重新提交。",
+    codexGatewayQueue: "客户端排队数",
+    codexGatewayQueueHint: "最多排队 5 个任务；网关内部最多同时运行 2 个上游请求。",
+    codexGatewayFacts: "GPT Image 2 · 最多 20 张参考图 · Bearer 下载 · 300 秒客户端等待",
+    codexGatewayCapability: "6–20 张参考图会由网关聚合为最多 5 张编号参考板；局部重绘仍由软件在蒙版内合成。",
+    codexGatewayHealthCheck: "检测网关",
+    codexGatewayHealthIdle: "尚未检测",
+    codexGatewayHealthChecking: "正在连接 Codex 生图网关…",
+    codexGatewayHealthReady: "网关可用 · {detail}",
+    codexGatewayHealthFailed: "网关不可用：{reason}",
+    codexGatewayKeyHint: "凭据由 Windows 软件从本机安全读取，不保存到配置中",
+    codexGatewayReferenceBoards: "已接收 {count} 张参考图；网关将聚合为编号参考板",
+  }),
+  "zh-Hant": Object.freeze({
+    codexGatewayApi: "Codex 生圖閘道", codexGatewayPanelTitle: "Codex 專用生圖閘道",
+    codexGatewayPanelHint: "獨立 image-only 閘道；軟體從本機安全讀取憑證，直連 127.0.0.1，不經桌面代理。",
+    codexGatewayQuality: "輸出品質", codexGatewayQualityHint: "草稿較快；標準適合批次分鏡；高品質適合關鍵鏡頭。",
+    codexGatewayDimensionMode: "尺寸處理", codexGatewayDimensionModeHint: "精確輸出會無拉伸覆蓋裁切；邊緣內容可能被裁掉。原生模式保留上游尺寸。",
+    codexGatewayAsync: "使用可恢復非同步任務", codexGatewayAsyncHint: "批次分鏡會儲存任務 ID；網路中斷或軟體重啟後繼續輪詢，不重新提交。",
+    codexGatewayQueue: "客戶端佇列數", codexGatewayQueueHint: "最多排隊 5 個任務；閘道內部最多同時執行 2 個上游請求。",
+    codexGatewayFacts: "GPT Image 2 · 最多 20 張參考圖 · Bearer 下載 · 300 秒客戶端等待",
+    codexGatewayCapability: "6–20 張參考圖會由閘道聚合為最多 5 張編號參考板；局部重繪仍由軟體在遮罩內合成。",
+    codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 Codex 生圖閘道…",
+    codexGatewayHealthReady: "閘道可用 · {detail}", codexGatewayHealthFailed: "閘道不可用：{reason}",
+    codexGatewayKeyHint: "憑證由 Windows 軟體從本機安全讀取，不儲存到設定中",
+    codexGatewayReferenceBoards: "已接收 {count} 張參考圖；閘道將聚合為編號參考板",
+  }),
+  en: Object.freeze({
+    codexGatewayApi: "Codex Image Gateway", codexGatewayPanelTitle: "Dedicated Codex Image Gateway",
+    codexGatewayPanelHint: "A dedicated image-only gateway. The Windows app loads its local credential in memory and connects directly to 127.0.0.1.",
+    codexGatewayQuality: "Output quality", codexGatewayQualityHint: "Draft is faster, Standard suits batches, and High suits key frames.",
+    codexGatewayDimensionMode: "Dimension handling", codexGatewayDimensionModeHint: "Exact output uses cover cropping without stretching, so edge content may be cropped. Native preserves upstream dimensions.",
+    codexGatewayAsync: "Use resumable async tasks", codexGatewayAsyncHint: "Batch task IDs are checkpointed. Polling resumes after a disconnect or app restart without resubmission.",
+    codexGatewayQueue: "Client queue size", codexGatewayQueueHint: "Queue up to 5 tasks; the gateway runs at most 2 upstream requests concurrently.",
+    codexGatewayFacts: "GPT Image 2 · up to 20 references · Bearer downloads · 300-second client wait",
+    codexGatewayCapability: "6–20 references are compiled into up to 5 numbered contact sheets. Local inpaint is still composited inside the mask by the app.",
+    codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the Codex image gateway…",
+    codexGatewayHealthReady: "Gateway ready · {detail}", codexGatewayHealthFailed: "Gateway unavailable: {reason}",
+    codexGatewayKeyHint: "The Windows app loads the local credential securely in memory; it is not saved in API profiles",
+    codexGatewayReferenceBoards: "{count} references received; the gateway will compile numbered contact sheets",
+  }),
+  ja: Object.freeze({
+    codexGatewayApi: "Codex 画像ゲートウェイ", codexGatewayPanelTitle: "Codex 専用画像ゲートウェイ",
+    codexGatewayPanelHint: "画像専用ゲートウェイです。Windows アプリがローカル資格情報をメモリに読み込み、127.0.0.1 に直接接続します。",
+    codexGatewayQuality: "出力品質", codexGatewayQualityHint: "草稿は高速、標準は一括生成、高品質は重要カット向けです。",
+    codexGatewayDimensionMode: "サイズ処理", codexGatewayDimensionModeHint: "正確出力は引き伸ばさずカバー裁切するため、端が切れる場合があります。ネイティブは上流サイズを保持します。",
+    codexGatewayAsync: "再開可能な非同期タスク", codexGatewayAsyncHint: "タスク ID を保存し、切断や再起動後も再送信せずポーリングを再開します。",
+    codexGatewayQueue: "クライアント待機数", codexGatewayQueueHint: "最大 5 件を待機。ゲートウェイの上流同時実行は最大 2 件です。",
+    codexGatewayFacts: "GPT Image 2 · 参照最大 20 枚 · Bearer ダウンロード · 待機 300 秒",
+    codexGatewayCapability: "6～20 枚の参照画像は最大 5 枚の番号付き参照ボードに統合されます。部分再描画はアプリがマスク内だけ合成します。",
+    codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "Codex 画像ゲートウェイに接続中…",
+    codexGatewayHealthReady: "ゲートウェイ利用可能 · {detail}", codexGatewayHealthFailed: "ゲートウェイ利用不可：{reason}",
+    codexGatewayKeyHint: "Windows アプリがローカル資格情報を安全にメモリへ読み込み、API 設定には保存しません",
+    codexGatewayReferenceBoards: "参照画像 {count} 枚を受信。番号付き参照ボードに統合します",
+  }),
+  ko: Object.freeze({
+    codexGatewayApi: "Codex 이미지 게이트웨이", codexGatewayPanelTitle: "Codex 전용 이미지 게이트웨이",
+    codexGatewayPanelHint: "이미지 전용 게이트웨이입니다. Windows 앱이 로컬 자격 증명을 메모리에 읽고 127.0.0.1로 직접 연결합니다.",
+    codexGatewayQuality: "출력 품질", codexGatewayQualityHint: "초안은 빠르고 표준은 일괄 작업, 고품질은 주요 장면에 적합합니다.",
+    codexGatewayDimensionMode: "크기 처리", codexGatewayDimensionModeHint: "정확 출력은 늘리지 않고 커버 자르기를 사용하므로 가장자리가 잘릴 수 있습니다. 원본 모드는 업스트림 크기를 유지합니다.",
+    codexGatewayAsync: "재개 가능한 비동기 작업", codexGatewayAsyncHint: "작업 ID를 저장하여 연결 중단이나 앱 재시작 후 재제출 없이 폴링을 재개합니다.",
+    codexGatewayQueue: "클라이언트 대기열", codexGatewayQueueHint: "최대 5개 작업을 대기시키며 게이트웨이는 업스트림 요청을 최대 2개 동시 실행합니다.",
+    codexGatewayFacts: "GPT Image 2 · 참고 이미지 최대 20장 · Bearer 다운로드 · 300초 대기",
+    codexGatewayCapability: "6~20장 참고 이미지는 최대 5개의 번호 참조 보드로 통합됩니다. 부분 다시 그리기는 앱이 마스크 내부에만 합성합니다.",
+    codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "Codex 이미지 게이트웨이에 연결 중…",
+    codexGatewayHealthReady: "게이트웨이 사용 가능 · {detail}", codexGatewayHealthFailed: "게이트웨이 사용 불가: {reason}",
+    codexGatewayKeyHint: "Windows 앱이 로컬 자격 증명을 안전하게 메모리에 읽으며 API 설정에는 저장하지 않습니다",
+    codexGatewayReferenceBoards: "참고 이미지 {count}장을 받았습니다. 번호 참조 보드로 통합합니다",
   }),
 });
 
 function cleanText(key) {
-  return INPAINT_LOCALES[currentLanguage]?.[key]
+  return CODEX_GATEWAY_LOCALES[currentLanguage]?.[key]
+    || CODEX_GATEWAY_LOCALES["zh-CN"]?.[key]
+    || INPAINT_LOCALES[currentLanguage]?.[key]
     || INPAINT_LOCALES["zh-CN"]?.[key]
     || CLEAN_LOCALES[currentLanguage]?.[key]
     || CLEAN_LOCALES["zh-CN"][key]
@@ -857,7 +940,7 @@ function applyCleanLanguage() {
   setText("#apiProviderField > span", "apiProvider");
   const providerLabels = {
     official: "officialApi",
-    opencodex: "opencodexApi",
+    codexImageGateway: "codexGatewayApi",
     grsai: "grsaiImageApi",
     custom: "customApi",
   };
@@ -1162,16 +1245,15 @@ const dom = {
   openApiConfig: $("#openApiConfig"),
   quickDetectModels: $("#quickDetectModels"),
   officialProviderPanel: $("#officialProviderPanel"),
-  openCodexProviderPanel: $("#openCodexProviderPanel"),
+  codexGatewayProviderPanel: $("#codexGatewayProviderPanel"),
   grsaiProviderPanel: $("#grsaiProviderPanel"),
   customProviderPanel: $("#customProviderPanel"),
-  openCodexModel: $("#openCodexModel"),
-  openCodexQuality: $("#openCodexQuality"),
-  openCodexBackground: $("#openCodexBackground"),
-  openCodexAspectRatio: $("#openCodexAspectRatio"),
-  openCodexImageSize: $("#openCodexImageSize"),
-  testOpenCodexHealth: $("#testOpenCodexHealth"),
-  openCodexHealthStatus: $("#openCodexHealthStatus"),
+  codexGatewayQuality: $("#codexGatewayQuality"),
+  codexGatewayDimensionMode: $("#codexGatewayDimensionMode"),
+  codexGatewayAsyncTasks: $("#codexGatewayAsyncTasks"),
+  codexGatewayClientQueue: $("#codexGatewayClientQueue"),
+  testCodexGatewayHealth: $("#testCodexGatewayHealth"),
+  codexGatewayHealthStatus: $("#codexGatewayHealthStatus"),
   openInpaintFromFile: $("#openInpaintFromFile"),
   inpaintSourceInput: $("#inpaintSourceInput"),
   officialQuality: $("#officialQuality"),
@@ -1387,14 +1469,17 @@ function initCustomSelect(selectEl) {
   function renderOptions() {
     list.innerHTML = "";
     [...selectEl.options].forEach((opt, index) => {
+      if (opt.hidden) return;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "custom-select-option";
+      btn.disabled = opt.disabled;
       btn.setAttribute("role", "option");
       btn.id = `${selectEl.id}_option_${index}`;
       btn.textContent = opt.textContent;
       btn.setAttribute("aria-selected", opt.value === selectEl.value ? "true" : "false");
       btn.addEventListener("click", () => {
+        if (opt.disabled) return;
         if (selectEl.value !== opt.value) {
           selectEl.value = opt.value;
           selectEl.dispatchEvent(new Event("change", { bubbles: true }));
@@ -1553,7 +1638,6 @@ const customSelects = {
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
   captionAutoFillTemplate: initCustomSelect(dom.captionAutoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
-  openCodexAspectRatio: initCustomSelect(dom.openCodexAspectRatio),
   modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
 
@@ -1729,21 +1813,26 @@ installGlobalWheelScrollBridge();
 const STORAGE_KEY = "ai_image_gen_config";
 const DEFAULT_API_KEY = "ai_image_gen_default_api_id";
 const OFFICIAL_API_ENDPOINT = "https://api.openai.com/v1/images/generations";
-const OPENCODEX_API_ENDPOINT = "http://127.0.0.1:10100/v1/images/generations";
-const OPENCODEX_HEALTH_URL = "http://127.0.0.1:10100/healthz";
-const OPENCODEX_PLACEHOLDER_KEY = "opencodex-local-only";
-const OPENCODEX_REQUEST_TIMEOUT_MS = 620000;
-const OPENCODEX_HEALTH_CACHE_MS = 30000;
-const OPENCODEX_GPT_IMAGE_2 = "gpt-image-2";
-const OPENCODEX_NANO_BANANA_2 = "gemini-3.1-flash-image";
-const OPENCODEX_GPT_PRIVATE_QUALITY = "medium";
 const imageTaskStability = window.ImageTaskStability;
 if (!imageTaskStability) throw new Error("image-task-stability.js 未加载，生图稳定层无法启动");
-const openCodexRuntime = imageTaskStability.createOpenCodexRuntime({
-  initialConcurrency: 2,
+const codexImageGateway = window.CodexImageGateway;
+if (!codexImageGateway) throw new Error("codex-image-gateway.js 未加载，Codex 生图网关适配层无法启动");
+const CODEX_IMAGE_GATEWAY_PROVIDER = codexImageGateway.PROVIDER_ID;
+const CODEX_IMAGE_GATEWAY_BASE_URL = codexImageGateway.BASE_URL;
+const CODEX_IMAGE_GATEWAY_HEALTH_URL = codexImageGateway.HEALTH_URL;
+const CODEX_IMAGE_GATEWAY_CAPABILITIES_URL = codexImageGateway.CAPABILITIES_URL;
+const CODEX_IMAGE_GATEWAY_MODEL = codexImageGateway.MODEL;
+const CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS = 300000;
+const CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS = 30000;
+const codexGatewayRuntime = imageTaskStability.createOpenCodexRuntime({
+  initialConcurrency: 5,
   circuitFailureThreshold: 3,
   circuitMs: 45_000,
 });
+// The inpaint implementation predates the dedicated gateway and still uses
+// this model constant internally. It no longer represents an OpenCodex route.
+const OPENCODEX_GPT_IMAGE_2 = CODEX_IMAGE_GATEWAY_MODEL;
+const OPENCODEX_NANO_BANANA_2 = "__removed_nano_banana__";
 
 const IMAGE_ERROR_TEXT = Object.freeze({
   "zh-CN": Object.freeze({
@@ -1752,9 +1841,9 @@ const IMAGE_ERROR_TEXT = Object.freeze({
     authentication_failed: "认证或账号权限失败",
     payload_too_large: "请求体过大",
     rate_limited: "上游限流或额度冷却",
-    upstream_disconnected: "OpenCodex 上游连接断开",
-    upstream_unavailable: "OpenCodex 上游服务暂不可用",
-    upstream_timeout: "OpenCodex 上游生成超时",
+    upstream_disconnected: "Codex 生图网关上游连接断开",
+    upstream_unavailable: "Codex 生图网关暂不可用",
+    upstream_timeout: "Codex 生图网关生成超时",
     decode_failed: "图片响应解码失败",
     unknown: "生图请求失败",
     editRequired: "请修改当前分镜提示词或参考图后再重试。",
@@ -1763,14 +1852,14 @@ const IMAGE_ERROR_TEXT = Object.freeze({
   }),
   "zh-Hant": Object.freeze({
     moderation_blocked: "內容審核攔截", invalid_parameters: "請求參數不受支援", authentication_failed: "驗證或帳號權限失敗",
-    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "OpenCodex 上游連線中斷",
-    upstream_unavailable: "OpenCodex 上游服務暫時無法使用", upstream_timeout: "OpenCodex 上游生成逾時", decode_failed: "圖片回應解碼失敗",
+    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "Codex 生圖閘道上游連線中斷",
+    upstream_unavailable: "Codex 生圖閘道暫時無法使用", upstream_timeout: "Codex 生圖閘道生成逾時", decode_failed: "圖片回應解碼失敗",
     unknown: "生圖請求失敗", editRequired: "請修改目前分鏡提示詞或參考圖後再重試。", requestId: "請求 ID", violations: "審核類別",
   }),
   en: Object.freeze({
     moderation_blocked: "Blocked by content moderation", invalid_parameters: "Unsupported request parameters", authentication_failed: "Authentication or account access failed",
-    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "OpenCodex upstream connection closed",
-    upstream_unavailable: "OpenCodex upstream is unavailable", upstream_timeout: "OpenCodex upstream generation timed out", decode_failed: "Image response decoding failed",
+    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "Codex image gateway upstream connection closed",
+    upstream_unavailable: "Codex image gateway is unavailable", upstream_timeout: "Codex image gateway generation timed out", decode_failed: "Image response decoding failed",
     unknown: "Image request failed", editRequired: "Edit this panel prompt or its references before retrying.", requestId: "Request ID", violations: "Safety categories",
   }),
   ja: Object.freeze({
@@ -1809,9 +1898,7 @@ function makeImageApiError(error, extra = {}) {
   result.imageError = formatted.detail;
   return result;
 }
-const OPENCODEX_GPT_PRIVATE_MAX_PIXELS_OBSERVED = 1573770;
-const OPENCODEX_GPT_PRIVATE_MAX_EDGE_OBSERVED = 2172;
-const OPENCODEX_MODELS = Object.freeze([OPENCODEX_GPT_IMAGE_2, OPENCODEX_NANO_BANANA_2]);
+const OPENCODEX_MODELS = Object.freeze([OPENCODEX_GPT_IMAGE_2]);
 const OPENCODEX_NANO_ASPECT_RATIOS = Object.freeze([
   "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1",
   "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
@@ -1820,24 +1907,16 @@ const OPENCODEX_CAPABILITIES = Object.freeze({
   [OPENCODEX_GPT_IMAGE_2]: Object.freeze({
     label: "GPT Image 2",
     login: "ChatGPT/Codex",
-    maxReferences: 8,
+    maxReferences: 20,
     supportsInpaint: false,
-    requestFields: Object.freeze(["size", "quality", "background"]),
-  }),
-  [OPENCODEX_NANO_BANANA_2]: Object.freeze({
-    label: "Nano Banana 2",
-    login: "Google Antigravity",
-    maxReferences: 8,
-    upstreamMaxReferences: 14,
-    supportsInpaint: true,
-    requestFields: Object.freeze(["aspect_ratio", "image_size"]),
+    requestFields: Object.freeze(["size", "quality", "dimension_mode"]),
   }),
 });
 const GRSAI_SITE_URL = "https://grsai.com/zh";
 const GRSAI_API_ENDPOINT = "https://grsai.dakka.com.cn/v1/api/generate";
 const API_PROVIDER_PRESETS = {
   official: { endpoint: OFFICIAL_API_ENDPOINT, labelKey: "officialApi" },
-  opencodex: { endpoint: OPENCODEX_API_ENDPOINT, labelKey: "opencodexApi" },
+  [CODEX_IMAGE_GATEWAY_PROVIDER]: { endpoint: CODEX_IMAGE_GATEWAY_BASE_URL, labelKey: "codexGatewayApi" },
   grsai: { endpoint: GRSAI_API_ENDPOINT, labelKey: "grsaiImageApi" },
   custom: { endpoint: "", labelKey: "customApi" },
 };
@@ -1855,13 +1934,7 @@ const OFFICIAL_IMAGE_OPTION_DEFAULTS = Object.freeze({
   moderation: "auto",
   inputFidelity: "low",
 });
-const OPENCODEX_IMAGE_OPTION_DEFAULTS = Object.freeze({
-  model: OPENCODEX_GPT_IMAGE_2,
-  quality: OPENCODEX_GPT_PRIVATE_QUALITY,
-  background: "auto",
-  aspectRatio: "1:1",
-  imageSize: "1K",
-});
+const CODEX_GATEWAY_OPTION_DEFAULTS = codexImageGateway.DEFAULTS;
 const USD_CNY_RATE_KEY = "ai_image_gen_usd_cny_rate_v1";
 const USD_CNY_RATE_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY?providers=ECB";
 const OPENAI_PRICING_URL = "https://developers.openai.com/api/docs/pricing";
@@ -2206,71 +2279,33 @@ function applyOfficialImageOptions(value = {}) {
   updateOfficialOptionAvailability();
 }
 
-function normalizeOpenCodexImageOptions(value = {}) {
-  const model = OPENCODEX_MODELS.includes(value.model) ? value.model : OPENCODEX_IMAGE_OPTION_DEFAULTS.model;
-  return {
-    model,
-    quality: model === OPENCODEX_GPT_IMAGE_2
-      ? OPENCODEX_GPT_PRIVATE_QUALITY
-      : (["auto", "low", "medium", "high"].includes(value.quality) ? value.quality : OPENCODEX_IMAGE_OPTION_DEFAULTS.quality),
-    background: ["auto", "opaque"].includes(value.background) ? value.background : OPENCODEX_IMAGE_OPTION_DEFAULTS.background,
-    aspectRatio: OPENCODEX_NANO_ASPECT_RATIOS.includes(value.aspectRatio)
-      ? value.aspectRatio
-      : OPENCODEX_IMAGE_OPTION_DEFAULTS.aspectRatio,
-    imageSize: ["512", "1K", "2K", "4K"].includes(value.imageSize)
-      ? value.imageSize
-      : OPENCODEX_IMAGE_OPTION_DEFAULTS.imageSize,
-  };
+function normalizeCodexGatewayOptions(value = {}) {
+  return codexImageGateway.normalizeOptions(value);
 }
 
-function getOpenCodexImageOptions() {
-  return normalizeOpenCodexImageOptions({
-    model: dom.openCodexModel?.value || dom.model?.value,
-    quality: dom.openCodexQuality?.value,
-    background: dom.openCodexBackground?.value,
-    aspectRatio: dom.openCodexAspectRatio?.value,
-    imageSize: dom.openCodexImageSize?.value,
+function getCodexGatewayOptions() {
+  return normalizeCodexGatewayOptions({
+    quality: dom.codexGatewayQuality?.value,
+    dimensionMode: dom.codexGatewayDimensionMode?.value,
+    asyncTasks: dom.codexGatewayAsyncTasks?.checked !== false,
+    clientQueue: dom.codexGatewayClientQueue?.value,
   });
 }
 
-function applyOpenCodexImageOptions(value = {}) {
-  const options = normalizeOpenCodexImageOptions(value);
-  setProviderSegmentValue("openCodexModel", options.model);
-  setProviderSegmentValue("openCodexQuality", options.quality);
-  setProviderSegmentValue("openCodexBackground", options.background);
-  setProviderSegmentValue("openCodexImageSize", options.imageSize);
-  if (dom.openCodexAspectRatio) dom.openCodexAspectRatio.value = options.aspectRatio;
-  customSelects?.openCodexAspectRatio?.syncLabel();
-  updateOpenCodexOptionAvailability();
+function applyCodexGatewayOptions(value = {}) {
+  const options = normalizeCodexGatewayOptions(value);
+  setProviderSegmentValue("codexGatewayQuality", options.quality);
+  setProviderSegmentValue("codexGatewayDimensionMode", options.dimensionMode);
+  if (dom.codexGatewayAsyncTasks) dom.codexGatewayAsyncTasks.checked = options.asyncTasks;
+  if (dom.codexGatewayClientQueue) dom.codexGatewayClientQueue.value = String(options.clientQueue);
+  updateCodexGatewayOptionAvailability();
 }
 
-function updateOpenCodexOptionAvailability() {
-  const options = getOpenCodexImageOptions();
-  const model = options.model;
-  const capability = OPENCODEX_CAPABILITIES[model] || OPENCODEX_CAPABILITIES[OPENCODEX_GPT_IMAGE_2];
-  const isNano = model === OPENCODEX_NANO_BANANA_2;
-  if (!isNano) setProviderSegmentValue("openCodexQuality", OPENCODEX_GPT_PRIVATE_QUALITY);
-  document.querySelectorAll('[data-provider-control="openCodexQuality"] button[data-value]').forEach(button => {
-    const fixedByPrivateUpstream = !isNano && button.dataset.value !== OPENCODEX_GPT_PRIVATE_QUALITY;
-    button.disabled = fixedByPrivateUpstream;
-    button.setAttribute("aria-disabled", String(fixedByPrivateUpstream));
-  });
-  document.querySelectorAll(".opencodex-gpt-option").forEach(element => element.classList.toggle("hidden", isNano));
-  document.querySelectorAll(".opencodex-nano-option").forEach(element => element.classList.toggle("hidden", !isNano));
-  if (dom.model && isOpenCodexSelected()) dom.model.value = model;
+function updateCodexGatewayOptionAvailability() {
+  if (dom.model && isCodexGatewaySelected()) dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
   updateInpaintAvailability();
-  if ($("#openCodexFacts")) {
-    $("#openCodexFacts").textContent = isNano
-      ? interpolate(cleanText("openCodexNanoFacts"), { concurrency: getOpenCodexConcurrency(options) })
-      : cleanText("opencodexFacts");
-  }
-  if ($("#openCodexCapabilityNote")) {
-    $("#openCodexCapabilityNote").textContent = isNano
-      ? cleanText("openCodexNanoCapability")
-      : cleanText("opencodexCapability");
-  }
   updateSizePolicyUi();
-  if (dom.apiQuickMeta && isOpenCodexSelected()) updateApiQuickState();
+  if (dom.apiQuickMeta && isCodexGatewaySelected()) updateApiQuickState();
 }
 
 const SIZE_POLICY_TEXT = Object.freeze({
@@ -2308,26 +2343,20 @@ const SIZE_POLICY_TEXT = Object.freeze({
 
 function updateSizePolicyUi() {
   const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
-  const isNano = provider === "opencodex" && getOpenCodexImageOptions().model === OPENCODEX_NANO_BANANA_2;
   const isCaptionMode = !!dom.modeTabs?.querySelector('[data-mode="caption"].active');
-  if (dom.globalSizeField) dom.globalSizeField.classList.toggle("hidden", isCaptionMode || isNano);
+  if (dom.globalSizeField) dom.globalSizeField.classList.toggle("hidden", isCaptionMode);
   if (!dom.sizePolicyHint) return;
   const language = SIZE_POLICY_TEXT[currentLanguage] || SIZE_POLICY_TEXT["zh-CN"];
-  const key = isNano
-    ? "nano"
-    : provider === "official" && officialImageModelFamily(dom.model?.value || "") === "gpt-image-2"
-      ? "official"
-      : provider === "opencodex"
-        ? "opencodex"
-        : "generic";
+  const key = provider === "official" && officialImageModelFamily(dom.model?.value || "") === "gpt-image-2"
+    ? "official"
+    : provider === CODEX_IMAGE_GATEWAY_PROVIDER
+      ? "opencodex"
+      : "generic";
   dom.sizePolicyHint.textContent = language[key];
 }
 
-function getOpenCodexConcurrency(options = getOpenCodexImageOptions()) {
-  if (options.model !== OPENCODEX_NANO_BANANA_2) return openCodexRuntime.snapshot().concurrency;
-  if (options.imageSize === "4K") return 1;
-  if (options.imageSize === "2K") return 3;
-  return 5;
+function getCodexGatewayConcurrency(options = getCodexGatewayOptions()) {
+  return Math.max(1, Math.min(5, Number(options.clientQueue) || 5));
 }
 
 function greatestCommonDivisor(a, b) {
@@ -2394,7 +2423,7 @@ function updateOfficialOptionAvailability() {
 
 function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "custom") {
   dom.officialProviderPanel?.classList.toggle("hidden", provider !== "official");
-  dom.openCodexProviderPanel?.classList.toggle("hidden", provider !== "opencodex");
+  dom.codexGatewayProviderPanel?.classList.toggle("hidden", provider !== CODEX_IMAGE_GATEWAY_PROVIDER);
   dom.grsaiProviderPanel?.classList.toggle("hidden", provider !== "grsai");
   dom.customProviderPanel?.classList.toggle("hidden", provider !== "custom");
   dom.grsaiRetrySettings?.classList.toggle("hidden", provider !== "grsai");
@@ -2412,26 +2441,17 @@ function updateProviderOptionsLanguage() {
     officialCompressionLabel: "officialCompression", officialCompressionHint: "officialCompressionHint",
     officialModerationLabel: "officialModeration", officialModerationHint: "officialModerationHint",
     officialInputFidelityLabel: "officialInputFidelity", officialInputFidelityHint: "officialInputFidelityHint",
-    openCodexProviderTitle: "opencodexPanelTitle", openCodexProviderHint: "opencodexPanelHint",
-    openCodexModelLabel: "openCodexModel", openCodexModelHint: "openCodexModelHint",
-    openCodexQualityLabel: "opencodexQuality", openCodexQualityHint: "opencodexQualityHint",
-    openCodexBackgroundLabel: "opencodexBackground", openCodexBackgroundHint: "opencodexBackgroundHint",
-    openCodexAspectRatioLabel: "openCodexAspectRatio", openCodexAspectRatioHint: "openCodexAspectRatioHint",
-    openCodexImageSizeLabel: "openCodexImageSize", openCodexImageSizeHint: "openCodexImageSizeHint",
-    openCodexFacts: "opencodexFacts", openCodexCapabilityNote: "opencodexCapability",
+    codexGatewayProviderTitle: "codexGatewayPanelTitle", codexGatewayProviderHint: "codexGatewayPanelHint",
+    codexGatewayQualityLabel: "codexGatewayQuality", codexGatewayQualityHint: "codexGatewayQualityHint",
+    codexGatewayDimensionModeLabel: "codexGatewayDimensionMode", codexGatewayDimensionModeHint: "codexGatewayDimensionModeHint",
+    codexGatewayAsyncLabel: "codexGatewayAsync", codexGatewayAsyncHint: "codexGatewayAsyncHint",
+    codexGatewayQueueLabel: "codexGatewayQueue", codexGatewayQueueHint: "codexGatewayQueueHint",
+    codexGatewayFacts: "codexGatewayFacts", codexGatewayCapabilityNote: "codexGatewayCapability",
     grsaiProviderTitle: "grsaiPanelTitle", grsaiProviderHint: "grsaiPanelHint", grsaiNodeHint: "grsaiNodeHint",
     grsaiWebsite: "grsaiWebsiteLabel", customProviderTitle: "customPanelTitle", customProviderHint: "customPanelHint",
     grsaiRetryTitle: "grsaiRetryTitle",
   };
   Object.entries(textKeys).forEach(([id, key]) => setText(`#${id}`, key));
-  const nanoRatioHint = {
-    "zh-CN": "只发送 Nano Banana 2 官方支持的比例。",
-    "zh-Hant": "只傳送 Nano Banana 2 官方支援的比例。",
-    en: "Only official Nano Banana 2 aspect ratios are sent.",
-    ja: "Nano Banana 2 が公式対応する比率のみ送信します。",
-    ko: "Nano Banana 2 공식 지원 비율만 전송합니다.",
-  }[currentLanguage];
-  if ($("#openCodexAspectRatioHint")) $("#openCodexAspectRatioHint").textContent = nanoRatioHint;
   const optionKeys = { auto: "optionAuto", low: "optionLow", medium: "optionMedium", high: "optionHigh", opaque: "optionOpaque", transparent: "optionTransparent" };
   document.querySelectorAll(".provider-segments button[data-value]").forEach(button => {
     const key = optionKeys[button.dataset.value];
@@ -2440,26 +2460,22 @@ function updateProviderOptionsLanguage() {
   document.querySelectorAll('[data-provider-control="officialOutputFormat"] button').forEach(button => {
     button.textContent = button.dataset.value === "jpeg" ? "JPEG" : button.dataset.value.toUpperCase();
   });
-  const openCodexQualityLabels = {
-    "zh-CN": { auto: "自动", low: "草稿", medium: "标准", high: "高质量" },
-    "zh-Hant": { auto: "自動", low: "草稿", medium: "標準", high: "高品質" },
-    en: { auto: "Auto", low: "Draft", medium: "Standard", high: "High quality" },
-    ja: { auto: "自動", low: "下書き", medium: "標準", high: "高品質" },
-    ko: { auto: "자동", low: "초안", medium: "표준", high: "고품질" },
-  }[currentLanguage] || {};
-  document.querySelectorAll('[data-provider-control="openCodexQuality"] button[data-value]').forEach(button => {
-    button.textContent = openCodexQualityLabels[button.dataset.value] || button.dataset.value;
+  const dimensionLabels = {
+    native: currentLanguage === "en" ? "Native" : "原生",
+    exact_output: currentLanguage === "en" ? "Exact output" : "精确输出",
+    strict_native: currentLanguage === "en" ? "Strict native" : "严格原生",
+  };
+  document.querySelectorAll('[data-provider-control="codexGatewayDimensionMode"] button[data-value]').forEach(button => {
+    button.textContent = dimensionLabels[button.dataset.value] || button.dataset.value;
   });
-  customSelects.openCodexAspectRatio?.syncLabel();
-  setButtonText(dom.testOpenCodexHealth, "refresh", "opencodexHealthCheck");
+  setButtonText(dom.testCodexGatewayHealth, "refresh", "codexGatewayHealthCheck");
   setButtonText(dom.openInpaintFromFile, "mask", "openInpaint");
   setButtonText($("#useGrsaiEndpoint"), "spark", "useGrsaiEndpoint");
   updateOfficialOptionAvailability();
-  updateOpenCodexOptionAvailability();
-  setOpenCodexHealthState(openCodexHealthState, openCodexHealthDetail);
+  updateCodexGatewayOptionAvailability();
+  setCodexGatewayHealthState(codexGatewayHealthState, codexGatewayHealthDetail);
   updateInpaintLanguage();
 }
-
 function updateInpaintLanguage() {
   setText("#inpaintTitle", "inpaintTitle");
   setText("#inpaintDisclosure", "inpaintDisclosure");
@@ -2478,25 +2494,22 @@ function updateInpaintLanguage() {
   updateInpaintAvailability();
 }
 
-let openCodexHealthState = "idle";
-let openCodexHealthCheckedAt = 0;
-let openCodexHealthVersion = "";
-let openCodexHealthDetail = "";
-let openCodexHealthPromise = null;
+let codexGatewayHealthState = "idle";
+let codexGatewayHealthCheckedAt = 0;
+let codexGatewayHealthDetail = "";
+let codexGatewayHealthPromise = null;
+let codexGatewayCredentials = null;
+let codexGatewayCapabilities = null;
 
-function isOpenCodexSelected() {
-  return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === "opencodex";
+function isCodexGatewaySelected() {
+  return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === CODEX_IMAGE_GATEWAY_PROVIDER;
 }
 
 function getInpaintProviderMode() {
   const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
   const model = String(dom.model?.value || "").trim();
-  if (provider === "official" && officialImageModelFamily(model) === "gpt-image-2") {
-    return "official-native-mask";
-  }
-  if (provider === "opencodex" && getOpenCodexImageOptions().model === OPENCODEX_GPT_IMAGE_2) {
-    return "opencodex-local-mask";
-  }
+  if (provider === "official" && officialImageModelFamily(model) === "gpt-image-2") return "official-native-mask";
+  if (provider === CODEX_IMAGE_GATEWAY_PROVIDER && model === CODEX_IMAGE_GATEWAY_MODEL) return "codex-gateway-local-mask";
   return "";
 }
 
@@ -2507,84 +2520,100 @@ function updateInpaintAvailability() {
     dom.openInpaintFromFile.title = mode ? cleanText("openInpaint") : cleanText("inpaintRequiresGptImage2");
   }
   if (dom.inpaintDisclosure) {
-    dom.inpaintDisclosure.textContent = cleanText(
-      mode === "official-native-mask" ? "inpaintOfficialDisclosure" : "inpaintOpenCodexDisclosure"
-    );
+    dom.inpaintDisclosure.textContent = cleanText(mode === "official-native-mask" ? "inpaintOfficialDisclosure" : "inpaintOpenCodexDisclosure");
   }
   return mode;
 }
 
-function setOpenCodexHealthState(state, detail = "") {
-  openCodexHealthState = state;
-  openCodexHealthDetail = detail;
-  if (dom.openCodexHealthStatus) {
-    dom.openCodexHealthStatus.dataset.state = state;
-    const text = state === "checking"
-      ? cleanText("opencodexHealthChecking")
+function setCodexGatewayHealthState(state, detail = "") {
+  codexGatewayHealthState = state;
+  codexGatewayHealthDetail = detail;
+  if (dom.codexGatewayHealthStatus) {
+    dom.codexGatewayHealthStatus.dataset.state = state;
+    dom.codexGatewayHealthStatus.textContent = state === "checking"
+      ? cleanText("codexGatewayHealthChecking")
       : state === "ready"
-        ? interpolate(cleanText("opencodexHealthReady"), { version: openCodexHealthVersion || detail || "OK" })
+        ? interpolate(cleanText("codexGatewayHealthReady"), { detail: detail || "image-only" })
         : state === "error"
-          ? interpolate(cleanText("opencodexHealthFailed"), { reason: detail || "OpenCodex" })
-          : cleanText("opencodexHealthIdle");
-    dom.openCodexHealthStatus.textContent = text;
+          ? interpolate(cleanText("codexGatewayHealthFailed"), { reason: detail || "unknown" })
+          : cleanText("codexGatewayHealthIdle");
   }
-  syncOpenCodexGenerateAvailability();
+  syncCodexGatewayGenerateAvailability();
+  updateApiQuickState();
 }
 
-function syncOpenCodexGenerateAvailability() {
+function syncCodexGatewayGenerateAvailability() {
   if (!dom.generateBtn || dom.generateBtn.classList.contains("is-cancel")) return;
-  dom.generateBtn.disabled = isOpenCodexSelected() && openCodexHealthState !== "ready";
+  dom.generateBtn.disabled = isCodexGatewaySelected() && codexGatewayHealthState !== "ready";
 }
 
-async function checkOpenCodexHealth({ announce = false, force = true } = {}) {
-  if (!isOpenCodexSelected()) return true;
-  if (!force && openCodexHealthState === "ready" && Date.now() - openCodexHealthCheckedAt < OPENCODEX_HEALTH_CACHE_MS) {
-    syncOpenCodexGenerateAvailability();
-    return true;
-  }
-  if (openCodexHealthPromise) return openCodexHealthPromise;
-  setOpenCodexHealthState("checking");
-  if (dom.testOpenCodexHealth) dom.testOpenCodexHealth.disabled = true;
-  openCodexHealthPromise = (async () => {
+function syncCodexGatewayProviderVisibility() {
+  const option = dom.apiProvider?.querySelector(`option[value="${CODEX_IMAGE_GATEWAY_PROVIDER}"]`);
+  if (option) option.hidden = !isNativeWindowsWebview();
+  customSelects.apiProvider?.renderOptions?.();
+  customSelects.apiProvider?.syncLabel?.();
+}
+
+async function loadCodexGatewayCredentials() {
+  if (!isNativeWindowsWebview()) throw new Error("Codex 生图网关仅在 Windows 软件中可用");
+  const loaded = await nativeDownload.loadCodexImageGatewayConfig();
+  const baseUrl = codexImageGateway.normalizeBaseUrl(loaded?.baseUrl);
+  const apiKey = String(loaded?.apiKey || "").trim();
+  if (!codexImageGateway.validateLocalKey(apiKey)) throw new Error("本机网关凭据格式无效，请重新安装或修复网关");
+  codexGatewayCredentials = { baseUrl, apiKey };
+  return codexGatewayCredentials;
+}
+
+async function checkCodexGatewayHealth({ announce = false, force = true } = {}) {
+  if (!isCodexGatewaySelected()) return true;
+  if (!force && codexGatewayHealthState === "ready" && Date.now() - codexGatewayHealthCheckedAt < CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS) return true;
+  if (codexGatewayHealthPromise) return codexGatewayHealthPromise;
+  setCodexGatewayHealthState("checking");
+  if (dom.testCodexGatewayHealth) dom.testCodexGatewayHealth.disabled = true;
+  codexGatewayHealthPromise = (async () => {
     try {
-      const response = await smartFetch(OPENCODEX_HEALTH_URL, {
-        headers: { "Accept": "application/json" },
-        nativeTimeoutMs: 5000,
-        forceDirectProxy: true,
+      const credentials = await loadCodexGatewayCredentials();
+      const health = await smartFetch(CODEX_IMAGE_GATEWAY_HEALTH_URL, {
+        headers: { Accept: "application/json" }, nativeTimeoutMs: 5000, forceDirectProxy: true,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json().catch(() => ({}));
-      if (payload?.status && payload.status !== "ok") throw new Error(payload.message || payload.status);
-      openCodexHealthVersion = String(payload?.version || "OK");
-      openCodexHealthCheckedAt = Date.now();
-      openCodexRuntime.resetAfterHealthCheck({ resetReference: force });
-      setOpenCodexHealthState("ready");
-      if (announce) showStatus(interpolate(cleanText("opencodexHealthReady"), { version: openCodexHealthVersion }), "success");
+      if (!health.ok) throw new Error(`健康检查 HTTP ${health.status}`);
+      const healthBody = await health.json().catch(() => ({}));
+      if (healthBody?.status !== "ok") throw new Error(healthBody?.message || healthBody?.status || "健康检查失败");
+      const capsResponse = await smartFetch(`${credentials.baseUrl}/image-capabilities`, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${credentials.apiKey}` },
+        nativeTimeoutMs: 5000, forceDirectProxy: true,
+      });
+      if (!capsResponse.ok) throw new Error(`能力检查 HTTP ${capsResponse.status}`);
+      const validated = codexImageGateway.validateCapabilities(await capsResponse.json());
+      if (!validated.ok) throw new Error(`缺少能力：${validated.missing.join(", ")}`);
+      codexGatewayCapabilities = validated.capabilities;
+      codexGatewayHealthCheckedAt = Date.now();
+      codexGatewayRuntime.resetAfterHealthCheck({ resetReference: force });
+      setCodexGatewayHealthState("ready", `image-only · ${CODEX_IMAGE_GATEWAY_MODEL}`);
+      if (announce) showStatus(interpolate(cleanText("codexGatewayHealthReady"), { detail: CODEX_IMAGE_GATEWAY_MODEL }), "success");
       return true;
     } catch (err) {
-      openCodexHealthVersion = "";
-      openCodexHealthCheckedAt = 0;
-      const reason = err?.message === "Failed to fetch"
-        ? "OpenCodex 未启动；请先启动 OpenCodex，或执行 ocx ensure"
-        : String(err?.message || err || "OpenCodex");
-      setOpenCodexHealthState("error", reason);
-      if (announce) showStatus(interpolate(cleanText("opencodexHealthFailed"), { reason }), "error");
+      codexGatewayCredentials = null;
+      codexGatewayCapabilities = null;
+      codexGatewayHealthCheckedAt = 0;
+      const reason = String(err?.message || err || "Codex 生图网关");
+      setCodexGatewayHealthState("error", reason);
+      if (announce) showStatus(interpolate(cleanText("codexGatewayHealthFailed"), { reason }), "error");
       return false;
     } finally {
-      if (dom.testOpenCodexHealth) dom.testOpenCodexHealth.disabled = false;
-      openCodexHealthPromise = null;
+      if (dom.testCodexGatewayHealth) dom.testCodexGatewayHealth.disabled = false;
+      codexGatewayHealthPromise = null;
     }
   })();
-  return openCodexHealthPromise;
+  return codexGatewayHealthPromise;
 }
-
 function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const saved = raw ? JSON.parse(raw) : {};
     if (saved?.endpoint) {
       const normalized = normalizeApiConfig(saved);
-      if (!saved.id) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      if (JSON.stringify(saved) !== JSON.stringify(normalized)) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
       return normalized;
     }
     return getDefaultApiConfig() || saved || {};
@@ -2633,7 +2662,7 @@ function redactStoredApiKey(storageKey, id) {
 }
 
 function persistApiKeySecurely(config, storageKey) {
-  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey || config.apiProvider === "opencodex") return;
+  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey || config.apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER) return;
   const id = config.id;
   const secretName = secureApiKeyName(id);
   const next = queueSecureStorageOperation(() => nativeDownload.saveSecret(secretName, config.apiKey))
@@ -2663,29 +2692,30 @@ function makeApiId() {
 
 function normalizeApiConfig(config = {}) {
   const endpoint = String(config.endpoint || "").trim();
+  const configuredProvider = config.apiProvider || config.provider || inferApiProvider(endpoint);
+  const legacyGateway = configuredProvider === "opencodex" || /^https?:\/\/(?:127\.0\.0\.1|localhost):10100(?:\/|$)/i.test(endpoint);
   const inferredProvider = inferApiProvider(endpoint);
-  const configuredProvider = config.apiProvider || config.provider || inferredProvider;
-  const apiProvider = configuredProvider === "custom" && inferredProvider === "opencodex"
-    ? "opencodex"
-    : configuredProvider;
-  const openCodexImageOptions = apiProvider === "opencodex"
-    ? normalizeOpenCodexImageOptions({
-        ...(config.openCodexImageOptions || {}),
-        model: OPENCODEX_MODELS.includes(config.model) ? config.model : config.openCodexImageOptions?.model,
-      })
+  const apiProvider = legacyGateway
+    ? CODEX_IMAGE_GATEWAY_PROVIDER
+    : configuredProvider === "custom" && inferredProvider !== "custom"
+      ? inferredProvider
+      : configuredProvider;
+  const gatewayOptions = apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER
+    ? normalizeCodexGatewayOptions(config.codexGatewayOptions || config.openCodexImageOptions || {})
     : undefined;
+  const normalizedEndpoint = apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? CODEX_IMAGE_GATEWAY_BASE_URL : endpoint;
   return {
     id: config.id || makeApiId(),
-    name: config.name || readableEndpoint(endpoint) || cleanText("manualApi"),
+    name: config.name || readableEndpoint(normalizedEndpoint) || cleanText("manualApi"),
     apiProvider,
-    endpoint: apiProvider === "opencodex" ? OPENCODEX_API_ENDPOINT : endpoint,
-    apiKey: apiProvider === "opencodex" ? OPENCODEX_PLACEHOLDER_KEY : (config.apiKey || ""),
-    hasSecureKey: apiProvider === "opencodex" ? false : config.hasSecureKey === true,
-    model: apiProvider === "opencodex" ? openCodexImageOptions.model : (config.model || ""),
+    endpoint: normalizedEndpoint,
+    apiKey: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? "" : (config.apiKey || ""),
+    hasSecureKey: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? false : config.hasSecureKey === true,
+    model: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? CODEX_IMAGE_GATEWAY_MODEL : (config.model || ""),
     officialImageOptions: apiProvider === "official" ? normalizeOfficialImageOptions(config.officialImageOptions) : undefined,
-    openCodexImageOptions,
+    codexGatewayOptions: gatewayOptions,
     proxyEndpoint: config.proxyEndpoint || "",
-    platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(endpoint) || cleanText("customApi"),
+    platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(normalizedEndpoint) || cleanText("customApi"),
   };
 }
 
@@ -2716,7 +2746,7 @@ function getDefaultApiConfig() {
 
 function inferApiProvider(endpoint = "") {
   const ep = String(endpoint).toLowerCase();
-  if (/^https?:\/\/(?:127\.0\.0\.1|localhost):10100(?:\/|$)/.test(ep)) return "opencodex";
+  if (/^https?:\/\/(?:127\.0\.0\.1|localhost):(?:18080|10100)(?:\/|$)/.test(ep)) return CODEX_IMAGE_GATEWAY_PROVIDER;
   if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) return "grsai";
   if (/api\.openai\.com/.test(ep)) return "official";
   return "custom";
@@ -2735,7 +2765,7 @@ function updateApiProviderHint(provider = dom.apiProvider?.value || "custom") {
   if (!$("#apiProviderHint")) return;
   const hints = {
     official: `${cleanText("officialApi")} · ${OFFICIAL_API_ENDPOINT}`,
-    opencodex: `${cleanText("opencodexApi")} · ${OPENCODEX_API_ENDPOINT}`,
+    [CODEX_IMAGE_GATEWAY_PROVIDER]: `${cleanText("codexGatewayApi")} · ${CODEX_IMAGE_GATEWAY_BASE_URL}`,
     grsai: cleanText("apiProviderHint"),
     custom: `${cleanText("customApi")} · ${cleanText("apiUrl")}`,
   };
@@ -2748,37 +2778,40 @@ function applyApiProvider(provider = "custom", options = {}) {
   const preset = API_PROVIDER_PRESETS[next];
   const shouldSetEndpoint = options.forceEndpoint || (!dom.apiEndpoint?.value.trim() && next !== "custom");
   if (shouldSetEndpoint && preset.endpoint) dom.apiEndpoint.value = preset.endpoint;
-  if (next === "custom" && options.forceEndpoint && isPresetEndpoint(dom.apiEndpoint.value)) {
-    dom.apiEndpoint.value = "";
-  }
+  if (next === "custom" && options.forceEndpoint && isPresetEndpoint(dom.apiEndpoint.value)) dom.apiEndpoint.value = "";
   if (dom.apiEndpoint) {
     dom.apiEndpoint.readOnly = next !== "custom";
     dom.apiEndpoint.placeholder = preset.endpoint || "https://your-api.example.com/v1/images/generations";
   }
-  if (next === "opencodex") {
-    if (options.forceEndpoint || !dom.apiKey?.value.trim()) dom.apiKey.value = OPENCODEX_PLACEHOLDER_KEY;
-    const selectedModel = getOpenCodexImageOptions().model;
-    if (options.forceEndpoint || !OPENCODEX_MODELS.includes(dom.model?.value.trim())) dom.model.value = selectedModel;
+  if (next === CODEX_IMAGE_GATEWAY_PROVIDER) {
+    dom.apiEndpoint.value = CODEX_IMAGE_GATEWAY_BASE_URL;
+    dom.apiKey.value = "";
+    dom.apiKey.placeholder = cleanText("codexGatewayKeyHint");
+    dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
+    setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
+  } else if (dom.apiKey) {
+    dom.apiKey.placeholder = "sk-...";
   }
-  if (dom.apiKey) dom.apiKey.readOnly = next === "opencodex";
-  if (dom.model) dom.model.readOnly = next === "opencodex";
+  if (dom.apiKey) dom.apiKey.readOnly = next === CODEX_IMAGE_GATEWAY_PROVIDER;
+  if (dom.model) dom.model.readOnly = next === CODEX_IMAGE_GATEWAY_PROVIDER;
   customSelects.apiProvider?.syncLabel();
   updateApiProviderHint(next);
   updateProviderPanelVisibility(next);
   updateApiQuickState();
   updateOfficialCostSummary();
-  syncOpenCodexGenerateAvailability();
+  syncCodexGatewayGenerateAvailability();
 }
 
 function applyConfig(cfg) {
+  const normalized = normalizeApiConfig(cfg || {});
   const applySequence = ++apiConfigApplySequence;
-  const endpoint = cfg.endpoint || API_PROVIDER_PRESETS[cfg.apiProvider || "grsai"]?.endpoint || "";
-  const provider = cfg.apiProvider || cfg.provider || inferApiProvider(endpoint);
+  const endpoint = normalized.endpoint || API_PROVIDER_PRESETS[normalized.apiProvider || "grsai"]?.endpoint || "";
+  const provider = normalized.apiProvider || inferApiProvider(endpoint);
   applyApiProvider(provider, { forceEndpoint: false });
   dom.apiEndpoint.value = endpoint;
-  dom.apiKey.value = cfg.apiKey || "";
-  if (!cfg.apiKey && cfg.hasSecureKey && cfg.id) {
-    const expectedId = cfg.id;
+  dom.apiKey.value = provider === CODEX_IMAGE_GATEWAY_PROVIDER ? "" : (normalized.apiKey || "");
+  if (provider !== CODEX_IMAGE_GATEWAY_PROVIDER && !normalized.apiKey && normalized.hasSecureKey && normalized.id) {
+    const expectedId = normalized.id;
     setTimeout(() => {
       if (!secureStorageBridgeAvailable()) return;
       void queueSecureStorageOperation(() => nativeDownload.loadSecret(secureApiKeyName(expectedId))).then(value => {
@@ -2789,18 +2822,19 @@ function applyConfig(cfg) {
       }).catch(err => console.warn("系统安全存储读取 API Key 失败", err));
     }, 0);
   }
-  dom.model.value = cfg.model || "";
-  applyOfficialImageOptions(cfg.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
-  applyOpenCodexImageOptions(cfg.openCodexImageOptions || OPENCODEX_IMAGE_OPTION_DEFAULTS);
-  dom.proxyEndpoint.value = cfg.proxyEndpoint || "";
-  if (!cfg.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
-  if (!cfg.model && provider === "official") dom.model.value = "gpt-image-2";
-  if (provider === "opencodex") {
-    dom.apiKey.value = OPENCODEX_PLACEHOLDER_KEY;
-    dom.model.value = getOpenCodexImageOptions().model;
-    setModelChoices(OPENCODEX_MODELS);
-    setOpenCodexHealthState("idle");
-    setTimeout(() => void checkOpenCodexHealth({ announce: false, force: true }), 0);
+  dom.model.value = normalized.model || "";
+  applyOfficialImageOptions(normalized.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
+  applyCodexGatewayOptions(normalized.codexGatewayOptions || CODEX_GATEWAY_OPTION_DEFAULTS);
+  dom.proxyEndpoint.value = normalized.proxyEndpoint || "";
+  if (!normalized.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
+  if (!normalized.model && provider === "official") dom.model.value = "gpt-image-2";
+  if (provider === CODEX_IMAGE_GATEWAY_PROVIDER) {
+    dom.apiEndpoint.value = CODEX_IMAGE_GATEWAY_BASE_URL;
+    dom.apiKey.value = "";
+    dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
+    setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
+    setCodexGatewayHealthState("idle");
+    setTimeout(() => void checkCodexGatewayHealth({ announce: false, force: true }), 0);
   }
   updateOfficialOptionAvailability();
   updateApiQuickState();
@@ -2828,17 +2862,18 @@ function currentApiConfig(name = "", options = {}) {
     : !options.forceNew && apiConfigIdentityMatches(active, provider, endpoint)
       ? active
       : null;
-  const apiKey = dom.apiKey.value.trim();
+  const gateway = provider === CODEX_IMAGE_GATEWAY_PROVIDER;
+  const apiKey = gateway ? "" : dom.apiKey.value.trim();
   return {
     id: identitySource?.id || makeApiId(),
     name: name || identitySource?.name || readableEndpoint(endpoint) || apiProviderLabel(provider) || "未命名",
     apiProvider: provider,
-    endpoint,
+    endpoint: gateway ? CODEX_IMAGE_GATEWAY_BASE_URL : endpoint,
     apiKey,
-    hasSecureKey: !apiKey && identitySource?.hasSecureKey === true,
-    model: dom.model.value.trim(),
+    hasSecureKey: gateway ? false : (!apiKey && identitySource?.hasSecureKey === true),
+    model: gateway ? CODEX_IMAGE_GATEWAY_MODEL : dom.model.value.trim(),
     officialImageOptions: provider === "official" ? getOfficialImageOptions() : undefined,
-    openCodexImageOptions: provider === "opencodex" ? getOpenCodexImageOptions() : undefined,
+    codexGatewayOptions: gateway ? getCodexGatewayOptions() : undefined,
     proxyEndpoint: dom.proxyEndpoint.value.trim(),
     platform: (findAdapter(endpoint, provider) || {}).name || "未知",
   };
@@ -2863,28 +2898,17 @@ function readableEndpoint(endpoint) {
 function updateApiQuickState() {
   if (!dom.apiQuickCard) return;
   const endpoint = dom.apiEndpoint?.value.trim() || "";
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const gateway = provider === CODEX_IMAGE_GATEWAY_PROVIDER;
   const apiKey = dom.apiKey?.value.trim() || "";
   const model = dom.model?.value.trim() || "gpt-image-2";
-  const connected = Boolean(endpoint && apiKey);
+  const connected = gateway ? codexGatewayHealthState === "ready" : Boolean(endpoint && apiKey);
   dom.apiQuickCard.classList.toggle("is-connected", connected);
-  if (dom.apiQuickTitle) {
-    dom.apiQuickTitle.textContent = cleanText(connected ? "apiConnected" : "apiDisconnected");
-  }
+  if (dom.apiQuickTitle) dom.apiQuickTitle.textContent = cleanText(connected ? "apiConnected" : "apiDisconnected");
   if (dom.apiQuickMeta) {
-    if (connected) {
-      let adapter = null;
-      const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
-      try {
-        adapter = findAdapter(endpoint, provider);
-      } catch {
-        adapter = null;
-      }
-      const platform = apiProviderLabel(provider) || adapter?.name || readableEndpoint(endpoint);
-      dom.apiQuickMeta.textContent = `${platform} · ${model} · ${maskApiKey(apiKey)}`;
-    } else {
-      const provider = apiProviderLabel(dom.apiProvider?.value || inferApiProvider(endpoint));
-      dom.apiQuickMeta.textContent = `${provider} · ${cleanText("apiConnectHint")}`;
-    }
+    const platform = apiProviderLabel(provider) || readableEndpoint(endpoint);
+    if (connected) dom.apiQuickMeta.textContent = gateway ? `${platform} · ${model} · 本机凭据` : `${platform} · ${model} · ${maskApiKey(apiKey)}`;
+    else dom.apiQuickMeta.textContent = `${platform} · ${gateway ? cleanText("codexGatewayHealthIdle") : cleanText("apiConnectHint")}`;
   }
 }
 
@@ -2947,7 +2971,7 @@ function loadAllApis() {
     let migrated = false;
     const normalized = raw.map(item => {
       if (!item?.id) migrated = true;
-      if ((item?.apiProvider || item?.provider) === "custom" && inferApiProvider(item?.endpoint || "") === "opencodex") migrated = true;
+      if (["opencodex", "custom"].includes(item?.apiProvider || item?.provider) && inferApiProvider(item?.endpoint || "") === CODEX_IMAGE_GATEWAY_PROVIDER) migrated = true;
       return normalizeApiConfig(item);
     });
     let activeConfig = {};
@@ -3122,7 +3146,7 @@ function detachSavedApiProfile({ clearKey = true } = {}) {
   if (clearKey && dom.apiKey) dom.apiKey.value = "";
   if (dom.proxyEndpoint) dom.proxyEndpoint.value = "";
   applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
-  applyOpenCodexImageOptions(OPENCODEX_IMAGE_OPTION_DEFAULTS);
+  applyCodexGatewayOptions(CODEX_GATEWAY_OPTION_DEFAULTS);
 }
 
 dom.apiProvider?.addEventListener("change", () => {
@@ -3134,12 +3158,12 @@ dom.apiProvider?.addEventListener("change", () => {
     dom.model.placeholder = "点击输入或检测选择模型";
   } else if (provider === "official") {
     loadOfficialModels();
-  } else if (provider === "opencodex") {
-    setModelChoices(OPENCODEX_MODELS);
-    dom.model.value = getOpenCodexImageOptions().model;
-    updateOpenCodexOptionAvailability();
-    setOpenCodexHealthState("idle");
-    void checkOpenCodexHealth({ announce: true, force: true });
+  } else if (provider === CODEX_IMAGE_GATEWAY_PROVIDER) {
+    setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
+    dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
+    updateCodexGatewayOptionAvailability();
+    setCodexGatewayHealthState("idle");
+    void checkCodexGatewayHealth({ announce: true, force: true });
   } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
     dom.model.value = "";
   }
@@ -3173,7 +3197,7 @@ document.querySelectorAll(".provider-segments[data-provider-control]").forEach(g
     const controlId = group.dataset.providerControl;
     setProviderSegmentValue(controlId, button.dataset.value);
     updateOfficialOptionAvailability();
-    updateOpenCodexOptionAvailability();
+    updateCodexGatewayOptionAvailability();
     persistCurrentProviderOptions();
     scheduleOfficialCostSummaryUpdate();
   });
@@ -3183,12 +3207,13 @@ dom.officialOutputCompression?.addEventListener("input", () => {
   if (dom.officialCompressionValue) dom.officialCompressionValue.textContent = dom.officialOutputCompression.value;
 });
 dom.officialOutputCompression?.addEventListener("change", persistCurrentProviderOptions);
-dom.openCodexAspectRatio?.addEventListener("change", () => {
-  updateOpenCodexOptionAvailability();
-  persistCurrentProviderOptions();
+dom.testCodexGatewayHealth?.addEventListener("click", () => {
+  void checkCodexGatewayHealth({ announce: true, force: true });
 });
-dom.testOpenCodexHealth?.addEventListener("click", () => {
-  void checkOpenCodexHealth({ announce: true, force: true });
+dom.codexGatewayAsyncTasks?.addEventListener("change", persistCurrentProviderOptions);
+dom.codexGatewayClientQueue?.addEventListener("change", () => {
+  applyCodexGatewayOptions(getCodexGatewayOptions());
+  persistCurrentProviderOptions();
 });
 dom.refreshOfficialRate?.addEventListener("click", () => {
   void refreshUsdCnyRate({ force: true, announce: true });
@@ -3665,10 +3690,7 @@ async function generateInpaintCandidates() {
     ].join("\n");
     requestOptions = {
       references: [{ dataUrl: cropCanvas.toDataURL("image/png"), width: crop.width, height: crop.height, fileName: "crop.png" }],
-      openCodexOptions: {
-        ...getOpenCodexImageOptions(),
-        model: OPENCODEX_GPT_IMAGE_2,
-      },
+      codexGatewayOptions: getCodexGatewayOptions(),
     };
   }
 
@@ -3751,14 +3773,16 @@ function applyInpaintResult() {
   const resultPayload = {
     data: [{ b64_json: base64, mime_type: "image/png" }],
   };
-  if (providerMode === "opencodex-local-mask") {
+  if (providerMode === "codex-gateway-local-mask") {
+    const gatewayOptions = getCodexGatewayOptions();
     resultPayload._openCodex = {
-      provider: "opencodex-local-image",
+      provider: "codex-image-gateway",
       operation: "inpaint",
       requested: {
-        model: OPENCODEX_GPT_IMAGE_2,
+        model: CODEX_IMAGE_GATEWAY_MODEL,
         size: getOpenCodexInpaintRequestSize(crop),
-        quality: OPENCODEX_GPT_PRIVATE_QUALITY,
+        quality: gatewayOptions.quality,
+        dimensionMode: gatewayOptions.dimensionMode,
         aspectRatio: crop.aspectRatio,
       },
       response: selected?.meta?.response || { mimeType: "image/png" },
@@ -5973,7 +5997,7 @@ function resetGenerateButton() {
   dom.generateBtn.disabled = false;
   dom.generateBtn.classList.remove("is-cancel");
   setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : currentMode === "caption" ? "generateAllCaptions" : "generateImage");
-  syncOpenCodexGenerateAvailability();
+  syncCodexGatewayGenerateAvailability();
 }
 
 function beginGeneration() {
@@ -6023,8 +6047,8 @@ function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProv
   if (selectedProvider === "official") {
     return adapters.find(a => a.provider === "official") || null;
   }
-  if (selectedProvider === "opencodex") {
-    return adapters.find(a => a.provider === "opencodex") || null;
+  if (selectedProvider === CODEX_IMAGE_GATEWAY_PROVIDER) {
+    return adapters.find(a => a.provider === CODEX_IMAGE_GATEWAY_PROVIDER) || null;
   }
   if (selectedProvider === "grsai") {
     return adapters.find(a => a.provider === "grsai") || null;
@@ -6036,131 +6060,203 @@ function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProv
   return null;
 }
 
+async function codexGatewayResponseError(response) {
+  const text = await response.text().catch(() => "");
+  let payload = null;
+  try { payload = JSON.parse(text); } catch {}
+  const apiError = payload?.error && typeof payload.error === "object" ? payload.error : payload;
+  const message = apiError?.message || apiError?.error || payload?.message || text || response.statusText || "Gateway request failed";
+  const error = new Error(`HTTP ${response.status}: ${String(message).slice(0, 500)}`);
+  error.status = response.status;
+  error.code = String(apiError?.code || payload?.code || "");
+  error.requestId = response.headers.get("x-request-id") || response.headers.get("request-id") || payload?.request_id || apiError?.request_id || "";
+  error.safety_violations = apiError?.safety_violations || payload?.safety_violations || [];
+  return makeImageApiError(error);
+}
+
+async function codexGatewayJsonRequest(path, { method = "GET", body = null, signal = null, timeoutMs = CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS } = {}) {
+  const credentials = codexGatewayCredentials || await loadCodexGatewayCredentials();
+  const url = /^https?:\/\//i.test(path) ? path : `${credentials.baseUrl}/${String(path).replace(/^\/+/, "")}`;
+  const response = await smartFetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${credentials.apiKey}`,
+      ...(body == null ? {} : { "Content-Type": "application/json" }),
+    },
+    body: body == null ? undefined : JSON.stringify(body),
+    signal,
+    nativeTimeoutMs: timeoutMs,
+    forceDirectProxy: true,
+  });
+  if (!response.ok) throw await codexGatewayResponseError(response);
+  const payload = await response.json();
+  if (payload && typeof payload === "object") payload._responseMeta = {
+    requestId: response.headers.get("x-request-id") || response.headers.get("request-id") || payload.request_id || "",
+    status: response.status,
+  };
+  return payload;
+}
+
+async function codexGatewayDownloadAsBase64(url, signal = null) {
+  throwIfAborted(signal);
+  const credentials = codexGatewayCredentials || await loadCodexGatewayCredentials();
+  const result = await nativeDownload.nativeFetchBlob(url, {
+    Authorization: `Bearer ${credentials.apiKey}`,
+    Accept: "image/*",
+  }, { forceDirectProxy: true, signal, timeoutMs: CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS });
+  const status = Number(result?.status || 0);
+  if (status < 200 || status >= 300 || !(result?.blob instanceof Blob)) {
+    const error = new Error(`HTTP ${status || 502}: Gateway result download failed`);
+    error.status = status || 502;
+    throw makeImageApiError(error);
+  }
+  return { b64_json: await blobToBase64(result.blob), mime_type: result.blob.type || "image/png" };
+}
+
+async function normalizeCodexGatewayResult(result, { task = null, requested, requestAudit, startedAt, signal = null, operation = "generation" } = {}) {
+  const data = Array.isArray(result?.data) ? result.data : [];
+  const normalizedData = [];
+  for (const item of data) {
+    throwIfAborted(signal);
+    if (item?.b64_json) normalizedData.push(item);
+    else if (item?.url) normalizedData.push({ ...item, ...(await codexGatewayDownloadAsBase64(item.url, signal)), original_url: item.url });
+  }
+  if (!normalizedData.length) throw new Error("Gateway returned no usable image");
+  const safeGatewayAudit = codexImageGateway.buildSafeGatewayAudit(result, task || {});
+  const dimensions = safeGatewayAudit.dimensions;
+  return {
+    ...result,
+    data: normalizedData,
+    _openCodex: {
+      provider: "codex-image-gateway",
+      operation,
+      requested,
+      response: {
+        quality: result?.quality || normalizedData[0]?.quality || requested.quality || null,
+        size: dimensions?.finalSize || result?.size || normalizedData[0]?.size || null,
+        mimeType: normalizedData[0]?.mime_type || null,
+        requestedSize: dimensions?.requestedSize || requested.size || null,
+        nativeSize: dimensions?.nativeSize || null,
+        finalSize: dimensions?.finalSize || null,
+        dimensionAction: dimensions?.action || null,
+      },
+      audit: {
+        ...requestAudit,
+        ...safeGatewayAudit,
+        requestId: safeGatewayAudit.upstreamRequestId || result?._responseMeta?.requestId || "",
+        startedAt: new Date(startedAt).toISOString(),
+        elapsedSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+      },
+    },
+  };
+}
+
+async function pollCodexGatewayTask(taskId, { signal = null, requested, requestAudit, startedAt, operation = "generation" } = {}) {
+  const deadline = Date.now() + CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS;
+  let lastNetworkError = null;
+  try {
+    while (Date.now() < deadline) {
+      throwIfAborted(signal);
+      try {
+        const raw = await codexGatewayJsonRequest(`image-tasks/${encodeURIComponent(taskId)}`, { signal, timeoutMs: 15000 });
+        const task = codexImageGateway.normalizeTask(raw);
+        if (task.succeeded) return normalizeCodexGatewayResult(task.result || raw.result, { task, requested, requestAudit, startedAt, signal, operation });
+        if (task.failed) {
+          const detail = task.error?.message || task.error?.error || task.error || "Async task failed";
+          const error = new Error(`HTTP ${Number(task.error?.status || 502)}: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`);
+          error.status = Number(task.error?.status || 502);
+          error.code = String(task.error?.code || "");
+          error.requestId = String(task.error?.request_id || "");
+          error.gatewayTaskTerminal = true;
+          throw makeImageApiError(error);
+        }
+        if (task.cancelled) throw createAbortError();
+        lastNetworkError = null;
+      } catch (err) {
+        const status = Number(err?.imageError?.status || err?.status || 0);
+        if (
+          err?.name === "AbortError"
+          || err?.gatewayTaskTerminal === true
+          || err?.imageError?.retryPolicy === "edit_required"
+          || [400, 401, 403, 413, 422].includes(status)
+        ) throw err;
+        lastNetworkError = err;
+      }
+      await sleep(1500, signal);
+    }
+    throw lastNetworkError || new Error("Gateway task wait exceeded 300 seconds; the task id was preserved for resume");
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      void codexGatewayJsonRequest(`image-tasks/${encodeURIComponent(taskId)}/cancel`, { method: "POST", body: {}, timeoutMs: 5000 }).catch(() => {});
+    }
+    throw err;
+  }
+}
+
 registerAdapter({
-  name: "OpenCodex 本地生图",
-  provider: "opencodex",
+  name: "Codex Image Gateway",
+  provider: CODEX_IMAGE_GATEWAY_PROVIDER,
   sizeFormat: "pixel",
   supportsReference: true,
   concurrency: 5,
-  getConcurrency() {
-    return getOpenCodexConcurrency();
-  },
+  getConcurrency() { return getCodexGatewayConcurrency(); },
 
   async fetchModels() {
-    if (!(await checkOpenCodexHealth({ announce: false, force: true }))) {
-      throw new Error("OpenCodex 本地服务未启动。请先启动 OpenCodex，或执行 ocx ensure。");
-    }
-    setModelChoices(OPENCODEX_MODELS);
-    dom.model.value = getOpenCodexImageOptions().model;
-    showStatus(`OpenCodex · ${OPENCODEX_CAPABILITIES[dom.model.value]?.label || dom.model.value}`, "success");
+    if (!(await checkCodexGatewayHealth({ announce: false, force: true }))) throw new Error("Codex image gateway is unavailable");
+    setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
+    dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
+    showStatus(`${cleanText("codexGatewayApi")} ? ${CODEX_IMAGE_GATEWAY_MODEL}`, "success");
   },
 
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
     const signal = options.signal;
     throwIfAborted(signal);
-    if (!(await checkOpenCodexHealth({ announce: false, force: false }))) {
-      throw new Error("OpenCodex 本地服务未启动。请先启动 OpenCodex，或执行 ocx ensure。");
-    }
-    const selected = normalizeOpenCodexImageOptions(options.openCodexOptions || getOpenCodexImageOptions());
-    const selectedModel = OPENCODEX_MODELS.includes(model) ? model : selected.model;
-    const capability = OPENCODEX_CAPABILITIES[selectedModel];
-    if (!capability) throw new Error(`OpenCodex 不支持模型：${selectedModel}`);
-    if (!String(prompt || "").trim()) throw new Error("提示词不能为空");
-    if (Number(n) !== 1) throw new Error("OpenCodex 单次请求固定 n=1；批量生图由客户端并发多个请求。");
-    if (hasRef && refs.length > capability.maxReferences) {
-      throw new Error(`${capability.label} 客户端最多发送 ${capability.maxReferences} 张参考图。`);
-    }
-    if (hasRef && refs.some(ref => !/^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(ref?.dataUrl || "")))) {
-      throw new Error("OpenCodex 参考图必须是 PNG、JPEG 或 WebP Data URL，不能发送远程 URL。");
-    }
-    const requested = { model: selectedModel, n: 1 };
-    const body = { model: selectedModel, prompt: String(prompt).trim(), n: 1 };
-    if (selectedModel === OPENCODEX_GPT_IMAGE_2) {
-      validateOfficialImageSize(OPENCODEX_GPT_IMAGE_2, size);
-      const aspectTarget = getOpenCodexGptAspectTarget(size);
-      Object.assign(body, {
-        prompt: addOpenCodexGptAspectInstruction(prompt, size),
-        size,
-        quality: OPENCODEX_GPT_PRIVATE_QUALITY,
-        background: selected.background,
-      });
-      Object.assign(requested, {
-        size,
-        quality: OPENCODEX_GPT_PRIVATE_QUALITY,
-        background: selected.background,
-        aspectRatio: aspectTarget?.ratio || null,
-        privateOutputPixelsObserved: OPENCODEX_GPT_PRIVATE_MAX_PIXELS_OBSERVED,
-        privateMaxEdgeObserved: OPENCODEX_GPT_PRIVATE_MAX_EDGE_OBSERVED,
-      });
-    } else {
-      const aspectRatio = selected.aspectRatio;
-      if (!OPENCODEX_NANO_ASPECT_RATIOS.includes(aspectRatio)) {
-        throw new Error(`Nano Banana 2 不支持比例：${aspectRatio}`);
-      }
-      body.aspect_ratio = aspectRatio;
-      body.image_size = selected.imageSize;
-      requested.aspectRatio = aspectRatio;
-      requested.imageSize = selected.imageSize;
-      requested.sourceSize = size;
-    }
-    const url = normalizeApiUrl(endpoint, hasRef && refs.length ? "images/edits" : "images/generations");
-    if (hasRef && refs.length) {
-      body.images = refs.map(ref => ({ image_url: ref.dataUrl }));
-    }
-    const runtimeGate = openCodexRuntime.beforeRequest({ hasReference: hasRef && refs.length > 0 });
-    if (!runtimeGate.allowed) {
-      if (runtimeGate.reason === "reference_route_unavailable") {
-        throw makeImageApiError(new Error(`HTTP 503: OpenCodex 当前参考图转发不可用。${runtimeGate.detail || "请先修复本地参考图链路，再点击测试本地服务重新探测。"}`));
-      }
-      const seconds = Math.max(1, Math.ceil(Number(runtimeGate.retryAfterMs || 0) / 1000));
-      throw makeImageApiError(new Error(`HTTP 503: OpenCodex 客户端熔断器已暂停新任务，请在 ${seconds} 秒后重新探测。`));
-    }
+    if (!(await checkCodexGatewayHealth({ announce: false, force: false }))) throw new Error("Codex image gateway is unavailable");
+    if (Number(n) !== 1) throw new Error("Codex image gateway fixes each request to n=1; batches queue separate tasks");
+    const gatewayOptions = normalizeCodexGatewayOptions(options.codexGatewayOptions || getCodexGatewayOptions());
+    const built = codexImageGateway.buildImageRequest({ prompt, size, refs: hasRef ? refs : [], options: gatewayOptions });
+    const requested = {
+      model: CODEX_IMAGE_GATEWAY_MODEL, size, quality: gatewayOptions.quality,
+      dimensionMode: gatewayOptions.dimensionMode, n: 1,
+      referenceCount: built.referenceCount, referenceBoardsExpected: built.referenceBoardsExpected,
+    };
     const startedAt = Date.now();
     const requestAudit = await imageTaskStability.buildRequestAudit({
-      provider: "opencodex",
-      model: selectedModel,
-      prompt: body.prompt,
-      size: body.size || `${body.aspect_ratio || "auto"}/${body.image_size || "auto"}`,
-      quality: body.quality || selected.quality || "",
+      provider: CODEX_IMAGE_GATEWAY_PROVIDER, model: CODEX_IMAGE_GATEWAY_MODEL,
+      prompt: built.body.prompt, size, quality: gatewayOptions.quality,
       references: hasRef ? refs : [],
     });
+    const runtimeGate = codexGatewayRuntime.beforeRequest({ hasReference: hasRef && refs.length > 0 });
+    if (!runtimeGate.allowed) throw makeImageApiError(new Error("HTTP 503: Gateway client circuit breaker temporarily blocked new work"));
     try {
-      const data = await apiFetch(url, OPENCODEX_PLACEHOLDER_KEY, body, {
-        signal,
-        nativeTimeoutMs: OPENCODEX_REQUEST_TIMEOUT_MS,
-        forceDirectProxy: true,
-      });
-      const images = Array.isArray(data?.data) ? data.data : [];
-      if (!images.some(item => item?.b64_json || item?.url)) {
-        throw new Error("OpenCodex 上游没有返回图片，可能只返回了文本或被安全策略终止。");
+      let data;
+      if (gatewayOptions.asyncTasks) {
+        const submitted = await codexGatewayJsonRequest("image-tasks", { method: "POST", body: built.body, signal });
+        const taskId = codexImageGateway.extractTaskId(submitted);
+        if (!taskId) throw new Error("Gateway did not return a task id");
+        await options.onTaskSubmitted?.({
+          id: taskId,
+          status: String(submitted.status || "queued"),
+          submittedAt: new Date().toISOString(),
+        });
+        data = await pollCodexGatewayTask(taskId, {
+          signal, requested, requestAudit, startedAt,
+          operation: hasRef && refs.length ? "edit" : "generation",
+        });
+      } else {
+        const result = await codexGatewayJsonRequest(built.route, { method: "POST", body: built.body, signal });
+        data = await normalizeCodexGatewayResult(result, {
+          requested, requestAudit, startedAt, signal,
+          operation: hasRef && refs.length ? "edit" : "generation",
+        });
       }
-      openCodexRuntime.recordSuccess({ hasReference: hasRef && refs.length > 0 });
-      data._openCodex = {
-        provider: "opencodex-local-image",
-        operation: hasRef && refs.length ? "edit" : "generation",
-        requested,
-        response: {
-          quality: data?.quality || images[0]?.quality || null,
-          size: data?.size || images[0]?.size || null,
-          mimeType: images[0]?.mime_type || null,
-        },
-        audit: {
-          ...requestAudit,
-          requestId: data?._responseMeta?.requestId || "",
-          startedAt: new Date(startedAt).toISOString(),
-          elapsedSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
-        },
-      };
+      codexGatewayRuntime.recordSuccess({ hasReference: hasRef && refs.length > 0 });
       return data;
     } catch (err) {
-      const message = String(err?.message || err || "");
-      if (/HTTP\s*499\b/i.test(message)) throw createAbortError();
-      const classified = classifyImageApiError(err);
-      openCodexRuntime.recordFailure(classified, {
-        hasReference: hasRef && refs.length > 0,
-        message,
-      });
-      throw makeImageApiError(err);
+      if (err?.name === "AbortError") throw err;
+      codexGatewayRuntime.recordFailure(classifyImageApiError(err), { hasReference: hasRef && refs.length > 0, message: String(err?.message || err) });
+      throw err?.imageError ? err : makeImageApiError(err);
     }
   },
 });
@@ -6726,12 +6822,14 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   const requestedMaxRetries = clampRetryCount(options.maxRetries, getGlobalRetryCount());
   throwIfAborted(signal);
   const endpoint = dom.apiEndpoint.value.trim();
-  const apiKey   = dom.apiKey.value.trim();
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  const apiKey   = provider === CODEX_IMAGE_GATEWAY_PROVIDER
+    ? (codexGatewayCredentials?.apiKey || "")
+    : dom.apiKey.value.trim();
   const model    = dom.model.value.trim() || "gpt-image-2";
   const refs     = Array.isArray(options.references) ? dedupeReferences(options.references) : referenceImages;
   const hasRef   = refs.length > 0;
-  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
-  const maxRetries = provider === "opencodex" ? 0 : requestedMaxRetries;
+  const maxRetries = provider === CODEX_IMAGE_GATEWAY_PROVIDER ? 0 : requestedMaxRetries;
   const adapter  = findAdapter(endpoint, provider);
 
   console.log(`callImageAPI: provider=${provider} adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
@@ -6751,7 +6849,8 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     }
     return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
       signal,
-      openCodexOptions: options.openCodexOptions,
+      codexGatewayOptions: options.codexGatewayOptions,
+      onTaskSubmitted: options.onTaskSubmitted,
       officialMask: options.officialMask,
       onSubmit504Retry: ({ retryIndex, maxRetries, intervalSeconds, remainingSeconds }) => {
         showStatus(interpolate(cleanText("grsaiSubmit504Waiting"), {
@@ -7139,14 +7238,19 @@ function fileToBase64(file) {
 function validateCommon() {
   const endpoint = dom.apiEndpoint.value.trim();
   const apiKey   = dom.apiKey.value.trim();
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   if (!endpoint) { showStatus("请先配置 API 地址", "error"); keepApiConfigVisible(); return false; }
-  if (!apiKey)   { showStatus("请先配置 API Key", "error"); keepApiConfigVisible(); return false; }
+  if (provider !== CODEX_IMAGE_GATEWAY_PROVIDER && !apiKey) {
+    showStatus("请先配置 API Key", "error");
+    keepApiConfigVisible();
+    return false;
+  }
   return true;
 }
 
 async function validateProviderReady() {
-  if (!isOpenCodexSelected()) return true;
-  return checkOpenCodexHealth({ announce: true, force: false });
+  if (!isCodexGatewaySelected()) return true;
+  return checkCodexGatewayHealth({ announce: true, force: false });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -7305,6 +7409,8 @@ async function generateComic() {
     globalPrompt,
     model: dom.model.value.trim(),
     endpoint: dom.apiEndpoint.value.trim(),
+    apiProvider: dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint.value.trim()),
+    codexGatewayOptions: isCodexGatewaySelected() ? getCodexGatewayOptions() : undefined,
     size: globalSize,
     retryCount: globalRetryCount,
     totalPanels: total,
@@ -7330,6 +7436,10 @@ async function generateComic() {
       const data = await callImageAPI(fullPrompt, size, 1, `分镜 ${panel.id}`, {
         references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
         onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
+        onTaskSubmitted: task => updateProjectCheckpoint(projectId, panel.id, {
+          status: task.status || "queued",
+          gatewayTask: task,
+        }),
       });
       if (!isGenerationCurrent(run)) return;
       const record = replacePlaceholder(placeholder, panel.id, data, fullPrompt, {
@@ -7470,6 +7580,8 @@ async function generateCaptions() {
     globalPrompt,
     model: dom.model.value.trim(),
     endpoint: dom.apiEndpoint.value.trim(),
+    apiProvider: dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint.value.trim()),
+    codexGatewayOptions: isCodexGatewaySelected() ? getCodexGatewayOptions() : undefined,
     size: globalSize,
     retryCount: globalRetryCount,
     totalPanels: total,
@@ -7495,6 +7607,10 @@ async function generateCaptions() {
       const data = await callImageAPI(fullPrompt, size, 1, `图片 ${row.id}`, {
         references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
         onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
+        onTaskSubmitted: task => updateProjectCheckpoint(projectId, row.id, {
+          status: task.status || "queued",
+          gatewayTask: task,
+        }),
       });
       if (!isGenerationCurrent(run)) return;
       const record = replacePlaceholder(placeholder, row.id, data, fullPrompt, {
@@ -7691,19 +7807,22 @@ function renderOpenCodexResultMeta(element, record) {
   if (!element || !record?.requested || !record?.actual) return;
   const requested = record.requested;
   const actual = record.actual;
-  const requestedText = requested.model === OPENCODEX_NANO_BANANA_2
-    ? `${requested.aspectRatio || "auto"} · ${requested.imageSize || "1K"}`
-    : `${requested.size || "auto"} · ${requested.quality || "auto"}`;
+  const requestedText = `${requested.size || "auto"} · ${requested.quality || "auto"}`;
   const actualParts = [];
+  if (actual.nativeSize) actualParts.push(`${currentLanguage === "en" ? "native" : "原生"} ${actual.nativeSize}`);
+  if (actual.finalSize) actualParts.push(`${currentLanguage === "en" ? "final" : "最终"} ${actual.finalSize}`);
   if (actual.width && actual.height) actualParts.push(`${actual.width}×${actual.height}`);
   if (actual.responseQuality) actualParts.push(String(actual.responseQuality));
   if (actual.mimeType) actualParts.push(String(actual.mimeType).replace("image/", "").toUpperCase());
   if (actual.bytes) actualParts.push(formatImageBytes(actual.bytes));
   if (actual.dimensionStatus === "exact") actualParts.push(currentLanguage === "en" ? "exact" : "尺寸精确");
   if (actual.dimensionStatus === "mismatch") actualParts.push(currentLanguage === "en" ? "size mismatch" : "尺寸不符·将隔离导出");
+  if (actual.dimensionAction === "smart_cover_crop") {
+    actualParts.push(currentLanguage === "en" ? "cover-cropped (edges may be cropped)" : "智能覆盖裁切（边缘可能被裁掉）");
+  }
   element.classList.toggle("is-dimension-mismatch", actual.dimensionStatus === "mismatch");
   element.innerHTML = `
-    <strong>${escapeHtml(OPENCODEX_CAPABILITIES[record.model]?.label || record.model || "OpenCodex")}</strong>
+    <strong>${escapeHtml(record.model || "GPT Image 2")}</strong>
     <span>${escapeHtml(interpolate(cleanText("inpaintRequestedActual"), {
       requested: requestedText,
       actual: actualParts.join(" · ") || "—",
@@ -7969,6 +8088,9 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
       mimeType: item?.mime_type || openCodexMeta.response?.mimeType || (item?.b64_json ? inferImageMimeFromBase64(item.b64_json) : null),
       responseQuality: openCodexMeta.response?.quality || null,
       responseSize: openCodexMeta.response?.size || null,
+      nativeSize: openCodexMeta.response?.nativeSize || null,
+      finalSize: openCodexMeta.response?.finalSize || null,
+      dimensionAction: openCodexMeta.response?.dimensionAction || null,
       width: null,
       height: null,
       bytes: null,
@@ -8498,6 +8620,12 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     const data = await callImageAPI(promptText, size, 1, `${label} ${panelId}`, {
       references, maxRetries: retryCount, signal: cardAbort.signal,
       onRetryAttempt: info => updateCardRetryAttempt(card, info),
+      onTaskSubmitted: task => isProject
+        ? updateProjectCheckpoint(currentComicHistoryId, panelId, {
+            status: task.status || "queued",
+            gatewayTask: task,
+          })
+        : undefined,
     });
     const record = replacePlaceholder(card, panelId, data, promptText, {
       skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
@@ -8967,6 +9095,12 @@ function updateProjectCheckpoint(projectId, panelId, update = {}) {
     if (panel) {
       panel.status = update.status || panel.status || "pending";
       panel.error = update.error ? String(update.error).slice(0, 1000) : "";
+      if (update.gatewayTask?.id) {
+        panel.gatewayTaskId = String(update.gatewayTask.id);
+        panel.gatewayTaskStatus = String(update.gatewayTask.status || panel.status || "queued");
+        panel.gatewayTaskSubmittedAt = String(update.gatewayTask.submittedAt || panel.gatewayTaskSubmittedAt || new Date().toISOString());
+      }
+      if (update.status) panel.gatewayTaskStatus = String(update.status);
       panel.updatedAt = new Date().toISOString();
     }
     if (update.record?.imageUrl) {
@@ -9006,6 +9140,106 @@ function finalizeProjectCheckpoint(projectId, completed, failed) {
   return updateProjectCheckpoint(projectId, "", {
     projectStatus: failed > 0 ? (completed > 0 ? "partial" : "failed") : "completed",
   });
+}
+
+const resumedCodexGatewayTaskIds = new Set();
+
+async function resumeCodexGatewayCheckpointTasks() {
+  if (!isNativeWindowsWebview()) return;
+  const pending = [];
+  loadHistory().forEach(project => {
+    if (!isHistoryProject(project)) return;
+    (Array.isArray(project.panels) ? project.panels : []).forEach(panel => {
+      const taskId = String(panel.gatewayTaskId || "");
+      const status = String(panel.gatewayTaskStatus || panel.status || "").toLowerCase();
+      if (!taskId || !["queued", "running", "pending"].includes(status) || resumedCodexGatewayTaskIds.has(taskId)) return;
+      pending.push({ project, panel, taskId });
+    });
+  });
+  if (!pending.length) return;
+
+  try {
+    await loadCodexGatewayCredentials();
+  } catch (err) {
+    console.warn("Codex gateway checkpoint resume skipped:", err);
+    return;
+  }
+
+  await concurrentLimitSettled(pending.map(({ project, panel, taskId }) => async () => {
+    resumedCodexGatewayTaskIds.add(taskId);
+    const panelId = String(panel.panelId || "");
+    try {
+      await updateProjectCheckpoint(project.id, panelId, {
+        status: "running",
+        gatewayTask: { id: taskId, status: "running", submittedAt: panel.gatewayTaskSubmittedAt },
+      });
+      const requested = {
+        model: CODEX_IMAGE_GATEWAY_MODEL,
+        size: panel.size || project.size || "1024x1024",
+        quality: project.codexGatewayOptions?.quality || CODEX_GATEWAY_OPTION_DEFAULTS.quality,
+        dimensionMode: project.codexGatewayOptions?.dimensionMode || CODEX_GATEWAY_OPTION_DEFAULTS.dimensionMode,
+        n: 1,
+      };
+      const data = await pollCodexGatewayTask(taskId, {
+        requested,
+        requestAudit: null,
+        startedAt: Date.parse(panel.gatewayTaskSubmittedAt || project.createdAt || "") || Date.now(),
+        operation: panel.hadReferences ? "edit" : "generation",
+      });
+      const item = data?.data?.[0];
+      if (!item?.b64_json) throw new Error("Resumed gateway task returned no image bytes");
+      const mimeType = item.mime_type || inferImageMimeFromBase64(item.b64_json);
+      const imageUrl = `data:${mimeType};base64,${item.b64_json}`;
+      const meta = data._openCodex || {};
+      const dimensions = meta.response?.finalSize || meta.response?.size || requested.size;
+      const [width, height] = String(dimensions || "").split("x").map(Number);
+      const panelPrompt = getPanelOnlyPrompt(panel, project.globalPrompt || "");
+      const fullPrompt = project.globalPrompt ? `${project.globalPrompt}\n\n${panelPrompt}` : panelPrompt;
+      const record = {
+        id: `img_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        panelId,
+        prompt: panelPrompt,
+        panelPrompt,
+        fullPrompt,
+        imageUrl,
+        originalUrl: imageUrl,
+        size: requested.size,
+        model: CODEX_IMAGE_GATEWAY_MODEL,
+        provider: "codex-image-gateway",
+        operation: meta.operation || (panel.hadReferences ? "edit" : "generation"),
+        requested: meta.requested || requested,
+        actual: {
+          width: width || null,
+          height: height || null,
+          mimeType,
+          responseQuality: meta.response?.quality || requested.quality,
+          responseSize: dimensions || null,
+          nativeSize: meta.response?.nativeSize || null,
+          finalSize: meta.response?.finalSize || dimensions || null,
+          dimensionAction: meta.response?.dimensionAction || null,
+        },
+        audit: meta.audit || { taskId },
+        review: "pending",
+      };
+      await updateProjectCheckpoint(project.id, panelId, { status: "success", record });
+    } catch (err) {
+      const detail = classifyImageApiError(err);
+      const terminal = detail.retryPolicy === "edit_required"
+        || ["authentication_failed", "payload_too_large"].includes(detail.category)
+        || Number(detail.status || 0) === 422;
+      await updateProjectCheckpoint(project.id, panelId, {
+        status: terminal ? "failed" : "pending",
+        error: err?.message || err,
+        gatewayTask: {
+          id: taskId,
+          status: terminal ? "failed" : "pending",
+          submittedAt: panel.gatewayTaskSubmittedAt,
+        },
+      });
+    } finally {
+      resumedCodexGatewayTaskIds.delete(taskId);
+    }
+  }), 2);
 }
 
 // 重试单图模式的某张图片成功后：删掉它原来那条历史记录，用新结果重新入一条
@@ -9404,9 +9638,9 @@ function restoreHistoryItem(item) {
       card.className = "result-item";
       const panelId = image.panelId || index + 1;
       const data = { data: [{ url: image.imageUrl, originalUrl: image.originalUrl || "" }] };
-      if (image.provider === "opencodex-local-image" || image.requested || image.actual) {
+      if (["opencodex-local-image", "codex-image-gateway"].includes(image.provider) || image.requested || image.actual) {
         data._openCodex = {
-          provider: image.provider || "opencodex-local-image",
+          provider: image.provider || "codex-image-gateway",
           operation: image.operation || "generation",
           requested: image.requested || { model: image.model || item.model, size: image.size || item.size },
           response: {
@@ -9625,12 +9859,17 @@ const nativeDownload = (() => {
     nativeFetchPayload(payload, timeoutMs, signal) {
       return request("nativeFetch", withDesktopProxyPayload(payload), timeoutMs, signal);
     },
-    async nativeFetchBlob(url) {
-      const meta = await request("nativeFetch", withDesktopProxyPayload({
+    async nativeFetchBlob(url, headers = {}, options = {}) {
+      const proxyPayload = options.forceDirectProxy
+        ? { proxyMode: "direct", proxyUrl: "" }
+        : getDesktopProxyPayload({ validate: false });
+      const meta = await request("nativeFetch", {
+        ...proxyPayload,
         url,
         method: "GET",
+        headers,
         responseType: "chunkedBase64",
-      }));
+      }, options.timeoutMs ?? 120000, options.signal || null);
       const transferId = String(meta?.transferId || "");
       if (!transferId) throw new Error("原生图片读取未返回传输编号");
       const byteLength = Math.max(0, Number(meta?.byteLength) || 0);
@@ -9705,6 +9944,7 @@ const nativeDownload = (() => {
     saveSecret(key, value) { return request("saveSecret", { key, value }); },
     loadSecret(key) { return request("loadSecret", { key }); },
     deleteSecret(key) { return request("deleteSecret", { key }); },
+    loadCodexImageGatewayConfig() { return request("loadCodexImageGatewayConfig", {}, 10000); },
   };
 })();
 
@@ -10604,6 +10844,7 @@ function restoreSavedConfigurationOnStartup() {
 
 function initializeApplication() {
   let recoverableStartupError = "";
+  syncCodexGatewayProviderVisibility();
   try {
     // This must remain at the end of the module. applyConfig may use model and
     // pricing constants declared later in app.js.
@@ -10625,6 +10866,7 @@ function initializeApplication() {
     setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);
   }
   setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);
+  setTimeout(() => { void resumeCodexGatewayCheckpointTasks(); }, 1800);
   window.__AI_GEN_APP_READY = true;
   window.dispatchEvent(new CustomEvent("ai-generator-ready"));
 

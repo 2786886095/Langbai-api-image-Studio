@@ -17,6 +17,13 @@ test("moderation errors keep safety category and request id instead of becoming 
 
 test("HTTP error families remain distinct", () => {
   assert.equal(stability.classifyApiError("HTTP 400: unsupported size").category, "invalid_parameters");
+  const dimensionMismatch = stability.classifyApiError({
+    status: 422,
+    code: "image_dimension_mismatch",
+    message: "The returned image dimensions do not match exact_output.",
+  });
+  assert.equal(dimensionMismatch.category, "invalid_parameters");
+  assert.equal(dimensionMismatch.retryPolicy, "edit_required");
   assert.equal(stability.classifyApiError("HTTP 401: invalid_api_key").category, "authentication_failed");
   assert.equal(stability.classifyApiError("HTTP 413: payload too large").category, "payload_too_large");
   assert.equal(stability.classifyApiError("HTTP 429: too many requests").category, "rate_limited");

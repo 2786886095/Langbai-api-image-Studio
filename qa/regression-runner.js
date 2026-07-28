@@ -261,7 +261,11 @@ async function testCustomSelects(cdp) {
   })()`, true);
   assertQa(apiProviderFlow.initiallyHidden, "API type dropdown list should start closed.", apiProviderFlow);
   assertQa(apiProviderFlow.openNow, "Clicking the API type trigger should open the dropdown list.", apiProviderFlow);
-  assertQa(apiProviderFlow.options.length === 4, "API type dropdown should list all 4 provider options.", apiProviderFlow);
+  assertQa(
+    apiProviderFlow.options.length === 3 && !apiProviderFlow.options.some(option => /Codex/i.test(option)),
+    "Plain browser provider dropdown should list Official, GrsAI and Custom only; the local Codex gateway is Windows-app only.",
+    apiProviderFlow,
+  );
   assertQa(apiProviderFlow.hitOk, "The rendered option button should be the actual real hit-test target (not obscured by anything).", apiProviderFlow);
   assertQa(apiProviderFlow.closedAfterPick, "Picking an option should close the dropdown list.", apiProviderFlow);
   assertQa(apiProviderFlow.nativeValue === "official", "Picking an option should update the underlying native select's value.", apiProviderFlow);
@@ -4017,11 +4021,11 @@ async function testDesktopProxyControls(cdp) {
     await waitForCall(4);
     await nativeDownload.downloadUpdate("https://example.test/Setup.exe", "Setup.exe", false, "windows");
     await waitForCall(5);
-    await smartFetch("http://127.0.0.1:10100/healthz", { nativeTimeoutMs: 5000, forceDirectProxy: true });
+    await smartFetch("http://127.0.0.1:18080/healthz", { nativeTimeoutMs: 5000, forceDirectProxy: true });
     await waitForCall(6);
-    await apiFetch("http://127.0.0.1:10100/v1/images/generations", "opencodex-local-only", {
-      model: "gpt-image-2", prompt: "test", size: "1024x1024", quality: "auto", background: "auto", n: 1,
-    }, { nativeTimeoutMs: 620000, forceDirectProxy: true });
+    await apiFetch("http://127.0.0.1:18080/v1/images/generations", "a".repeat(64), {
+      model: "gpt-image-2", prompt: "test", size: "1024x1024", quality: "medium", dimension_mode: "exact_output", n: 1,
+    }, { nativeTimeoutMs: 300000, forceDirectProxy: true });
     await waitForCall(7);
 
     const payload = window.AiGenProxy.withDesktopProxyPayload({ url: "https://example.test", method: "GET" });
@@ -4037,8 +4041,8 @@ async function testDesktopProxyControls(cdp) {
       direct: calls[2],
       custom: calls[3],
       updateDownload: calls[4],
-      openCodexHealth: calls[5],
-      openCodexGenerate: calls[6],
+      codexGatewayHealth: calls[5],
+      codexGatewayGenerate: calls[6],
       nativeTimeouts,
       helperPayload: payload,
       invalidDidNotCall: calls.length === beforeInvalid,
@@ -4053,8 +4057,8 @@ async function testDesktopProxyControls(cdp) {
   assertQa(result.direct.proxyMode === "direct" && result.direct.proxyUrl === "", "Direct mode should be sent to native bridge.", result);
   assertQa(result.custom.proxyMode === "custom" && result.custom.proxyUrl === "http://127.0.0.1:7890", "Custom proxy URL should be sent to native bridge.", result);
   assertQa(result.updateDownload.action === "downloadUpdate" && result.updateDownload.proxyMode === "custom" && result.updateDownload.proxyUrl === "http://127.0.0.1:7890", "Update package downloads should use the desktop proxy payload too.", result);
-  assertQa(result.openCodexHealth.action === "nativeFetch" && result.openCodexHealth.proxyMode === "direct" && result.openCodexHealth.proxyUrl === "" && result.nativeTimeouts.some(item => item.url.endsWith("/healthz") && item.timeoutMs === 5000), "OpenCodex health checks must bypass the configured desktop proxy and use a short native timeout.", result);
-  assertQa(result.openCodexGenerate.action === "nativeFetch" && result.openCodexGenerate.proxyMode === "direct" && result.openCodexGenerate.proxyUrl === "" && result.nativeTimeouts.some(item => item.url.includes("/v1/images/generations") && item.timeoutMs === 620000), "OpenCodex image requests must bypass the desktop proxy and allow the documented 620-second client timeout.", result);
+  assertQa(result.codexGatewayHealth.action === "nativeFetch" && result.codexGatewayHealth.proxyMode === "direct" && result.codexGatewayHealth.proxyUrl === "" && result.nativeTimeouts.some(item => item.url.endsWith("/healthz") && item.timeoutMs === 5000), "Codex gateway health checks must bypass the configured desktop proxy and use a short native timeout.", result);
+  assertQa(result.codexGatewayGenerate.action === "nativeFetch" && result.codexGatewayGenerate.proxyMode === "direct" && result.codexGatewayGenerate.proxyUrl === "" && result.nativeTimeouts.some(item => item.url.includes("/v1/images/generations") && item.timeoutMs === 300000), "Codex gateway image requests must bypass the desktop proxy and use the documented 300-second client timeout.", result);
   assertQa(result.helperPayload.proxyMode === "custom" && result.helperPayload.proxyUrl === "http://127.0.0.1:7890", "Proxy helper should append proxy fields to native payloads.", result);
   assertQa(result.invalidDidNotCall && /代理|proxy|URL/i.test(result.invalidStatus), "Invalid custom proxy should show an error and avoid native requests.", result);
   assertQa(result.stored.desktopProxyMode === "custom" && result.stored.desktopProxyCustomUrl === "127.0.0.1:7890", "Desktop proxy settings should persist globally.", result);
@@ -5235,6 +5239,201 @@ async function testPwaOfflineCache(cdp) {
   }
 }
 
+
+async function testRetainedProviderProfilesAndGatewayMigration(cdp) {
+  logStep("Official OpenAI, GrsAI, Custom API and the Codex gateway keep isolated provider profiles");
+  await loadFresh(cdp, "retained-provider-profiles");
+  const result = await cdp.eval(`(() => {
+    localStorage.clear();
+    const profiles = [
+      normalizeApiConfig({ id: "official-profile", name: "Official", apiProvider: "official", endpoint: "https://api.openai.com/v1/images/generations", apiKey: "sk-official-only", model: "gpt-image-2", officialImageOptions: { quality: "high", outputFormat: "png" } }),
+      normalizeApiConfig({ id: "grsai-profile", name: "GrsAI", apiProvider: "grsai", endpoint: "https://grsai.dakka.com.cn/v1/api/generate", apiKey: "sk-grsai-only", model: "gpt-image-2" }),
+      normalizeApiConfig({ id: "custom-profile", name: "Custom", apiProvider: "custom", endpoint: "https://custom.example.test/v1/images/generations", apiKey: "sk-custom-only", model: "custom-image-model" }),
+    ];
+    saveAllApis(profiles);
+    const stored = loadAllApis();
+    const applied = stored.map(profile => {
+      applyConfig(profile);
+      return {
+        id: profile.id,
+        provider: dom.apiProvider.value,
+        endpoint: dom.apiEndpoint.value,
+        apiKey: dom.apiKey.value,
+        model: dom.model.value,
+      };
+    });
+    const legacy = normalizeApiConfig({
+      id: "legacy-local",
+      apiProvider: "opencodex",
+      endpoint: "http://127.0.0.1:10100/v1/images/generations",
+      apiKey: "opencodex-local-only",
+      model: "gpt-image-2",
+    });
+    applyConfig(legacy);
+    const gatewayProfile = currentApiConfig("Gateway");
+    const gatewayOption = dom.apiProvider.querySelector('option[value="codexImageGateway"]');
+    customSelects.apiProvider.renderOptions();
+    const gatewayInBrowserList = [...document.querySelectorAll("#apiProviderCustomList .custom-select-option")]
+      .some(option => /Codex/i.test(option.textContent));
+    return {
+      stored: stored.map(item => ({ id: item.id, provider: item.apiProvider, endpoint: item.endpoint, apiKey: item.apiKey, model: item.model })),
+      applied,
+      legacy: { provider: legacy.apiProvider, endpoint: legacy.endpoint, apiKey: legacy.apiKey, model: legacy.model },
+      gatewayProfile: { provider: gatewayProfile.apiProvider, endpoint: gatewayProfile.endpoint, apiKey: gatewayProfile.apiKey, model: gatewayProfile.model },
+      gatewayOptionHidden: gatewayOption?.hidden === true,
+      gatewayInBrowserList,
+      grsaiOptionPresent: !!dom.apiProvider.querySelector('option[value="grsai"]'),
+      officialOptionPresent: !!dom.apiProvider.querySelector('option[value="official"]'),
+      customOptionPresent: !!dom.apiProvider.querySelector('option[value="custom"]'),
+    };
+  })()`, true);
+  const byId = Object.fromEntries(result.applied.map(item => [item.id, item]));
+  assertQa(result.stored.length === 3, "All retained API profiles must remain stored independently.", result);
+  assertQa(byId["official-profile"]?.apiKey === "sk-official-only" && byId["official-profile"]?.endpoint.includes("api.openai.com"), "Official OpenAI credentials must restore only into the official profile.", result);
+  assertQa(byId["grsai-profile"]?.apiKey === "sk-grsai-only" && byId["grsai-profile"]?.endpoint.includes("grsai.dakka.com.cn"), "GrsAI credentials and its default endpoint must remain isolated and restorable.", result);
+  assertQa(byId["custom-profile"]?.apiKey === "sk-custom-only" && byId["custom-profile"]?.endpoint.includes("custom.example.test"), "Custom API credentials must remain isolated and restorable.", result);
+  assertQa(result.legacy.provider === "codexImageGateway" && result.legacy.endpoint === "http://127.0.0.1:18080/v1" && result.legacy.apiKey === "", "Legacy OpenCodex profiles must migrate to the dedicated gateway without retaining the placeholder key.", result);
+  assertQa(result.gatewayProfile.provider === "codexImageGateway" && result.gatewayProfile.apiKey === "" && result.gatewayProfile.model === "gpt-image-2", "Gateway profiles must never persist the local bearer credential.", result);
+  assertQa(result.grsaiOptionPresent && result.officialOptionPresent && result.customOptionPresent, "GrsAI, Official OpenAI and Custom API choices must all be preserved.", result);
+  assertQa(result.gatewayOptionHidden && !result.gatewayInBrowserList, "The Windows-only gateway must be absent from the plain-browser custom dropdown instead of leaving an unusable choice.", result);
+}
+
+async function testProviderPanelsResponsiveAfterGateway(cdp) {
+  logStep("Provider panels remain responsive and clickable after adding the Codex gateway");
+  for (const viewport of [
+    { width: 1365, height: 768, mobile: false },
+    { width: 430, height: 720, mobile: true },
+  ]) {
+    await loadFresh(cdp, `provider-layout-${viewport.width}`, viewport);
+    const result = await cdp.eval(`(() => {
+      const checks = [];
+      for (const provider of ["official", "grsai", "custom", "codexImageGateway"]) {
+        applyApiProvider(provider, { forceEndpoint: true });
+        const panel = provider === "official" ? dom.officialProviderPanel
+          : provider === "grsai" ? dom.grsaiProviderPanel
+          : provider === "custom" ? dom.customProviderPanel
+          : dom.codexGatewayProviderPanel;
+        const rect = panel.getBoundingClientRect();
+        const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
+        const overflowButtons = [...panel.querySelectorAll("button")].filter(button => {
+          const box = button.getBoundingClientRect();
+          return box.width > 0 && (box.left < rect.left - 1 || box.right > rect.right + 1);
+        }).length;
+        checks.push({ provider, hidden: panel.classList.contains("hidden"), left: rect.left, right: rect.right, inputLeft: inputRect.left, inputRight: inputRect.right, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth, overflowButtons });
+      }
+      return { checks, bodyOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
+    })()`, true);
+    assertQa(result.checks.every(item => !item.hidden && item.left >= item.inputLeft - 1 && item.right <= item.inputRight + 1 && item.scrollWidth <= item.clientWidth + 1 && item.overflowButtons === 0), "Every provider panel must fit the input column without clipped or unclickable controls.", { viewport, result });
+    assertQa(!result.bodyOverflow, "Provider controls must not introduce horizontal page overflow.", { viewport, result });
+  }
+}
+
+async function testCodexImageGatewayIntegration(cdp) {
+  logStep("Dedicated Codex gateway loads its Windows credential in memory, gates on capabilities, and uses resumable n=1 tasks");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      localStorage.clear();
+      window.__AI_GEN_NATIVE_PLATFORM = "windows";
+      window.__gatewayCalls = [];
+      window.__gatewaySubmittedBodies = [];
+      window.__gatewayKey = "${"a".repeat(64)}";
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          window.__gatewayCalls.push(payload);
+          let result = {};
+          if (payload.action === "loadCodexImageGatewayConfig") {
+            result = { baseUrl: "http://127.0.0.1:18080/v1", apiKey: window.__gatewayKey };
+          } else if (payload.action === "loadSecret") {
+            result = "";
+          } else if (payload.action === "nativeFetch") {
+            const method = String(payload.method || "GET").toUpperCase();
+            const url = String(payload.url || "");
+            if (url.endsWith("/healthz")) {
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "ok", service: "langbai-codex-image-gateway" }) };
+            } else if (url.endsWith("/v1/image-capabilities")) {
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ image_only: true, generations: true, edits: true, async_tasks: true, models: ["gpt-image-2"], max_reference_images: 20, dimension_modes: ["native", "strict_native", "exact_output"] }) };
+            } else if (method === "POST" && url.endsWith("/v1/image-tasks")) {
+              const body = JSON.parse(payload.body || "{}");
+              window.__gatewaySubmittedBodies.push({ body, headers: payload.headers, proxyMode: payload.proxyMode, proxyUrl: payload.proxyUrl });
+              result = { status: 202, headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "imgjob_" + window.__gatewaySubmittedBodies.length, status: "queued" }) };
+            } else if (method === "GET" && url.includes("/v1/image-tasks/imgjob_")) {
+              const id = url.split("/").pop();
+              const submitted = window.__gatewaySubmittedBodies[Number(id.split("_").pop()) - 1]?.body || {};
+              result = { status: 200, headers: { "content-type": "application/json", "x-request-id": "req_gateway_test" }, body: JSON.stringify({ id, status: "succeeded", result: { data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", mime_type: "image/png" }], langbai: { reference_images_received: (submitted.images || []).length, reference_images_forwarded: Math.min((submitted.images || []).length, 5), reference_boards_compiled: (submitted.images || []).length > 5, dimensions: [{ requested_size: submitted.size, native_size: "1024x1536", final_size: submitted.size, dimension_action: submitted.dimension_mode === "exact_output" ? "smart_cover_crop" : "none" }] } } }) };
+            } else {
+              result = { status: 404, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: { message: "not mocked" } }) };
+            }
+          }
+          setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
+        }
+      };
+    `,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" });
+  try {
+    await loadFresh(cdp, "codex-gateway-integration");
+    const result = await cdp.eval(`(async () => {
+      window.__AI_GEN_NATIVE_PLATFORM = "windows";
+      applyApiProvider("codexImageGateway", { forceEndpoint: true });
+      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 5 });
+      const ready = await checkCodexGatewayHealth({ announce: false, force: true });
+      if (!ready) return {
+        ready,
+        healthText: dom.codexGatewayHealthStatus?.textContent || "",
+        healthState: dom.codexGatewayHealthStatus?.dataset?.state || "",
+        platform: getRuntimePlatform(),
+        nativeAvailable: !!nativeDownload.available(),
+        bridgeType: typeof window.FlutterDownload?.postMessage,
+        calls: window.__gatewayCalls,
+      };
+      const submitted = [];
+      const generated = await callImageAPI("gateway generation", "832x1216", 1, "gateway", { maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
+      const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
+      const edited = await callImageAPI("gateway semantic edit", "1024x1024", 1, "gateway edit", { references: [reference], maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
+      updateInpaintAvailability();
+      const inpaintEnabled = !dom.openInpaintFromFile.disabled;
+      dom.openInpaintFromFile.click();
+      await new Promise(r => setTimeout(r, 50));
+      const inpaintOpened = !dom.inpaintModal.classList.contains("hidden");
+      const gatewayProfile = currentApiConfig("Gateway");
+      const localStorageText = Object.keys(localStorage).map(key => localStorage.getItem(key)).join("\\n");
+      const providerOptions = [...dom.apiProvider.options].map(option => option.value);
+      return {
+        ready,
+        endpoint: dom.apiEndpoint.value,
+        keyValue: dom.apiKey.value,
+        keyReadOnly: dom.apiKey.readOnly,
+        model: dom.model.value,
+        modelReadOnly: dom.model.readOnly,
+        options: getCodexGatewayOptions(),
+        submitted,
+        requestBodies: window.__gatewaySubmittedBodies,
+        generated: { count: generated.data?.length || 0, meta: generated._openCodex },
+        edited: { count: edited.data?.length || 0, meta: edited._openCodex },
+        profile: gatewayProfile,
+        leakedKey: localStorageText.includes(window.__gatewayKey),
+        inpaintEnabled,
+        inpaintOpened,
+        providerOptions,
+        gatewayOptionHidden: dom.apiProvider.querySelector('option[value="codexImageGateway"]')?.hidden === true,
+      };
+    })()`, true);
+    assertQa(result.ready && result.endpoint === "http://127.0.0.1:18080/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
+    assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
+    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 5, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(result.submitted.length === 2 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission must expose a checkpointable async task id.", result);
+    assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
+    assertQa(!result.requestBodies[0].body.images && result.requestBodies[1].body.images?.length === 1, "Text generation must omit references while semantic edit must send the selected local reference.", result);
+    assertQa(result.generated.count === 1 && result.edited.count === 1 && result.generated.meta?.audit?.taskId === "imgjob_1" && result.edited.meta?.audit?.taskId === "imgjob_2", "Completed task results must retain safe task and dimension audit metadata.", result);
+    assertQa(result.inpaintEnabled && result.inpaintOpened, "Gateway gpt-image-2 must keep local mask inpainting clickable.", result);
+    assertQa(result.providerOptions.includes("official") && result.providerOptions.includes("grsai") && result.providerOptions.includes("custom") && !result.gatewayOptionHidden, "The Windows provider list must keep Official, GrsAI and Custom while showing the gateway.", result);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+}
+
 async function main() {
   const server = createStaticServer();
   await new Promise(resolve => server.listen(appPort, host, resolve));
@@ -5281,10 +5480,9 @@ async function main() {
     await testCardRetryAttemptDisplayAndStop(cdp);
     await testCancelDuringFirstAttempt(cdp);
     await testDesktopProxyControls(cdp);
-    await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
-    await testOpenAiOfficialProviderResponsiveLayout(cdp);
-    await testOpenCodexDualModelsSizesAndLocalInpaint(cdp);
-    await testGptImage2InpaintRoutes(cdp);
+    await testRetainedProviderProfilesAndGatewayMigration(cdp);
+    await testProviderPanelsResponsiveAfterGateway(cdp);
+    await testCodexImageGatewayIntegration(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
     await testSavePathsTextMenuAndWindowsZipChunks(cdp);

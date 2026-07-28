@@ -17,6 +17,7 @@ import 'package:webview_win_floating/webview_win_floating.dart'
     as windows_webview;
 
 import 'proxy_config.dart';
+import 'codex_image_gateway_config.dart';
 
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
@@ -596,6 +597,9 @@ class _MobileWebShellState extends State<MobileWebShell>
         case 'deleteSecret':
           result = await _handleSecretAction(action, payload);
           break;
+        case 'loadCodexImageGatewayConfig':
+          result = await loadCodexImageGatewayConfig();
+          break;
         case 'cancelNativeFetch':
           _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
           result = true;
@@ -1169,6 +1173,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         case 'loadSecret':
         case 'deleteSecret':
           result = await _handleSecretAction(action, payload);
+          break;
+        case 'loadCodexImageGatewayConfig':
+          result = await loadCodexImageGatewayConfig();
           break;
         case 'cancelNativeFetch':
           _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
