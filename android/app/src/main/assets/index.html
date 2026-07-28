@@ -132,6 +132,18 @@
 
               <div class="provider-option provider-option-wide">
                 <div class="provider-option-copy">
+                  <strong>额度来源</strong>
+                  <small>Codex 使用 Codex 生图额度；ChatGPT 网页使用当前 Edge 登录账号的网页生图额度。</small>
+                </div>
+                <div class="provider-segments provider-segments-two" data-provider-control="codexGatewayRouteMode" role="group" aria-label="额度来源">
+                  <button type="button" data-value="codex">Codex</button>
+                  <button type="button" data-value="chatgpt_web">ChatGPT 网页</button>
+                </div>
+                <input type="hidden" id="codexGatewayRouteMode" value="codex">
+              </div>
+
+              <div class="provider-option provider-option-wide">
+                <div class="provider-option-copy">
                   <strong id="officialQualityLabel">输出质量</strong>
                   <small id="officialQualityHint">自动会平衡速度与细节；低适合草稿，中适合日常，高适合最终成图。</small>
                 </div>

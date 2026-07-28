@@ -1248,6 +1248,7 @@ const dom = {
   codexGatewayProviderPanel: $("#codexGatewayProviderPanel"),
   grsaiProviderPanel: $("#grsaiProviderPanel"),
   customProviderPanel: $("#customProviderPanel"),
+  codexGatewayRouteMode: $("#codexGatewayRouteMode"),
   codexGatewayQuality: $("#codexGatewayQuality"),
   codexGatewayDimensionMode: $("#codexGatewayDimensionMode"),
   codexGatewayAsyncTasks: $("#codexGatewayAsyncTasks"),
@@ -2286,6 +2287,7 @@ function normalizeCodexGatewayOptions(value = {}) {
 
 function getCodexGatewayOptions() {
   return normalizeCodexGatewayOptions({
+    routeMode: dom.codexGatewayRouteMode?.value,
     quality: dom.codexGatewayQuality?.value,
     dimensionMode: dom.codexGatewayDimensionMode?.value,
     asyncTasks: dom.codexGatewayAsyncTasks?.checked !== false,
@@ -2295,6 +2297,7 @@ function getCodexGatewayOptions() {
 
 function applyCodexGatewayOptions(value = {}) {
   const options = normalizeCodexGatewayOptions(value);
+  setProviderSegmentValue("codexGatewayRouteMode", options.routeMode);
   setProviderSegmentValue("codexGatewayQuality", options.quality);
   setProviderSegmentValue("codexGatewayDimensionMode", options.dimensionMode);
   if (dom.codexGatewayAsyncTasks) dom.codexGatewayAsyncTasks.checked = options.asyncTasks;
@@ -2357,6 +2360,7 @@ function updateSizePolicyUi() {
 }
 
 function getCodexGatewayConcurrency(options = getCodexGatewayOptions()) {
+  if (options.routeMode === "chatgpt_web") return 1;
   return Math.max(1, Math.min(
     2,
     Number(options.clientQueue) || 2,
@@ -2561,8 +2565,13 @@ function syncCodexGatewayProviderVisibility() {
 
 async function loadCodexGatewayCredentials() {
   if (!isNativeWindowsWebview()) throw new Error("Codex 生图网关仅在 Windows 软件中可用");
+  const options = getCodexGatewayOptions();
   const loaded = await nativeDownload.loadCodexImageGatewayConfig();
-  const baseUrl = codexImageGateway.normalizeBaseUrl(loaded?.baseUrl);
+  const baseUrl = codexImageGateway.normalizeBaseUrl(
+    options.routeMode === "chatgpt_web"
+      ? "http://127.0.0.1:18081/v1"
+      : loaded?.baseUrl
+  );
   const apiKey = String(loaded?.apiKey || "").trim();
   if (!codexImageGateway.validateLocalKey(apiKey)) throw new Error("本机网关凭据格式无效，请重新安装或修复网关");
   codexGatewayCredentials = { baseUrl, apiKey };
@@ -2578,7 +2587,8 @@ async function checkCodexGatewayHealth({ announce = false, force = true } = {}) 
   codexGatewayHealthPromise = (async () => {
     try {
       const credentials = await loadCodexGatewayCredentials();
-      const health = await smartFetch(CODEX_IMAGE_GATEWAY_HEALTH_URL, {
+      const healthUrl = `${credentials.baseUrl.replace(/\/v1\/?$/i, "")}/healthz`;
+      const health = await smartFetch(healthUrl, {
         headers: { Accept: "application/json" }, nativeTimeoutMs: 5000, forceDirectProxy: true,
       });
       if (!health.ok) throw new Error(`健康检查 HTTP ${health.status}`);
@@ -2594,7 +2604,8 @@ async function checkCodexGatewayHealth({ announce = false, force = true } = {}) 
       codexGatewayCapabilities = validated.capabilities;
       codexGatewayHealthCheckedAt = Date.now();
       codexGatewayRuntime.resetAfterHealthCheck({ resetReference: force });
-      setCodexGatewayHealthState("ready", `image-only · ${CODEX_IMAGE_GATEWAY_MODEL}`);
+      const routeLabel = getCodexGatewayOptions().routeMode === "chatgpt_web" ? "ChatGPT 网页额度" : "Codex 额度";
+      setCodexGatewayHealthState("ready", `${routeLabel} · ${CODEX_IMAGE_GATEWAY_MODEL}`);
       if (announce) showStatus(interpolate(cleanText("codexGatewayHealthReady"), { detail: CODEX_IMAGE_GATEWAY_MODEL }), "success");
       return true;
     } catch (err) {
@@ -3201,6 +3212,16 @@ document.querySelectorAll(".provider-segments[data-provider-control]").forEach(g
     if (!button || button.disabled) return;
     const controlId = group.dataset.providerControl;
     setProviderSegmentValue(controlId, button.dataset.value);
+    if (controlId === "codexGatewayRouteMode") {
+      codexGatewayCredentials = null;
+      codexGatewayCapabilities = null;
+      codexGatewayHealthCheckedAt = 0;
+      setCodexGatewayHealthState("idle");
+      if (dom.codexGatewayClientQueue && button.dataset.value === "chatgpt_web") {
+        dom.codexGatewayClientQueue.value = "1";
+      }
+      setTimeout(() => void checkCodexGatewayHealth({ announce: true, force: true }), 0);
+    }
     updateOfficialOptionAvailability();
     updateCodexGatewayOptionAvailability();
     persistCurrentProviderOptions();

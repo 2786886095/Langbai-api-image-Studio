@@ -13,6 +13,7 @@
   const MAX_REFERENCE_IMAGES = 20;
   const DIRECT_REFERENCE_IMAGES = 5;
   const DEFAULTS = Object.freeze({
+    routeMode: "codex",
     quality: "medium",
     dimensionMode: "exact_output",
     asyncTasks: true,
@@ -42,6 +43,9 @@
   }
 
   function normalizeOptions(value = {}) {
+    const routeMode = ["codex", "chatgpt_web"].includes(value.routeMode || value.route_mode)
+      ? (value.routeMode || value.route_mode)
+      : DEFAULTS.routeMode;
     const quality = ["low", "medium", "high"].includes(value.quality)
       ? value.quality
       : DEFAULTS.quality;
@@ -50,6 +54,7 @@
       : DEFAULTS.dimensionMode;
     const clientQueue = Math.max(1, Math.min(2, Math.floor(Number(value.clientQueue) || DEFAULTS.clientQueue)));
     return Object.freeze({
+      routeMode,
       quality,
       dimensionMode,
       asyncTasks: value.asyncTasks !== false,

@@ -5409,6 +5409,17 @@ async function testCodexImageGatewayIntegration(cdp) {
       const generated = await callImageAPI("gateway generation", "832x1216", 1, "gateway", { maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
       const reference = { fileName: "ref.png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==", width: 1, height: 1 };
       const edited = await callImageAPI("gateway semantic edit", "1024x1024", 1, "gateway edit", { references: [reference], maxRetries: 9, onTaskSubmitted: task => submitted.push(task) });
+      applyCodexGatewayOptions({ quality: "medium", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 2, routeMode: "chatgpt_web" });
+      codexGatewayCredentials = null;
+      const webCredentials = await loadCodexGatewayCredentials();
+      const webRoute = {
+        options: getCodexGatewayOptions(),
+        baseUrl: webCredentials.baseUrl,
+        concurrency: getCodexGatewayConcurrency(),
+        credentialCalls: window.__gatewayCalls.filter(call => call.action === "loadCodexImageGatewayConfig").length,
+      };
+      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 2, routeMode: "codex" });
+      codexGatewayCredentials = null;
       const legacyBlob = await imageUrlToBlob("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0");
       const protectedUrlChecks = {
         gateway: isCodexGatewayProtectedImageUrl("http://127.0.0.1:18080/v1/image-tasks/imgjob_1/files/0"),
@@ -5453,6 +5464,7 @@ async function testCodexImageGatewayIntegration(cdp) {
         model: dom.model.value,
         modelReadOnly: dom.model.readOnly,
         options: getCodexGatewayOptions(),
+        webRoute,
         taskWaitTimeoutMs: CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS,
         submitted,
         requestBodies: window.__gatewaySubmittedBodies,
@@ -5480,6 +5492,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     assertQa(result.ready && result.endpoint === "http://127.0.0.1:18080/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
     assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 2, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(result.webRoute.options.routeMode === "chatgpt_web" && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 1 && result.webRoute.credentialCalls >= 1, "The ChatGPT web quota route must reuse the protected local app credential, switch to its separate memory-session gateway, and clamp browser-account concurrency to one.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 2 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission must expose a checkpointable async task id.", result);
     assertQa(result.requestBodies.length === 2 && result.requestBodies.every(item => item.body.model === "gpt-image-2" && item.body.n === 1 && item.proxyMode === "direct" && item.proxyUrl === ""), "Gateway generation and edits must use separate resumable n=1 tasks and bypass the desktop proxy.", result);
