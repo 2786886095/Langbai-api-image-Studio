@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.4";
+const APP_VERSION = "1.6.5";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -1416,6 +1416,8 @@ const dom = {
   geminiAccountIdentity: $("#geminiAccountIdentity"),
   geminiAccountStatus: $("#geminiAccountStatus"),
   geminiAccountList: $("#geminiAccountList"),
+  geminiModelPreference: $("#geminiModelPreference"),
+  geminiQualityIntent: $("#geminiQualityIntent"),
   geminiClientQueue: $("#geminiClientQueue"),
   openInpaintFromFile: $("#openInpaintFromFile"),
   inpaintSourceInput: $("#inpaintSourceInput"),
@@ -1989,6 +1991,7 @@ const GEMINI_WEB_FALLBACK_DEFAULTS = Object.freeze({
   targetSize: "832x1216",
   cropMode: "smart_cover",
   qualityIntent: "standard",
+  modelPreference: "auto",
   clientQueue: 10,
 });
 const geminiImageSizes = window.GeminiImageSizeRegistry || Object.freeze({
@@ -2520,6 +2523,10 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "软件内 Gemini 账号", accountEmpty: "尚未登录 Gemini", accountHint: "账号只保存在当前设备的本地会话中；登录成功后页面自动收起，额度不足时可自动切换账号。",
     login: "添加 / 登录账号", relogin: "重新登录", test: "检测内置浏览器", autoSwitch: "额度不足时自动切换账号",
     idle: "未连接", checking: "正在检测…", ready: "内置浏览器已就绪", failed: "内置浏览器不可用：{reason}",
+    model: "网页模型", modelHint: "自动保留账号当前模型；快速模型响应更快，Pro 模型更适合复杂画面。",
+    quality: "生成策略", qualityHint: "快速会简化细节要求；精细会强调纹理与完整度，通常等待更久。",
+    modelAuto: "自动", modelFast: "快速", modelPro: "Pro",
+    qualityFast: "快速", qualityStandard: "标准", qualityDetail: "精细",
     queue: "本地队列上限",
     facts: "临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计",
     capability: "构图比例由全局分辨率自动推导；网页原图下载后会无拉伸裁切缩放到所选全局尺寸。",
@@ -2529,6 +2536,10 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "軟體內 Gemini 帳號", accountEmpty: "尚未登入 Gemini", accountHint: "帳號只保存在目前裝置的本機工作階段；登入成功後頁面自動收起，額度不足時可自動切換帳號。",
     login: "新增 / 登入帳號", relogin: "重新登入", test: "偵測內建瀏覽器", autoSwitch: "額度不足時自動切換帳號",
     idle: "未連線", checking: "正在偵測…", ready: "內建瀏覽器已就緒", failed: "內建瀏覽器無法使用：{reason}",
+    model: "網頁模型", modelHint: "自動會保留帳號目前模型；快速模型回應較快，Pro 模型適合複雜畫面。",
+    quality: "生成策略", qualityHint: "快速會簡化細節要求；精細會強調紋理與完整度，通常等待較久。",
+    modelAuto: "自動", modelFast: "快速", modelPro: "Pro",
+    qualityFast: "快速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "本機佇列上限",
     facts: "臨時對話 · 使用全域解析度 · 完整尺寸下載 · 精確尺寸稽核",
     capability: "構圖比例由全域解析度自動推導；網頁原圖下載後會以不拉伸裁切縮放至所選全域尺寸。",
@@ -2538,6 +2549,10 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "In-app Gemini account", accountEmpty: "Not signed in to Gemini", accountHint: "Sessions remain local to this device. The app can switch accounts automatically when the active account has no quota.",
     login: "Add / sign in", relogin: "Sign in again", test: "Test embedded browser", autoSwitch: "Switch accounts when quota is unavailable",
     idle: "Disconnected", checking: "Checking…", ready: "Embedded browser ready", failed: "Embedded browser unavailable: {reason}",
+    model: "Web model", modelHint: "Auto keeps the account's current model. Fast responds sooner; Pro suits complex scenes.",
+    quality: "Generation strategy", qualityHint: "Fast simplifies detail requests. Detail emphasizes texture and completeness and may take longer.",
+    modelAuto: "Auto", modelFast: "Fast", modelPro: "Pro",
+    qualityFast: "Fast", qualityStandard: "Standard", qualityDetail: "Detail",
     queue: "Local queue limit",
     facts: "Temporary Chat · global resolution · full-size download · dimension audit",
     capability: "Composition is derived from the global resolution; the downloaded original is cropped and resized without stretching.",
@@ -2547,6 +2562,10 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "アプリ内 Gemini アカウント", accountEmpty: "Gemini に未ログイン", accountHint: "セッションはこの端末だけに保存されます。上限到達時は別アカウントへ自動切替できます。",
     login: "追加 / ログイン", relogin: "再ログイン", test: "内蔵ブラウザを確認", autoSwitch: "上限到達時に自動切替",
     idle: "未接続", checking: "確認中…", ready: "内蔵ブラウザ準備完了", failed: "内蔵ブラウザを利用できません：{reason}",
+    model: "ウェブモデル", modelHint: "自動は現在のモデルを維持します。Fast は高速、Pro は複雑な画像向けです。",
+    quality: "生成方針", qualityHint: "高速は細部指定を簡略化し、精細は質感と完成度を重視するため時間がかかる場合があります。",
+    modelAuto: "自動", modelFast: "高速", modelPro: "Pro",
+    qualityFast: "高速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "ローカルキュー上限",
     facts: "一時チャット · グローバル解像度 · フルサイズ取得 · サイズ監査",
     capability: "構図比率はグローバル解像度から自動算出し、元画像を伸ばさずに切り抜き・リサイズします。",
@@ -2556,6 +2575,10 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "앱 내 Gemini 계정", accountEmpty: "Gemini에 로그인하지 않음", accountHint: "세션은 현재 기기에만 저장됩니다. 할당량이 없으면 다른 계정으로 자동 전환할 수 있습니다.",
     login: "계정 추가 / 로그인", relogin: "다시 로그인", test: "내장 브라우저 확인", autoSwitch: "할당량 부족 시 계정 자동 전환",
     idle: "연결 안 됨", checking: "확인 중…", ready: "내장 브라우저 준비됨", failed: "내장 브라우저 사용 불가: {reason}",
+    model: "웹 모델", modelHint: "자동은 현재 모델을 유지합니다. Fast는 더 빠르고 Pro는 복잡한 장면에 적합합니다.",
+    quality: "생성 전략", qualityHint: "빠름은 세부 요구를 줄이고, 정밀은 질감과 완성도를 강조해 더 오래 걸릴 수 있습니다.",
+    modelAuto: "자동", modelFast: "빠름", modelPro: "Pro",
+    qualityFast: "빠름", qualityStandard: "표준", qualityDetail: "정밀",
     queue: "로컬 대기열 상한",
     facts: "임시 채팅 · 전역 해상도 · 전체 크기 다운로드 · 크기 감사",
     capability: "구도 비율은 전역 해상도에서 자동 계산하며 원본을 늘리지 않고 자른 뒤 선택한 크기로 조정합니다.",
@@ -2574,13 +2597,16 @@ function getGeminiWebOptions() {
     ratio: "auto",
     targetSize: getSelectedSize(),
     cropMode: "smart_cover",
-    qualityIntent: "standard",
+    qualityIntent: dom.geminiQualityIntent?.value,
+    modelPreference: dom.geminiModelPreference?.value,
     clientQueue: dom.geminiClientQueue?.value,
   });
 }
 
 function applyGeminiWebOptions(value = {}) {
   const options = geminiImageSizes.normalizeOptions(value);
+  setProviderSegmentValue("geminiModelPreference", options.modelPreference);
+  setProviderSegmentValue("geminiQualityIntent", options.qualityIntent);
   if (dom.geminiClientQueue) dom.geminiClientQueue.value = String(options.clientQueue);
 }
 
@@ -2784,6 +2810,10 @@ function updateGeminiLanguage() {
     geminiProviderHint: "hint",
     geminiAccountTitle: "accountTitle",
     geminiAccountHint: "accountHint",
+    geminiModelPreferenceLabel: "model",
+    geminiModelPreferenceHint: "modelHint",
+    geminiQualityIntentLabel: "quality",
+    geminiQualityIntentHint: "qualityHint",
     geminiQueueLabel: "queue",
     geminiFacts: "facts",
     geminiCapabilityNote: "capability",
@@ -2791,6 +2821,24 @@ function updateGeminiLanguage() {
   for (const [id, key] of Object.entries(textMap)) {
     const element = document.getElementById(id);
     if (element) element.textContent = geminiText(key);
+  }
+  const segmentLabels = {
+    geminiModelPreference: {
+      auto: "modelAuto",
+      fast: "modelFast",
+      pro: "modelPro",
+    },
+    geminiQualityIntent: {
+      fast: "qualityFast",
+      standard: "qualityStandard",
+      detail: "qualityDetail",
+    },
+  };
+  for (const [controlId, labels] of Object.entries(segmentLabels)) {
+    document.querySelectorAll(`[data-provider-control="${controlId}"] button[data-value]`).forEach(button => {
+      const key = labels[button.dataset.value];
+      if (key) button.textContent = geminiText(key);
+    });
   }
   if (dom.openGeminiLogin) dom.openGeminiLogin.textContent = geminiText("login");
   if (dom.testGeminiHealth) dom.testGeminiHealth.textContent = geminiText("test");

@@ -53,6 +53,7 @@
       resolution_intent: resolved.resolutionIntent,
       crop_mode: resolved.cropMode,
       quality_intent: resolved.qualityIntent,
+      model_preference: resolved.modelPreference,
       temporary_chat_required: true,
       n: 1,
     };
@@ -90,6 +91,8 @@
       downloadedFullsize: String(audit.downloaded_fullsize || ""),
       finalSize: String(audit.final_size || ""),
       transform: String(audit.transform || "none"),
+      requestedModelMode: String(audit.requested_model_mode || "auto"),
+      selectedModelMode: String(audit.selected_model_mode || "unknown"),
       accountSuffix: String(normalized.accountId || "").slice(-4),
     };
   }

@@ -29,12 +29,32 @@ test("selects ratios symmetrically and supports requested presets", () => {
   assert.ok(sizes.TARGET_PRESETS.includes("3840x2160"));
 });
 
+test("damaged legacy Gemini options fall back without crashing startup", () => {
+  const normalized = sizes.normalizeOptions({
+    targetSize: "broken-size",
+    ratio: "broken-ratio",
+    qualityIntent: "broken-quality",
+    modelPreference: "broken-model",
+  });
+  assert.equal(normalized.targetSize, sizes.DEFAULTS.targetSize);
+  assert.equal(normalized.ratio, sizes.DEFAULTS.ratio);
+  assert.equal(normalized.qualityIntent, sizes.DEFAULTS.qualityIntent);
+  assert.equal(normalized.modelPreference, sizes.DEFAULTS.modelPreference);
+  assert.doesNotThrow(() => sizes.normalizeOptions(null));
+  assert.doesNotThrow(() => sizes.normalizeOptions("legacy"));
+});
+
 test("builds one resumable temporary-chat task without credentials", () => {
   const task = adapter.buildTaskRequest({
     prompt: "漫画分镜",
     size: "832x1216",
     refs: [{ dataUrl: "data:image/png;base64,AA==", fileName: "ref.png", width: 1, height: 1 }],
-    options: { sizeMode: "exact_output", qualityIntent: "detail", clientQueue: 20 },
+    options: {
+      sizeMode: "exact_output",
+      qualityIntent: "detail",
+      modelPreference: "pro",
+      clientQueue: 20,
+    },
     clientRequestId: "request-1",
   });
   assert.equal(task.provider, "geminiWeb");
@@ -43,6 +63,8 @@ test("builds one resumable temporary-chat task without credentials", () => {
   assert.equal(task.requested_ratio, "2:3");
   assert.equal(task.requested_size.width, 832);
   assert.equal(task.references.length, 1);
+  assert.equal(task.quality_intent, "detail");
+  assert.equal(task.model_preference, "pro");
   assert.equal(JSON.stringify(task).includes("cookie"), false);
   assert.equal(JSON.stringify(task).includes("token"), false);
 });
@@ -65,9 +87,17 @@ test("validates companion capabilities and produces a safe audit", () => {
     id: "gemini-task-1",
     account_id: "account-secret-id",
     status: "succeeded",
-    audit: { requested_size: "832x1216", downloaded_fullsize: "1696x2528", final_size: "832x1216" },
+    audit: {
+      requested_size: "832x1216",
+      downloaded_fullsize: "1696x2528",
+      final_size: "832x1216",
+      requested_model_mode: "pro",
+      selected_model_mode: "pro",
+    },
   });
   assert.equal(audit.accountSuffix, "t-id");
+  assert.equal(audit.requestedModelMode, "pro");
+  assert.equal(audit.selectedModelMode, "pro");
   assert.equal(JSON.stringify(audit).includes("secret"), false);
 });
 
@@ -81,9 +111,29 @@ test("uses the Windows native input bridge for Gemini controls", () => {
   assert.match(worker, /await activateControl\(button\)/);
   assert.match(worker, /await activateControl\(action\)/);
   assert.match(worker, /await activateControl\(send\)/);
+  assert.match(worker, /async function selectGeminiModel\(preference = "auto"\)/);
+  assert.match(worker, /await selectGeminiModel\(request\.model_preference \|\| "auto"\)/);
   assert.doesNotMatch(worker, /\bbutton\.click\(\)/);
   assert.doesNotMatch(worker, /\baction\.click\(\)/);
   assert.doesNotMatch(worker, /\bsend\.click\(\)/);
+});
+
+test("forces image output and terminates no-image responses", () => {
+  const worker = fs.readFileSync(
+    path.join(__dirname, "..", "gemini-embedded-worker.js"),
+    "utf8",
+  );
+  assert.match(worker, /请立即生成一张图片，不要只回复文字、解释或提示词；直接输出图片/);
+  assert.match(worker, /function modelResponseSnapshot\(\)/);
+  assert.match(worker, /function generationIsActive\(\)/);
+  assert.match(worker, /async function waitForSubmissionAck\(composer, baseline, timeoutMs = 15000\)/);
+  assert.match(worker, /code: "gemini_submission_not_acknowledged"/);
+  assert.match(worker, /code: "gemini_no_image_returned"/);
+  assert.match(worker, /code: "gemini_no_image_timeout"/);
+  assert.match(worker, /nodes: new WeakSet\(images\)/);
+  assert.match(worker, /currentTask\?\.status === "succeeded"/);
+  assert.match(worker, /code: body\?\.error\?\.code \|\| "gemini_result_save_failed"/);
+  assert.doesNotMatch(worker, /waitForGeneratedImage\(\s*previous,\s*0,/);
 });
 
 test("writes exact global dimensions into the cached Gemini task result", () => {

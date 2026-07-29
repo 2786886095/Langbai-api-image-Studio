@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.4
+# Codex / Claude Handoff: AI 图片生成器 v1.6.5
 
 更新时间：2026-07-29
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.4+81`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.5+82`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.5 Gemini 无限生成收口与参数恢复
+
+- `gemini-embedded-worker.js` 不再把控制点击等同于提交成功；发送后 15 秒内必须观察到输入框清空、新用户消息、响应启动或生成状态，否则以 `gemini_submission_not_acknowledged` 结束。
+- 每次请求都追加明确的直接生图指令；纯文字回复稳定 45 秒且页面已停止生成时返回 `gemini_no_image_returned`，绝对等待超过 20 分钟返回 `gemini_no_image_timeout`。
+- 图片发现从单纯 URL 集合升级为 DOM 节点和 `src/srcset/真实尺寸` 签名，兼容复用 URL 或原节点更新。
+- Gemini 专属配置恢复 `modelPreference=auto/fast/pro` 与 `qualityIntent=fast/standard/detail`，完整进入配置持久化和任务请求；其它供应商字段保持隔离。
+- 回归覆盖参数保存、请求透传、无图终止、提交确认、Android 内嵌资源同步。
 
 ## v1.6.4 Gemini 真实生成与精确尺寸修复
 

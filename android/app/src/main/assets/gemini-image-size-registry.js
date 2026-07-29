@@ -24,6 +24,7 @@
     targetSize: "832x1216",
     cropMode: "smart_cover",
     qualityIntent: "standard",
+    modelPreference: "auto",
     clientQueue: 10,
   });
 
@@ -56,27 +57,33 @@
   }
 
   function normalizeOptions(value = {}) {
+    value = value && typeof value === "object" ? value : {};
     const sizeMode = SIZE_MODES.includes(value.sizeMode || value.size_mode)
       ? (value.sizeMode || value.size_mode)
       : DEFAULTS.sizeMode;
-    const parsedTarget = parseSize(value.targetSize || value.target_size || DEFAULTS.targetSize);
-    const targetSize = parsedTarget?.text || DEFAULTS.targetSize;
+    const parsedTarget = parseSize(value.targetSize || value.target_size || DEFAULTS.targetSize)
+      || parseSize(DEFAULTS.targetSize);
+    const targetSize = parsedTarget.text;
     const requestedRatio = value.ratio || value.requested_ratio || DEFAULTS.ratio;
     const ratio = requestedRatio === "auto"
       ? "auto"
-      : RATIOS.includes(requestedRatio) ? requestedRatio : nearestRatio(parsedTarget.width, parsedTarget.height);
+      : RATIOS.includes(requestedRatio) ? requestedRatio : DEFAULTS.ratio;
     const cropMode = CROP_MODES.includes(value.cropMode || value.crop_mode)
       ? (value.cropMode || value.crop_mode)
       : DEFAULTS.cropMode;
     const qualityIntent = ["fast", "standard", "detail"].includes(value.qualityIntent || value.quality_intent)
       ? (value.qualityIntent || value.quality_intent)
       : DEFAULTS.qualityIntent;
+    const modelPreference = ["auto", "fast", "pro"].includes(value.modelPreference || value.model_preference)
+      ? (value.modelPreference || value.model_preference)
+      : DEFAULTS.modelPreference;
     return {
       sizeMode,
       ratio,
       targetSize,
       cropMode,
       qualityIntent,
+      modelPreference,
       clientQueue: clampInteger(value.clientQueue ?? value.client_queue, 1, 100, DEFAULTS.clientQueue),
     };
   }

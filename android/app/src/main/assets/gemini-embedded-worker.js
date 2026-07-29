@@ -776,6 +776,78 @@
     return true;
   }
 
+  const GEMINI_MODEL_LABELS = Object.freeze({
+    fast: ["Fast", "快速", "快速模式", "高速"],
+    pro: ["Pro", "专业", "專業"],
+  });
+
+  function normalizedChoiceText(element) {
+    return normalizedText(element).replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  function matchesChoiceLabel(element, labels) {
+    const text = normalizedChoiceText(element);
+    return labels.some(label => {
+      const normalized = label.toLowerCase();
+      return text === normalized || text.startsWith(`${normalized} `);
+    });
+  }
+
+  function findGeminiModelTrigger() {
+    const allLabels = Object.values(GEMINI_MODEL_LABELS).flat();
+    const candidates = [...document.querySelectorAll(
+      'button[aria-haspopup],[role="button"][aria-haspopup],button,[role="button"]',
+    )]
+      .filter(visible)
+      .filter(element => matchesChoiceLabel(element, allLabels));
+    return candidates.find(element => element.hasAttribute("aria-haspopup"))
+      || candidates.find(element => element.closest("main"))
+      || candidates[0]
+      || null;
+  }
+
+  async function selectGeminiModel(preference = "auto") {
+    const requested = ["fast", "pro"].includes(preference) ? preference : "auto";
+    if (requested === "auto") return "auto";
+    const labels = GEMINI_MODEL_LABELS[requested];
+    const trigger = findGeminiModelTrigger();
+    if (!trigger) {
+      throw Object.assign(
+        new Error(`未识别到 Gemini 模型选择器，无法切换到 ${requested}。`),
+        { code: "gemini_model_selector_missing" },
+      );
+    }
+    if (matchesChoiceLabel(trigger, labels)) return requested;
+    await activateControl(trigger);
+    const deadline = Date.now() + 6000;
+    let option = null;
+    while (Date.now() < deadline && !option) {
+      await sleep(200);
+      option = [...document.querySelectorAll(
+        '[role="option"],[role="menuitem"],[role="menuitemradio"],[role="radio"],button,[role="button"]',
+      )]
+        .filter(element => element !== trigger && visible(element))
+        .find(element => matchesChoiceLabel(element, labels)) || null;
+    }
+    if (!option) {
+      throw Object.assign(
+        new Error(`Gemini 当前账号没有显示 ${requested} 模型选项。`),
+        { code: "gemini_model_unavailable" },
+      );
+    }
+    await activateControl(option);
+    const verifyDeadline = Date.now() + 6000;
+    while (Date.now() < verifyDeadline) {
+      await sleep(250);
+      const selected = findGeminiModelTrigger();
+      if (selected && matchesChoiceLabel(selected, labels)) return requested;
+    }
+    throw Object.assign(
+      new Error(`已点击 ${requested} 模型，但页面未确认切换成功。`),
+      { code: "gemini_model_unverified" },
+    );
+  }
+
   function setComposerText(composer, text) {
     composer.focus();
     if (composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement) {
@@ -787,6 +859,48 @@
     }
     composer.textContent = text;
     composer.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  }
+
+  function composerText(composer) {
+    if (!(composer instanceof Element)) return "";
+    const value = composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement
+      ? composer.value
+      : composer.textContent;
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function userMessageSnapshot() {
+    const selectors = [
+      "user-query",
+      '[data-test-id*="user-query"]',
+      '[data-message-author-role="user"]',
+      '[class*="user-query"]',
+    ].join(",");
+    const texts = [...document.querySelectorAll(selectors)]
+      .filter(visible)
+      .map(normalizedText)
+      .map(value => value.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    return { count: texts.length, digest: texts.join("\n---\n") };
+  }
+
+  async function waitForSubmissionAck(composer, baseline, timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const currentUser = userMessageSnapshot();
+      const currentResponse = modelResponseSnapshot();
+      const composerCleared = !composer.isConnected || composerText(composer) === "";
+      const userMessageAdded = currentUser.count > baseline.user.count
+        || (currentUser.digest && currentUser.digest !== baseline.user.digest);
+      const responseStarted = currentResponse.count > baseline.response.count
+        || (currentResponse.digest && currentResponse.digest !== baseline.response.digest);
+      if (composerCleared || userMessageAdded || responseStarted || generationIsActive()) return true;
+      await sleep(250);
+    }
+    throw Object.assign(
+      new Error("Gemini 页面没有确认提交：输入框未清空，也没有出现新消息或生成状态。"),
+      { code: "gemini_submission_not_acknowledged" },
+    );
   }
 
   async function uploadReferences(references) {
@@ -804,8 +918,63 @@
     await sleep(1200);
   }
 
+  function imageSignature(image) {
+    return [
+      image.currentSrc || image.src || "",
+      image.srcset || "",
+      image.naturalWidth || 0,
+      image.naturalHeight || 0,
+    ].join("|");
+  }
+
   function imageSnapshot() {
-    return new Set([...document.images].map(image => image.currentSrc || image.src).filter(Boolean));
+    const images = [...document.images];
+    return {
+      nodes: new WeakSet(images),
+      signatures: new Map(images.map(image => [image, imageSignature(image)])),
+    };
+  }
+
+  function modelResponseSnapshot() {
+    const selectors = [
+      "model-response",
+      '[data-test-id*="model-response"]',
+      '[data-message-author-role="model"]',
+      '[data-message-author-role="assistant"]',
+      '[class*="model-response"]',
+    ].join(",");
+    const nodes = [...document.querySelectorAll(selectors)]
+      .filter(visible)
+      .filter((element, index, all) => !all.some((other, otherIndex) => (
+        otherIndex !== index
+        && other.contains(element)
+        && normalizedText(other) === normalizedText(element)
+      )));
+    const texts = nodes
+      .map(normalizedText)
+      .map(value => value.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    return {
+      count: texts.length,
+      digest: texts.join("\n---\n"),
+      latest: texts.at(-1) || "",
+    };
+  }
+
+  function generationIsActive() {
+    const stopLabels = [
+      "Stop response", "Stop generating", "Cancel response",
+      "停止回复", "停止生成", "取消生成",
+      "停止回覆", "停止產生", "キャンセル", "응답 중지", "생성 중지",
+    ];
+    if (findByCandidates(stopLabels, 'button,[role="button"],[aria-label]')) return true;
+    return [...document.querySelectorAll('main [aria-busy="true"],model-response [aria-busy="true"]')]
+      .some(visible);
+  }
+
+  function isImageProgressText(value) {
+    return /creating (?:an )?image|generating (?:an )?image|正在生成(?:图片|图像)|正在创作|正在绘制|正在產生(?:圖片|圖像)|画像を生成中|이미지 생성 중/i
+      .test(String(value || ""));
   }
 
   function classifyVisibleFailure(value) {
@@ -829,9 +998,16 @@
     return null;
   }
 
-  async function waitForGeneratedImage(previous, timeoutMs = 0, heartbeat = null) {
-    const deadline = timeoutMs > 0 ? Date.now() + timeoutMs : Number.POSITIVE_INFINITY;
+  async function waitForGeneratedImage(previous, {
+    timeoutMs = 20 * 60 * 1000,
+    heartbeat = null,
+    baselineResponse = modelResponseSnapshot(),
+  } = {}) {
+    const startedAt = Date.now();
+    const deadline = startedAt + Math.max(60 * 1000, Number(timeoutMs) || 20 * 60 * 1000);
     let lastHeartbeat = 0;
+    let stableResponseDigest = "";
+    let stableResponseSince = 0;
     while (Date.now() < deadline) {
       if (heartbeat && Date.now() - lastHeartbeat >= 10000) {
         await heartbeat();
@@ -849,13 +1025,50 @@
         );
       }
       const candidates = [...document.images]
-        .filter(image => visible(image) && image.naturalWidth >= 512 && image.naturalHeight >= 512)
-        .filter(image => !previous.has(image.currentSrc || image.src))
+        .filter(image => visible(image) && image.complete && image.naturalWidth >= 256 && image.naturalHeight >= 256)
+        .filter(image => (
+          !previous.nodes?.has(image)
+          || previous.signatures?.get(image) !== imageSignature(image)
+        ))
         .sort((a, b) => (b.naturalWidth * b.naturalHeight) - (a.naturalWidth * a.naturalHeight));
-      if (candidates[0]) return candidates[0];
+      if (candidates[0]) {
+        await candidates[0].decode?.().catch(() => {});
+        if (candidates[0].naturalWidth > 0 && candidates[0].naturalHeight > 0) return candidates[0];
+      }
+
+      const response = modelResponseSnapshot();
+      const hasNewResponse = response.count > baselineResponse.count
+        || (response.digest && response.digest !== baselineResponse.digest);
+      if (hasNewResponse && response.latest) {
+        const responseFailure = classifyVisibleFailure(response.latest);
+        if (responseFailure) {
+          throw Object.assign(
+            new Error(response.latest.slice(0, 500)),
+            { code: responseFailure.code, accountStatus: responseFailure.status },
+          );
+        }
+        const active = generationIsActive() || isImageProgressText(response.latest);
+        if (!active && Date.now() - startedAt >= 15000) {
+          if (stableResponseDigest !== response.digest) {
+            stableResponseDigest = response.digest;
+            stableResponseSince = Date.now();
+          } else if (Date.now() - stableResponseSince >= 45000) {
+            throw Object.assign(
+              new Error(`Gemini 已结束回复但没有返回图片：${response.latest.slice(0, 300)}`),
+              { code: "gemini_no_image_returned" },
+            );
+          }
+        } else {
+          stableResponseDigest = "";
+          stableResponseSince = 0;
+        }
+      }
       await sleep(1200);
     }
-    throw Object.assign(new Error("等待 Gemini 网页图片超时"), { code: "gemini_service_busy" });
+    throw Object.assign(
+      new Error("Gemini 网页在 20 分钟内没有返回图片，任务已停止以避免永久卡在生成中。"),
+      { code: "gemini_no_image_timeout" },
+    );
   }
 
   async function fetchFullsize(image) {
@@ -1121,6 +1334,7 @@
     try {
       await event(task, "preparing_temporary_chat");
       await ensureTemporaryChat(task);
+      const selectedModelMode = await selectGeminiModel(request.model_preference || "auto");
       await event(task, "uploading_references");
       await uploadReferences(request.references || []);
       await event(task, "submitting");
@@ -1128,19 +1342,26 @@
       const composer = findComposer();
       if (!composer) throw Object.assign(new Error("未识别到 Gemini 输入框"), { code: "selector_pack_outdated" });
       const requestedPrompt = String(request.prompt || "").trim();
-      const prompt = explicitImageAction
-        ? requestedPrompt
-        : `请生成一张图片，不要只回复文字。\n\n${requestedPrompt}`;
+      const prompt = `请立即生成一张图片，不要只回复文字、解释或提示词；直接输出图片。\n\n${requestedPrompt}`;
+      const baselineResponse = modelResponseSnapshot();
+      const submissionBaseline = {
+        user: userMessageSnapshot(),
+        response: baselineResponse,
+      };
       setComposerText(composer, prompt);
       await sleep(300);
       const send = findByCandidates(SELECTORS.send);
       if (send) await activateControl(send);
       else composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+      await waitForSubmissionAck(composer, submissionBaseline);
       await event(task, "generating");
       const image = await waitForGeneratedImage(
         previous,
-        0,
-        () => event(task, "generating"),
+        {
+          timeoutMs: 20 * 60 * 1000,
+          heartbeat: () => event(task, "generating"),
+          baselineResponse,
+        },
       );
       await event(task, "locating_full_size");
       const downloadedBlob = await fetchFullsize(image);
@@ -1153,7 +1374,9 @@
       }
       const audit = {
         selector_pack_version: SELECTORS.version,
-        image_action_mode: explicitImageAction ? "explicit_tool" : "direct_pro_prompt",
+        image_action_mode: explicitImageAction ? "explicit_tool+forced_prompt" : "forced_prompt",
+        requested_model_mode: request.model_preference || "auto",
+        selected_model_mode: selectedModelMode,
         temporary_chat_verified: true,
         history_guard: historyGuard,
         history_count_before: before.count,
@@ -1174,7 +1397,23 @@
         },
         body: blob,
       });
-      if (!result.ok) throw new Error(`保存图片失败：HTTP ${result.status}`);
+      if (!result.ok) {
+        // The gateway writes and persists the image before sending its HTTP
+        // response. If the response stream or a non-essential account metadata
+        // refresh fails afterwards, confirm the task before reporting failure;
+        // otherwise a completed image can appear failed and be resubmitted.
+        const currentResponse = await bridgeFetch(
+          `image-tasks/${encodeURIComponent(task.id)}`,
+          { headers: { "X-Langbai-Account-Id": bridge.accountId || "" } },
+        ).catch(() => null);
+        const currentTask = await currentResponse?.json?.().catch(() => null);
+        if (currentResponse?.ok && currentTask?.status === "succeeded") return;
+        const body = await result.json().catch(() => ({}));
+        throw Object.assign(
+          new Error(body?.error?.message || `保存图片失败：HTTP ${result.status}`),
+          { code: body?.error?.code || "gemini_result_save_failed" },
+        );
+      }
     } catch (error) {
       if (error?.code === "task_cancelled") return;
       const protocolFailure = ["temporary_chat_guard_failed", "temporary_chat_unverified", "selector_pack_outdated"].includes(error.code);

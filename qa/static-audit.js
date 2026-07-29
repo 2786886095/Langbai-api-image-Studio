@@ -53,8 +53,8 @@ const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.6.4", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.6\.4\+81$/m);
+assert.equal(version, "1.6.5", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.6\.5\+82$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
 assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
 assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
@@ -65,16 +65,16 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.4/);
-assert.match(html, /20260729-1-6-4/g);
-assert.match(sw, /ai-image-generator-1-6-4-20260729/);
+assert.match(html, /v1\.6\.5/);
+assert.match(html, /20260729-1-6-5/g);
+assert.match(sw, /ai-image-generator-1-6-5-20260729/);
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,4,81/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.4"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.4";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-4/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,5,82/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.5"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.5";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-5/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -148,7 +148,8 @@ for (const id of [
   "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
   "geminiProviderPanel", "openGeminiLogin", "geminiAutoSwitch",
-  "testGeminiHealth", "geminiAccountList", "geminiClientQueue",
+  "testGeminiHealth", "geminiAccountList", "geminiModelPreference",
+  "geminiQualityIntent", "geminiClientQueue",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing provider-specific control: ${id}`);
 }
@@ -167,7 +168,7 @@ assert.match(geminiEmbeddedWorker, /TEMPORARY_CHAT_CHECKPOINT_KEY/);
 assert.match(geminiEmbeddedWorker, /ensureTemporaryChat\(task\)/);
 assert.doesNotMatch(app, /GEMINI_WEB_TASK_WAIT_TIMEOUT_MS/);
 for (const removedId of [
-  "geminiSizeMode", "geminiRatio", "geminiCropMode", "geminiQualityIntent",
+  "geminiSizeMode", "geminiRatio", "geminiCropMode",
 ]) {
   assert.doesNotMatch(
     html,
@@ -203,6 +204,8 @@ assert.match(geminiWebGateway, /_companionLeaseDuration/);
 assert.match(geminiWebGateway, /stale_or_wrong_task_claim/);
 assert.match(geminiWebGateway, /invalid_status_transition/);
 assert.match(geminiWebGateway, /image-tasks\/\(\[\^\/\]\+\)\/cancel/);
+assert.match(geminiWebGateway, /task\.error = null/);
+assert.match(geminiWebGateway, /try \{\s*await _recordAccountSuccess\(task\.accountId\);\s*\} catch \(_\) \{\}/);
 assert.match(app, /signal\?\.addEventListener\("abort", cancelRemoteTask/);
 assert.match(macReleaseEntitlements, /com\.apple\.security\.network\.server/);
 assert.match(app, /geminiGatewayDownloadBlob/);

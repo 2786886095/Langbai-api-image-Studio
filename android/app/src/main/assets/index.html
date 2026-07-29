@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260729-1-6-4">
+  <link rel="stylesheet" href="style.css?v=20260729-1-6-5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -331,6 +331,32 @@
               </section>
 
               <div class="provider-options-grid">
+                <div class="provider-option provider-option-wide">
+                  <div class="provider-option-copy">
+                    <strong id="geminiModelPreferenceLabel">网页模型</strong>
+                    <small id="geminiModelPreferenceHint">自动保留账号当前模型；快速模型响应更快，Pro 模型更适合复杂画面。</small>
+                  </div>
+                  <div class="provider-segments provider-segments-three" data-provider-control="geminiModelPreference" role="group" aria-labelledby="geminiModelPreferenceLabel">
+                    <button type="button" data-value="auto">自动</button>
+                    <button type="button" data-value="fast">快速</button>
+                    <button type="button" data-value="pro">Pro</button>
+                  </div>
+                  <input type="hidden" id="geminiModelPreference" value="auto">
+                </div>
+
+                <div class="provider-option provider-option-wide">
+                  <div class="provider-option-copy">
+                    <strong id="geminiQualityIntentLabel">生成策略</strong>
+                    <small id="geminiQualityIntentHint">快速会简化细节要求；精细会强调纹理与完整度，通常等待更久。</small>
+                  </div>
+                  <div class="provider-segments provider-segments-three" data-provider-control="geminiQualityIntent" role="group" aria-labelledby="geminiQualityIntentLabel">
+                    <button type="button" data-value="fast">快速</button>
+                    <button type="button" data-value="standard">标准</button>
+                    <button type="button" data-value="detail">精细</button>
+                  </div>
+                  <input type="hidden" id="geminiQualityIntent" value="standard">
+                </div>
+
                 <label class="provider-option field">
                   <span id="geminiQueueLabel">本地队列上限</span>
                   <input type="number" id="geminiClientQueue" min="1" max="100" step="1" value="10">
@@ -790,7 +816,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.4</strong>
+            <strong id="currentVersionLabel">v1.6.5</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -984,12 +1010,12 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260729-1-6-4"></script>
-  <script src="image-task-stability.js?v=20260729-1-6-4"></script>
-  <script src="codex-image-gateway.js?v=20260729-1-6-4"></script>
-  <script src="gemini-image-size-registry.js?v=20260729-1-6-4"></script>
-  <script src="gemini-web-image-adapter.js?v=20260729-1-6-4"></script>
-  <script src="gemini-selector-pack.js?v=20260729-1-6-4"></script>
-  <script src="app.js?v=20260729-1-6-4"></script>
+  <script src="bootstrap-guard.js?v=20260729-1-6-5"></script>
+  <script src="image-task-stability.js?v=20260729-1-6-5"></script>
+  <script src="codex-image-gateway.js?v=20260729-1-6-5"></script>
+  <script src="gemini-image-size-registry.js?v=20260729-1-6-5"></script>
+  <script src="gemini-web-image-adapter.js?v=20260729-1-6-5"></script>
+  <script src="gemini-selector-pack.js?v=20260729-1-6-5"></script>
+  <script src="app.js?v=20260729-1-6-5"></script>
 </body>
 </html>

@@ -5769,6 +5769,7 @@ async function testGeminiWebImageIntegration(cdp) {
       window.__geminiCalls = [];
       window.__geminiBodies = [];
       window.__geminiPolls = 0;
+      window.__geminiAutoSwitch = true;
       window.__geminiKey = "${"d".repeat(64)}";
       window.__geminiPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
       window.FlutterDownload = {
@@ -5789,7 +5790,7 @@ async function testGeminiWebImageIntegration(cdp) {
               }],
               activeAccountId: "gemini-account-qa",
               embeddedBrowserConnected: true,
-              autoSwitch: true,
+              autoSwitch: window.__geminiAutoSwitch,
             };
           } else if (payload.action === "getGeminiAccounts") {
             result = {
@@ -5802,7 +5803,7 @@ async function testGeminiWebImageIntegration(cdp) {
               }],
               active_account_id: "gemini-account-qa",
               embedded_browser_connected: true,
-              auto_switch: true,
+              auto_switch: window.__geminiAutoSwitch,
             };
           } else if (payload.action === "loadSecret") {
             result = "";
@@ -5823,7 +5824,7 @@ async function testGeminiWebImageIntegration(cdp) {
             } else if (url.endsWith("/v1/accounts")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
                 accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
-                 active_account_id: "gemini-account-qa", embedded_browser_connected: true, auto_switch: true,
+                 active_account_id: "gemini-account-qa", embedded_browser_connected: true, auto_switch: window.__geminiAutoSwitch,
               }) };
             } else if (method === "POST" && url.endsWith("/v1/image-tasks")) {
               window.__geminiBodies.push({
@@ -5858,6 +5859,7 @@ async function testGeminiWebImageIntegration(cdp) {
                     audit: {
                       temporary_chat_verified: true, history_guard: "passed",
                       selector_pack_version: "2026.07.29.1",
+                      requested_model_mode: "pro", selected_model_mode: "pro",
                     },
                     result: { data: [{ url: "/v1/image-tasks/gemini_task_qa/files/0" }] },
                   }) };
@@ -5875,11 +5877,12 @@ async function testGeminiWebImageIntegration(cdp) {
           } else if (payload.action === "openGeminiWebLogin") {
             result = true;
           } else if (payload.action === "setGeminiAutoSwitch") {
+            window.__geminiAutoSwitch = payload.enabled;
             result = {
               accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
               active_account_id: "gemini-account-qa",
               embedded_browser_connected: true,
-              auto_switch: payload.enabled,
+              auto_switch: window.__geminiAutoSwitch,
             };
           }
           setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
@@ -5899,20 +5902,48 @@ async function testGeminiWebImageIntegration(cdp) {
         ratio: "1:1",
         targetSize: "1024x1024",
         cropMode: "center_cover",
-        qualityIntent: "standard",
+        qualityIntent: "detail",
+        modelPreference: "pro",
         clientQueue: 10,
       });
       const ready = await checkGeminiHealth({ announce: false, force: true });
       await nativeDownload.openGeminiWebLogin();
-      dom.geminiAutoSwitch.checked = false;
-      dom.geminiAutoSwitch.dispatchEvent(new Event("change", { bubbles: true }));
-      await new Promise(resolve => setTimeout(resolve, 20));
       const submitted = [];
       const data = ready ? await callImageAPI("QA Gemini image", "1024x1024", 1, "QA", {
         geminiWebOptions: getGeminiWebOptions(),
         onTaskSubmitted: task => submitted.push(task),
       }) : null;
       const profile = currentApiConfig("Gemini QA");
+      saveConfig(profile);
+      applyGeminiWebOptions(geminiImageSizes.DEFAULTS);
+      applyConfig(loadConfig());
+      const restoredGeminiOptions = getGeminiWebOptions();
+      const restoredGeminiButtons = Object.fromEntries(
+        ["geminiModelPreference", "geminiQualityIntent"].map(controlId => [
+          controlId,
+          [...document.querySelectorAll('[data-provider-control="' + controlId + '"] button[data-value]')]
+            .filter(button => button.getAttribute("aria-pressed") === "true")
+            .map(button => button.dataset.value),
+        ]),
+      );
+      const geminiLanguageStates = {};
+      for (const language of ["zh-CN", "zh-Hant", "en", "ja", "ko"]) {
+        applyLanguage(language);
+        geminiLanguageStates[language] = {
+          modelLabel: document.getElementById("geminiModelPreferenceLabel")?.textContent,
+          qualityLabel: document.getElementById("geminiQualityIntentLabel")?.textContent,
+          modelButtons: [...document.querySelectorAll('[data-provider-control="geminiModelPreference"] button')]
+            .map(button => button.textContent),
+          qualityButtons: [...document.querySelectorAll('[data-provider-control="geminiQualityIntent"] button')]
+            .map(button => button.textContent),
+          modelValue: dom.geminiModelPreference.value,
+          qualityValue: dom.geminiQualityIntent.value,
+        };
+      }
+      applyLanguage("zh-CN");
+      dom.geminiAutoSwitch.checked = false;
+      dom.geminiAutoSwitch.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 20));
       const explicitCustom = normalizeApiConfig({
         id: "custom-local",
         apiProvider: "custom",
@@ -5949,6 +5980,9 @@ async function testGeminiWebImageIntegration(cdp) {
         autoSwitchCalls: window.__geminiCalls.filter(call => call.action === "setGeminiAutoSwitch"),
         apiKeyValue: dom.apiKey.value,
         profile,
+        restoredGeminiOptions,
+        restoredGeminiButtons,
+        geminiLanguageStates,
         submitted,
         bodies: window.__geminiBodies,
         globalSize: getSelectedSize(),
@@ -5995,6 +6029,23 @@ async function testGeminiWebImageIntegration(cdp) {
         && `${result.bodies[0].body.requested_size.width}x${result.bodies[0].body.requested_size.height}` === result.globalSize
         && result.bodies[0].body.size_mode === "exact_output"
         && result.bodies[0].body.crop_mode === "smart_cover"
+        && result.bodies[0].body.quality_intent === "detail"
+        && result.bodies[0].body.model_preference === "pro"
+        && result.profile.geminiWebOptions?.qualityIntent === "detail"
+        && result.profile.geminiWebOptions?.modelPreference === "pro"
+        && result.restoredGeminiOptions?.qualityIntent === "detail"
+        && result.restoredGeminiOptions?.modelPreference === "pro"
+        && result.restoredGeminiButtons?.geminiQualityIntent?.join(",") === "detail"
+        && result.restoredGeminiButtons?.geminiModelPreference?.join(",") === "pro"
+        && Object.values(result.geminiLanguageStates || {}).every(state => (
+          state.modelLabel
+          && state.qualityLabel
+          && state.modelButtons.length === 3
+          && state.qualityButtons.length === 3
+          && !JSON.stringify(state).includes("undefined")
+          && state.modelValue === "pro"
+          && state.qualityValue === "detail"
+        ))
         && result.bodies[0].proxyMode === "direct"
         && result.submitted[0]?.id === "gemini_task_qa",
       "Gemini generation must submit one checkpointable temporary-chat task using the app-wide resolution over the direct loopback route.",
@@ -6018,6 +6069,8 @@ async function testGeminiWebImageIntegration(cdp) {
     assertQa(
       result.meta?.audit?.temporaryChatVerified
         && result.meta?.audit?.historyGuard === "passed"
+        && result.meta?.audit?.requestedModelMode === "pro"
+        && result.meta?.audit?.selectedModelMode === "pro"
         && result.meta?.response?.nativeSize === "1x1"
         && result.meta?.response?.finalSize === result.globalSize
         && /resample|crop|contain/i.test(result.meta?.response?.dimensionAction || "")

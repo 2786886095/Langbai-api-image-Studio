@@ -1108,6 +1108,7 @@ class GeminiWebGatewayManager {
         await temporary.rename(target.path);
         task.resultFile = target.path;
         task.status = 'succeeded';
+        task.error = null;
         task.updatedAt = DateTime.now().toUtc();
         _clearClaim(task);
         final auditHeader = request.headers.value('x-langbai-audit');
@@ -1126,7 +1127,12 @@ class GeminiWebGatewayManager {
           ...task.audit,
           'output_sha256': sha256.convert(bytes).toString(),
         };
-        await _recordAccountSuccess(task.accountId);
+        // The image result is already complete at this point. A secure-storage
+        // metadata refresh must not turn a successful paid generation into an
+        // HTTP 500 or make the browser submit it again.
+        try {
+          await _recordAccountSuccess(task.accountId);
+        } catch (_) {}
         await _persistTasks();
         await _json(response, 200, task.toJson());
         return;
