@@ -44,6 +44,25 @@ Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\卸载 {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
+[Code]
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  { The bundled gateway is a child helper and is not always discovered by
+    Restart Manager. Kill stale copies before [Files] replaces its executable. }
+  Exec(
+    ExpandConstant('{sys}\taskkill.exe'),
+    '/F /IM "langbai_chatgpt_gateway.exe"',
+    '',
+    SW_HIDE,
+    ewWaitUntilTerminated,
+    ResultCode
+  );
+  Sleep(500);
+  Result := '';
+end;
+
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "启动 {#MyAppName}"; Flags: nowait postinstall
 

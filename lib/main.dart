@@ -2232,6 +2232,10 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       // 时的兜底值），如果用户在设置里手动选过安装目录（比如想更新覆盖到另一个盘上的旧版本），
       // 就用那个覆盖值。
       final installDir = _effectiveWindowsInstallDir();
+      // exit(0) bypasses Flutter widget disposal, so dispose() cannot be the
+      // only place that stops the bundled gateway. Stop the tracked child and
+      // stale copies before Inno Setup starts replacing files.
+      await _embeddedChatGptGateway.stopAllForUpdate();
       await Process.start(
         file.path,
         [

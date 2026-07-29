@@ -20,4 +20,10 @@ void main() {
           'chatgpt_gateway${Platform.pathSeparator}langbai_chatgpt_gateway.exe'),
     );
   });
+
+  test('gateway updater targets only the bundled helper process name', () {
+    expect(embeddedGatewayProcessName, 'langbai_chatgpt_gateway.exe');
+    expect(
+        embeddedGatewayProcessName.contains(Platform.pathSeparator), isFalse);
+  });
 }

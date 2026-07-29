@@ -5,6 +5,7 @@ import 'dart:math';
 
 const int embeddedGatewayFirstPort = 18081;
 const int embeddedGatewayLastPort = 18100;
+const String embeddedGatewayProcessName = 'langbai_chatgpt_gateway.exe';
 
 String randomGatewaySecret({int bytes = 32, Random? random}) {
   final source = random ?? Random.secure();
@@ -195,6 +196,29 @@ class EmbeddedChatGptGatewayManager {
     } on TimeoutException {
       process.kill(ProcessSignal.sigkill);
     }
+  }
+
+  /// Stops both the gateway tracked by this app instance and stale gateways
+  /// left by earlier hard application exits. Windows cannot replace a running
+  /// executable, so this must finish before an update installer is launched.
+  Future<void> stopAllForUpdate() async {
+    await stop();
+    if (!Platform.isWindows) return;
+    final result = await Process.run(
+      'taskkill.exe',
+      const <String>['/F', '/IM', embeddedGatewayProcessName],
+      runInShell: false,
+    ).timeout(const Duration(seconds: 8));
+    // taskkill returns 128 when no matching process exists.
+    if (result.exitCode != 0 && result.exitCode != 128) {
+      throw ProcessException(
+        'taskkill.exe',
+        const <String>['/F', '/IM', embeddedGatewayProcessName],
+        '${result.stdout}\n${result.stderr}'.trim(),
+        result.exitCode,
+      );
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
   Future<int> _findAvailablePort() async {
