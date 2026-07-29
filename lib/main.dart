@@ -225,7 +225,10 @@ Future<Map<String, Object?>> _selectGeminiAccount(
 ) async {
   final accountId = payload['accountId']?.toString() ?? '';
   final snapshot = await _geminiWebGateway.selectAccount(accountId);
-  _geminiEmbeddedBrowserRequestController.activate(accountId);
+  final profileId = geminiEmbeddedProfileIdFromSnapshot(snapshot, accountId);
+  if (profileId.isNotEmpty) {
+    _geminiEmbeddedBrowserRequestController.activate(profileId);
+  }
   return snapshot;
 }
 
@@ -233,16 +236,22 @@ Future<Map<String, Object?>> _deleteGeminiAccount(
   Map<String, dynamic> payload,
 ) async {
   final accountId = payload['accountId']?.toString() ?? '';
+  final before = await _geminiWebGateway.accountsSnapshot();
+  final deletedProfileId =
+      geminiEmbeddedProfileIdFromSnapshot(before, accountId);
   final snapshot = await _geminiWebGateway.deleteAccount(accountId);
   final next = snapshot['active_account_id']?.toString() ?? '';
+  final nextProfileId = geminiEmbeddedProfileIdFromSnapshot(snapshot, next);
   _geminiEmbeddedBrowserRequestController.activate(
-    next.isNotEmpty ? next : createGeminiEmbeddedProfileId(),
+    nextProfileId.isNotEmpty ? nextProfileId : createGeminiEmbeddedProfileId(),
   );
   // Let the embedded browser capture/dispose the previous profile before its
   // secure session or WebView2 data directory is removed.
   await Future<void>.delayed(const Duration(milliseconds: 800));
   try {
-    await deleteGeminiEmbeddedProfileData(accountId);
+    if (deletedProfileId.isNotEmpty) {
+      await deleteGeminiEmbeddedProfileData(deletedProfileId);
+    }
   } catch (error) {
     debugPrint('Cannot remove deleted Gemini profile data: $error');
   }
@@ -259,17 +268,26 @@ Future<Map<String, Object?>> _setGeminiAutoSwitch(
 
 Future<bool> _openGeminiWebLogin([Map<String, dynamic>? payload]) async {
   final requested = payload?['accountId']?.toString().trim() ?? '';
+  final snapshot = await _geminiWebGateway.accountsSnapshot();
+  final existingProfileId =
+      geminiEmbeddedProfileIdFromSnapshot(snapshot, requested);
   _geminiEmbeddedBrowserRequestController.show(
-    requested.isEmpty ? createGeminiEmbeddedProfileId() : requested,
+    existingProfileId.isNotEmpty
+        ? existingProfileId
+        : createGeminiEmbeddedProfileId(),
   );
   return true;
 }
 
-void _applyGeminiEmbeddedHostEvent(Map<String, Object?> event) {
+Future<void> _applyGeminiEmbeddedHostEvent(Map<String, Object?> event) async {
   if (event['type'] != 'account_switch_requested') return;
   final accountId = event['active_account_id']?.toString() ?? '';
   if (accountId.isNotEmpty) {
-    _geminiEmbeddedBrowserRequestController.activate(accountId);
+    final snapshot = await _geminiWebGateway.accountsSnapshot();
+    final profileId = geminiEmbeddedProfileIdFromSnapshot(snapshot, accountId);
+    if (profileId.isNotEmpty) {
+      _geminiEmbeddedBrowserRequestController.activate(profileId);
+    }
   }
 }
 
@@ -339,18 +357,30 @@ Future<void> main(List<String> arguments) async {
     final geminiAccounts = await _geminiWebGateway.accountsSnapshot();
     final activeGeminiAccount =
         geminiAccounts['active_account_id']?.toString() ?? '';
+    final activeGeminiProfile = geminiEmbeddedProfileIdFromSnapshot(
+      geminiAccounts,
+      activeGeminiAccount,
+    );
     if (Platform.isWindows) {
-      final accounts = geminiAccounts['accounts'];
+      final accounts = (geminiAccounts['accounts'] is List)
+          ? (geminiAccounts['accounts'] as List)
+              .whereType<Map>()
+              .map((item) => item.map(
+                    (key, value) => MapEntry(key.toString(), value),
+                  ))
+              .toList(growable: false)
+          : const <Map<String, Object?>>[];
       await migrateWindowsGeminiProfilesBeforeWebViewStart(
-        accounts is List
-            ? accounts
-                .whereType<Map>()
-                .map((item) => item['local_account_id']?.toString() ?? '')
-            : const <String>[],
+        accounts.map(geminiEmbeddedProfileIdForAccount),
+        // The anonymous Default profile can only be attributed safely when
+        // there is exactly one stored Gemini account. Multi-account users
+        // retain every named profile and are asked to log in explicitly.
+        sharedDefaultMigrationProfileId:
+            accounts.length == 1 ? activeGeminiProfile : null,
       );
     }
-    if (activeGeminiAccount.isNotEmpty) {
-      _geminiEmbeddedBrowserRequestController.activate(activeGeminiAccount);
+    if (activeGeminiProfile.isNotEmpty) {
+      _geminiEmbeddedBrowserRequestController.activate(activeGeminiProfile);
     }
   } catch (error) {
     debugPrint('Gemini embedded browser gateway unavailable: $error');
@@ -1395,7 +1425,7 @@ class _MobileWebShellState extends State<MobileWebShell>
   Future<void> _handleGeminiEmbeddedEvent(
     Map<String, Object?> event,
   ) async {
-    _applyGeminiEmbeddedHostEvent(event);
+    await _applyGeminiEmbeddedHostEvent(event);
     await _controller.runJavaScript(
       'window.AiGenAndroidBridge && window.AiGenAndroidBridge.onGeminiLoginState && '
       'window.AiGenAndroidBridge.onGeminiLoginState(${jsonEncode(event)});',
@@ -2811,7 +2841,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   Future<void> _handleGeminiEmbeddedEvent(
     Map<String, Object?> event,
   ) async {
-    _applyGeminiEmbeddedHostEvent(event);
+    await _applyGeminiEmbeddedHostEvent(event);
     final controller = _controller;
     if (controller == null) return;
     await controller.runJavaScript(

@@ -29,6 +29,18 @@ const LANGBAI_GEMINI_TEMPORARY_CHAT_STATE = (() => {
     });
   }
 
+  function trustedActivationEvidence(snapshot = {}) {
+    const accepted = snapshot.exactControl === true
+      && snapshot.trustedClick === true
+      && snapshot.loginReady === true
+      && snapshot.overlayVisible !== true
+      && !isOrdinaryConversationUrl(snapshot.url);
+    return Object.freeze({
+      active: accepted,
+      reasons: Object.freeze(accepted ? ["trusted_temporary_chat_control"] : []),
+    });
+  }
+
   function preparationAction(snapshot = {}) {
     const evidence = activationEvidence(snapshot);
     if (evidence.active) return Object.freeze({ action: "verified", evidence });
@@ -106,15 +118,51 @@ const LANGBAI_GEMINI_TEMPORARY_CHAT_STATE = (() => {
       && belongsToSubmittedResponse;
   }
 
+  function loginReadiness(snapshot = {}) {
+    const composerPresent = snapshot.composerPresent === true;
+    const signedOutMarkerPresent = snapshot.signedOutMarkerPresent === true;
+    const authenticatedMarkerPresent =
+      snapshot.authenticatedMarkerPresent === true;
+    const ready = composerPresent
+      && authenticatedMarkerPresent
+      && !signedOutMarkerPresent;
+    return Object.freeze({
+      ready,
+      composerPresent,
+      signedOutMarkerPresent,
+      authenticatedMarkerPresent,
+      reason: ready
+        ? "authenticated"
+        : signedOutMarkerPresent
+          ? "signed_out"
+          : !composerPresent
+            ? "composer_missing"
+            : "authenticated_marker_missing",
+    });
+  }
+
+  function taskResumeAction(snapshot = {}) {
+    if (snapshot.resumedClaim !== true) return "start";
+    const status = String(snapshot.status || "");
+    if (["submitting", "generating", "locating_full_size"].includes(status)) {
+      return "fail_unknown_submission";
+    }
+    if (status === "uploading_references") return "restart_before_submission";
+    return "resume_preparation";
+  }
+
   return Object.freeze({
     GEMINI_HOME_URL,
     conversationKey,
     isOrdinaryConversationUrl,
     activationEvidence,
+    trustedActivationEvidence,
     preparationAction,
     normalizeHistorySnapshot,
     assessHistoryMutation,
     isGeneratedImageCandidate,
+    loginReadiness,
+    taskResumeAction,
   });
 })();
 
@@ -131,7 +179,7 @@ if (typeof module !== "undefined" && module.exports) {
 
   const TEMPORARY_CHAT_CHECKPOINT_KEY = "langbai_gemini_temporary_chat_checkpoint_v1";
   const SELECTORS = globalThis.LANGBAI_GEMINI_SELECTORS || Object.freeze({
-    version: "2026.07.30.3",
+    version: "2026.07.30.6",
     temporaryChat: [
       "Temporary chat", "Start temporary chat", "Turn on temporary chat",
       "临时对话", "临时聊天", "发起临时对话", "发起临时聊天",
@@ -525,7 +573,15 @@ if (typeof module !== "undefined" && module.exports) {
     for (const selector of SELECTORS.temporaryChatCss || []) {
       const found = [...document.querySelectorAll(selector)].find(visible);
       if (found) {
-        return found.closest("button,[role=button],a") || found;
+        // Gemini currently puts data-test-id on a <gem-icon-button> wrapper
+        // and the actual event handler on its nested native <button>. Clicking
+        // the wrapper's centre can produce trusted pointer events without
+        // activating the Angular control, leaving Temporary Chat off.
+        return found.matches("button,[role=button],a")
+          ? found
+          : found.querySelector("button,[role=button],a")
+            || found.closest("button,[role=button],a")
+            || found;
       }
     }
     return findByCandidates(
@@ -659,6 +715,46 @@ if (typeof module !== "undefined" && module.exports) {
     return null;
   }
 
+  function loginSurfaceSnapshot() {
+    const signedOutMarkerPresent = !!document.querySelector([
+      '[data-test-id="signed-out-disclaimer"]',
+      '[data-test-id="mavatar-sign-in-icon-button"]',
+      ".signed-out-buttons",
+    ].join(","));
+    const authenticatedMarkerPresent = !!document.querySelector([
+      'a[href*="SignOutOptions"]',
+      'a[href*="/Logout"]',
+      'a[href*="accounts.google.com"][aria-label*="@"]',
+      '[role="button"][aria-label*="@"]',
+    ].join(","));
+    return {
+      composerPresent: !!findComposer(),
+      signedOutMarkerPresent,
+      authenticatedMarkerPresent,
+    };
+  }
+
+  function geminiLoginReadiness() {
+    return LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.loginReadiness(
+      loginSurfaceSnapshot(),
+    );
+  }
+
+  function isGeminiLoginReady() {
+    return geminiLoginReadiness().ready;
+  }
+
+  async function waitForGeminiLoginReady(timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
+    do {
+      const login = geminiLoginReadiness();
+      if (login.ready) return login;
+      if (login.reason === "signed_out") return login;
+      await sleep(250);
+    } while (Date.now() < deadline);
+    return geminiLoginReadiness();
+  }
+
   async function state() {
     const embedded = readEmbeddedConfig();
     if (embedded) {
@@ -757,8 +853,12 @@ if (typeof module !== "undefined" && module.exports) {
 
   async function publishIdentity(config) {
     const temporary = !!findTemporaryChatControl() || isTemporaryChatSurfaceActive();
-    const imageAction = !!findByCandidates(SELECTORS.imageAction);
-    const status = findComposer() ? "ready" : "needs_login";
+    const login = geminiLoginReadiness();
+    const status = login.ready
+      ? "ready"
+      : login.reason === "signed_out"
+        ? "needs_login"
+        : "unknown";
     const body = {
       browser_profile_id: config.profileId,
       account_uuid: config.accountUuid,
@@ -788,22 +888,56 @@ if (typeof module !== "undefined" && module.exports) {
         { code: "selector_pack_outdated" },
       );
     }
+    const serverAccount = Array.isArray(snapshot.accounts)
+      ? snapshot.accounts.find(account => (
+        account?.local_account_id === bridge.accountId
+        || account?.account_uuid === bridge.accountUuid
+      ))
+      : null;
+    const blockedAccountState = !!serverAccount && (
+      serverAccount.login_ready === false
+      || ["needs_login", "session_expired", "protocol_changed", "rate_limited", "quota_exhausted"].includes(serverAccount.status)
+      || ["cooldown", "exhausted"].includes(serverAccount.quota_state)
+    );
+    const generationReady = login.ready
+      && temporary
+      && serverAccount?.generation_ready === true;
+    const claimRecoveryReady = login.ready
+      && snapshot.selector_pack_compatible !== false
+      && serverAccount?.login_ready === true
+      && !blockedAccountState;
     notifyNative("login_state", {
-      status,
-      login_ready: status === "ready",
+      status: generationReady
+        ? "ready"
+        : login.ready
+          ? (serverAccount?.status || "logged_in")
+          : status,
+      login_ready: login.ready,
+      generation_ready: generationReady,
       account_id: bridge.accountId,
       account_uuid: bridge.accountUuid,
       masked_email: body.masked_email,
+      temporary_chat_available: temporary,
+      fullsize_download_available: true,
+      selector_pack_compatible: snapshot.selector_pack_compatible !== false,
+      login_reason: login.reason,
     });
-    return snapshot;
+    return {
+      snapshot,
+      login,
+      generationReady,
+      claimRecoveryReady,
+      serverAccount,
+    };
   }
 
   async function reportAccountStatus(status, error = null) {
+    const loginReady = !["needs_login", "session_expired", "authentication_failed"].includes(status);
     const payload = {
       account_id: bridge?.accountId || "",
       account_uuid: bridge?.accountUuid || "",
       status,
-      login_ready: status === "ready",
+      login_ready: loginReady,
       error,
     };
     notifyNative(
@@ -957,7 +1091,7 @@ if (typeof module !== "undefined" && module.exports) {
       await waitForTemporaryChatSurface(8000);
       if (isTemporaryChatSurfaceActive()) {
         clearTemporaryChatCheckpoint(taskId);
-        return true;
+        return "active_state";
       }
     }
 
@@ -972,7 +1106,7 @@ if (typeof module !== "undefined" && module.exports) {
     });
     if (preparation.action === "verified") {
       clearTemporaryChatCheckpoint(taskId);
-      return true;
+      return "active_state";
     }
 
     if (!button) {
@@ -1035,7 +1169,7 @@ if (typeof module !== "undefined" && module.exports) {
           activation = temporaryChatActivationSnapshot();
           if (LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.activationEvidence(activation).active) {
             clearTemporaryChatCheckpoint(taskId);
-            return true;
+            return "active_state";
           }
         }
       } finally {
@@ -1060,6 +1194,22 @@ if (typeof module !== "undefined" && module.exports) {
           role: element.getAttribute("role") || "",
           text: normalizedText(element).slice(0, 180),
         }));
+      const exactControl = button.matches('[data-test-id="temp-chat-button"]')
+        || !!button.closest('[data-test-id="temp-chat-button"]');
+      const trustedActivation =
+        LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.trustedActivationEvidence({
+          exactControl,
+          trustedClick: inputTrace.some(
+            event => event.type === "click" && event.trusted === true,
+          ),
+          loginReady: isGeminiLoginReady(),
+          overlayVisible: overlays.length > 0,
+          url: location.href,
+        });
+      if (trustedActivation.active) {
+        clearTemporaryChatCheckpoint(taskId);
+        return "trusted_control_click";
+      }
       if (activationAttempts <= 3) {
         deferTemporaryChatTask(taskId, {
           phase: "activation_unverified",
@@ -1072,9 +1222,14 @@ if (typeof module !== "undefined" && module.exports) {
         });
       }
       clearTemporaryChatCheckpoint(taskId);
+      const controlHost = button.closest?.(
+        '[data-test-id="temp-chat-button"],gem-icon-button',
+      ) || button.parentElement;
       throw Object.assign(
         new Error(
           `已点击临时对话，但页面没有返回可验证的启用状态；任务未提交，以避免写入普通历史。`
+          + ` control=${JSON.stringify(describeControl(button))}`
+          + ` host=${JSON.stringify(describeControl(controlHost))}`
           + ` before=${JSON.stringify(beforeText.slice(0, 160))}`
           + ` after=${JSON.stringify(afterText.slice(0, 160))}`
           + ` urlChanged=${location.href !== beforeUrl}`
@@ -1087,21 +1242,44 @@ if (typeof module !== "undefined" && module.exports) {
       );
     }
     clearTemporaryChatCheckpoint(taskId);
-    return true;
+    return "active_state";
   }
 
   async function enableImageAction() {
-    let action = findByCandidates(SELECTORS.imageAction);
+    const exactMatch = (element, candidates) => {
+      const value = normalizedText(element).replace(/\s+/g, " ").trim().toLowerCase();
+      return candidates.some(candidate =>
+        value === String(candidate || "").trim().toLowerCase()
+      );
+    };
+    const safeActionCandidates = () => [...document.querySelectorAll(
+      'button,[role="button"],[role="menuitem"],[role="option"]',
+    )]
+      .filter(visible)
+      .filter(element => !element.closest("nav,aside,[role=navigation]"))
+      .filter(element => exactMatch(element, SELECTORS.imageAction || []));
+    let action = safeActionCandidates()[0] || null;
     if (action) {
       await activateControl(action);
       await sleep(500);
       return true;
     }
-    const tools = findByCandidates(["Tools", "工具", "ツール", "도구"]);
+    const composer = findComposer();
+    const tools = [...document.querySelectorAll('button,[role="button"]')]
+      .filter(visible)
+      .filter(element => !element.closest("nav,aside,[role=navigation]"))
+      .filter(element => exactMatch(element, ["Tools", "工具", "ツール", "도구"]))
+      .find(element => {
+        if (!composer) return false;
+        const controlRect = element.getBoundingClientRect();
+        const composerRect = composer.getBoundingClientRect();
+        return controlRect.bottom >= composerRect.top - 180
+          && controlRect.top <= composerRect.bottom + 180;
+      }) || null;
     if (tools) {
       await activateControl(tools);
       await sleep(500);
-      action = findByCandidates(SELECTORS.imageAction);
+      action = safeActionCandidates()[0] || null;
     }
     if (!action) return false;
     await activateControl(action);
@@ -1110,7 +1288,7 @@ if (typeof module !== "undefined" && module.exports) {
   }
 
   const GEMINI_MODEL_LABELS = Object.freeze({
-    fast: ["Fast", "快速", "快速模式", "高速"],
+    fast: ["Fast", "Flash", "快速", "快速模式", "高速"],
     pro: ["Pro", "专业", "專業"],
   });
 
@@ -1126,8 +1304,30 @@ if (typeof module !== "undefined" && module.exports) {
     });
   }
 
+  function matchesGeminiModelMode(element, mode) {
+    const text = normalizedChoiceText(element);
+    if (mode === "fast") {
+      return (
+        /\bflash\b/i.test(text)
+        && !/\bflash[\s-]*lite\b/i.test(text)
+      ) || /快速|高速/.test(text);
+    }
+    if (mode === "pro") {
+      return /(?:^|\s)pro(?:\s|$)/i.test(text) || /专业|專業/.test(text);
+    }
+    return false;
+  }
+
   function findGeminiModelTrigger() {
     const allLabels = Object.values(GEMINI_MODEL_LABELS).flat();
+    const dedicated = [...document.querySelectorAll(
+      'bard-mode-switcher [role="group"],bard-mode-switcher [role="button"],bard-mode-switcher button,bard-mode-switcher',
+    )]
+      .filter(visible)
+      .find(element => matchesChoiceLabel(element, allLabels)
+        || matchesGeminiModelMode(element, "fast")
+        || matchesGeminiModelMode(element, "pro"));
+    if (dedicated) return dedicated;
     const candidates = [...document.querySelectorAll(
       'button[aria-haspopup],[role="button"][aria-haspopup],button,[role="button"]',
     )]
@@ -1139,6 +1339,55 @@ if (typeof module !== "undefined" && module.exports) {
       || null;
   }
 
+  function geminiModelDiagnostics() {
+    const safeText = value => String(value || "")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+      .replace(/\s+/g, " ")
+      .trim();
+    return [...document.querySelectorAll(
+      "bard-mode-switcher,bard-mode-switcher *",
+    )]
+      .filter(visible)
+      .map(element => ({
+        element,
+        text: safeText(normalizedText(element)),
+      }))
+      .filter(item =>
+        item.text.length > 0
+        && item.text.length <= 80
+        && /(?:^|\s)(?:pro|fast)(?:\s|$)|快速|专业|專業/i.test(item.text)
+      )
+      .slice(0, 10)
+      .map(item => ({
+        tag: item.element.tagName.toLowerCase(),
+        text: item.text,
+        role: item.element.getAttribute("role") || "",
+        aria: safeText(item.element.getAttribute("aria-label") || ""),
+        testId: item.element.getAttribute("data-test-id") || "",
+        parent: item.element.parentElement?.tagName?.toLowerCase?.() || "",
+      }));
+  }
+
+  function geminiModelOptionDiagnostics() {
+    const safeText = value => String(value || "")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+      .replace(/\s+/g, " ")
+      .trim();
+    return [...document.querySelectorAll(
+      '[role="option"],[role="menuitem"],[role="menuitemradio"],[role="radio"],[role="listbox"] button,[role="menu"] button,[role="dialog"] button',
+    )]
+      .filter(visible)
+      .map(element => ({
+        tag: element.tagName.toLowerCase(),
+        text: safeText(normalizedText(element)).slice(0, 120),
+        role: element.getAttribute("role") || "",
+        aria: safeText(element.getAttribute("aria-label") || "").slice(0, 120),
+        testId: element.getAttribute("data-test-id") || "",
+      }))
+      .filter(item => item.text || item.aria)
+      .slice(0, 20);
+  }
+
   async function selectGeminiModel(preference = "auto") {
     const requested = ["fast", "pro"].includes(preference) ? preference : "auto";
     if (requested === "auto") return "auto";
@@ -1146,11 +1395,17 @@ if (typeof module !== "undefined" && module.exports) {
     const trigger = findGeminiModelTrigger();
     if (!trigger) {
       throw Object.assign(
-        new Error(`未识别到 Gemini 模型选择器，无法切换到 ${requested}。`),
+        new Error(
+          `未识别到 Gemini 模型选择器，无法切换到 ${requested}。`
+          + ` candidates=${JSON.stringify(geminiModelDiagnostics())}`,
+        ),
         { code: "gemini_model_selector_missing" },
       );
     }
-    if (matchesChoiceLabel(trigger, labels)) return requested;
+    if (
+      matchesChoiceLabel(trigger, labels)
+      || matchesGeminiModelMode(trigger, requested)
+    ) return requested;
     await activateControl(trigger);
     const deadline = Date.now() + 6000;
     let option = null;
@@ -1160,11 +1415,14 @@ if (typeof module !== "undefined" && module.exports) {
         '[role="option"],[role="menuitem"],[role="menuitemradio"],[role="radio"],button,[role="button"]',
       )]
         .filter(element => element !== trigger && visible(element))
-        .find(element => matchesChoiceLabel(element, labels)) || null;
+        .find(element => matchesGeminiModelMode(element, requested)) || null;
     }
     if (!option) {
       throw Object.assign(
-        new Error(`Gemini 当前账号没有显示 ${requested} 模型选项。`),
+        new Error(
+          `Gemini 当前账号没有显示 ${requested} 模型选项。`
+          + ` candidates=${JSON.stringify(geminiModelOptionDiagnostics())}`,
+        ),
         { code: "gemini_model_unavailable" },
       );
     }
@@ -1173,7 +1431,9 @@ if (typeof module !== "undefined" && module.exports) {
     while (Date.now() < verifyDeadline) {
       await sleep(250);
       const selected = findGeminiModelTrigger();
-      if (selected && matchesChoiceLabel(selected, labels)) return requested;
+      if (selected && matchesGeminiModelMode(selected, requested)) {
+        return requested;
+      }
     }
     throw Object.assign(
       new Error(`已点击 ${requested} 模型，但页面未确认切换成功。`),
@@ -1188,10 +1448,36 @@ if (typeof module !== "undefined" && module.exports) {
       setter?.call(composer, text);
       composer.dispatchEvent(new Event("input", { bubbles: true }));
       composer.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
+      return "native_value_setter";
     }
-    composer.textContent = text;
-    composer.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    // Gemini uses a framework-controlled rich text editor. Assigning
+    // textContent makes the text visible but does not update the framework
+    // state, so the send button stays disabled. Editing through the active
+    // Selection + insertText path produces the same input transaction as a
+    // user paste and keeps the editor model in sync.
+    const selection = globalThis.getSelection?.();
+    const range = document.createRange();
+    range.selectNodeContents(composer);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const inserted = document.execCommand?.("insertText", false, text) === true;
+    selection?.removeAllRanges();
+    if (!inserted || !composerText(composer)) {
+      composer.textContent = text;
+      composer.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        inputType: "insertText",
+        data: text,
+      }));
+      composer.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertText",
+        data: text,
+      }));
+      return "text_content_fallback";
+    }
+    return "exec_command_insert_text";
   }
 
   function composerText(composer) {
@@ -1202,22 +1488,202 @@ if (typeof module !== "undefined" && module.exports) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
+  async function waitForComposerPrompt(composer, expectedPrompt, timeoutMs = 5000) {
+    const probe = String(expectedPrompt || "").replace(/\s+/g, " ").trim().slice(-160);
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const current = composerText(composer);
+      if (current && (!probe || current.includes(probe))) return true;
+      await sleep(100);
+    }
+    return false;
+  }
+
+  function findSendControl() {
+    const directSelectors = [
+      'button[data-test-id*="send"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label="发送消息"]',
+      'button[aria-label="傳送訊息"]',
+      'button[aria-label="送信"]',
+      'button[aria-label="보내기"]',
+      "button.send-button",
+      '[role="button"][data-test-id*="send"]',
+    ];
+    for (const selector of directSelectors) {
+      const found = [...document.querySelectorAll(selector)].find(visible);
+      if (found) return found;
+    }
+    return findByCandidates(SELECTORS.send);
+  }
+
+  async function waitForEnabledSendControl(timeoutMs = 5000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const send = findSendControl();
+      if (send && !send.matches(":disabled,[aria-disabled=true]")) return send;
+      await sleep(100);
+    }
+    return findSendControl();
+  }
+
+  function promptStillPending(composer, baseline, expectedPrompt) {
+    const promptProbe = String(expectedPrompt || "").replace(/\s+/g, " ").trim().slice(-160);
+    const currentComposer = composerText(composer);
+    const currentUser = userMessageSnapshot();
+    const userUnchanged = currentUser.count === baseline.user.count
+      && currentUser.digest === baseline.user.digest;
+    return userUnchanged
+      && !!currentComposer
+      && (!promptProbe || currentComposer.includes(promptProbe));
+  }
+
+  function submissionDiagnostic(composer, baseline, expectedPrompt, send) {
+    const currentUser = userMessageSnapshot();
+    const currentResponse = modelResponseSnapshot();
+    const promptProbe = String(expectedPrompt || "").replace(/\s+/g, " ").trim().slice(-160);
+    const latestUser = String(currentUser.latest || "").replace(/\s+/g, " ").trim();
+    const compactControl = element => {
+      if (!(element instanceof Element)) return null;
+      return {
+        tag: element.tagName.toLowerCase(),
+        role: element.getAttribute("role") || "",
+        ariaLabel: element.getAttribute("aria-label") || "",
+        disabled: element.matches(":disabled,[aria-disabled=true]"),
+        className: String(element.className || "").slice(0, 100),
+      };
+    };
+    return {
+      composerTextLength: composerText(composer).length,
+      userCountBefore: baseline.user.count,
+      userCountNow: currentUser.count,
+      latestUserTail: latestUser.slice(-240),
+      latestUserMatches: !!promptProbe && latestUser.includes(promptProbe),
+      responseCountBefore: baseline.response.count,
+      responseCountNow: currentResponse.count,
+      generationActive: generationIsActive(),
+      composer: compactControl(composer),
+      send: compactControl(send),
+      active: compactControl(document.activeElement),
+    };
+  }
+
+  async function waitForChangedSubmission(
+    composer,
+    baseline,
+    prompt,
+    send,
+    timeoutMs = 15000,
+  ) {
+    try {
+      return await waitForSubmissionAck(composer, baseline, prompt, timeoutMs);
+    } catch (error) {
+      if (error?.code !== "gemini_submission_not_acknowledged") throw error;
+      throw Object.assign(
+        new Error(
+          "Gemini 页面发生变化，但未出现与本次提示词匹配的新用户消息。"
+          + ` diagnostic=${JSON.stringify(submissionDiagnostic(composer, baseline, prompt, send))}`,
+        ),
+        { code: "gemini_submission_not_acknowledged" },
+      );
+    }
+  }
+
+  async function submitPromptAndWait({
+    composer,
+    send,
+    baseline,
+    prompt,
+  }) {
+    await activateControl(send);
+    try {
+      return await waitForSubmissionAck(composer, baseline, prompt, 5000);
+    } catch (error) {
+      if (error?.code !== "gemini_submission_not_acknowledged") throw error;
+      if (!promptStillPending(composer, baseline, prompt)) {
+        return waitForChangedSubmission(composer, baseline, prompt, send);
+      }
+    }
+
+    // WebView2 composition surfaces occasionally accept physical pointer
+    // events without forwarding the resulting click to the web component.
+    // A DOM click is safe only while the exact prompt is still pending and no
+    // new user message exists.
+    send.click();
+    try {
+      return await waitForSubmissionAck(composer, baseline, prompt, 5000);
+    } catch (error) {
+      if (error?.code !== "gemini_submission_not_acknowledged") throw error;
+      if (!promptStillPending(composer, baseline, prompt)) {
+        return waitForChangedSubmission(composer, baseline, prompt, send);
+      }
+    }
+
+    composer.focus();
+    for (const type of ["keydown", "keypress", "keyup"]) {
+      composer.dispatchEvent(new KeyboardEvent(type, {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      }));
+    }
+    try {
+      return await waitForSubmissionAck(composer, baseline, prompt, 5000);
+    } catch (error) {
+      if (error?.code !== "gemini_submission_not_acknowledged") throw error;
+      throw Object.assign(
+        new Error(
+          "Gemini 页面没有确认本次提示词提交。"
+          + ` diagnostic=${JSON.stringify(submissionDiagnostic(composer, baseline, prompt, send))}`,
+        ),
+        { code: "gemini_submission_not_acknowledged" },
+      );
+    }
+  }
+
   function userMessageSnapshot() {
     const selectors = [
+      "user-query .query-text",
+      "user-query .query-content",
       "user-query",
       '[data-test-id*="user-query"]',
       '[data-message-author-role="user"]',
+      '[class*="user-query"] [class*="query-text"]',
+      '[class*="user-query"] [class*="query-content"]',
       '[class*="user-query"]',
+      ".query-text",
+      ".query-content",
     ].join(",");
-    const texts = [...document.querySelectorAll(selectors)]
+    const elements = [...document.querySelectorAll(selectors)]
       .filter(visible)
+      .filter((element, index, all) => !all.some((other, otherIndex) => (
+        otherIndex !== index
+        && element.contains(other)
+        && normalizedText(other) === normalizedText(element)
+      )));
+    const texts = elements
       .map(normalizedText)
       .map(value => value.replace(/\s+/g, " ").trim())
       .filter(Boolean);
-    return { count: texts.length, digest: texts.join("\n---\n") };
+    return {
+      count: texts.length,
+      digest: texts.join("\n---\n"),
+      latest: texts.at(-1) || "",
+    };
   }
 
-  async function waitForSubmissionAck(composer, baseline, timeoutMs = 15000) {
+  async function waitForSubmissionAck(
+    composer,
+    baseline,
+    expectedPrompt,
+    timeoutMs = 15000,
+  ) {
+    const normalizedExpected = String(expectedPrompt || "")
+      .replace(/\s+/g, " ")
+      .trim();
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const currentUser = userMessageSnapshot();
@@ -1225,15 +1691,29 @@ if (typeof module !== "undefined" && module.exports) {
       const composerCleared = !composer.isConnected || composerText(composer) === "";
       const userMessageAdded = currentUser.count > baseline.user.count
         || (currentUser.digest && currentUser.digest !== baseline.user.digest);
+      const normalizedLatestUser = String(currentUser.latest || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const promptProbe = normalizedExpected.slice(-160);
+      const userMessageMatches = userMessageAdded
+        && (
+          !promptProbe
+          || normalizedLatestUser.includes(promptProbe)
+          || normalizedExpected.includes(normalizedLatestUser)
+        );
       const responseStarted = currentResponse.count > baseline.response.count
         || (currentResponse.digest && currentResponse.digest !== baseline.response.digest);
       const generationStarted = generationIsActive();
-      if (composerCleared || userMessageAdded || responseStarted || generationStarted) {
+      // A cleared composer or a newly rendered response can be caused by SPA
+      // navigation and lazy loading. Only the exact newly submitted prompt is
+      // strong enough evidence that this task was accepted.
+      if (userMessageMatches) {
         return {
           acknowledged: true,
           acknowledgedAt: Date.now(),
           composerCleared,
           userMessageAdded,
+          userMessageMatches,
           responseStarted,
           generationStarted,
         };
@@ -1695,17 +2175,57 @@ if (typeof module !== "undefined" && module.exports) {
   async function processTask(task) {
     const request = task.request || {};
     try {
+      const resumeAction = LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.taskResumeAction({
+        resumedClaim: task.resumed_claim === true,
+        status: task.status,
+      });
+      if (resumeAction === "fail_unknown_submission") {
+        await event(task, "failed", {
+          code: "gemini_submission_state_unknown",
+          message:
+            "Gemini 页面在提示词可能已经提交后重载；为避免重复生成，软件未再次发送提示词。请先检查当前临时对话，再决定是否手动重试。",
+        });
+        return;
+      }
+      const login = await waitForGeminiLoginReady();
+      if (!login.ready) {
+        throw Object.assign(
+          new Error("Gemini 登录状态已失效，请重新登录后再生成。"),
+          {
+            code: login.reason === "signed_out"
+              ? "gemini_login_required"
+              : "gemini_login_state_unknown",
+          },
+        );
+      }
       await event(task, "preparing_temporary_chat");
-      await ensureTemporaryChat(task);
+      const temporaryChatVerification = await ensureTemporaryChat(task);
       const before = historyDigest();
       const selectedModelMode = await selectGeminiModel(request.model_preference || "auto");
       await event(task, "uploading_references");
       await uploadReferences(request.references || []);
       await event(task, "submitting");
       const explicitImageAction = await enableImageAction();
-      if (!isTemporaryChatSurfaceActive()) {
+      const preSubmissionHistory = historyDigest();
+      const currentOrdinaryHistoryVisible = !!preSubmissionHistory.currentKey
+        && preSubmissionHistory.entries.some(
+          entry => entry.key === preSubmissionHistory.currentKey
+            && entry.active === true,
+        );
+      if (
+        !temporaryChatVerification
+        || !isGeminiLoginReady()
+        || currentOrdinaryHistoryVisible
+      ) {
         throw Object.assign(
-          new Error("Gemini 在提交前失去可验证的临时对话状态；提示词未发送。"),
+          new Error(
+            "Gemini 在提交前失去可验证的临时对话状态；提示词未发送。"
+            + ` proof=${JSON.stringify(temporaryChatVerification)}`
+            + ` login=${isGeminiLoginReady()}`
+            + ` currentKey=${JSON.stringify(preSubmissionHistory.currentKey)}`
+            + ` currentOrdinaryHistoryVisible=${currentOrdinaryHistoryVisible}`
+            + ` url=${JSON.stringify(location.href)}`,
+          ),
           { code: "temporary_chat_unverified" },
         );
       }
@@ -1722,12 +2242,29 @@ if (typeof module !== "undefined" && module.exports) {
         user: userMessageSnapshot(),
         response: baselineResponse,
       };
-      setComposerText(composer, prompt);
-      await sleep(300);
-      const send = findByCandidates(SELECTORS.send);
-      if (send) await activateControl(send);
-      else composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
-      const submission = await waitForSubmissionAck(composer, submissionBaseline);
+      const composerWriteMethod = setComposerText(composer, prompt);
+      if (!(await waitForComposerPrompt(composer, prompt))) {
+        throw Object.assign(
+          new Error(`Gemini 输入框未接受本次提示词。writeMethod=${composerWriteMethod}`),
+          { code: "gemini_composer_input_failed" },
+        );
+      }
+      const send = await waitForEnabledSendControl();
+      if (!send || send.matches(":disabled,[aria-disabled=true]")) {
+        throw Object.assign(
+          new Error(
+            `Gemini 发送按钮不可用。writeMethod=${composerWriteMethod}`
+            + ` send=${JSON.stringify(describeControl(send))}`,
+          ),
+          { code: "gemini_send_unavailable" },
+        );
+      }
+      const submission = await submitPromptAndWait({
+        composer,
+        send,
+        baseline: submissionBaseline,
+        prompt,
+      });
       await event(task, "generating");
       const image = await waitForGeneratedImage(
         previous,
@@ -1753,6 +2290,7 @@ if (typeof module !== "undefined" && module.exports) {
         requested_model_mode: request.model_preference || "auto",
         selected_model_mode: selectedModelMode,
         temporary_chat_verified: true,
+        temporary_chat_verification: temporaryChatVerification,
         submission_acknowledged: submission.acknowledged === true,
         submission_acknowledgement: Object.keys(submission)
           .filter(key => key !== "acknowledgedAt" && submission[key] === true),
@@ -1767,6 +2305,10 @@ if (typeof module !== "undefined" && module.exports) {
         final_size: `${processed.final.width}x${processed.final.height}`,
         transform: processed.transform,
       };
+      // Persist the complete audit through the JSON event channel before the
+      // binary upload. This keeps diagnostics available even when an older
+      // gateway cannot decode an unpadded base64url response header.
+      await event(task, "locating_full_size", null, audit);
       const auditHeader = btoa(unescape(encodeURIComponent(JSON.stringify(audit)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
       const result = await bridgeFetch(`companion/tasks/${encodeURIComponent(task.id)}/result`, {
         method: "POST",
@@ -1878,7 +2420,12 @@ if (typeof module !== "undefined" && module.exports) {
         });
         return;
       }
-      await publishIdentity(config);
+      const identity = await publishIdentity(config);
+      // A signed-out Gemini page still renders a composer. Do not claim a
+      // queued task until both an authenticated account marker and the
+      // Temporary Chat entry are present, otherwise the same task can flash
+      // between generating and failed while the page is not executable.
+      if (!identity.claimRecoveryReady) return;
       const response = await bridgeFetch("companion/tasks/next", {
         headers: { "X-Langbai-Account-Id": bridge.accountId || "" },
       });

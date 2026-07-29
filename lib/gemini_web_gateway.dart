@@ -20,7 +20,7 @@ const int _maxJsonBytes = 80 * 1024 * 1024;
 const int _maxImageBytes = 60 * 1024 * 1024;
 const Duration _companionLeaseDuration = Duration(minutes: 2);
 const Duration _geminiRateLimitCooldown = Duration(minutes: 15);
-const String geminiSelectorPackVersion = '2026.07.30.3';
+const String geminiSelectorPackVersion = '2026.07.30.6';
 final RegExp _geminiUuidPattern = RegExp(
   r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
   caseSensitive: false,
@@ -48,6 +48,7 @@ const Map<String, Set<String>> _geminiStatusTransitions = <String, Set<String>>{
     'uploading_references',
   },
   'uploading_references': <String>{
+    'preparing_temporary_chat',
     'uploading_references',
     'submitting',
   },
@@ -220,6 +221,12 @@ class GeminiWebGatewayManager {
 
   bool _accountAvailable(GeminiAccountMetadata account) =>
       account.available && _accountConnected(account.localAccountId);
+
+  bool _accountClaimReady(GeminiAccountMetadata account) =>
+      account.loginReady &&
+      account.status == 'ready' &&
+      account.quotaState != 'exhausted' &&
+      !account.coolingDown;
 
   bool _accountEligible(GeminiAccountMetadata account) => account.available;
 
@@ -932,9 +939,18 @@ class GeminiWebGatewayManager {
             body['selector_pack_version']?.toString() ?? '';
         final selectorPackCompatible =
             selectorPackVersion == geminiSelectorPackVersion;
-        final incomingStatus = body['status']?.toString() ?? 'ready';
-        final loginReady = selectorPackCompatible && incomingStatus == 'ready';
-        final retainedAccountState = existing != null && existing.coolingDown;
+        final incomingStatus = body['status']?.toString() ?? 'unknown';
+        final explicitReady = incomingStatus == 'ready';
+        final explicitSignedOut = incomingStatus == 'needs_login';
+        final uncertainIdentity = !explicitReady && !explicitSignedOut;
+        final loginReady = selectorPackCompatible &&
+            (explicitReady
+                ? true
+                : explicitSignedOut
+                    ? false
+                    : (existing?.loginReady ?? false));
+        final retainedAccountState =
+            existing != null && existing.coolingDown && !explicitSignedOut;
         final account = GeminiAccountMetadata(
           localAccountId: localId,
           accountUuid: accountUuid.isNotEmpty
@@ -947,15 +963,21 @@ class GeminiWebGatewayManager {
           status: selectorPackCompatible
               ? (retainedAccountState
                   ? existing.status
-                  : (loginReady ? 'ready' : 'needs_login'))
+                  : explicitReady
+                      ? 'ready'
+                      : explicitSignedOut
+                          ? 'needs_login'
+                          : (existing?.status ?? 'unknown'))
               : 'protocol_changed',
           loginReady: loginReady,
           quotaState: retainedAccountState
               ? existing.quotaState
-              : (existing?.quotaState == 'unknown'
+              : (explicitReady
                   ? 'available'
                   : (existing?.quotaState ?? 'available')),
-          cooldownUntil: existing?.cooldownUntil ?? '',
+          cooldownUntil: retainedAccountState
+              ? existing.cooldownUntil
+              : (explicitReady ? '' : (existing?.cooldownUntil ?? '')),
           lastErrorCode: retainedAccountState ? existing.lastErrorCode : '',
           lastQuotaAt: existing?.lastQuotaAt ?? '',
           lastVerifiedAt: DateTime.now().toUtc().toIso8601String(),
@@ -964,9 +986,12 @@ class GeminiWebGatewayManager {
           // historical true value after the page stops exposing the feature:
           // that created "ready" accounts that could never execute a task.
           temporaryChatAvailable: selectorPackCompatible &&
+              !uncertainIdentity &&
               body['temporary_chat_available'] == true,
           fullsizeDownloadAvailable: selectorPackCompatible &&
-              body['fullsize_download_available'] == true,
+              (uncertainIdentity
+                  ? (existing?.fullsizeDownloadAvailable ?? false)
+                  : body['fullsize_download_available'] == true),
           effectiveConcurrency: int.tryParse(
                 body['effective_concurrency']?.toString() ?? '',
               ) ??
@@ -1022,13 +1047,52 @@ class GeminiWebGatewayManager {
         final registeredAccount = (await accountStore.load())
             .where((account) => account.localAccountId == accountId)
             .firstOrNull;
-        if (accountId.isEmpty ||
-            registeredAccount == null ||
-            !_accountAvailable(registeredAccount)) {
+        if (accountId.isEmpty || registeredAccount == null) {
           await _json(response, 403, <String, Object?>{
             'error': <String, Object?>{
               'code': 'gemini_account_mismatch',
               'message': 'The browser profile is not a registered account.',
+            }
+          });
+          return;
+        }
+        if (!registeredAccount.loginReady ||
+            <String>{'needs_login', 'session_expired'}
+                .contains(registeredAccount.status)) {
+          await _json(response, 401, <String, Object?>{
+            'error': <String, Object?>{
+              'code': 'gemini_login_required',
+              'message': 'The Gemini browser profile needs to sign in again.',
+            }
+          });
+          return;
+        }
+        if (registeredAccount.coolingDown ||
+            registeredAccount.quotaState == 'exhausted' ||
+            <String>{'rate_limited', 'quota_exhausted'}
+                .contains(registeredAccount.status)) {
+          await _json(response, 429, <String, Object?>{
+            'error': <String, Object?>{
+              'code': 'gemini_rate_limited',
+              'message': 'The Gemini account is in quota cooldown.',
+            }
+          });
+          return;
+        }
+        if (registeredAccount.status == 'protocol_changed') {
+          await _json(response, 409, <String, Object?>{
+            'error': <String, Object?>{
+              'code': 'selector_pack_outdated',
+              'message': 'The Gemini selector pack is incompatible.',
+            }
+          });
+          return;
+        }
+        if (!_accountClaimReady(registeredAccount)) {
+          await _json(response, 409, <String, Object?>{
+            'error': <String, Object?>{
+              'code': 'gemini_account_not_ready',
+              'message': 'The Gemini browser profile is still loading.',
             }
           });
           return;
@@ -1229,8 +1293,11 @@ class GeminiWebGatewayManager {
         final auditHeader = request.headers.value('x-langbai-audit');
         if (auditHeader != null && auditHeader.isNotEmpty) {
           try {
-            final decoded =
-                jsonDecode(utf8.decode(base64Url.decode(auditHeader)));
+            final decoded = jsonDecode(
+              utf8.decode(
+                base64Url.decode(base64Url.normalize(auditHeader)),
+              ),
+            );
             if (decoded is Map) {
               task.audit = decoded.map(
                 (key, value) => MapEntry(key.toString(), value),

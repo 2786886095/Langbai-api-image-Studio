@@ -17,7 +17,7 @@ const int _maxNativeTransportBytes = 96 * 1024 * 1024;
 const MethodChannel _geminiSessionChannel =
     MethodChannel('com.aigen.ai_image_generator/gemini_sessions');
 const String _geminiSessionStoragePrefix = 'gemini_web_session_v1:';
-const String geminiEmbeddedSelectorPackVersion = '2026.07.30.3';
+const String geminiEmbeddedSelectorPackVersion = '2026.07.30.6';
 
 typedef GeminiEmbeddedConfigLoader = Future<GeminiEmbeddedBrowserConfig>
     Function(String profileId);
@@ -104,6 +104,33 @@ String createGeminiEmbeddedProfileId() {
       '${value.substring(12, 16)}-'
       '${value.substring(16, 20)}-'
       '${value.substring(20)}';
+}
+
+String geminiEmbeddedProfileIdForAccount(Map<Object?, Object?> account) {
+  for (final key in const <String>[
+    'browser_profile_id',
+    'account_uuid',
+    'local_account_id',
+  ]) {
+    final value = account[key]?.toString().trim().toLowerCase() ?? '';
+    if (_uuidPattern.hasMatch(value)) return value;
+  }
+  return '';
+}
+
+String geminiEmbeddedProfileIdFromSnapshot(
+  Map<Object?, Object?> snapshot,
+  String localAccountId,
+) {
+  final accounts = snapshot['accounts'];
+  if (accounts is! List) return '';
+  final requested = localAccountId.trim();
+  for (final value in accounts.whereType<Map>()) {
+    if (value['local_account_id']?.toString() == requested) {
+      return geminiEmbeddedProfileIdForAccount(value);
+    }
+  }
+  return '';
 }
 
 class GeminiMobileSessionVault {
@@ -451,6 +478,9 @@ Future<String> _loadInjectedWorker(
       }
     }
   });
+  let pageProbeTimer = 0;
+  let lastPageProbeSignature = "";
+  let lastPageProbeSentAt = 0;
   const reportPageState = () => {
     const host = location.hostname.toLowerCase();
     const onGemini = host === "gemini.google.com" ||
@@ -458,6 +488,18 @@ Future<String> _loadInjectedWorker(
     const composer = onGemini && document.querySelector(
       'div[contenteditable="true"][role="textbox"],textarea[aria-label],textarea'
     );
+    const signedOutMarker = onGemini && document.querySelector([
+      '[data-test-id="signed-out-disclaimer"]',
+      '[data-test-id="mavatar-sign-in-icon-button"]',
+      '.signed-out-buttons'
+    ].join(','));
+    const authenticatedMarker = onGemini && document.querySelector([
+      'a[href*="SignOutOptions"]',
+      'a[href*="/Logout"]',
+      'a[href*="accounts.google.com"][aria-label*="@"]',
+      '[role="button"][aria-label*="@"]'
+    ].join(','));
+    const loginReady = !!composer && !!authenticatedMarker && !signedOutMarker;
     const interactive = onGemini
       ? [...document.querySelectorAll('button,[role="button"],[aria-label],[title]')]
       : [];
@@ -481,32 +523,51 @@ Future<String> _loadInjectedWorker(
       interactive.some(element =>
         /temporary chat|临时对话|临时聊天|臨時對話|臨時聊天|一時的なチャット|一時チャット|임시 채팅/i.test(textOf(element))
       );
-    sendNative({
+    const state = {
       source: "langbai-gemini-executor",
       type: "page_state",
-      status: composer ? "page_ready" :
+      status: loginReady ? "page_ready" :
         (host === "accounts.google.com" || host.endsWith(".accounts.google.com"))
           ? "login_required"
-          : "loading",
+          : (signedOutMarker ? "login_required" : "loading"),
       url: location.href,
       browser_profile_id: config.profileId,
       account_uuid: config.accountUuid,
+      login_ready: loginReady,
       temporary_chat_available: temporaryChatAvailable,
       fullsize_download_available: true,
-    });
+    };
+    const signature = JSON.stringify([
+      state.status,
+      state.url,
+      state.login_ready,
+      state.temporary_chat_available,
+    ]);
+    const now = Date.now();
+    if (signature === lastPageProbeSignature &&
+        now - lastPageProbeSentAt < 10000) {
+      return;
+    }
+    lastPageProbeSignature = signature;
+    lastPageProbeSentAt = now;
+    sendNative(state);
+  };
+  const schedulePageState = () => {
+    clearTimeout(pageProbeTimer);
+    pageProbeTimer = setTimeout(reportPageState, 350);
   };
   if (!globalThis.__LANGBAI_GEMINI_PAGE_PROBE_STARTED) {
     globalThis.__LANGBAI_GEMINI_PAGE_PROBE_STARTED = true;
-    addEventListener("DOMContentLoaded", reportPageState);
-    addEventListener("pageshow", reportPageState);
-    setTimeout(reportPageState, 300);
-    setTimeout(reportPageState, 1500);
-    new MutationObserver(reportPageState).observe(
+    addEventListener("DOMContentLoaded", schedulePageState);
+    addEventListener("pageshow", schedulePageState);
+    setTimeout(schedulePageState, 300);
+    setTimeout(schedulePageState, 1500);
+    new MutationObserver(schedulePageState).observe(
       document.documentElement,
       { childList: true, subtree: true }
     );
   } else {
-    reportPageState();
+    schedulePageState();
   }
   if (
     location.hostname === "gemini.google.com" ||
@@ -556,6 +617,7 @@ String _legacyWindowsGeminiProfilePath(
 
 Future<void> migrateWindowsGeminiProfilesBeforeWebViewStart(
   Iterable<String> profileIds, {
+  String? sharedDefaultMigrationProfileId,
   String? localAppData,
 }) async {
   final sharedRoot = Directory(
@@ -579,7 +641,7 @@ Future<void> migrateWindowsGeminiProfilesBeforeWebViewStart(
     if (!await legacyDefault.exists()) continue;
     final destination = Directory(<String>[
       profilesRoot.path,
-      windowsGeminiWebViewProfileName(profileId),
+      'WV2Profile_${windowsGeminiWebViewProfileName(profileId)}',
     ].join(Platform.pathSeparator));
     if (await destination.exists()) continue;
     await profilesRoot.create(recursive: true);
@@ -596,6 +658,132 @@ Future<void> migrateWindowsGeminiProfilesBeforeWebViewStart(
       rethrow;
     }
   }
+
+  final active = (sharedDefaultMigrationProfileId ?? '').trim().toLowerCase();
+  if (!_uuidPattern.hasMatch(active)) return;
+  await _migrateSharedDefaultGoogleSession(
+    source: Directory(<String>[
+      profilesRoot.path,
+      'Default',
+    ].join(Platform.pathSeparator)),
+    destination: Directory(<String>[
+      profilesRoot.path,
+      'WV2Profile_${windowsGeminiWebViewProfileName(active)}',
+    ].join(Platform.pathSeparator)),
+  );
+}
+
+const List<String> _googleAuthenticationCookieMarkers = <String>[
+  'SAPISID',
+  '__Secure-1PSID',
+  '__Secure-3PSID',
+  '__Host-1PLSID',
+  '__Host-3PLSID',
+];
+
+Future<bool> _profileHasGoogleAuthenticationCookies(
+  Directory profile,
+) async {
+  final network = Directory(
+    <String>[profile.path, 'Network'].join(Platform.pathSeparator),
+  );
+  for (final name in const <String>[
+    'Cookies',
+    'Cookies-wal',
+    'Cookies-journal',
+  ]) {
+    final file =
+        File(<String>[network.path, name].join(Platform.pathSeparator));
+    if (!await file.exists()) continue;
+    final length = await file.length();
+    if (length <= 0 || length > 64 * 1024 * 1024) continue;
+    final content = latin1.decode(
+      await file.readAsBytes(),
+      allowInvalid: true,
+    );
+    if (_googleAuthenticationCookieMarkers.any(content.contains)) return true;
+  }
+  return false;
+}
+
+Future<void> _migrateSharedDefaultGoogleSession({
+  required Directory source,
+  required Directory destination,
+}) async {
+  if (!await source.exists() ||
+      !await _profileHasGoogleAuthenticationCookies(source)) {
+    return;
+  }
+  if (await destination.exists() &&
+      await _profileHasGoogleAuthenticationCookies(destination)) {
+    return;
+  }
+
+  final sourceNetwork = Directory(
+    <String>[source.path, 'Network'].join(Platform.pathSeparator),
+  );
+  final sourceCookies = File(
+    <String>[sourceNetwork.path, 'Cookies'].join(Platform.pathSeparator),
+  );
+  // A live or uncheckpointed SQLite cookie database is not a safe migration
+  // source. Startup calls this before creating any WebView, so a cleanly
+  // closed legacy profile has only the main Cookies database.
+  for (final sidecar in const <String>[
+    'Cookies-wal',
+    'Cookies-shm',
+    'Cookies-journal',
+  ]) {
+    final file = File(
+      <String>[sourceNetwork.path, sidecar].join(Platform.pathSeparator),
+    );
+    if (await file.exists() && await file.length() > 0) return;
+  }
+  if (!await sourceCookies.exists()) return;
+
+  // Google login depends on more than the Cookies SQLite file. Session
+  // storage, account metadata, trust tokens and other profile-scoped state
+  // participate in restoring an authenticated Gemini tab. Copying only the
+  // cookie DB creates a misleading profile that contains SID cookies but
+  // still opens signed out. Replace the anonymous destination atomically with
+  // a complete, cleanly closed profile snapshot instead.
+  final backupSuffix = DateTime.now().microsecondsSinceEpoch;
+  final temporary = Directory(
+    '${destination.path}.migrating-$backupSuffix',
+  );
+  final backup = Directory(
+    '${destination.path}.pre-langbai-migration-$backupSuffix',
+  );
+  var destinationMoved = false;
+  try {
+    await _copyWebViewProfileDirectory(source, temporary);
+    if (!await _profileHasGoogleAuthenticationCookies(temporary)) {
+      await temporary.delete(recursive: true);
+      return;
+    }
+    if (await destination.exists()) {
+      await destination.rename(backup.path);
+      destinationMoved = true;
+    }
+    await temporary.rename(destination.path);
+    await File(<String>[
+      destination.path,
+      '.langbai-shared-profile-migration-v2',
+    ].join(Platform.pathSeparator))
+        .writeAsString(
+      'source=Default\nmigrated_at=${DateTime.now().toUtc().toIso8601String()}\n',
+      flush: true,
+    );
+  } catch (_) {
+    if (await temporary.exists()) {
+      await temporary.delete(recursive: true);
+    }
+    if (!await destination.exists() &&
+        destinationMoved &&
+        await backup.exists()) {
+      await backup.rename(destination.path);
+    }
+    rethrow;
+  }
 }
 
 Future<void> _copyWebViewProfileDirectory(
@@ -609,7 +797,12 @@ Future<void> _copyWebViewProfileDirectory(
     if (name == 'LOCK' ||
         name == 'SingletonLock' ||
         name == 'SingletonCookie' ||
-        name == 'SingletonSocket') {
+        name == 'SingletonSocket' ||
+        name == 'Cache' ||
+        name == 'Code Cache' ||
+        name == 'GPUCache' ||
+        name == 'DawnCache' ||
+        name == 'GrShaderCache') {
       continue;
     }
     final targetPath =
@@ -670,7 +863,8 @@ bool _isReadyMessage(Map<String, dynamic> message) {
 bool _isPageReadyMessage(Map<String, dynamic> message) {
   return message['source'] == 'langbai-gemini-executor' &&
       message['type'] == 'page_state' &&
-      message['status'] == 'page_ready';
+      message['status'] == 'page_ready' &&
+      message['login_ready'] == true;
 }
 
 Future<Map<String, Object?>> _registerPageReadyMessage({
@@ -678,6 +872,11 @@ Future<Map<String, Object?>> _registerPageReadyMessage({
   required Map<String, dynamic> message,
   required String platform,
 }) async {
+  if (message['login_ready'] != true) {
+    throw StateError(
+      'Gemini page-ready registration requires a verified login marker.',
+    );
+  }
   final temporaryChatAvailable = message['temporary_chat_available'] == true;
   final fullsizeDownloadAvailable =
       message['fullsize_download_available'] == true;
@@ -846,9 +1045,11 @@ class _GeminiMobileEmbeddedBrowserState
   String _status = '正在加载 Gemini 登录页';
   String _platform = 'mobile';
   bool _initializing = false;
+  bool _initializationPending = false;
   bool _pageReadyRegistrationInFlight = false;
   String _lastPageCapabilitySignature = '';
   int _handledRevision = -1;
+  int _controllerGeneration = 0;
 
   @override
   void initState() {
@@ -876,22 +1077,28 @@ class _GeminiMobileEmbeddedBrowserState
   void _onRequestChanged() {
     if (_handledRevision != widget.requestController.requestRevision &&
         widget.requestController.profileId.isNotEmpty) {
-      _handledRevision = widget.requestController.requestRevision;
       unawaited(_ensureInitialized());
     }
     if (mounted) setState(() {});
   }
 
   Future<void> _ensureInitialized() async {
+    final requestedRevision = widget.requestController.requestRevision;
     final requestedProfile = widget.requestController.profileId;
-    if (_initializing ||
-        (_controller != null && _activeProfileId == requestedProfile)) {
+    if (requestedProfile.isEmpty) return;
+    if (_initializing) {
+      _initializationPending = true;
+      return;
+    }
+    if (_controller != null && _activeProfileId == requestedProfile) {
+      _handledRevision = requestedRevision;
       return;
     }
     _initializing = true;
+    _initializationPending = false;
+    final generation = ++_controllerGeneration;
     try {
-      final config =
-          await widget.loadConfig(widget.requestController.profileId);
+      final config = await widget.loadConfig(requestedProfile);
       if (_controller != null && _activeProfileId != config.profileId) {
         if (_activeProfileId.isNotEmpty) {
           await _sessionVault.capture(_activeProfileId);
@@ -919,7 +1126,9 @@ class _GeminiMobileEmbeddedBrowserState
       await controller.addJavaScriptChannel(
         'LangbaiGeminiHost',
         onMessageReceived: (message) {
-          unawaited(_handleMessage(message.message));
+          unawaited(
+            _handleMessage(message.message, generation, config.profileId),
+          );
         },
       );
       await controller.setNavigationDelegate(
@@ -936,6 +1145,7 @@ class _GeminiMobileEmbeddedBrowserState
             return mobile_webview.NavigationDecision.prevent;
           },
           onPageFinished: (_) {
+            if (!_isCurrentController(generation, config.profileId)) return;
             unawaited(controller.runJavaScript(injectedWorker).catchError(
               (Object error) {
                 return _emit(<String, Object?>{
@@ -961,20 +1171,44 @@ class _GeminiMobileEmbeddedBrowserState
       _controller = controller;
       _activeProfileId = config.profileId;
       await controller.loadRequest(Uri.parse(_geminiStartUrl));
+      if (widget.requestController.profileId == config.profileId &&
+          widget.requestController.requestRevision == requestedRevision) {
+        _handledRevision = requestedRevision;
+      } else {
+        _initializationPending = true;
+      }
       if (mounted) setState(() {});
     } catch (error) {
-      await _emit(<String, Object?>{
-        'source': 'langbai-gemini-host',
-        'type': 'startup_error',
-        'status': 'failed',
-        'message': error.toString(),
-      });
+      if (widget.requestController.profileId == requestedProfile) {
+        await _emit(<String, Object?>{
+          'source': 'langbai-gemini-host',
+          'type': 'startup_error',
+          'status': 'failed',
+          'message': error.toString(),
+        });
+      }
     } finally {
       _initializing = false;
+      if (_initializationPending ||
+          (_handledRevision != widget.requestController.requestRevision &&
+              widget.requestController.profileId.isNotEmpty)) {
+        _initializationPending = false;
+        unawaited(Future<void>.microtask(_ensureInitialized));
+      }
     }
   }
 
-  Future<void> _handleMessage(Object? raw) async {
+  bool _isCurrentController(int generation, String profileId) =>
+      generation == _controllerGeneration &&
+      profileId == _activeProfileId &&
+      profileId == widget.requestController.profileId;
+
+  Future<void> _handleMessage(
+    Object? raw,
+    int generation,
+    String profileId,
+  ) async {
+    if (!_isCurrentController(generation, profileId)) return;
     final message = _decodeNativeMessage(raw);
     if (message == null) return;
     if (message['source'] != 'langbai-gemini-executor') return;
@@ -1146,9 +1380,11 @@ class _GeminiWindowsEmbeddedBrowserState
   String _activeProfileId = '';
   String _status = '正在加载 Gemini 登录页';
   bool _initializing = false;
+  bool _initializationPending = false;
   bool _pageReadyRegistrationInFlight = false;
   String _lastPageCapabilitySignature = '';
   int _handledRevision = -1;
+  int _controllerGeneration = 0;
   String _lastStatusSignature = '';
 
   @override
@@ -1184,7 +1420,6 @@ class _GeminiWindowsEmbeddedBrowserState
     widget.onVisibilityChanged(widget.requestController.visible);
     if (_handledRevision != widget.requestController.requestRevision &&
         widget.requestController.profileId.isNotEmpty) {
-      _handledRevision = widget.requestController.requestRevision;
       unawaited(_ensureInitialized());
     }
     unawaited(_syncVisibility());
@@ -1192,16 +1427,23 @@ class _GeminiWindowsEmbeddedBrowserState
   }
 
   Future<void> _ensureInitialized() async {
+    final requestedRevision = widget.requestController.requestRevision;
     final requestedProfile = widget.requestController.profileId;
-    if (_initializing ||
-        (_controller != null && _activeProfileId == requestedProfile)) {
+    if (requestedProfile.isEmpty) return;
+    if (_initializing) {
+      _initializationPending = true;
+      return;
+    }
+    if (_controller != null && _activeProfileId == requestedProfile) {
+      _handledRevision = requestedRevision;
       return;
     }
     _initializing = true;
+    _initializationPending = false;
+    final generation = ++_controllerGeneration;
     windows_webview.WinWebViewController? controller;
     try {
-      final config =
-          await widget.loadConfig(widget.requestController.profileId);
+      final config = await widget.loadConfig(requestedProfile);
       if (_controller != null && _activeProfileId != config.profileId) {
         final stale = _controller;
         _controller = null;
@@ -1228,7 +1470,7 @@ class _GeminiWindowsEmbeddedBrowserState
       );
       await controller.setBackgroundColor(const Color(0xFFFFFFFF));
       controller.onWebMessageReceived = (message) {
-        unawaited(_handleMessage(message));
+        unawaited(_handleMessage(message, generation, config.profileId));
       };
       await controller.addScriptToExecuteOnDocumentCreated(injectedWorker);
       await controller.setNavigationDelegate(
@@ -1245,6 +1487,7 @@ class _GeminiWindowsEmbeddedBrowserState
             return mobile_webview.NavigationDecision.prevent;
           },
           onPageFinished: (_) {
+            if (!_isCurrentController(generation, config.profileId)) return;
             // WebView2 normally installs the document-created script. Running
             // the guarded worker once more after redirects makes login
             // detection resilient when Google replaces the document during
@@ -1274,20 +1517,34 @@ class _GeminiWindowsEmbeddedBrowserState
       _controller = controller;
       _activeProfileId = config.profileId;
       await controller.loadRequest(Uri.parse(_geminiStartUrl));
+      if (widget.requestController.profileId == config.profileId &&
+          widget.requestController.requestRevision == requestedRevision) {
+        _handledRevision = requestedRevision;
+      } else {
+        _initializationPending = true;
+      }
       await _syncVisibility();
       if (mounted) setState(() {});
     } catch (error) {
       if (controller != null && controller != _controller) {
         await controller.dispose();
       }
-      await _emit(<String, Object?>{
-        'source': 'langbai-gemini-host',
-        'type': 'startup_error',
-        'status': 'failed',
-        'message': error.toString(),
-      });
+      if (widget.requestController.profileId == requestedProfile) {
+        await _emit(<String, Object?>{
+          'source': 'langbai-gemini-host',
+          'type': 'startup_error',
+          'status': 'failed',
+          'message': error.toString(),
+        });
+      }
     } finally {
       _initializing = false;
+      if (_initializationPending ||
+          (_handledRevision != widget.requestController.requestRevision &&
+              widget.requestController.profileId.isNotEmpty)) {
+        _initializationPending = false;
+        unawaited(Future<void>.microtask(_ensureInitialized));
+      }
     }
   }
 
@@ -1308,7 +1565,17 @@ class _GeminiWindowsEmbeddedBrowserState
     }
   }
 
-  Future<void> _handleMessage(Object? raw) async {
+  bool _isCurrentController(int generation, String profileId) =>
+      generation == _controllerGeneration &&
+      profileId == _activeProfileId &&
+      profileId == widget.requestController.profileId;
+
+  Future<void> _handleMessage(
+    Object? raw,
+    int generation,
+    String profileId,
+  ) async {
+    if (!_isCurrentController(generation, profileId)) return;
     final message = _decodeNativeMessage(raw);
     if (message == null || message['source'] != 'langbai-gemini-executor') {
       return;

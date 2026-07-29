@@ -242,8 +242,13 @@ assert.ok(
 );
 assert.match(
   geminiWebGateway,
-  /temporaryChatAvailable:\s*[\s\S]*selectorPackCompatible\s*&&\s*body\['temporary_chat_available'\]\s*==\s*true/,
+  /temporaryChatAvailable:\s*selectorPackCompatible\s*&&\s*!uncertainIdentity\s*&&\s*body\['temporary_chat_available'\]\s*==\s*true/,
   "Current page capability must be authoritative; stale success must not create a false-ready account",
+);
+assert.match(
+  geminiWebGateway,
+  /base64Url\.decode\(base64Url\.normalize\(auditHeader\)\)/,
+  "Gemini result audit headers must accept the worker's unpadded base64url encoding",
 );
 assert.match(app, /requireReadyAccount:\s*true/);
 assert.match(app, /function geminiUnavailableReason\(\)/);

@@ -123,10 +123,13 @@ test("uses the Windows native input bridge for Gemini controls", () => {
   assert.match(worker, /await activateControl\(action\)/);
   assert.match(worker, /await activateControl\(send\)/);
   assert.match(worker, /async function selectGeminiModel\(preference = "auto"\)/);
+  assert.match(worker, /"bard-mode-switcher,bard-mode-switcher \*"/);
+  assert.match(worker, /\.replace\(\/\[A-Z0-9\._%\+-\]\+@/);
   assert.match(worker, /await selectGeminiModel\(request\.model_preference \|\| "auto"\)/);
+  assert.match(worker, /!element\.closest\("nav,aside,\[role=navigation\]"\)/);
+  assert.doesNotMatch(worker, /findByCandidates\(SELECTORS\.imageAction\)/);
   assert.doesNotMatch(worker, /\bbutton\.click\(\)/);
   assert.doesNotMatch(worker, /\baction\.click\(\)/);
-  assert.doesNotMatch(worker, /\bsend\.click\(\)/);
 });
 
 test("forces image output and terminates no-image responses", () => {
@@ -136,11 +139,32 @@ test("forces image output and terminates no-image responses", () => {
   );
   assert.match(worker, /请立即生成一张图片，不要只回复文字、解释或提示词；直接输出图片/);
   assert.match(worker, /function modelResponseSnapshot\(\)/);
+  assert.match(worker, /"user-query \.query-text"/);
+  assert.match(worker, /"user-query \.query-content"/);
   assert.match(worker, /function generationIsActive\(\)/);
-  assert.match(worker, /async function waitForSubmissionAck\(composer, baseline, timeoutMs = 15000\)/);
+  assert.match(worker, /document\.execCommand\?\.\("insertText", false, text\)/);
+  assert.match(worker, /async function waitForComposerPrompt\(/);
+  assert.match(worker, /async function waitForEnabledSendControl\(/);
+  assert.match(worker, /function promptStillPending\(/);
+  assert.match(worker, /function submissionDiagnostic\(/);
+  assert.match(worker, /async function waitForChangedSubmission\(/);
+  assert.match(worker, /async function submitPromptAndWait\(/);
+  assert.match(worker, /send\.click\(\)/);
+  assert.match(worker, /promptStillPending\(composer, baseline, prompt\)/);
+  assert.match(
+    worker,
+    /async function waitForSubmissionAck\(\s*composer,\s*baseline,\s*expectedPrompt,\s*timeoutMs = 15000,/,
+  );
+  assert.match(worker, /normalizedLatestUser\.includes\(promptProbe\)/);
+  assert.match(worker, /if \(userMessageMatches\)/);
+  assert.match(
+    worker,
+    /submitPromptAndWait\(\{\s*composer,\s*send,\s*baseline: submissionBaseline,\s*prompt,/,
+  );
   assert.match(worker, /code: "gemini_submission_not_acknowledged"/);
   assert.match(worker, /code: "gemini_no_image_returned"/);
   assert.match(worker, /code: "gemini_no_image_timeout"/);
+  assert.match(worker, /await event\(task, "locating_full_size", null, audit\)/);
   assert.match(worker, /nodes: new WeakSet\(images\)/);
   assert.match(worker, /currentTask\?\.status === "succeeded"/);
   assert.match(worker, /code: body\?\.error\?\.code \|\| "gemini_result_save_failed"/);
@@ -158,6 +182,25 @@ test("writes exact global dimensions into the cached Gemini task result", () => 
   assert.match(worker, /const processed = await transformForRequestedOutput\(downloadedBlob, request\)/);
   assert.match(worker, /final_size: `\$\{processed\.final\.width\}x\$\{processed\.final\.height\}`/);
   assert.match(worker, /body: blob/);
+});
+
+test("embedded hosts reject signed-out and stale-profile readiness events", () => {
+  const host = fs.readFileSync(
+    path.join(__dirname, "..", "lib", "gemini_embedded_browser.dart"),
+    "utf8",
+  );
+  assert.match(host, /data-test-id="signed-out-disclaimer"/);
+  assert.match(host, /a\[href\*="SignOutOptions"\]/);
+  assert.match(
+    host,
+    /message\['status'\] == 'page_ready' &&\s*message\['login_ready'\] == true/,
+  );
+  assert.match(host, /int _controllerGeneration = 0;/);
+  assert.match(host, /_handleMessage\(message, generation, config\.profileId\)/);
+  assert.match(
+    host,
+    /generation == _controllerGeneration &&\s*profileId == _activeProfileId &&\s*profileId == widget\.requestController\.profileId/,
+  );
 });
 
 console.log("\nGemini web adapter tests passed.");

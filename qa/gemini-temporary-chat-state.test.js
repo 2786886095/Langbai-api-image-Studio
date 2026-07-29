@@ -56,6 +56,33 @@ test("explicit active, exit, and explanation evidence verify Temporary Chat", ()
   }
 });
 
+test("a trusted click on the exact Temporary Chat control is bounded evidence", () => {
+  const accepted = state.trustedActivationEvidence({
+    exactControl: true,
+    trustedClick: true,
+    loginReady: true,
+    overlayVisible: false,
+    url: "https://gemini.google.com/app",
+  });
+  assert.equal(accepted.active, true);
+  for (const invalid of [
+    { exactControl: false },
+    { trustedClick: false },
+    { loginReady: false },
+    { overlayVisible: true },
+    { url: "https://gemini.google.com/app/ordinary-chat-id" },
+  ]) {
+    assert.equal(state.trustedActivationEvidence({
+      exactControl: true,
+      trustedClick: true,
+      loginReady: true,
+      overlayVisible: false,
+      url: "https://gemini.google.com/app",
+      ...invalid,
+    }).active, false);
+  }
+});
+
 test("history sidebar reordering is not treated as a new ordinary chat", () => {
   const before = state.normalizeHistorySnapshot([
     { href: "/app/thread-a", active: false },
@@ -111,6 +138,49 @@ test("an old image present after activation navigation is never this task's resu
   }), true);
 });
 
+test("a signed-out Gemini composer never counts as a logged-in account", () => {
+  const signedOut = state.loginReadiness({
+    composerPresent: true,
+    signedOutMarkerPresent: true,
+    authenticatedMarkerPresent: false,
+  });
+  assert.equal(signedOut.ready, false);
+  assert.equal(signedOut.reason, "signed_out");
+
+  const anonymousComposer = state.loginReadiness({
+    composerPresent: true,
+    signedOutMarkerPresent: false,
+    authenticatedMarkerPresent: false,
+  });
+  assert.equal(anonymousComposer.ready, false);
+  assert.equal(anonymousComposer.reason, "authenticated_marker_missing");
+
+  const authenticated = state.loginReadiness({
+    composerPresent: true,
+    signedOutMarkerPresent: false,
+    authenticatedMarkerPresent: true,
+  });
+  assert.equal(authenticated.ready, true);
+  assert.equal(authenticated.reason, "authenticated");
+});
+
+test("resumed claims never resubmit an uncertain prompt", () => {
+  assert.equal(state.taskResumeAction({
+    resumedClaim: true,
+    status: "uploading_references",
+  }), "restart_before_submission");
+  for (const status of ["submitting", "generating", "locating_full_size"]) {
+    assert.equal(state.taskResumeAction({
+      resumedClaim: true,
+      status,
+    }), "fail_unknown_submission");
+  }
+  assert.equal(state.taskResumeAction({
+    resumedClaim: false,
+    status: "generating",
+  }), "start");
+});
+
 test("worker captures image baseline only after Temporary Chat verification", () => {
   const source = fs.readFileSync(
     path.join(__dirname, "..", "gemini-embedded-worker.js"),
@@ -120,7 +190,7 @@ test("worker captures image baseline only after Temporary Chat verification", ()
   const processSource = source.slice(processStart, source.indexOf("\n  async function tick()", processStart));
   const ensureIndex = processSource.indexOf("await ensureTemporaryChat(task)");
   const baselineIndex = processSource.indexOf("const previous = imageSnapshot()");
-  const sendIndex = processSource.indexOf("await waitForSubmissionAck");
+  const sendIndex = processSource.indexOf("await submitPromptAndWait");
   assert.ok(ensureIndex >= 0);
   assert.ok(baselineIndex > ensureIndex);
   assert.ok(sendIndex > baselineIndex);
@@ -130,6 +200,15 @@ test("worker captures image baseline only after Temporary Chat verification", ()
   );
   assert.match(processSource, /history_guard_warning/);
   assert.doesNotMatch(processSource, /throw Object\.assign\(new Error\("临时对话守卫检测到普通历史发生变化"/);
+  assert.match(source, /if \(!identity\.claimRecoveryReady\) return;/);
+  assert.match(source, /found\.querySelector\("button,\[role=button\],a"\)/);
+  assert.match(processSource, /const login = await waitForGeminiLoginReady\(\)/);
+  assert.match(processSource, /if \(!login\.ready\)/);
+  assert.match(processSource, /gemini_submission_state_unknown/);
+  assert.match(
+    processSource,
+    /submitPromptAndWait\(\{\s*composer,\s*send,\s*baseline: submissionBaseline,\s*prompt,/,
+  );
 });
 
 console.log("\nGemini Temporary Chat state tests passed.");

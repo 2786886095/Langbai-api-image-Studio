@@ -1,5 +1,5 @@
 globalThis.LANGBAI_GEMINI_SELECTORS = Object.freeze({
-  version: "2026.07.30.3",
+  version: "2026.07.30.6",
   temporaryChat: [
     "Temporary chat", "Start temporary chat", "Turn on temporary chat",
     "临时对话", "临时聊天", "发起临时对话", "发起临时聊天", "开启临时对话", "开启临时聊天",
@@ -14,6 +14,7 @@ globalThis.LANGBAI_GEMINI_SELECTORS = Object.freeze({
     "임시 채팅 종료", "임시 채팅 끄기",
   ],
   temporaryChatCss: [
+    '[data-test-id="temp-chat-button"] button',
     '[data-test-id="temp-chat-button"]',
     'button[data-test-id="temp-chat-button"]',
   ],

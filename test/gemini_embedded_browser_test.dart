@@ -7,7 +7,7 @@ const String _profileId = '123e4567-e89b-42d3-a456-426614174000';
 
 void main() {
   test('embedded browser and gateway use the current selector protocol', () {
-    expect(geminiEmbeddedSelectorPackVersion, '2026.07.30.3');
+    expect(geminiEmbeddedSelectorPackVersion, '2026.07.30.6');
     expect(geminiSelectorPackVersion, geminiEmbeddedSelectorPackVersion);
   });
 
@@ -128,6 +128,29 @@ void main() {
     expect(windowsGeminiWebViewProfileName(_profileId), isNot('Default'));
   });
 
+  test('legacy local account IDs resolve through browser_profile_id', () {
+    const legacyLocalId = 'legacy-hash-that-is-not-a-uuid';
+    final snapshot = <String, Object?>{
+      'accounts': <Map<String, Object?>>[
+        <String, Object?>{
+          'local_account_id': legacyLocalId,
+          'browser_profile_id': _profileId,
+          'account_uuid': '',
+        },
+      ],
+    };
+    expect(
+      geminiEmbeddedProfileIdFromSnapshot(snapshot, legacyLocalId),
+      _profileId,
+    );
+    expect(
+      geminiEmbeddedProfileIdForAccount(
+        <String, Object?>{'local_account_id': legacyLocalId},
+      ),
+      isEmpty,
+    );
+  });
+
   test('legacy Gemini default profile is copied before WebView startup',
       () async {
     final temp = await Directory.systemTemp.createTemp('gemini-profile-');
@@ -156,7 +179,7 @@ void main() {
     final destination = Directory(<String>[
       windowsGeminiWebViewDataPath(localAppData: temp.path),
       'EBWebView',
-      windowsGeminiWebViewProfileName(_profileId),
+      'WV2Profile_${windowsGeminiWebViewProfileName(_profileId)}',
     ].join(Platform.pathSeparator));
     expect(
       await File(<String>[destination.path, 'Cookies']
@@ -172,5 +195,172 @@ void main() {
     );
     expect(await source.exists(), isTrue,
         reason: 'migration keeps a rollback copy');
+  });
+
+  test('shared Default Google session migrates only into the active profile',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('gemini-shared-profile-');
+    addTearDown(() async {
+      if (await temp.exists()) await temp.delete(recursive: true);
+    });
+    final webViewRoot = Directory(<String>[
+      windowsGeminiWebViewDataPath(localAppData: temp.path),
+      'EBWebView',
+    ].join(Platform.pathSeparator));
+    final sourceNetwork = Directory(<String>[
+      webViewRoot.path,
+      'Default',
+      'Network',
+    ].join(Platform.pathSeparator));
+    final destination = Directory(<String>[
+      webViewRoot.path,
+      'WV2Profile_${windowsGeminiWebViewProfileName(_profileId)}',
+    ].join(Platform.pathSeparator));
+    final destinationNetwork = Directory(<String>[
+      destination.path,
+      'Network',
+    ].join(Platform.pathSeparator));
+    await sourceNetwork.create(recursive: true);
+    await destinationNetwork.create(recursive: true);
+    await File(<String>[sourceNetwork.path, 'Cookies']
+            .join(Platform.pathSeparator))
+        .writeAsString('SQLite SAPISID authenticated-session', flush: true);
+    await File(<String>[destinationNetwork.path, 'Cookies']
+            .join(Platform.pathSeparator))
+        .writeAsString('SQLite NID anonymous-session', flush: true);
+    await File(
+            <String>[destination.path, 'keep-me'].join(Platform.pathSeparator))
+        .writeAsString('preserved', flush: true);
+    final sourceSessionState = File(<String>[
+      webViewRoot.path,
+      'Default',
+      'Local Storage',
+      'leveldb',
+      'session-state',
+    ].join(Platform.pathSeparator));
+    await sourceSessionState.create(recursive: true);
+    await sourceSessionState.writeAsString(
+      'authenticated-profile-state',
+      flush: true,
+    );
+
+    await migrateWindowsGeminiProfilesBeforeWebViewStart(
+      const <String>[_profileId],
+      sharedDefaultMigrationProfileId: _profileId,
+      localAppData: temp.path,
+    );
+
+    expect(
+      await File(<String>[destinationNetwork.path, 'Cookies']
+              .join(Platform.pathSeparator))
+          .readAsString(),
+      contains('SAPISID'),
+    );
+    expect(
+      await File(<String>[
+        destination.path,
+        'Local Storage',
+        'leveldb',
+        'session-state',
+      ].join(Platform.pathSeparator))
+          .readAsString(),
+      'authenticated-profile-state',
+    );
+    expect(
+      webViewRoot.listSync().whereType<Directory>().any(
+          (directory) => directory.path.contains('.pre-langbai-migration-')),
+      isTrue,
+      reason: 'the anonymous destination profile keeps a rollback copy',
+    );
+    expect(
+      await File(<String>[
+        destination.path,
+        '.langbai-shared-profile-migration-v2',
+      ].join(Platform.pathSeparator))
+          .exists(),
+      isTrue,
+    );
+  });
+
+  test('an authenticated named profile is never overwritten by Default',
+      () async {
+    final temp = await Directory.systemTemp.createTemp('gemini-auth-profile-');
+    addTearDown(() async {
+      if (await temp.exists()) await temp.delete(recursive: true);
+    });
+    final webViewRoot = Directory(<String>[
+      windowsGeminiWebViewDataPath(localAppData: temp.path),
+      'EBWebView',
+    ].join(Platform.pathSeparator));
+    final sourceCookies = File(<String>[
+      webViewRoot.path,
+      'Default',
+      'Network',
+      'Cookies',
+    ].join(Platform.pathSeparator));
+    final destinationCookies = File(<String>[
+      webViewRoot.path,
+      'WV2Profile_${windowsGeminiWebViewProfileName(_profileId)}',
+      'Network',
+      'Cookies',
+    ].join(Platform.pathSeparator));
+    await sourceCookies.parent.create(recursive: true);
+    await destinationCookies.parent.create(recursive: true);
+    await sourceCookies.writeAsString('SAPISID source-account', flush: true);
+    await destinationCookies.writeAsString(
+      '__Secure-1PSID destination-account',
+      flush: true,
+    );
+
+    await migrateWindowsGeminiProfilesBeforeWebViewStart(
+      const <String>[_profileId],
+      sharedDefaultMigrationProfileId: _profileId,
+      localAppData: temp.path,
+    );
+
+    expect(
+      await destinationCookies.readAsString(),
+      '__Secure-1PSID destination-account',
+    );
+  });
+
+  test('an uncheckpointed Default cookie database is not copied', () async {
+    final temp = await Directory.systemTemp.createTemp('gemini-live-profile-');
+    addTearDown(() async {
+      if (await temp.exists()) await temp.delete(recursive: true);
+    });
+    final webViewRoot = Directory(<String>[
+      windowsGeminiWebViewDataPath(localAppData: temp.path),
+      'EBWebView',
+    ].join(Platform.pathSeparator));
+    final sourceNetwork = Directory(<String>[
+      webViewRoot.path,
+      'Default',
+      'Network',
+    ].join(Platform.pathSeparator));
+    final destinationCookies = File(<String>[
+      webViewRoot.path,
+      'WV2Profile_${windowsGeminiWebViewProfileName(_profileId)}',
+      'Network',
+      'Cookies',
+    ].join(Platform.pathSeparator));
+    await sourceNetwork.create(recursive: true);
+    await destinationCookies.parent.create(recursive: true);
+    await File(<String>[sourceNetwork.path, 'Cookies']
+            .join(Platform.pathSeparator))
+        .writeAsString('SAPISID source-account', flush: true);
+    await File(<String>[sourceNetwork.path, 'Cookies-wal']
+            .join(Platform.pathSeparator))
+        .writeAsString('pending sqlite transaction', flush: true);
+    await destinationCookies.writeAsString('NID destination', flush: true);
+
+    await migrateWindowsGeminiProfilesBeforeWebViewStart(
+      const <String>[_profileId],
+      sharedDefaultMigrationProfileId: _profileId,
+      localAppData: temp.path,
+    );
+
+    expect(await destinationCookies.readAsString(), 'NID destination');
   });
 }
