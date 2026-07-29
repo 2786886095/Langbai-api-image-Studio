@@ -1,5 +1,127 @@
 "use strict";
 
+const LANGBAI_GEMINI_TEMPORARY_CHAT_STATE = (() => {
+  const GEMINI_HOME_URL = "https://gemini.google.com/app";
+
+  function conversationKey(value) {
+    try {
+      const parsed = new URL(String(value || ""), GEMINI_HOME_URL);
+      if (parsed.hostname !== "gemini.google.com") return "";
+      const match = parsed.pathname.match(/^\/app\/([^/?#]+)/);
+      return match ? `/app/${decodeURIComponent(match[1])}` : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function isOrdinaryConversationUrl(value) {
+    return !!conversationKey(value);
+  }
+
+  function activationEvidence(snapshot = {}) {
+    const reasons = [];
+    if (snapshot.controlActive === true) reasons.push("active_control_state");
+    if (snapshot.exitControlVisible === true) reasons.push("exit_control");
+    if (snapshot.activeExplanationVisible === true) reasons.push("temporary_chat_explanation");
+    return Object.freeze({
+      active: reasons.length > 0,
+      reasons: Object.freeze(reasons),
+    });
+  }
+
+  function preparationAction(snapshot = {}) {
+    const evidence = activationEvidence(snapshot);
+    if (evidence.active) return Object.freeze({ action: "verified", evidence });
+    if (snapshot.controlVisible === true) {
+      return Object.freeze({ action: "activate_control", evidence });
+    }
+    if (isOrdinaryConversationUrl(snapshot.url)) {
+      return Object.freeze({
+        action: "navigate_home",
+        homeUrl: GEMINI_HOME_URL,
+        evidence,
+      });
+    }
+    return Object.freeze({ action: "wait_for_surface", evidence });
+  }
+
+  function normalizeHistorySnapshot(entries = [], currentUrl = "") {
+    const byKey = new Map();
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const key = conversationKey(entry?.href);
+      if (!key) continue;
+      const previous = byKey.get(key);
+      byKey.set(key, {
+        key,
+        active: entry?.active === true || previous?.active === true,
+      });
+    }
+    const normalizedEntries = [...byKey.values()]
+      .sort((left, right) => left.key.localeCompare(right.key));
+    return Object.freeze({
+      entries: Object.freeze(normalizedEntries.map(Object.freeze)),
+      keys: Object.freeze(normalizedEntries.map(entry => entry.key)),
+      currentKey: conversationKey(currentUrl),
+    });
+  }
+
+  function assessHistoryMutation(before = {}, after = {}) {
+    const beforeKeys = new Set(Array.isArray(before.keys) ? before.keys : []);
+    const afterEntries = Array.isArray(after.entries) ? after.entries : [];
+    const addedEntries = afterEntries.filter(entry => !beforeKeys.has(entry.key));
+    const currentKey = String(after.currentKey || "");
+    const currentOrdinaryConversationAdded = !!currentKey
+      && addedEntries.some(entry => entry.key === currentKey && entry.active === true);
+    if (currentOrdinaryConversationAdded) {
+      return Object.freeze({
+        status: "ordinary_conversation_added",
+        warning: "当前普通会话已新增到 Gemini 历史；图片已生成并保存，不会自动重新提交。",
+        addedKeys: Object.freeze(addedEntries.map(entry => entry.key)),
+      });
+    }
+    if (addedEntries.length > 0) {
+      return Object.freeze({
+        status: "sidebar_changed",
+        warning: "Gemini 历史侧栏异步变化，但未确认当前任务写入普通历史；图片已保留。",
+        addedKeys: Object.freeze(addedEntries.map(entry => entry.key)),
+      });
+    }
+    return Object.freeze({
+      status: "passed",
+      warning: "",
+      addedKeys: Object.freeze([]),
+    });
+  }
+
+  function isGeneratedImageCandidate(snapshot = {}) {
+    const nodeOrResourceChanged = snapshot.wasPresentBefore !== true
+      || snapshot.resourceSignatureChanged === true;
+    const belongsToSubmittedResponse = snapshot.responseChanged === true
+      || (
+        snapshot.hasResponseContainer === true
+        && snapshot.responseContainerWasPresentBefore !== true
+      );
+    return snapshot.submissionAcknowledged === true
+      && nodeOrResourceChanged
+      && belongsToSubmittedResponse;
+  }
+
+  return Object.freeze({
+    GEMINI_HOME_URL,
+    conversationKey,
+    isOrdinaryConversationUrl,
+    activationEvidence,
+    preparationAction,
+    normalizeHistorySnapshot,
+    assessHistoryMutation,
+    isGeneratedImageCandidate,
+  });
+})();
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = LANGBAI_GEMINI_TEMPORARY_CHAT_STATE;
+}
+
 (() => {
   // WebView2 injects document-created scripts into child frames as well. Only
   // the top-level Gemini document may claim and execute an image task.
@@ -9,7 +131,7 @@
 
   const TEMPORARY_CHAT_CHECKPOINT_KEY = "langbai_gemini_temporary_chat_checkpoint_v1";
   const SELECTORS = globalThis.LANGBAI_GEMINI_SELECTORS || Object.freeze({
-    version: "2026.07.30.2",
+    version: "2026.07.30.3",
     temporaryChat: [
       "Temporary chat", "Start temporary chat", "Turn on temporary chat",
       "临时对话", "临时聊天", "发起临时对话", "发起临时聊天",
@@ -29,6 +151,12 @@
       "在臨時對話中提問", "在臨時聊天中提問", "臨時對話不會儲存", "臨時聊天不會儲存",
       "一時的なチャットで質問", "一時チャットで質問", "임시 채팅에서 질문",
     ],
+    temporaryChatActiveCss: [
+      '[data-test-id="temp-chat-button"][aria-pressed="true"]',
+      '[data-test-id="temp-chat-button"][aria-selected="true"]',
+      '[data-test-id="temp-chat-button"][data-state="active"]',
+    ],
+    historyLinkCss: ['a[href*="/app/"]'],
     imageAction: ["Create image", "Generate image", "生成图片", "產生圖片", "画像を生成", "이미지 생성"],
     send: ["Send message", "Submit", "发送", "傳送", "送信", "보내기"],
     fullsize: ["Download full size", "Download original", "下载完整尺寸", "下載完整尺寸", "元のサイズをダウンロード", "전체 크기 다운로드"],
@@ -378,7 +506,7 @@
       focused: document.hasFocus(),
       active: normalizedText(active).slice(0, 120),
       matching,
-      historyCount: historyDigest().count,
+      historyCount: historyDigest().keys.length,
     };
   }
 
@@ -409,20 +537,40 @@
     );
   }
 
-  function isTemporaryChatSurfaceActive() {
+  function temporaryChatActivationSnapshot() {
     const control = findTemporaryChatControl();
-    if (control?.closest?.(
+    const controlActive = !!control?.closest?.(
       '[aria-pressed="true"],[aria-selected="true"],[aria-current="page"],[data-state="active"],[data-selected="true"]',
-    )) return true;
-    const activeCandidates = [
-      ...(SELECTORS.temporaryChatActiveText || []),
-      ...(SELECTORS.temporaryChatExit || []),
-    ];
-    return [...document.querySelectorAll(
+    ) || (SELECTORS.temporaryChatActiveCss || [])
+      .some(selector => [...document.querySelectorAll(selector)].some(visible));
+    const controlText = normalizedText(control);
+    const exitControlVisible = !!control
+      && textMatchesCandidates(controlText, SELECTORS.temporaryChatExit || []);
+    const activeExplanationVisible = [...document.querySelectorAll(
       'h1,h2,h3,[role="heading"],[role="status"],[aria-label],[title],[placeholder],[data-test-id]',
     )]
       .filter(visible)
-      .some(element => textMatchesCandidates(normalizedText(element), activeCandidates));
+      .some(element => textMatchesCandidates(
+        normalizedText(element),
+        SELECTORS.temporaryChatActiveText || [],
+      ));
+    return {
+      control,
+      controlVisible: !!control,
+      controlActive,
+      exitControlVisible,
+      activeExplanationVisible,
+    };
+  }
+
+  function temporaryChatActivationEvidence() {
+    return LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.activationEvidence(
+      temporaryChatActivationSnapshot(),
+    );
+  }
+
+  function isTemporaryChatSurfaceActive() {
+    return temporaryChatActivationEvidence().active;
   }
 
   async function waitForTemporaryChatSurface(timeoutMs = 8000) {
@@ -692,11 +840,21 @@
   }
 
   function historyDigest() {
-    const links = [...document.querySelectorAll('a[href*="/app/"]')]
-      .filter(visible)
-      .slice(0, 80)
-      .map(element => `${element.getAttribute("href")}|${normalizedText(element)}`);
-    return { count: links.length, digest: links.join("\n") };
+    const selectors = SELECTORS.historyLinkCss?.length
+      ? SELECTORS.historyLinkCss.join(",")
+      : 'a[href*="/app/"]';
+    const entries = [...document.querySelectorAll(selectors)]
+      .slice(0, 500)
+      .map(element => ({
+        href: element.getAttribute("href") || "",
+        active: !!element.closest(
+          '[aria-current="page"],[aria-selected="true"],[data-state="active"],[data-selected="true"]',
+        ),
+      }));
+    return LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.normalizeHistorySnapshot(
+      entries,
+      location.href,
+    );
   }
 
   function readTemporaryChatCheckpoint() {
@@ -712,12 +870,23 @@
     return null;
   }
 
-  function writeTemporaryChatCheckpoint(taskId) {
+  function writeTemporaryChatCheckpoint(taskId, details = {}) {
     try {
+      const previous = readTemporaryChatCheckpoint();
+      const sameTask = previous?.taskId === String(taskId || "");
       sessionStorage.setItem(TEMPORARY_CHAT_CHECKPOINT_KEY, JSON.stringify({
         taskId: String(taskId || ""),
         createdAt: Date.now(),
         sourceUrl: location.href,
+        phase: String(details.phase || (sameTask ? previous.phase : "") || "preparing"),
+        recoveryAttempts: Math.max(
+          0,
+          Number(details.recoveryAttempts ?? (sameTask ? previous.recoveryAttempts : 0)) || 0,
+        ),
+        activationAttempts: Math.max(
+          0,
+          Number(details.activationAttempts ?? (sameTask ? previous.activationAttempts : 0)) || 0,
+        ),
       }));
     } catch {}
   }
@@ -731,43 +900,105 @@
     } catch {}
   }
 
+  function deferTemporaryChatTask(taskId, details = {}) {
+    const current = readTemporaryChatCheckpoint();
+    const sameTask = current?.taskId === String(taskId || "");
+    writeTemporaryChatCheckpoint(taskId, {
+      ...details,
+      recoveryAttempts: Number(
+        details.recoveryAttempts
+        ?? (sameTask ? current.recoveryAttempts : 0)
+        ?? 0,
+      ),
+      activationAttempts: Number(
+        details.activationAttempts
+        ?? (sameTask ? current.activationAttempts : 0)
+        ?? 0,
+      ),
+    });
+    throw Object.assign(
+      new Error(details.message || "Gemini 临时对话页面正在恢复；保留当前任务与 claim，尚未提交提示词。"),
+      {
+        code: details.code || "temporary_chat_resume_pending",
+        recoverable: true,
+      },
+    );
+  }
+
+  function navigateHomeForTemporaryChatRecovery(taskId, reason = "") {
+    const current = readTemporaryChatCheckpoint();
+    const recoveryAttempts = current?.taskId === String(taskId || "")
+      ? Number(current.recoveryAttempts || 0) + 1
+      : 1;
+    writeTemporaryChatCheckpoint(taskId, {
+      phase: "returning_home",
+      recoveryAttempts,
+    });
+    location.replace(LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.GEMINI_HOME_URL);
+    deferTemporaryChatTask(taskId, {
+      phase: "returning_home",
+      recoveryAttempts,
+      code: "temporary_chat_navigation_pending",
+      message: `Gemini 当前为普通会话，已安全返回主页并保留原任务 checkpoint。${reason}`,
+    });
+  }
+
   async function ensureTemporaryChat(task) {
     const taskId = String(task?.id || "");
     const navigationCheckpoint = readTemporaryChatCheckpoint();
     if (navigationCheckpoint?.taskId === taskId) {
-      // A checkpoint only proves that a click preceded document navigation. It
-      // does not prove Gemini actually entered Temporary Chat. Verify the new
-      // page before allowing the prompt to be submitted, otherwise a normal
-      // conversation can leak into Recent chats.
-      clearTemporaryChatCheckpoint(taskId);
+      // The checkpoint preserves the task claim across a Gemini SPA/document
+      // navigation. It is never activation evidence by itself.
       await waitForTemporaryChatSurface(8000);
-      if (isTemporaryChatSurfaceActive()) return true;
+      if (isTemporaryChatSurfaceActive()) {
+        clearTemporaryChatCheckpoint(taskId);
+        return true;
+      }
     }
-    const allTemporaryChatLabels = [
-      ...SELECTORS.temporaryChat,
-      ...(SELECTORS.temporaryChatExit || []),
-    ];
+
     let button = findTemporaryChatControl() || await waitForTemporaryChatSurface(8000);
-    if (!button && isTemporaryChatSurfaceActive()) return true;
+    let activation = temporaryChatActivationSnapshot();
+    let preparation = LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.preparationAction({
+      url: location.href,
+      controlVisible: !!button,
+      controlActive: activation.controlActive,
+      exitControlVisible: activation.exitControlVisible,
+      activeExplanationVisible: activation.activeExplanationVisible,
+    });
+    if (preparation.action === "verified") {
+      clearTemporaryChatCheckpoint(taskId);
+      return true;
+    }
+
     if (!button) {
+      if (preparation.action === "navigate_home") {
+        navigateHomeForTemporaryChatRecovery(
+          taskId,
+          "提示词没有写入当前普通会话。",
+        );
+      }
+      const sameTaskCheckpoint = navigationCheckpoint?.taskId === taskId
+        ? navigationCheckpoint
+        : readTemporaryChatCheckpoint()?.taskId === taskId
+          ? readTemporaryChatCheckpoint()
+          : null;
+      const recoveryAttempts = Number(sameTaskCheckpoint?.recoveryAttempts || 0) + 1;
+      if (recoveryAttempts <= 3) {
+        deferTemporaryChatTask(taskId, {
+          phase: "waiting_for_surface",
+          recoveryAttempts,
+          code: "temporary_chat_surface_pending",
+          message: `Gemini 主页尚未呈现临时对话入口，保留当前任务并等待页面恢复（${recoveryAttempts}/3）。`,
+        });
+      }
+      clearTemporaryChatCheckpoint(taskId);
       throw Object.assign(
-        new Error("Gemini 页面已登录，但当前页面未提供临时对话入口；请确认这是个人 Google 账号，并重新检测内置浏览器。"),
+        new Error("Gemini 主页在多轮恢复后仍未提供临时对话入口；任务未提交到普通历史。"),
         { code: "gemini_temporary_chat_unavailable" },
       );
     }
-    const isActive = element => {
-      if (!(element instanceof Element)) return false;
-      const stateNode = element.closest(
-        '[aria-pressed="true"],[aria-selected="true"],[aria-current="page"],[data-state="active"],[data-selected="true"]',
-      );
-      const text = normalizedText(element).toLowerCase();
-      const exitLabel = (SELECTORS.temporaryChatExit || [])
-        .some(candidate => text.includes(candidate.toLowerCase()));
-      return !!stateNode
-        || exitLabel
-        || /\b(active|selected|checked|toggled)\b/i.test(String(element.className || ""));
-    };
-    if (!isActive(button) && !isTemporaryChatSurfaceActive()) {
+
+    if (!isTemporaryChatSurfaceActive()) {
       const beforeUrl = location.href;
       const beforeText = normalizedText(button);
       const beforeState = temporaryChatStateSnapshot();
@@ -783,24 +1014,36 @@
       };
       const tracedEvents = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"];
       tracedEvents.forEach(type => document.addEventListener(type, traceInput, true));
-      writeTemporaryChatCheckpoint(taskId);
-      await activateControl(button);
-      const deadline = Date.now() + 6000;
-      while (Date.now() < deadline) {
-        await sleep(250);
-        button = findTemporaryChatControl();
-        if (
-          isActive(button)
-          || isTemporaryChatSurfaceActive()
-          || location.href !== beforeUrl
-        ) {
-          tracedEvents.forEach(type => document.removeEventListener(type, traceInput, true));
-          clearTemporaryChatCheckpoint(taskId);
-          return true;
+      const currentCheckpoint = readTemporaryChatCheckpoint();
+      const activationAttempts = currentCheckpoint?.taskId === taskId
+        ? Number(currentCheckpoint.activationAttempts || 0) + 1
+        : 1;
+      writeTemporaryChatCheckpoint(taskId, {
+        phase: "activating",
+        activationAttempts,
+      });
+      try {
+        await activateControl(button);
+        const deadline = Date.now() + 8000;
+        while (Date.now() < deadline) {
+          await sleep(250);
+          activation = temporaryChatActivationSnapshot();
+          if (LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.activationEvidence(activation).active) {
+            clearTemporaryChatCheckpoint(taskId);
+            return true;
+          }
         }
+      } finally {
+        tracedEvents.forEach(type => document.removeEventListener(type, traceInput, true));
       }
-      tracedEvents.forEach(type => document.removeEventListener(type, traceInput, true));
-      clearTemporaryChatCheckpoint(taskId);
+
+      if (LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.isOrdinaryConversationUrl(location.href)) {
+        navigateHomeForTemporaryChatRecovery(
+          taskId,
+          "临时对话点击后落入普通会话，已阻止提交。",
+        );
+      }
+
       const afterText = normalizedText(button);
       const afterState = temporaryChatStateSnapshot();
       const overlays = [...document.querySelectorAll(
@@ -812,6 +1055,18 @@
           role: element.getAttribute("role") || "",
           text: normalizedText(element).slice(0, 180),
         }));
+      if (activationAttempts <= 3) {
+        deferTemporaryChatTask(taskId, {
+          phase: "activation_unverified",
+          activationAttempts,
+          code: "temporary_chat_activation_pending",
+          message:
+            `已触发临时对话入口，但尚未出现退出按钮、active 状态或临时对话说明；`
+            + `保留当前任务继续验证（${activationAttempts}/3）。`
+            + ` urlChanged=${location.href !== beforeUrl}`,
+        });
+      }
+      clearTemporaryChatCheckpoint(taskId);
       throw Object.assign(
         new Error(
           `已点击临时对话，但页面没有返回可验证的启用状态；任务未提交，以避免写入普通历史。`
@@ -826,6 +1081,7 @@
         { code: "temporary_chat_unverified" },
       );
     }
+    clearTemporaryChatCheckpoint(taskId);
     return true;
   }
 
@@ -966,7 +1222,17 @@
         || (currentUser.digest && currentUser.digest !== baseline.user.digest);
       const responseStarted = currentResponse.count > baseline.response.count
         || (currentResponse.digest && currentResponse.digest !== baseline.response.digest);
-      if (composerCleared || userMessageAdded || responseStarted || generationIsActive()) return true;
+      const generationStarted = generationIsActive();
+      if (composerCleared || userMessageAdded || responseStarted || generationStarted) {
+        return {
+          acknowledged: true,
+          acknowledgedAt: Date.now(),
+          composerCleared,
+          userMessageAdded,
+          responseStarted,
+          generationStarted,
+        };
+      }
       await sleep(250);
     }
     throw Object.assign(
@@ -1007,15 +1273,22 @@
     };
   }
 
-  function modelResponseSnapshot() {
-    const selectors = [
+  function modelResponseSelector() {
+    return [
       "model-response",
       '[data-test-id*="model-response"]',
       '[data-message-author-role="model"]',
       '[data-message-author-role="assistant"]',
       '[class*="model-response"]',
     ].join(",");
-    const nodes = [...document.querySelectorAll(selectors)]
+  }
+
+  function modelResponseContainer(image) {
+    return image?.closest?.(modelResponseSelector()) || null;
+  }
+
+  function modelResponseSnapshot() {
+    const nodes = [...document.querySelectorAll(modelResponseSelector())]
       .filter(visible)
       .filter((element, index, all) => !all.some((other, otherIndex) => (
         otherIndex !== index
@@ -1030,6 +1303,7 @@
       count: texts.length,
       digest: texts.join("\n---\n"),
       latest: texts.at(-1) || "",
+      nodes: new WeakSet(nodes),
     };
   }
 
@@ -1074,7 +1348,14 @@
     timeoutMs = 20 * 60 * 1000,
     heartbeat = null,
     baselineResponse = modelResponseSnapshot(),
+    submission = null,
   } = {}) {
+    if (submission?.acknowledged !== true) {
+      throw Object.assign(
+        new Error("Gemini 提交尚未确认，拒绝读取页面已有图片。"),
+        { code: "gemini_submission_not_acknowledged" },
+      );
+    }
     const startedAt = Date.now();
     const deadline = startedAt + Math.max(60 * 1000, Number(timeoutMs) || 20 * 60 * 1000);
     let lastHeartbeat = 0;
@@ -1096,21 +1377,28 @@
           { code: failure.code, accountStatus: failure.status },
         );
       }
+      const response = modelResponseSnapshot();
+      const hasNewResponse = response.count > baselineResponse.count
+        || (response.digest && response.digest !== baselineResponse.digest);
       const candidates = [...document.images]
         .filter(image => visible(image) && image.complete && image.naturalWidth >= 256 && image.naturalHeight >= 256)
-        .filter(image => (
-          !previous.nodes?.has(image)
-          || previous.signatures?.get(image) !== imageSignature(image)
-        ))
+        .filter(image => {
+          const responseContainer = modelResponseContainer(image);
+          return LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.isGeneratedImageCandidate({
+            submissionAcknowledged: submission.acknowledged === true,
+            wasPresentBefore: previous.nodes?.has(image) === true,
+            resourceSignatureChanged: previous.signatures?.get(image) !== imageSignature(image),
+            hasResponseContainer: !!responseContainer,
+            responseContainerWasPresentBefore:
+              !!responseContainer && baselineResponse.nodes?.has(responseContainer) === true,
+            responseChanged: hasNewResponse,
+          });
+        })
         .sort((a, b) => (b.naturalWidth * b.naturalHeight) - (a.naturalWidth * a.naturalHeight));
       if (candidates[0]) {
         await candidates[0].decode?.().catch(() => {});
         if (candidates[0].naturalWidth > 0 && candidates[0].naturalHeight > 0) return candidates[0];
       }
-
-      const response = modelResponseSnapshot();
-      const hasNewResponse = response.count > baselineResponse.count
-        || (response.digest && response.digest !== baselineResponse.digest);
       if (hasNewResponse && response.latest) {
         const responseFailure = classifyVisibleFailure(response.latest);
         if (responseFailure) {
@@ -1401,20 +1689,29 @@
 
   async function processTask(task) {
     const request = task.request || {};
-    const before = historyDigest();
-    const previous = imageSnapshot();
     try {
       await event(task, "preparing_temporary_chat");
       await ensureTemporaryChat(task);
+      const before = historyDigest();
       const selectedModelMode = await selectGeminiModel(request.model_preference || "auto");
       await event(task, "uploading_references");
       await uploadReferences(request.references || []);
       await event(task, "submitting");
       const explicitImageAction = await enableImageAction();
+      if (!isTemporaryChatSurfaceActive()) {
+        throw Object.assign(
+          new Error("Gemini 在提交前失去可验证的临时对话状态；提示词未发送。"),
+          { code: "temporary_chat_unverified" },
+        );
+      }
       const composer = findComposer();
       if (!composer) throw Object.assign(new Error("未识别到 Gemini 输入框"), { code: "selector_pack_outdated" });
       const requestedPrompt = String(request.prompt || "").trim();
       const prompt = `请立即生成一张图片，不要只回复文字、解释或提示词；直接输出图片。\n\n${requestedPrompt}`;
+      // Baselines must be captured on the verified Temporary Chat surface.
+      // Capturing them before ensureTemporaryChat() lets images from a normal
+      // conversation's replacement document look new after SPA navigation.
+      const previous = imageSnapshot();
       const baselineResponse = modelResponseSnapshot();
       const submissionBaseline = {
         user: userMessageSnapshot(),
@@ -1425,7 +1722,7 @@
       const send = findByCandidates(SELECTORS.send);
       if (send) await activateControl(send);
       else composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
-      await waitForSubmissionAck(composer, submissionBaseline);
+      const submission = await waitForSubmissionAck(composer, submissionBaseline);
       await event(task, "generating");
       const image = await waitForGeneratedImage(
         previous,
@@ -1433,6 +1730,7 @@
           timeoutMs: 20 * 60 * 1000,
           heartbeat: () => event(task, "generating"),
           baselineResponse,
+          submission,
         },
       );
       await event(task, "locating_full_size");
@@ -1440,19 +1738,25 @@
       const processed = await transformForRequestedOutput(downloadedBlob, request);
       const blob = processed.blob;
       const after = historyDigest();
-      const historyGuard = before.count === after.count && before.digest === after.digest ? "passed" : "failed";
-      if (historyGuard !== "passed") {
-        throw Object.assign(new Error("临时对话守卫检测到普通历史发生变化"), { code: "temporary_chat_guard_failed" });
-      }
+      const historyAssessment = LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.assessHistoryMutation(
+        before,
+        after,
+      );
       const audit = {
         selector_pack_version: SELECTORS.version,
         image_action_mode: explicitImageAction ? "explicit_tool+forced_prompt" : "forced_prompt",
         requested_model_mode: request.model_preference || "auto",
         selected_model_mode: selectedModelMode,
         temporary_chat_verified: true,
-        history_guard: historyGuard,
-        history_count_before: before.count,
-        history_count_after: after.count,
+        submission_acknowledged: submission.acknowledged === true,
+        submission_acknowledgement: Object.keys(submission)
+          .filter(key => key !== "acknowledgedAt" && submission[key] === true),
+        history_guard: historyAssessment.status === "passed" ? "passed" : "warning",
+        history_guard_status: historyAssessment.status,
+        history_guard_warning: historyAssessment.warning || "",
+        history_added_keys: historyAssessment.addedKeys,
+        history_count_before: before.keys.length,
+        history_count_after: after.keys.length,
         requested_size: `${request.requested_size?.width || 0}x${request.requested_size?.height || 0}`,
         downloaded_fullsize: `${processed.source.width}x${processed.source.height}`,
         final_size: `${processed.final.width}x${processed.final.height}`,
@@ -1488,11 +1792,25 @@
       }
     } catch (error) {
       if (error?.code === "task_cancelled") return;
+      if ([
+        "temporary_chat_navigation_pending",
+        "temporary_chat_surface_pending",
+        "temporary_chat_activation_pending",
+        "temporary_chat_resume_pending",
+      ].includes(error?.code)) {
+        notifyNative("temporary_chat_recovery", {
+          status: "preparing_temporary_chat",
+          code: error.code,
+          message: String(error.message || error),
+          task_id: task.id,
+          claim_id: task.claim_id || "",
+        });
+        return;
+      }
       const protocolFailure = [
         "temporary_chat_guard_failed",
         "temporary_chat_unverified",
         "selector_pack_outdated",
-        "gemini_temporary_chat_unavailable",
       ].includes(error.code);
       const terminalStatus = protocolFailure
         ? "protocol_changed"
