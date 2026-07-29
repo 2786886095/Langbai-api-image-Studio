@@ -1,5 +1,5 @@
 globalThis.LANGBAI_GEMINI_SELECTORS = Object.freeze({
-  version: "2026.07.30.2",
+  version: "2026.07.30.3",
   temporaryChat: [
     "Temporary chat", "Start temporary chat", "Turn on temporary chat",
     "临时对话", "临时聊天", "发起临时对话", "发起临时聊天", "开启临时对话", "开启临时聊天",
@@ -25,6 +25,12 @@ globalThis.LANGBAI_GEMINI_SELECTORS = Object.freeze({
     "一時的なチャットで質問", "一時チャットで質問",
     "임시 채팅에서 질문",
   ],
+  temporaryChatActiveCss: [
+    '[data-test-id="temp-chat-button"][aria-pressed="true"]',
+    '[data-test-id="temp-chat-button"][aria-selected="true"]',
+    '[data-test-id="temp-chat-button"][data-state="active"]',
+  ],
+  historyLinkCss: ['a[href*="/app/"]'],
   imageAction: ["Create image", "Generate image", "生成图片", "產生圖片", "画像を生成", "이미지 생성"],
   send: ["Send message", "Submit", "发送", "傳送", "送信", "보내기"],
   fullsize: ["Download full size", "Download original", "下载完整尺寸", "下載完整尺寸", "元のサイズをダウンロード", "전체 크기 다운로드"],

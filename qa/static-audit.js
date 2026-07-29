@@ -35,6 +35,7 @@ const androidChatGptGateway = read("lib/android_chatgpt_gateway.dart");
 const geminiAccountStore = read("lib/gemini_account_store.dart");
 const geminiWebGateway = read("lib/gemini_web_gateway.dart");
 const geminiEmbeddedBrowser = read("lib/gemini_embedded_browser.dart");
+const secureStorageQueue = read("lib/secure_storage_queue.dart");
 const androidBuild = read("android/app/build.gradle");
 const androidSettings = read("android/settings.gradle");
 const androidMainActivity = read("android/app/src/main/kotlin/com/aigen/ai_image_generator/MainActivity.kt");
@@ -55,10 +56,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.7";
-const expectedBuild = 84;
-const expectedCacheToken = "20260730-1-6-7";
-const expectedSwCache = "ai-image-generator-1-6-7-20260730";
+const expectedVersion = "1.6.8";
+const expectedBuild = 85;
+const expectedCacheToken = "20260730-1-6-8";
+const expectedSwCache = "ai-image-generator-1-6-8-20260730";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -72,9 +73,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.7/);
-assert.match(html, /20260730-1-6-7/g);
-assert.match(sw, /ai-image-generator-1-6-7-20260730/);
+assert.match(html, /v1\.6\.8/);
+assert.match(html, /20260730-1-6-8/g);
+assert.match(sw, /ai-image-generator-1-6-8-20260730/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -88,18 +89,18 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,7,84/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.7"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.7";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-7/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,8,85/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.8"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.8";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-8/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
 assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
-assert.match(embeddedGatewayLauncher, /version="1\.6\.7"/);
-assert.match(readme, /^## v1\.6\.7[：:]/m);
-assert.match(handoff, /^# .*v1\.6\.7$/m);
-assert.match(handoff, /源码版本 `1\.6\.7\+84`/);
+assert.match(embeddedGatewayLauncher, /version="1\.6\.8"/);
+assert.match(readme, /^## v1\.6\.8[：:]/m);
+assert.match(handoff, /^# .*v1\.6\.8$/m);
+assert.match(handoff, /源码版本 `1\.6\.8\+85`/);
 assert.match(windowsInstaller, /AppVersion=\{#MyAppVersion\}/);
 assert.match(app, /function isNativeChatGptGatewayWebview\(\)/);
 assert.match(app, /\["windows", "android"\]\.includes\(getRuntimePlatform\(\)\)/);
@@ -137,7 +138,9 @@ assert.match(vendoredWindowsPatches, /bbae6b84cc1f3119327701e187eee53283cae567/)
 assert.match(dartMain, /WinWebViewController/);
 assert.match(dartMain, /WinWebViewWidget/);
 assert.match(dartMain, /_recoverWindowsWebView/);
-assert.match(dartMain, /runJavaScriptReturningResult\('1'\)/);
+assert.match(dartMain, /windowsAppHealthProbeScript/);
+assert.match(dartMain, /_probeWindowsAppHealth/);
+assert.match(dartMain, /health\.healthy/);
 assert.match(dartMain, /--windows-webview-self-test/);
 assert.match(dartMain, /--windows-webview-input-self-test/);
 assert.match(workflow, /Run hidden Windows WebView2 startup smoke test/);
@@ -149,8 +152,13 @@ assert.match(app, /const CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS = 1200000;/);
 assert.match(app, /Date\.now\(\) \+ CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS/);
 assert.match(app, /function restoreSavedConfigurationOnStartup\(\)/);
 assert.match(app, /function initializeApplication\(\)/);
+const initializeApplicationCall = app.search(/\b(?:void\s+)?initializeApplication\(\)(?:\.catch|\s*;)/);
 assert.ok(
-  app.indexOf("const KNOWN_PRICES") < app.indexOf("initializeApplication();"),
+  initializeApplicationCall >= 0,
+  "Application startup must invoke initializeApplication()",
+);
+assert.ok(
+  app.indexOf("const KNOWN_PRICES") < initializeApplicationCall,
   "Saved configuration restoration must run only after KNOWN_PRICES is initialized",
 );
 assert.match(dartMain, /'flutter_webview_windows',\s*'ai_image_generator',\s*\]\.join/);
@@ -191,7 +199,14 @@ assert.match(geminiEmbeddedWorker, /globalThis\.top !== globalThis/);
 assert.match(geminiEmbeddedWorker, /TEMPORARY_CHAT_CHECKPOINT_KEY/);
 assert.match(geminiEmbeddedWorker, /ensureTemporaryChat\(task\)/);
 assert.match(geminiEmbeddedWorker, /findTemporaryChatControl/);
-assert.match(geminiEmbeddedWorker, /does not prove Gemini actually entered Temporary Chat/);
+assert.match(geminiEmbeddedWorker, /activationEvidence/);
+assert.match(geminiEmbeddedWorker, /exitControlVisible/);
+assert.match(geminiEmbeddedWorker, /activeExplanationVisible/);
+assert.doesNotMatch(
+  geminiEmbeddedWorker,
+  /if\s*\(\s*location\.href\s*!==\s*beforeUrl\s*\)\s*(?:return|break)/,
+  "A Gemini URL change must never prove Temporary Chat activation",
+);
 assert.doesNotMatch(app, /GEMINI_WEB_TASK_WAIT_TIMEOUT_MS/);
 const geminiAvailableGetter =
   geminiAccountStore.match(/bool get available =>[\s\S]*?;/)?.[0] || "";
@@ -353,10 +368,17 @@ assert.match(embeddedChatGptGateway, /18081/);
 assert.match(embeddedChatGptGateway, /18100/);
 assert.match(embeddedChatGptGateway, /Process\.start/);
 assert.match(embeddedChatGptGateway, /Future<void> stopAllForUpdate\(\)/);
-assert.match(embeddedChatGptGateway, /taskkill\.exe/);
+assert.match(embeddedChatGptGateway, /gatewayStopByPathPowerShell/);
+assert.match(embeddedChatGptGateway, /Get-CimInstance Win32_Process/);
+assert.match(embeddedChatGptGateway, /ExecutablePath/);
+assert.match(embeddedChatGptGateway, /Stop-Process -Id/);
+assert.doesNotMatch(embeddedChatGptGateway, /taskkill\.exe/);
 assert.match(dartMain, /await _embeddedChatGptGateway\.stopAllForUpdate\(\);\s*await Process\.start\(/s);
 assert.match(windowsInstaller, /function PrepareToInstall/);
-assert.match(windowsInstaller, /\/F \/IM "langbai_chatgpt_gateway\.exe"/);
+assert.match(windowsInstaller, /function StopBundledGateway/);
+assert.match(windowsInstaller, /Get-CimInstance Win32_Process/);
+assert.match(windowsInstaller, /ExecutablePath/);
+assert.match(windowsInstaller, /Stop-Process -Id/);
 assert.match(embeddedGatewayLauncher, /host = "127\.0\.0\.1"/);
 assert.match(embeddedGatewayLauncher, /docs_url=None/);
 assert.match(embeddedGatewayLauncher, /_install_runtime_streams/);
@@ -377,7 +399,10 @@ assert.match(app, /objectStore\(HISTORY_BLOB_STORE\)\.openKeyCursor\(\)/);
 assert.doesNotMatch(app, /generatedStore\.getAllKeys\(\)/);
 assert.match(app, /setTimeout\(\(\) => \{\s*void cleanupGeneratedImageCache\(\)/);
 assert.match(app, /secureStorageMigrationStarted/);
-assert.match(dartMain, /_secureStorageOperationChain/);
+assert.match(dartMain, /secure_storage_queue\.dart/);
+assert.match(secureStorageQueue, /class SecureStorageQueue/);
+assert.match(secureStorageQueue, /static Future<void> _tail/);
+assert.match(secureStorageQueue, /static Future<T> run<T>/);
 assert.doesNotMatch(html, /gemini-3\.1-flash-image/);
 assert.match(app, /compositeInpaintPixels/);
 assert.match(app, /buildInwardFeatherAlpha/);
@@ -415,8 +440,12 @@ for (const file of [
 }
 
 assert.doesNotMatch(app, /HTTP\\s\*\(400\|502|400\/502\/503\/504/);
-assert.match(app, /return \/HTTP\\s\*400\\b\/i\.test\(msg\)/);
-assert.match(app, /pollResp\.status === 504/);
+assert.match(imageTaskStability, /category = ERROR_CATEGORIES\.moderation;[\s\S]*?retryPolicy = "edit_required"/);
+assert.match(imageTaskStability, /status === 400[\s\S]*?category = ERROR_CATEGORIES\.parameters;[\s\S]*?retryPolicy = "edit_required"/);
+assert.match(imageTaskStability, /policy === "after_delay"/);
+assert.match(imageTaskStability, /policy === "manual_limited"/);
+assert.match(imageTaskStability, /policy === "after_probe"/);
+assert.match(app, /\[429,\s*502,\s*503,\s*504\]\.includes\(pollResp\.status\)/);
 assert.match(app, /responseType:\s*"chunkedBase64"/);
 assert.match(dartMain, /nativeFetchBlobChunk/);
 assert.match(dartMain, /final partial = File\('\$\{file\.path\}\.part'\)/);

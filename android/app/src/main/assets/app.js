@@ -10,10 +10,104 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.7";
+const APP_VERSION = "1.6.8";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const STORAGE_RECOVERY_PREFIX = "ai_image_gen_recovery:";
+const browserStorage = (() => {
+  try { return window.localStorage; }
+  catch { return null; }
+})();
+const storageRecoveryIssues = new Map();
+const storageReadOnlyKeys = new Set();
+
+function recordStorageFailure(key, operation, error) {
+  const normalizedKey = String(key || "unknown");
+  const detail = `${operation}: ${String(error?.message || error || "storage unavailable")}`;
+  if (!storageRecoveryIssues.has(normalizedKey)) storageRecoveryIssues.set(normalizedKey, detail);
+  console.warn(`本地存储 ${normalizedKey} ${operation} 失败`, error);
+}
+
+function safeStorageGetItem(key) {
+  try { return browserStorage?.getItem(String(key)) ?? null; }
+  catch (error) {
+    recordStorageFailure(key, "读取", error);
+    return null;
+  }
+}
+
+function safeStorageSetItem(key, value, { force = false } = {}) {
+  const normalizedKey = String(key);
+  if (!force && storageReadOnlyKeys.has(normalizedKey)) {
+    recordStorageFailure(normalizedKey, "写入已阻止", new Error("原始数据损坏，已进入只读恢复状态"));
+    return false;
+  }
+  try {
+    browserStorage?.setItem(normalizedKey, String(value));
+    return !!browserStorage;
+  } catch (error) {
+    recordStorageFailure(normalizedKey, "写入", error);
+    return false;
+  }
+}
+
+function safeStorageRemoveItem(key, { force = false } = {}) {
+  const normalizedKey = String(key);
+  if (!force && storageReadOnlyKeys.has(normalizedKey)) {
+    recordStorageFailure(normalizedKey, "删除已阻止", new Error("原始数据损坏，已进入只读恢复状态"));
+    return false;
+  }
+  try {
+    browserStorage?.removeItem(normalizedKey);
+    return !!browserStorage;
+  } catch (error) {
+    recordStorageFailure(normalizedKey, "删除", error);
+    return false;
+  }
+}
+
+function cloneStorageFallback(value) {
+  if (Array.isArray(value)) return value.map(item => (
+    item && typeof item === "object" ? { ...item } : item
+  ));
+  return value && typeof value === "object" ? { ...value } : value;
+}
+
+function preserveCorruptStorageValue(key, raw, reason) {
+  const normalizedKey = String(key);
+  if (!storageReadOnlyKeys.has(normalizedKey)) {
+    const recoveryKey = `${STORAGE_RECOVERY_PREFIX}${normalizedKey}:${Date.now()}`;
+    safeStorageSetItem(recoveryKey, String(raw ?? ""), { force: true });
+    storageReadOnlyKeys.add(normalizedKey);
+  }
+  recordStorageFailure(normalizedKey, "解析", reason);
+}
+
+function safeStorageReadJson(key, fallback, validate = null) {
+  const raw = safeStorageGetItem(key);
+  if (raw == null || raw === "") return cloneStorageFallback(fallback);
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof validate === "function" && !validate(parsed)) {
+      throw new Error("JSON 结构与预期不符");
+    }
+    return parsed;
+  } catch (error) {
+    preserveCorruptStorageValue(key, raw, error);
+    return cloneStorageFallback(fallback);
+  }
+}
+
+function showStorageRecoveryIssues() {
+  if (!storageRecoveryIssues.size) return;
+  window.__AI_GEN_STORAGE_RECOVERY = Object.freeze({
+    readOnlyKeys: Object.freeze([...storageReadOnlyKeys]),
+    issues: Object.freeze([...storageRecoveryIssues.entries()]),
+  });
+  const keys = [...storageRecoveryIssues.keys()].filter(key => !key.startsWith(STORAGE_RECOVERY_PREFIX));
+  showStatus(`检测到本地数据读取异常，原始值已备份并进入只读恢复状态：${keys.join("、")}`, "error");
+}
 
 function openFileInputOnce(input) {
   if (!input) return;
@@ -35,8 +129,8 @@ function openFileInputOnce(input) {
 const LANG_KEY = "ai_image_gen_language";
 const SUPPORTED_LANGS = ["zh-CN", "zh-Hant", "en", "ja", "ko"];
 const LANGUAGE_LOCALE_TAGS = { "zh-CN": "zh-CN", "zh-Hant": "zh-TW", en: "en-US", ja: "ja-JP", ko: "ko-KR" };
-let currentLanguage = SUPPORTED_LANGS.includes(localStorage.getItem(LANG_KEY))
-  ? localStorage.getItem(LANG_KEY)
+let currentLanguage = SUPPORTED_LANGS.includes(safeStorageGetItem(LANG_KEY))
+  ? safeStorageGetItem(LANG_KEY)
   : "zh-CN";
 let isApplyingLanguage = false;
 
@@ -79,6 +173,22 @@ const I18N = {
   "全局分辨率": { "zh-Hant": "全域解析度", en: "Global Resolution", ja: "全体解像度", ko: "전역 해상도" },
   "横版 3:2": { "zh-Hant": "橫版 3:2", en: "Landscape 3:2", ja: "横長 3:2", ko: "가로 3:2" },
   "竖版 2:3": { "zh-Hant": "直版 2:3", en: "Portrait 2:3", ja: "縦長 2:3", ko: "세로 2:3" },
+  "更多常用尺寸": { "zh-Hant": "更多常用尺寸", en: "More common sizes", ja: "その他の一般的なサイズ", ko: "더 많은 일반 크기" },
+  "官方 2K 方图": { "zh-Hant": "官方 2K 方圖", en: "Official 2K square", ja: "公式 2K 正方形", ko: "공식 2K 정사각형" },
+  "官方 2K 横图": { "zh-Hant": "官方 2K 橫圖", en: "Official 2K landscape", ja: "公式 2K 横長", ko: "공식 2K 가로" },
+  "官方 4K 横图": { "zh-Hant": "官方 4K 橫圖", en: "Official 4K landscape", ja: "公式 4K 横長", ko: "공식 4K 가로" },
+  "官方 4K 竖图": { "zh-Hant": "官方 4K 直圖", en: "Official 4K portrait", ja: "公式 4K 縦長", ko: "공식 4K 세로" },
+  "横屏 16:9": { "zh-Hant": "橫屏 16:9", en: "Landscape 16:9", ja: "横長 16:9", ko: "가로 16:9" },
+  "竖屏 9:16": { "zh-Hant": "直屏 9:16", en: "Portrait 9:16", ja: "縦長 9:16", ko: "세로 9:16" },
+  "2K 竖屏": { "zh-Hant": "2K 直屏", en: "2K portrait", ja: "2K 縦長", ko: "2K 세로" },
+  "QHD 横屏": { "zh-Hant": "QHD 橫屏", en: "QHD landscape", ja: "QHD 横長", ko: "QHD 가로" },
+  "QHD 竖屏": { "zh-Hant": "QHD 直屏", en: "QHD portrait", ja: "QHD 縦長", ko: "QHD 세로" },
+  "横版 4:3": { "zh-Hant": "橫版 4:3", en: "Landscape 4:3", ja: "横長 4:3", ko: "가로 4:3" },
+  "竖版 3:4": { "zh-Hant": "直版 3:4", en: "Portrait 3:4", ja: "縦長 3:4", ko: "세로 3:4" },
+  "横版 5:4": { "zh-Hant": "橫版 5:4", en: "Landscape 5:4", ja: "横長 5:4", ko: "가로 5:4" },
+  "竖版 4:5": { "zh-Hant": "直版 4:5", en: "Portrait 4:5", ja: "縦長 4:5", ko: "세로 4:5" },
+  "桌面 16:10": { "zh-Hant": "桌面 16:10", en: "Desktop 16:10", ja: "デスクトップ 16:10", ko: "데스크톱 16:10" },
+  "竖版 10:16": { "zh-Hant": "直版 10:16", en: "Portrait 10:16", ja: "縦長 10:16", ko: "세로 10:16" },
   "自定义": { "zh-Hant": "自訂", en: "Custom", ja: "カスタム", ko: "사용자 지정" },
   "宽": { "zh-Hant": "寬", en: "W", ja: "幅", ko: "너비" },
   "高": { "zh-Hant": "高", en: "H", ja: "高さ", ko: "높이" },
@@ -1130,6 +1240,7 @@ function applyCleanLanguage() {
   setText("fieldset.field > legend", "resolution");
   setText(".size-option:nth-child(2) small", "landscape");
   setText(".size-option:nth-child(3) small", "portrait");
+  translateElement(document.querySelector(".size-presets-more"));
   setText(".size-custom > span:first-of-type", "custom");
   setAttr("#customWidth", "placeholder", "width");
   setAttr("#customHeight", "placeholder", "height");
@@ -1252,7 +1363,7 @@ function applyCleanLanguage() {
 
 function applyLanguage(lang) {
   currentLanguage = SUPPORTED_LANGS.includes(lang) ? lang : "zh-CN";
-  localStorage.setItem(LANG_KEY, currentLanguage);
+  safeStorageSetItem(LANG_KEY, currentLanguage);
   document.documentElement.lang = currentLanguage;
   document.title = tr("AI 图片生成器");
   if (dom.languageSelect) dom.languageSelect.value = currentLanguage;
@@ -1838,6 +1949,7 @@ const inpaintState = {
   resultDataUrl: "",
 };
 let activeGenerationId = 0;    // 用于丢弃已取消/过期的生成结果
+let activeGenerationRun = null;
 let importedTxtFiles = [];      // { name, content } —— 导入的多个 txt 文件
 let referenceImages = [];       // { file, dataUrl, width, height } —— 多张参考图片
 let generatedImageUrls = [];
@@ -1920,7 +2032,7 @@ function getVisibleBlockingOverlays() {
     .filter(inst => inst.isOpen())
     .map(inst => inst.wrapper.querySelector(".custom-select-list"))
     .filter(Boolean);
-  return [dom.settingsModal, dom.historyModal, dom.bulkPromptModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
+  return [dom.settingsModal, dom.historyModal, dom.bulkPromptModal, dom.inpaintModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
     .filter(isOverlayVisible);
 }
 
@@ -2078,14 +2190,39 @@ function classifyImageApiError(error, extra = {}) {
   return error?.imageError || imageTaskStability.classifyApiError(error, extra);
 }
 
+function geminiProviderUiReason(detail) {
+  const code = String(detail?.code || "").toLowerCase();
+  const language = currentLanguage;
+  const zh = {
+    selector_pack_outdated: "Gemini 网页结构已更新，当前选择器包已经过期，请更新软件后再试。",
+    protocol_changed: "Gemini 网页协议已经变化，当前版本暂时无法继续该任务，请更新软件后再试。",
+    gemini_temporary_chat_unavailable: "Gemini 临时对话入口当前不可用，请确认账号页面已完整加载；该任务不会自动重复提交。",
+    temporary_chat_unverified: "Gemini 临时对话状态未能验证，为避免污染历史记录，该任务已停止且不会自动重复提交。",
+    temporary_chat_guard_failed: "Gemini 临时对话保护检查失败，该任务已停止且不会自动重复提交。",
+  };
+  const en = {
+    selector_pack_outdated: "Gemini changed its web UI and this selector pack is outdated. Update the app before retrying.",
+    protocol_changed: "Gemini changed its web protocol. Update the app before retrying this task.",
+    gemini_temporary_chat_unavailable: "Gemini Temporary Chat is unavailable. The task was stopped and will not be submitted again automatically.",
+    temporary_chat_unverified: "Gemini Temporary Chat could not be verified. The task was stopped without automatic resubmission.",
+    temporary_chat_guard_failed: "The Gemini Temporary Chat guard failed. The task was stopped without automatic resubmission.",
+  };
+  if (language === "en") return en[code] || "";
+  return zh[code] || "";
+}
+
 function formatImageApiError(error, extra = {}) {
   const detail = classifyImageApiError(error, extra);
   const language = IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"];
   const parts = [language[detail.category] || language.unknown];
+  const geminiReason = detail.category === "provider_ui_unavailable"
+    ? geminiProviderUiReason(detail)
+    : "";
+  if (geminiReason) parts.push(geminiReason);
   if (detail.safetyViolations.length) parts.push(`${language.violations}: ${detail.safetyViolations.join(", ")}`);
   if (detail.requiresEdit) parts.push(language.editRequired);
   if (detail.requestId) parts.push(`${language.requestId}: ${detail.requestId}`);
-  if (detail.category !== "moderation_blocked" && detail.originalMessage) parts.push(detail.originalMessage);
+  if (detail.category !== "moderation_blocked" && !geminiReason && detail.originalMessage) parts.push(detail.originalMessage);
   return { detail, message: parts.filter(Boolean).join("。") };
 }
 
@@ -2201,7 +2338,7 @@ function officialCostText(key, vars = {}) {
 
 function loadUsdCnyRateState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(USD_CNY_RATE_KEY) || "{}");
+    const saved = safeStorageReadJson(USD_CNY_RATE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
     const rate = Number(saved.rate);
     if (Number.isFinite(rate) && rate >= 4 && rate <= 10) return { ...saved, rate };
   } catch {}
@@ -2343,7 +2480,7 @@ async function refreshUsdCnyRate({ force = false, announce = false } = {}) {
         fetchedAt: Date.now(),
         source: "ECB/Frankfurter",
       };
-      localStorage.setItem(USD_CNY_RATE_KEY, JSON.stringify(next));
+      safeStorageSetItem(USD_CNY_RATE_KEY, JSON.stringify(next));
       updateOfficialCostSummary();
       if (announce) showStatus(officialCostText("rateUpdated", { rate: rate.toFixed(4) }), "success");
       return next;
@@ -2678,9 +2815,9 @@ function updateSizePolicyUi() {
 
 function getCodexGatewayConcurrency(options = getCodexGatewayOptions()) {
   return Math.max(1, Math.min(
-    100,
+    Number(codexImageGateway.CLIENT_MAX_CONCURRENCY || 20),
     Math.floor(Number(options.clientQueue) || 10),
-    Math.floor(Number(codexGatewayRuntime.snapshot().concurrency) || 100),
+    Math.floor(Number(codexGatewayRuntime.snapshot().concurrency) || 20),
   ));
 }
 
@@ -3269,18 +3406,13 @@ async function checkGeminiHealth({
   return geminiHealthPromise;
 }
 function loadConfig() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const saved = raw ? JSON.parse(raw) : {};
-    if (saved?.endpoint) {
-      const normalized = normalizeApiConfig(saved);
-      if (JSON.stringify(saved) !== JSON.stringify(normalized)) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-      return normalized;
-    }
-    return getDefaultApiConfig() || saved || {};
-  } catch {
-    return getDefaultApiConfig() || {};
+  const saved = safeStorageReadJson(STORAGE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
+  if (saved?.endpoint) {
+    const normalized = normalizeApiConfig(saved);
+    if (JSON.stringify(saved) !== JSON.stringify(normalized)) safeStorageSetItem(STORAGE_KEY, JSON.stringify(normalized));
+    return normalized;
   }
+  return getDefaultApiConfig() || saved || {};
 }
 function secureStorageBridgeAvailable() {
   return window.__AI_GEN_SECURE_STORAGE === true && typeof FlutterDownload !== "undefined" && !!FlutterDownload.postMessage;
@@ -3301,7 +3433,13 @@ function queueSecureStorageOperation(operation) {
 
 function redactStoredApiKey(storageKey, id) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(storageKey) || (storageKey === STORAGE_APIS ? "[]" : "{}"));
+    const parsed = safeStorageReadJson(
+      storageKey,
+      storageKey === STORAGE_APIS ? [] : {},
+      value => storageKey === STORAGE_APIS
+        ? Array.isArray(value)
+        : Boolean(value && typeof value === "object" && !Array.isArray(value)),
+    );
     if (Array.isArray(parsed)) {
       let changed = false;
       parsed.forEach(item => {
@@ -3311,11 +3449,11 @@ function redactStoredApiKey(storageKey, id) {
           changed = true;
         }
       });
-      if (changed) localStorage.setItem(storageKey, JSON.stringify(parsed));
+      if (changed) safeStorageSetItem(storageKey, JSON.stringify(parsed));
     } else if (parsed?.id === id && parsed.apiKey) {
       parsed.apiKey = "";
       parsed.hasSecureKey = true;
-      localStorage.setItem(storageKey, JSON.stringify(parsed));
+      safeStorageSetItem(storageKey, JSON.stringify(parsed));
     }
   } catch (err) {
     console.warn("API Key 本地记录脱敏失败", err);
@@ -3334,13 +3472,12 @@ function persistApiKeySecurely(config, storageKey) {
 
 function saveConfig(config) {
   const normalized = normalizeApiConfig(config);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  safeStorageSetItem(STORAGE_KEY, JSON.stringify(normalized));
   persistApiKeySecurely(normalized, STORAGE_KEY);
 }
 function clearConfig() {
-  let id = "";
-  try { id = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").id || ""; } catch {}
-  localStorage.removeItem(STORAGE_KEY);
+  const id = safeStorageReadJson(STORAGE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value)).id || "";
+  safeStorageRemoveItem(STORAGE_KEY);
   if (id && secureStorageBridgeAvailable()) {
     void queueSecureStorageOperation(() => nativeDownload.deleteSecret(secureApiKeyName(id))).catch(() => {});
   }
@@ -3389,12 +3526,12 @@ function normalizeApiConfig(config = {}) {
 }
 
 function loadDefaultApiId() {
-  return localStorage.getItem(DEFAULT_API_KEY) || "";
+  return safeStorageGetItem(DEFAULT_API_KEY) || "";
 }
 
 function saveDefaultApiId(id) {
-  if (id) localStorage.setItem(DEFAULT_API_KEY, id);
-  else localStorage.removeItem(DEFAULT_API_KEY);
+  if (id) safeStorageSetItem(DEFAULT_API_KEY, id);
+  else safeStorageRemoveItem(DEFAULT_API_KEY);
 }
 
 function getDefaultApiConfig() {
@@ -3479,7 +3616,7 @@ function applyApiProvider(provider = "custom", options = {}) {
   syncCodexGatewayGenerateAvailability();
 }
 
-function applyConfig(cfg) {
+async function applyConfig(cfg) {
   const normalized = normalizeApiConfig(cfg || {});
   const applySequence = ++apiConfigApplySequence;
   const endpoint = normalized.endpoint || API_PROVIDER_PRESETS[normalized.apiProvider || "grsai"]?.endpoint || "";
@@ -3490,15 +3627,23 @@ function applyConfig(cfg) {
   dom.apiKey.value = localGateway ? "" : (normalized.apiKey || "");
   if (!localGateway && !normalized.apiKey && normalized.hasSecureKey && normalized.id) {
     const expectedId = normalized.id;
-    setTimeout(() => {
-      if (!secureStorageBridgeAvailable()) return;
-      void queueSecureStorageOperation(() => nativeDownload.loadSecret(secureApiKeyName(expectedId))).then(value => {
+    if (secureStorageBridgeAvailable()) {
+      try {
+        const value = await queueSecureStorageOperation(() => nativeDownload.loadSecret(secureApiKeyName(expectedId)));
         const active = loadConfig();
-        if (applySequence !== apiConfigApplySequence || active.id !== expectedId || !value || dom.apiKey.value.trim()) return;
-        dom.apiKey.value = String(value);
-        updateApiQuickState();
-      }).catch(err => console.warn("系统安全存储读取 API Key 失败", err));
-    }, 0);
+        const selectedId = String(dom.savedApis?.value || "");
+        if (
+          applySequence === apiConfigApplySequence
+          && (active.id === expectedId || selectedId === expectedId)
+          && value
+          && !dom.apiKey.value.trim()
+        ) {
+          dom.apiKey.value = String(value);
+        }
+      } catch (err) {
+        console.warn("系统安全存储读取 API Key 失败", err);
+      }
+    }
   }
   dom.model.value = normalized.model || "";
   applyOfficialImageOptions(normalized.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
@@ -3667,33 +3812,27 @@ function apiProfileRepairMessage(names = []) {
 }
 
 function loadAllApis() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]");
-    if (!Array.isArray(raw)) return [];
-    let migrated = false;
-    const normalized = raw.map(item => {
-      if (!item?.id) migrated = true;
-      if (["opencodex", "custom"].includes(item?.apiProvider || item?.provider) && inferApiProvider(item?.endpoint || "") === CODEX_IMAGE_GATEWAY_PROVIDER) migrated = true;
-      return normalizeApiConfig(item);
-    });
-    let activeConfig = {};
-    try { activeConfig = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
-    const repair = repairDuplicateApiConfigIds(normalized, activeConfig);
-    if (repair.changed) {
-      migrated = true;
-      apiProfileRepairNotice = repair.resetProfiles;
-    }
-    if (migrated) localStorage.setItem(STORAGE_APIS, JSON.stringify(repair.configs));
-    return repair.configs;
+  const raw = safeStorageReadJson(STORAGE_APIS, [], Array.isArray);
+  let migrated = false;
+  const normalized = raw.map(item => {
+    if (!item?.id) migrated = true;
+    if (["opencodex", "custom"].includes(item?.apiProvider || item?.provider) && inferApiProvider(item?.endpoint || "") === CODEX_IMAGE_GATEWAY_PROVIDER) migrated = true;
+    return normalizeApiConfig(item);
+  });
+  const activeConfig = safeStorageReadJson(STORAGE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
+  const repair = repairDuplicateApiConfigIds(normalized, activeConfig);
+  if (repair.changed) {
+    migrated = true;
+    apiProfileRepairNotice = repair.resetProfiles;
   }
-  catch { return []; }
+  if (migrated) safeStorageSetItem(STORAGE_APIS, JSON.stringify(repair.configs));
+  return repair.configs;
 }
 function saveAllApis(list) {
   const normalized = (list || []).map(normalizeApiConfig);
-  let activeConfig = {};
-  try { activeConfig = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+  const activeConfig = safeStorageReadJson(STORAGE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
   const repaired = repairDuplicateApiConfigIds(normalized, activeConfig).configs;
-  localStorage.setItem(STORAGE_APIS, JSON.stringify(repaired));
+  safeStorageSetItem(STORAGE_APIS, JSON.stringify(repaired));
   repaired.forEach(config => persistApiKeySecurely(config, STORAGE_APIS));
 }
 
@@ -3701,9 +3840,9 @@ function renderSavedApis() {
   const apis = loadAllApis();
   const defaultId = loadDefaultApiId();
   dom.savedApis.innerHTML = `<option value="">${cleanText("manualApi")}</option>`;
-  apis.forEach((api, index) => {
+  apis.forEach(api => {
     const opt = document.createElement("option");
-    opt.value = String(index);
+    opt.value = String(api.id);
     opt.dataset.apiId = api.id;
     const provider = api.apiProvider || api.provider || inferApiProvider(api.endpoint || "");
     opt.textContent = `${api.id === defaultId ? "★ " : ""}${apiProviderLabel(provider)} · ${api.name || api.endpoint}`;
@@ -3733,7 +3872,7 @@ function keepApiConfigVisible() {
   dom.configSection.scrollIntoView?.({ block: "start", inline: "nearest" });
 }
 
-dom.savedApis.addEventListener("change", () => {
+dom.savedApis.addEventListener("change", async () => {
   const selectedId = dom.savedApis.value;
   if (selectedId === "") {
     detachSavedApiProfile();
@@ -3744,7 +3883,7 @@ dom.savedApis.addEventListener("change", () => {
   const apis = loadAllApis();
   const api = apis[findSavedApiIndex(selectedId, apis)];
   if (api) {
-    applyConfig(api);
+    await applyConfig(api);
     saveConfig(api);
     showStatus(`已切换: ${api.name || api.endpoint}`, "info");
     updateApiQuickState();
@@ -3768,14 +3907,14 @@ dom.saveConfig.addEventListener("click", async () => {
   saveAllApis(apis);
   saveConfig(cfg);
   renderSavedApis();
-  dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  dom.savedApis.value = String(cfg.id);
   customSelects.savedApis?.syncLabel();
   showStatus(`已保存: ${cfg.name} ✅`, "success");
   keepApiConfigVisible();
   updateApiQuickState();
 });
 
-dom.setDefaultApi?.addEventListener("click", () => {
+dom.setDefaultApi?.addEventListener("click", async () => {
   let apis = loadAllApis();
   let cfg = apis[findSavedApiIndex(dom.savedApis.value, apis)];
   if (!cfg) {
@@ -3797,9 +3936,9 @@ dom.setDefaultApi?.addEventListener("click", () => {
   }
   saveDefaultApiId(cfg.id);
   saveConfig(cfg);
-  applyConfig(cfg);
+  await applyConfig(cfg);
   renderSavedApis();
-  dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  dom.savedApis.value = String(cfg.id);
   customSelects.savedApis?.syncLabel();
   showStatus(`已设为默认 API: ${cfg.name}`, "success");
   keepApiConfigVisible();
@@ -3894,7 +4033,7 @@ function persistCurrentProviderOptions() {
   apis[index] = cfg;
   saveAllApis(apis);
   renderSavedApis();
-  dom.savedApis.value = String(findSavedApiIndex(cfg.id, loadAllApis()));
+  dom.savedApis.value = String(cfg.id);
   customSelects.savedApis?.syncLabel();
 }
 
@@ -4700,11 +4839,11 @@ function applyTheme(theme) {
   dom.themeToggle.innerHTML = icon(theme === "light" ? "sun" : "moon");
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) themeMeta.setAttribute("content", theme === "light" ? "#eef2fb" : "#121417");
-  localStorage.setItem(THEME_KEY, theme);
+  safeStorageSetItem(THEME_KEY, theme);
 }
 
 // 初始化主题（默认深色）
-const savedTheme = localStorage.getItem(THEME_KEY) || "dark";
+const savedTheme = safeStorageGetItem(THEME_KEY) || "dark";
 applyTheme(savedTheme);
 
 dom.themeToggle.addEventListener("click", () => {
@@ -4722,23 +4861,11 @@ const DESKTOP_PROXY_PRESETS = {
 };
 
 function loadSettings() {
-  try {
-    return {
-      historyEnabled: true,
-      historyLimit: 100,
-      cacheRetentionDays: 7,
-      imageAskEveryTime: false,
-      zipAskEveryTime: false,
-      retryCount: 3,
-      grsaiSubmit504RetryCount: 2,
-      grsaiSubmit504RetryInterval: 30,
-      desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE,
-      desktopProxyCustomUrl: "",
-      ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")
-    };
-  } catch {
-    return { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, retryCount: 3, grsaiSubmit504RetryCount: 2, grsaiSubmit504RetryInterval: 30, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
-  }
+  const defaults = { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, retryCount: 3, grsaiSubmit504RetryCount: 2, grsaiSubmit504RetryInterval: 30, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
+  return {
+    ...defaults,
+    ...safeStorageReadJson(SETTINGS_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value)),
+  };
 }
 
 function saveSettings(next = {}) {
@@ -4753,7 +4880,7 @@ function saveSettings(next = {}) {
   merged.grsaiSubmit504RetryInterval = clampGrsaiSubmit504RetryInterval(merged.grsaiSubmit504RetryInterval);
   merged.desktopProxyMode = normalizeDesktopProxyMode(merged.desktopProxyMode);
   merged.desktopProxyCustomUrl = String(merged.desktopProxyCustomUrl || "").trim();
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  safeStorageSetItem(SETTINGS_KEY, JSON.stringify(merged));
   applySettings(merged);
   return merged;
 }
@@ -5004,7 +5131,15 @@ function closeModal(modal) {
   updateBodyScrollLock();
   const returnFocus = modal._returnFocus;
   modal._returnFocus = null;
-  if (returnFocus?.isConnected) requestAnimationFrame(() => returnFocus.focus());
+  if (returnFocus?.isConnected) {
+    const restoreFocus = () => {
+      if (!returnFocus.isConnected || returnFocus.disabled) return;
+      try { returnFocus.focus({ preventScroll: true }); }
+      catch { returnFocus.focus(); }
+    };
+    restoreFocus();
+    requestAnimationFrame(restoreFocus);
+  }
 }
 
 document.addEventListener("keydown", event => {
@@ -5212,6 +5347,13 @@ document.addEventListener("scroll", closeTextContextMenu, true);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   closeTextContextMenu();
+  if (isOverlayVisible(dom.inpaintModal)) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    inpaintState.abortController?.abort();
+    closeModal(dom.inpaintModal);
+    return;
+  }
   closeModal(dom.settingsModal);
   closeModal(dom.historyModal);
 });
@@ -5386,8 +5528,8 @@ async function checkForUpdates(options = {}) {
     const isNewer = compareVersions(latest, APP_VERSION) > 0;
     const info = { release, latest, isNewer };
     try {
-      const state = JSON.parse(localStorage.getItem(UPDATE_CHECK_STATE_KEY) || "{}");
-      localStorage.setItem(UPDATE_CHECK_STATE_KEY, JSON.stringify({ ...state, lastCheckedAt: Date.now() }));
+      const state = safeStorageReadJson(UPDATE_CHECK_STATE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
+      safeStorageSetItem(UPDATE_CHECK_STATE_KEY, JSON.stringify({ ...state, lastCheckedAt: Date.now() }));
     } catch {}
     setLatestUpdateInfo(info);
     const message = isNewer
@@ -6025,21 +6167,15 @@ function parseSizeValue(size) {
 }
 
 function loadSavedSizes() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(SAVED_SIZES_KEY) || "[]");
-    return Array.isArray(raw)
-      ? raw.map(item => {
-          const parsed = parseSizeValue(item.value);
-          return parsed ? { name: item.name || parsed.value.replace("x", "×"), value: parsed.value } : null;
-        }).filter(Boolean)
-      : [];
-  } catch {
-    return [];
-  }
+  const raw = safeStorageReadJson(SAVED_SIZES_KEY, [], Array.isArray);
+  return raw.map(item => {
+    const parsed = parseSizeValue(item.value);
+    return parsed ? { name: item.name || parsed.value.replace("x", "×"), value: parsed.value } : null;
+  }).filter(Boolean);
 }
 
 function saveSavedSizes(list) {
-  localStorage.setItem(SAVED_SIZES_KEY, JSON.stringify(list));
+  safeStorageSetItem(SAVED_SIZES_KEY, JSON.stringify(list));
 }
 
 function renderSavedSizes() {
@@ -6755,18 +6891,55 @@ function beginGeneration() {
   dom.generateBtn.disabled = false;
   dom.generateBtn.classList.add("is-cancel");
   setButtonText(dom.generateBtn, "x", "cancelGeneration");
-  return {
+  let resolveSettled;
+  const run = {
     id: activeGenerationId,
     signal: abortController.signal,
+    cards: new Set(),
+    projectId: "",
+    settled: false,
+    settledPromise: new Promise(resolve => { resolveSettled = resolve; }),
+    resolveSettled,
   };
+  activeGenerationRun = run;
+  return run;
 }
 
 function isGenerationCurrent(run) {
   return !!run && run.id === activeGenerationId && !run.signal?.aborted;
 }
 
+function completeGenerationRun(run) {
+  if (!run || run.settled) return;
+  run.settled = true;
+  run.resolveSettled?.();
+  if (activeGenerationRun === run) activeGenerationRun = null;
+  retryAllFailedRun?.pump?.();
+}
+
+async function settlePendingGenerationCards(run, message = "已取消生成") {
+  if (!run?.cards) return;
+  const checkpointUpdates = [];
+  run.cards.forEach(card => {
+    if (!card?.isConnected || !["loading", "queued", "pending"].includes(String(card.dataset.status || ""))) return;
+    card._cardRetryAbortController?.abort();
+    const context = card._retryContext || {};
+    const panelId = context.panelId || card.dataset.panelId || "取消";
+    markPlaceholderFailed(card, panelId, message, context);
+    card.dataset.status = "canceled";
+    if (context.projectId) {
+      checkpointUpdates.push(updateProjectCheckpoint(context.projectId, panelId, {
+        status: "canceled",
+        error: message,
+      }));
+    }
+  });
+  await Promise.allSettled(checkpointUpdates);
+}
+
 function stopCurrentGeneration(message = "") {
   cancelRetryAllFailedRun({ announce: false });
+  const stoppedRun = activeGenerationRun;
   activeGenerationId++;
   if (abortController) {
     abortController.abort();
@@ -6777,6 +6950,8 @@ function stopCurrentGeneration(message = "") {
   updateProgress(0, 0, "");
   resetGenerateButton();
   if (message) showStatus(message, "info");
+  void settlePendingGenerationCards(stoppedRun, message || "已取消生成")
+    .finally(() => completeGenerationRun(stoppedRun));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -6935,7 +7110,7 @@ async function pollCodexGatewayTask(taskId, { signal = null, requested, requestA
           err?.name === "AbortError"
           || err?.gatewayTaskTerminal === true
           || err?.imageError?.retryPolicy === "edit_required"
-          || [400, 401, 403, 413, 422].includes(status)
+          || [400, 401, 403, 404, 413, 422].includes(status)
         ) throw err;
         lastNetworkError = err;
       }
@@ -7338,7 +7513,7 @@ async function pollGeminiGatewayTask(taskId, {
         if (
           error?.name === "AbortError"
           || error?.gatewayTaskTerminal === true
-          || [400, 401, 403, 413, 422].includes(status)
+          || [400, 401, 403, 404, 413, 422].includes(status)
         ) throw error;
         // The task may still be running in the browser. Keep polling the same
         // task ID after transient 5xx/timeout/connection failures and never
@@ -7514,6 +7689,50 @@ async function grsaiReadJsonResponse(response) {
   catch { return { error: text.slice(0, 300) }; }
 }
 
+async function pollGrsaiTaskById(base, apiKey, taskId, { signal = null, announce = true } = {}) {
+  let transientCount = 0;
+  let nextPollDelay = GRSAI_POLL_INTERVAL_MS;
+  while (true) {
+    await sleep(nextPollDelay, signal);
+    nextPollDelay = GRSAI_POLL_INTERVAL_MS;
+    const pollResp = await smartFetch(`${base}/v1/api/result?id=${encodeURIComponent(taskId)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal,
+    });
+    const data = await grsaiReadJsonResponse(pollResp);
+    if (!pollResp.ok) {
+      if ([429, 502, 503, 504].includes(pollResp.status)) {
+        transientCount++;
+        nextPollDelay = Math.min(
+          GRSAI_POLL_GATEWAY_DELAY_MAX_MS,
+          2000 * Math.pow(2, Math.min(transientCount - 1, 4)),
+        );
+        if (announce) {
+          showStatus(`GrsAI 查询暂时返回 HTTP ${pollResp.status}，${Math.ceil(nextPollDelay / 1000)} 秒后继续查询同一任务（第 ${transientCount} 次）…`, "info");
+        }
+        continue;
+      }
+      const error = new Error(`HTTP ${pollResp.status}: ${grsaiStatusError(data)}`);
+      error.status = pollResp.status;
+      error.code = String(data?.code || (pollResp.status === 404 ? "task_not_found" : ""));
+      throw makeImageApiError(error);
+    }
+    transientCount = 0;
+    if (data.progress != null && announce) showStatus(`GrsAI 生成中… ${data.progress}%`, "info");
+    if (data.status === "succeeded") {
+      const urls = grsaiResultUrls(data);
+      if (!urls.length) throw makeImageApiError(Object.assign(new Error("GrsAI 返回成功但无图片 URL"), { status: 502, code: "empty_result" }));
+      return { data: urls.map(url => ({ url })), _grsaiTaskId: String(taskId) };
+    }
+    if (data.status === "failed" || data.status === "violation") {
+      const error = new Error(`GrsAI 生成失败: ${grsaiStatusError(data)}`);
+      error.status = Number(data?.status_code || (data.status === "violation" ? 400 : 502));
+      error.code = String(data?.code || data.status || "");
+      throw makeImageApiError(error);
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  GrsAI 适配器
 // ═══════════════════════════════════════════════════════════
@@ -7549,32 +7768,11 @@ registerAdapter({
     console.log(`GrsAI 请求: model=${model} size=${size} hasRef=${hasRef} refs=${refs.length}`);
 
     const t0 = Date.now();
-    let res;
-    const submit504Policy = getGrsaiSubmit504RetryPolicy();
-    let submit504Retries = 0;
-    while (true) {
-      throwIfAborted(signal);
-      try {
-        res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
-        break;
-      } catch (err) {
-        if (!/HTTP\s*504\b/i.test(String(err?.message || err || ""))) throw err;
-        if (submit504Retries >= submit504Policy.maxRetries) {
-          throw new Error(interpolate(cleanText("grsaiSubmit504Exhausted"), { count: submit504Retries }));
-        }
-        submit504Retries++;
-        for (let remainingSeconds = submit504Policy.intervalSeconds; remainingSeconds > 0; remainingSeconds--) {
-          options.onSubmit504Retry?.({
-            retryIndex: submit504Retries,
-            maxRetries: submit504Policy.maxRetries,
-            intervalSeconds: submit504Policy.intervalSeconds,
-            remainingSeconds,
-            error: err,
-          });
-          await sleep(1000, signal);
-        }
-      }
-    }
+    // A submission-side 504 has an unknown outcome: the provider may have
+    // accepted the paid task without returning its ID. Never repeat this POST
+    // automatically. Other structured transient errors are handled by the
+    // outer retry policy.
+    let res = await apiFetch(`${base}/v1/api/generate`, apiKey, body, { signal, nativeTimeoutMs: null });
     let data = res;
     console.log(`GrsAI /api/generate 响应 (${Date.now() - t0}ms):`, data.status);
 
@@ -7586,41 +7784,20 @@ registerAdapter({
     if (data.status === "running") {
       const taskId = data.id;
       if (!taskId) throw new Error("GrsAI 未返回任务 ID");
+      await options.onTaskSubmitted?.({
+        id: String(taskId),
+        status: "running",
+        submittedAt: new Date().toISOString(),
+        provider: "grsai",
+      });
       // 故意不设轮询次数上限——用户明确要求生图请求不设时长限制，让它想等多久就等多久。
       // 这个循环本身很轻量（每 2 秒一次的状态查询，不是持续占用一个大请求），唯一的退出方式
       // 是拿到终态（succeeded/failed/violation）或者用户主动点"停止生成"（signal 触发 abort，
       // sleep()/smartFetch() 都会据此抛出，从这里往外冒泡）。
-      let gatewayTimeouts = 0;
-      let nextPollDelay = GRSAI_POLL_INTERVAL_MS;
-      while (true) {
-        await sleep(nextPollDelay, signal);
-        nextPollDelay = GRSAI_POLL_INTERVAL_MS;
-        const pollResp = await smartFetch(`${base}/v1/api/result?id=${taskId}`, {
-          headers: { "Authorization": `Bearer ${apiKey}` },
-          signal,
-        });
-        res = await grsaiReadJsonResponse(pollResp);
-        if (!pollResp.ok) {
-          if (pollResp.status === 504) {
-            gatewayTimeouts++;
-            const delay = Math.min(
-              GRSAI_POLL_GATEWAY_DELAY_MAX_MS,
-              2000 * Math.pow(2, Math.min(gatewayTimeouts - 1, 4)),
-            );
-            showStatus(`GrsAI 查询暂时返回 HTTP 504，${Math.ceil(delay / 1000)} 秒后继续查询（第 ${gatewayTimeouts} 次）…`, "info");
-            nextPollDelay = delay;
-            continue;
-          }
-          throw new Error(`轮询失败 HTTP ${pollResp.status}: ${grsaiStatusError(res)}`);
-        }
-        gatewayTimeouts = 0;
-        data = res;
-        if (data.progress != null) showStatus(`GrsAI 生成中… ${data.progress}%`, "info");
-        if (data.status === "succeeded") { clearStatus(); console.log(`GrsAI 完成 (${Date.now() - t0}ms)`); break; }
-        if (data.status === "failed" || data.status === "violation") {
-          throw new Error(`GrsAI 生成失败: ${grsaiStatusError(data)}`);
-        }
-      }
+      const result = await pollGrsaiTaskById(base, apiKey, taskId, { signal });
+      clearStatus();
+      console.log(`GrsAI 完成 (${Date.now() - t0}ms)`);
+      return result;
     }
 
     if (data.status === "violation") {
@@ -7662,9 +7839,9 @@ function validateOfficialImageSize(model, size) {
   }
 }
 
-function buildOfficialImageRequestOptions(model, size, hasRef) {
+function buildOfficialImageRequestOptions(model, size, hasRef, requestedOptions = null) {
   validateOfficialImageSize(model, size);
-  const selected = getOfficialImageOptions();
+  const selected = normalizeOfficialImageOptions(requestedOptions || getOfficialImageOptions());
   const family = officialImageModelFamily(model);
   const options = {
     quality: selected.quality,
@@ -7705,6 +7882,30 @@ async function readOfficialApiError(response) {
   } catch {
     return text.slice(0, 300) || `HTTP ${response.status}`;
   }
+}
+
+async function makeResponseImageApiError(response, prefix = "图片请求失败") {
+  const text = await response.text().catch(() => "");
+  let payload = null;
+  try { payload = text ? JSON.parse(text) : null; } catch {}
+  const apiError = payload?.error && typeof payload.error === "object" ? payload.error : payload;
+  const reason = apiError?.message || apiError?.error || payload?.message || text || response.statusText || prefix;
+  const raw = new Error(`${prefix} (HTTP ${response.status})：${String(reason).slice(0, 500)}`);
+  raw.status = Number(response.status || 0);
+  raw.code = String(apiError?.code || payload?.code || "");
+  raw.requestId = String(
+    response.headers.get("x-request-id")
+    || response.headers.get("request-id")
+    || payload?.request_id
+    || apiError?.request_id
+    || "",
+  );
+  raw.safety_violations = apiError?.safety_violations || payload?.safety_violations || [];
+  return makeImageApiError(raw);
+}
+
+function shouldSendLegacyResponseFormat(model) {
+  return officialImageModelFamily(model) !== "gpt-image-2";
 }
 
 registerAdapter({
@@ -7773,7 +7974,7 @@ registerAdapter({
     if (officialMask && (Number(officialMask.width) !== Number(refs[0]?.width) || Number(officialMask.height) !== Number(refs[0]?.height))) {
       throw new Error("OpenAI 局部重绘要求原图与蒙版尺寸完全一致。");
     }
-    const officialOptions = buildOfficialImageRequestOptions(model, size, hasRef);
+    const officialOptions = buildOfficialImageRequestOptions(model, size, hasRef, options.officialImageOptions);
     if (!hasRef || refs.length === 0) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       const data = await apiFetch(url, apiKey, { model, prompt, n, size, ...officialOptions }, { signal, nativeTimeoutMs: null });
@@ -7812,8 +8013,7 @@ registerAdapter({
       nativeTimeoutMs: null,
     });
     if (!response.ok) {
-      const reason = await readOfficialApiError(response);
-      throw new Error(`OpenAI 图片编辑失败 (HTTP ${response.status})：${reason}`);
+      throw await makeResponseImageApiError(response, "OpenAI 图片编辑失败");
     }
     return decorateOfficialImageResponse(await response.json(), officialOptions.output_format, model, true);
   },
@@ -7890,8 +8090,7 @@ registerAdapter({
       nativeTimeoutMs: null,
     });
     if (!resp.ok) {
-      const t = await resp.text().catch(() => "");
-      throw new Error(`edits 端点不支持 (HTTP ${resp.status})。该模型可能不支持参考图编辑，请去掉参考图或换用其他模型。\n${t.slice(0, 300)}`);
+      throw await makeResponseImageApiError(resp, "Jeniya 图片编辑失败");
     }
     return resp.json();
   },
@@ -7957,14 +8156,16 @@ registerAdapter({
     if (!hasRef || refs.length === 0) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       console.log(`OpenAI → generations model=${model}`);
-      return apiFetch(url, apiKey, { model, prompt, n, size, response_format: "b64_json" }, { signal, nativeTimeoutMs: null });
+      const body = { model, prompt, n, size };
+      if (shouldSendLegacyResponseFormat(model)) body.response_format = "b64_json";
+      return apiFetch(url, apiKey, body, { signal, nativeTimeoutMs: null });
     }
 
     const url = normalizeApiUrl(endpoint, "images/edits");
     const fd = new FormData();
     fd.append("model", model); fd.append("prompt", prompt);
     fd.append("n", String(n)); fd.append("size", size);
-    fd.append("response_format", "b64_json");
+    if (shouldSendLegacyResponseFormat(model)) fd.append("response_format", "b64_json");
     for (const ref of refs) {
       fd.append("image", dataUrlToBlob(ref.dataUrl), ref.fileName || "reference.png");
     }
@@ -7978,8 +8179,7 @@ registerAdapter({
       nativeTimeoutMs: null,
     });
     if (!resp.ok) {
-      const t = await resp.text().catch(() => "");
-      throw new Error(`edits 端点不支持 (HTTP ${resp.status})。该模型可能不支持参考图编辑，请去掉参考图或换用其他模型。\n${t.slice(0, 300)}`);
+      throw await makeResponseImageApiError(resp, "兼容 API 图片编辑失败");
     }
     return resp.json();
   },
@@ -7989,10 +8189,7 @@ registerAdapter({
 //  API 调用核心（适配器路由）
 // ═══════════════════════════════════════════════════════════
 
-async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", options = {}) {
-  const signal = options.signal || null;
-  const requestedMaxRetries = clampRetryCount(options.maxRetries, getGlobalRetryCount());
-  throwIfAborted(signal);
+function captureApiRequestSnapshot() {
   const endpoint = dom.apiEndpoint.value.trim();
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   const apiKey = provider === CODEX_IMAGE_GATEWAY_PROVIDER
@@ -8000,7 +8197,37 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     : provider === GEMINI_WEB_PROVIDER
       ? (geminiCredentials?.apiKey || "")
       : dom.apiKey.value.trim();
-  const model    = dom.model.value.trim() || "gpt-image-2";
+  const model = dom.model.value.trim() || "gpt-image-2";
+  const snapshot = {
+    provider,
+    endpoint,
+    apiKey,
+    model,
+    useOrigSize: dom.useOrigSize.checked === true,
+    officialImageOptions: provider === "official" ? { ...getOfficialImageOptions() } : null,
+    codexGatewayOptions: provider === CODEX_IMAGE_GATEWAY_PROVIDER ? { ...getCodexGatewayOptions() } : null,
+    geminiWebOptions: provider === GEMINI_WEB_PROVIDER ? { ...getGeminiWebOptions() } : null,
+  };
+  snapshot.providerConcurrency = getProviderConcurrency(snapshot);
+  return Object.freeze(snapshot);
+}
+
+function requireImageApiResult(result) {
+  const images = Array.isArray(result?.data) ? result.data : [];
+  const hasImage = images.some(item => Boolean(item?.b64_json || item?.url));
+  if (hasImage) return result;
+  throw makeImageApiError(Object.assign(
+    new Error("HTTP 502: Image provider returned HTTP 200 without image data."),
+    { status: 502, code: "empty_image_result" },
+  ));
+}
+
+async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", options = {}) {
+  const signal = options.signal || null;
+  const requestedMaxRetries = clampRetryCount(options.maxRetries, getGlobalRetryCount());
+  throwIfAborted(signal);
+  const apiSnapshot = options.apiSnapshot || captureApiRequestSnapshot();
+  const { endpoint, provider, apiKey, model } = apiSnapshot;
   const refs     = Array.isArray(options.references) ? dedupeReferences(options.references) : referenceImages;
   const hasRef   = refs.length > 0;
   const maxRetries = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(provider) ? 0 : requestedMaxRetries;
@@ -8009,7 +8236,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   console.log(`callImageAPI: provider=${provider} adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
 
   let finalSize = size;
-  if (!options.preserveRequestedSize && dom.useOrigSize.checked && hasRef) {
+  if (!options.preserveRequestedSize && apiSnapshot.useOrigSize && hasRef) {
     const ref = refs[0];
     if (ref.width && ref.height) finalSize = `${ref.width}x${ref.height}`;
   }
@@ -8019,12 +8246,15 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     if (!adapter) {
       const url = normalizeApiUrl(endpoint, "images/generations");
       if (hasRef) console.warn("⚠ 无适配器匹配 + 有参考图：参考图将被忽略，仅走 generations 端点");
-      return apiFetch(url, apiKey, { model, prompt, n, size: finalSize, response_format: "b64_json" }, { signal, nativeTimeoutMs: null });
+      const body = { model, prompt, n, size: finalSize };
+      if (shouldSendLegacyResponseFormat(model)) body.response_format = "b64_json";
+      return requireImageApiResult(await apiFetch(url, apiKey, body, { signal, nativeTimeoutMs: null }));
     }
-    return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
+    return requireImageApiResult(await adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
       signal,
-      codexGatewayOptions: options.codexGatewayOptions,
-      geminiWebOptions: options.geminiWebOptions,
+      codexGatewayOptions: options.codexGatewayOptions || apiSnapshot.codexGatewayOptions,
+      geminiWebOptions: options.geminiWebOptions || apiSnapshot.geminiWebOptions,
+      officialImageOptions: options.officialImageOptions || apiSnapshot.officialImageOptions,
       onTaskSubmitted: options.onTaskSubmitted,
       officialMask: options.officialMask,
       onSubmit504Retry: ({ retryIndex, maxRetries, intervalSeconds, remainingSeconds }) => {
@@ -8037,7 +8267,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
           options.onRetryAttempt?.({ retryIndex, maxRetries, statusLabel: "HTTP 504" });
         }
       },
-    });
+    }));
   }, {
     signal,
     maxRetries,
@@ -8050,11 +8280,12 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   });
 }
 
-function isTransientApiError(err) {
-  const msg = String(err?.message || err || "");
-  // 产品规则是精确的：只有供应商返回 HTTP 400 才自动重试。任何成功图片都会直接 return，
-  // 其它状态码和网络错误立即交给用户处理，避免把不可恢复的失败重复提交多轮。
-  return /HTTP\s*400\b/i.test(msg);
+function getAutomaticRetryDirective(err, options = {}) {
+  return imageTaskStability.retryDirective(classifyImageApiError(err), {
+    attempt: options.attempt || 1,
+    baseDelayMs: options.baseDelayMs ?? 1500,
+    phase: options.phase || "submit",
+  });
 }
 
 async function retryTransient(fn, options = {}) {
@@ -8070,9 +8301,15 @@ async function retryTransient(fn, options = {}) {
     } catch (err) {
       lastErr = err;
       if (err?.name === "AbortError") throw err;
-      if (attempt > maxRetries || !isTransientApiError(err)) throw err;
-      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 600);
-      onRetry?.({ retryIndex: attempt, maxRetries, nextAttempt: attempt + 1, delay, error: err });
+      if (err?.gatewayTaskTerminal === true) throw err;
+      const directive = getAutomaticRetryDirective(err, {
+        attempt,
+        baseDelayMs: baseDelay,
+        phase: options.phase || "submit",
+      });
+      if (attempt > maxRetries || !directive.retryable) throw err;
+      const delay = directive.delayMs + Math.floor(Math.random() * Math.min(600, Math.max(0, baseDelay)));
+      onRetry?.({ retryIndex: attempt, maxRetries, nextAttempt: attempt + 1, delay, error: err, directive });
       console.warn(`Transient API error, retry round ${attempt}/${maxRetries} after ${delay}ms:`, err);
       await sleep(delay, signal);
     }
@@ -8161,13 +8398,24 @@ function sleep(ms, signal) {
 
 // ─── 并发控制 ──────────────────────────────────────────────
 
-function getProviderConcurrency() {
-  const endpoint = dom.apiEndpoint?.value?.trim?.() || "";
-  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+function getProviderConcurrency(snapshot = null) {
+  const endpoint = snapshot?.endpoint ?? (dom.apiEndpoint?.value?.trim?.() || "");
+  const provider = snapshot?.provider ?? (dom.apiProvider?.value || inferApiProvider(endpoint));
   const adapter = findAdapter(endpoint, provider);
-  const configured = Number(typeof adapter?.getConcurrency === "function"
-    ? adapter.getConcurrency()
-    : adapter?.concurrency || 4);
+  let configured;
+  if (provider === CODEX_IMAGE_GATEWAY_PROVIDER && snapshot?.codexGatewayOptions) {
+    configured = getCodexGatewayConcurrency(snapshot.codexGatewayOptions);
+  } else if (provider === GEMINI_WEB_PROVIDER && snapshot?.geminiWebOptions) {
+    configured = Math.max(1, Math.min(
+      Number(snapshot.geminiWebOptions.clientQueue || 1),
+      Number(geminiCapabilities?.effective_concurrency || 1),
+      10,
+    ));
+  } else {
+    configured = Number(typeof adapter?.getConcurrency === "function"
+      ? adapter.getConcurrency()
+      : adapter?.concurrency || 4);
+  }
   return Math.max(1, Math.min(20, Number.isFinite(configured) ? Math.floor(configured) : 4));
 }
 
@@ -8206,13 +8454,25 @@ async function concurrentLimit(tasks, limit = 20) {
 }
 
 function normalizeApiUrl(inputUrl, path) {
-  let url = inputUrl.trim().replace(/\/+$/, "");
-  if (/\/v1\//.test(url)) {
-    const base = url.replace(/\/v1\/(images\/(generations|edits)|chat\/completions|models)\/?$/, "");
-    return base + "/v1/" + path;
+  const raw = String(inputUrl || "").trim();
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw makeImageApiError(Object.assign(new Error("API 地址格式无效"), {
+      status: 400,
+      code: "invalid_endpoint_url",
+    }));
   }
-  if (!url.endsWith("/v1")) url += "/v1";
-  return url + "/" + path;
+  const pathname = parsed.pathname.replace(/\/+$/, "");
+  if (/\/v1\/(?:images\/(?:generations|edits)|chat\/completions|models)$/i.test(pathname)) {
+    parsed.pathname = pathname.replace(/\/v1\/(?:images\/(?:generations|edits)|chat\/completions|models)$/i, `/v1/${path}`);
+  } else if (/\/v1$/i.test(pathname)) {
+    parsed.pathname = `${pathname}/${path}`;
+  } else {
+    parsed.pathname = `${pathname}/v1/${path}`.replace(/\/{2,}/g, "/");
+  }
+  return parsed.toString();
 }
 
 function headersToObject(headers = {}) {
@@ -8456,6 +8716,7 @@ async function generateSingle() {
   if (!(await validateProviderReady())) return;
 
   const run = beginGeneration();
+  const apiSnapshot = captureApiRequestSnapshot();
   clearStatus();
 
   try {
@@ -8466,28 +8727,46 @@ async function generateSingle() {
     updateFailedRetryTools();
     let ok = 0, fail = 0;
 
-    const tasks = Array.from({ length: n }, (_, i) => async () => {
-      if (!isGenerationCurrent(run)) return;
+    const queued = Array.from({ length: n }, (_, i) => {
       const placeholder = addResultPlaceholder(i + 1, prompt, {
         mode: "single",
         prompt,
         size,
         references,
         retryCount,
+        apiSnapshot,
       });
       const cardAbort = new AbortController();
       placeholder._cardRetryAbortController = cardAbort;
+      run.cards.add(placeholder);
+      return { index: i, placeholder, cardAbort };
+    });
+    const tasks = queued.map(({ index: i, placeholder, cardAbort }) => async () => {
+      if (!isGenerationCurrent(run) || cardAbort.signal.aborted) {
+        if (cardAbort.signal.aborted && placeholder.dataset.status === "loading") {
+          markPlaceholderFailed(placeholder, i + 1, "已手动取消", placeholder._retryContext);
+          placeholder.dataset.status = "canceled";
+          fail++;
+        }
+        return;
+      }
       try {
         const data = await callImageAPI(prompt, size, 1, `图片 ${i + 1}`, {
           references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
+          apiSnapshot,
           onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
         });
         if (!isGenerationCurrent(run)) return;
         const record = replacePlaceholder(placeholder, i + 1, data, prompt, {
-          retryContext: { mode: "single", prompt, size, references, retryCount },
+          apiSnapshot,
+          retryContext: { mode: "single", prompt, size, references, retryCount, apiSnapshot },
         });
-        if (record) placeholder._historyRecordId = record.id;
-        ok++;
+        if (record) {
+          placeholder._historyRecordId = record.id;
+          ok++;
+        } else {
+          fail++;
+        }
       } catch (err) {
         if (err?.name === "AbortError") {
           markPlaceholderFailed(placeholder, i + 1, cardAbort.signal.aborted ? "已手动取消" : "已取消生成", { mode: "single", prompt, size, references, retryCount });
@@ -8506,7 +8785,7 @@ async function generateSingle() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, getProviderConcurrency, run.signal);
+      await concurrentLimitSettled(tasks, apiSnapshot.providerConcurrency, run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
@@ -8523,7 +8802,8 @@ async function generateSingle() {
     }
     showStatus(`生成失败: ${msg}`, "error");
     dom.emptyState.classList.remove("hidden");
-  } finally {
+    } finally {
+    completeGenerationRun(run);
     if (isGenerationCurrent(run)) {
       abortController = null;
       resetGenerateButton();
@@ -8551,6 +8831,7 @@ async function generateComic() {
   if (!(await validateProviderReady())) return;
 
   const run = beginGeneration();
+  const apiSnapshot = captureApiRequestSnapshot();
   clearStatus();
   dom.resultGrid.innerHTML = "";
   dom.resultGrid.classList.remove("hidden");
@@ -8569,6 +8850,8 @@ async function generateComic() {
 
   updateProgress(0, total, "⏳");
 
+  const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  run.projectId = projectId;
   const panelTasks = validPanels.map(panel => {
     const fullPrompt = globalPrompt ? `${globalPrompt}\n\n${panel.prompt}` : panel.prompt;
     const size = panel.size || globalSize;
@@ -8582,10 +8865,14 @@ async function generateComic() {
       size,
       references,
       retryCount,
+      apiSnapshot,
+      projectId,
     });
-    return { panel, fullPrompt, size, references, retryCount, placeholder, globalPrompt };
+    const cardAbort = new AbortController();
+    placeholder._cardRetryAbortController = cardAbort;
+    run.cards.add(placeholder);
+    return { panel, fullPrompt, size, references, retryCount, placeholder, cardAbort, globalPrompt };
   });
-  const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   initializeProjectCheckpoint({
     id: projectId,
     type: "comic-project",
@@ -8593,11 +8880,11 @@ async function generateComic() {
     title: `${cleanText("comicProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
     createdAt: new Date().toISOString(),
     globalPrompt,
-    model: dom.model.value.trim(),
-    endpoint: dom.apiEndpoint.value.trim(),
-    apiProvider: dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint.value.trim()),
-    codexGatewayOptions: isCodexGatewaySelected() ? getCodexGatewayOptions() : undefined,
-    geminiWebOptions: isGeminiWebSelected() ? getGeminiWebOptions() : undefined,
+    model: apiSnapshot.model,
+    endpoint: apiSnapshot.endpoint,
+    apiProvider: apiSnapshot.provider,
+    codexGatewayOptions: apiSnapshot.codexGatewayOptions || undefined,
+    geminiWebOptions: apiSnapshot.geminiWebOptions || undefined,
     size: globalSize,
     retryCount: globalRetryCount,
     totalPanels: total,
@@ -8615,13 +8902,20 @@ async function generateComic() {
   currentComicHistoryId = projectId;
 
   let done = 0;
-  const tasks = panelTasks.map(({ panel, fullPrompt, size, references, retryCount, placeholder }) => async () => {
-    if (!isGenerationCurrent(run)) return;
-    const cardAbort = new AbortController();
-    placeholder._cardRetryAbortController = cardAbort;
+  const tasks = panelTasks.map(({ panel, fullPrompt, size, references, retryCount, placeholder, cardAbort }) => async () => {
+    if (!isGenerationCurrent(run) || cardAbort.signal.aborted) {
+      if (cardAbort.signal.aborted && placeholder.dataset.status === "loading") {
+        markPlaceholderFailed(placeholder, panel.id, "已手动取消", placeholder._retryContext);
+        placeholder.dataset.status = "canceled";
+        await updateProjectCheckpoint(projectId, panel.id, { status: "canceled", error: "已手动取消" });
+        failed++;
+      }
+      return;
+    }
     try {
       const data = await callImageAPI(fullPrompt, size, 1, `分镜 ${panel.id}`, {
         references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
+        apiSnapshot,
         onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
         onTaskSubmitted: task => updateProjectCheckpoint(projectId, panel.id, {
           status: task.status || "queued",
@@ -8633,8 +8927,9 @@ async function generateComic() {
         skipHistory: true,
         recordPrompt: panel.prompt,
         fullPrompt,
+        apiSnapshot,
         size,
-        retryContext: { references, size, mode: "comic", globalPrompt, panelPrompt: panel.prompt, prompt: fullPrompt, fullPrompt, retryCount },
+        retryContext: { references, size, mode: "comic", globalPrompt, panelPrompt: panel.prompt, prompt: fullPrompt, fullPrompt, retryCount, apiSnapshot, projectId },
       });
       if (record) projectImages.push({
         ...record,
@@ -8644,8 +8939,13 @@ async function generateComic() {
         retryCount,
         _cachePromise: placeholder._imageCachePromise,
       });
-      if (record) await updateProjectCheckpoint(projectId, panel.id, { status: "success", record });
-      completed++;
+      if (record) {
+        await updateProjectCheckpoint(projectId, panel.id, { status: "success", record });
+        completed++;
+      } else {
+        await updateProjectCheckpoint(projectId, panel.id, { status: "failed", error: "API 未返回图片数据" });
+        failed++;
+      }
     } catch (err) {
       const isAbort = err.name === "AbortError";
       if (isAbort || isGenerationCurrent(run)) {
@@ -8679,7 +8979,7 @@ async function generateComic() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, getProviderConcurrency, run.signal);
+      await concurrentLimitSettled(tasks, apiSnapshot.providerConcurrency, run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
@@ -8696,7 +8996,8 @@ async function generateComic() {
     if (err?.name !== "AbortError" && isGenerationCurrent(run)) {
       showStatus(`批量生成失败: ${err.message || err}`, "error");
     }
-  } finally {
+    } finally {
+    completeGenerationRun(run);
     if (isGenerationCurrent(run)) {
       abortController = null;
       resetGenerateButton();
@@ -8723,6 +9024,7 @@ async function generateCaptions() {
   if (!(await validateProviderReady())) return;
 
   const run = beginGeneration();
+  const apiSnapshot = captureApiRequestSnapshot();
   clearStatus();
   dom.resultGrid.innerHTML = "";
   dom.resultGrid.classList.remove("hidden");
@@ -8741,6 +9043,8 @@ async function generateCaptions() {
 
   updateProgress(0, total, "⏳");
 
+  const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  run.projectId = projectId;
   const rowTasks = validRows.map(row => {
     const fullPrompt = globalPrompt ? `${globalPrompt}\n\n${row.captionText}` : row.captionText;
     const size = (row.reference?.width && row.reference?.height) ? `${row.reference.width}x${row.reference.height}` : globalSize;
@@ -8754,10 +9058,14 @@ async function generateCaptions() {
       size,
       references,
       retryCount,
+      apiSnapshot,
+      projectId,
     });
-    return { row, fullPrompt, size, references, retryCount, placeholder, globalPrompt };
+    const cardAbort = new AbortController();
+    placeholder._cardRetryAbortController = cardAbort;
+    run.cards.add(placeholder);
+    return { row, fullPrompt, size, references, retryCount, placeholder, cardAbort, globalPrompt };
   });
-  const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   initializeProjectCheckpoint({
     id: projectId,
     type: "caption-project",
@@ -8765,11 +9073,11 @@ async function generateCaptions() {
     title: `${cleanText("captionProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
     createdAt: new Date().toISOString(),
     globalPrompt,
-    model: dom.model.value.trim(),
-    endpoint: dom.apiEndpoint.value.trim(),
-    apiProvider: dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint.value.trim()),
-    codexGatewayOptions: isCodexGatewaySelected() ? getCodexGatewayOptions() : undefined,
-    geminiWebOptions: isGeminiWebSelected() ? getGeminiWebOptions() : undefined,
+    model: apiSnapshot.model,
+    endpoint: apiSnapshot.endpoint,
+    apiProvider: apiSnapshot.provider,
+    codexGatewayOptions: apiSnapshot.codexGatewayOptions || undefined,
+    geminiWebOptions: apiSnapshot.geminiWebOptions || undefined,
     size: globalSize,
     retryCount: globalRetryCount,
     totalPanels: total,
@@ -8787,13 +9095,20 @@ async function generateCaptions() {
   currentComicHistoryId = projectId;
 
   let done = 0;
-  const tasks = rowTasks.map(({ row, fullPrompt, size, references, retryCount, placeholder }) => async () => {
-    if (!isGenerationCurrent(run)) return;
-    const cardAbort = new AbortController();
-    placeholder._cardRetryAbortController = cardAbort;
+  const tasks = rowTasks.map(({ row, fullPrompt, size, references, retryCount, placeholder, cardAbort }) => async () => {
+    if (!isGenerationCurrent(run) || cardAbort.signal.aborted) {
+      if (cardAbort.signal.aborted && placeholder.dataset.status === "loading") {
+        markPlaceholderFailed(placeholder, row.id, "已手动取消", placeholder._retryContext);
+        placeholder.dataset.status = "canceled";
+        await updateProjectCheckpoint(projectId, row.id, { status: "canceled", error: "已手动取消" });
+        failed++;
+      }
+      return;
+    }
     try {
       const data = await callImageAPI(fullPrompt, size, 1, `图片 ${row.id}`, {
         references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
+        apiSnapshot,
         onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
         onTaskSubmitted: task => updateProjectCheckpoint(projectId, row.id, {
           status: task.status || "queued",
@@ -8805,8 +9120,9 @@ async function generateCaptions() {
         skipHistory: true,
         recordPrompt: row.captionText,
         fullPrompt,
+        apiSnapshot,
         size,
-        retryContext: { references, size, mode: "caption", globalPrompt, panelPrompt: row.captionText, prompt: fullPrompt, fullPrompt, retryCount },
+        retryContext: { references, size, mode: "caption", globalPrompt, panelPrompt: row.captionText, prompt: fullPrompt, fullPrompt, retryCount, apiSnapshot, projectId },
       });
       if (record) projectImages.push({
         ...record,
@@ -8816,8 +9132,13 @@ async function generateCaptions() {
         retryCount,
         _cachePromise: placeholder._imageCachePromise,
       });
-      if (record) await updateProjectCheckpoint(projectId, row.id, { status: "success", record });
-      completed++;
+      if (record) {
+        await updateProjectCheckpoint(projectId, row.id, { status: "success", record });
+        completed++;
+      } else {
+        await updateProjectCheckpoint(projectId, row.id, { status: "failed", error: "API 未返回图片数据" });
+        failed++;
+      }
     } catch (err) {
       const isAbort = err.name === "AbortError";
       if (isAbort || isGenerationCurrent(run)) {
@@ -8851,7 +9172,7 @@ async function generateCaptions() {
         await task();
       }
     } else {
-      await concurrentLimitSettled(tasks, getProviderConcurrency, run.signal);
+      await concurrentLimitSettled(tasks, apiSnapshot.providerConcurrency, run.signal);
     }
 
     if (!isGenerationCurrent(run)) return;
@@ -8868,7 +9189,8 @@ async function generateCaptions() {
     if (err?.name !== "AbortError" && isGenerationCurrent(run)) {
       showStatus(`批量生成失败: ${err.message || err}`, "error");
     }
-  } finally {
+    } finally {
+    completeGenerationRun(run);
     if (isGenerationCurrent(run)) {
       abortController = null;
       resetGenerateButton();
@@ -9197,6 +9519,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   const recordPrompt = options.recordPrompt
     ?? (isProjectContext ? getPanelOnlyPrompt(options.retryContext, options.retryContext?.globalPrompt || "") : prompt);
   const fullPrompt = options.fullPrompt || options.retryContext?.fullPrompt || (recordPrompt !== prompt ? prompt : "");
+  const apiSnapshot = options.apiSnapshot || options.retryContext?.apiSnapshot || null;
   const billing = options.billing || buildOfficialBilling(data);
   const usage = options.usage || billing?.usage || normalizeOfficialUsage(data);
 
@@ -9232,6 +9555,18 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
       })
     .catch(err => {
       console.warn(`分镜 ${panelId} 图片本地缓存失败，导出时将回退远程下载`, err);
+      card.dataset.cacheStatus = "failed";
+      if (card._zipImage) {
+        card._zipImage.cacheWarning = String(err?.message || err || "本地缓存失败");
+      }
+      if (card.isConnected && !card.querySelector(".result-cache-warning")) {
+        const warning = document.createElement("div");
+        warning.className = "result-cache-warning";
+        warning.setAttribute("role", "status");
+        warning.textContent = `图片已生成，但本地缓存失败：${String(err?.message || err || "未知错误").slice(0, 180)}`;
+        card.appendChild(warning);
+      }
+      showStatus(`分镜 ${panelId} 已生成，但本地缓存失败；请立即下载或重试缓存。`, "error");
       return null;
     });
 
@@ -9264,15 +9599,15 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     prompt: recordPrompt,
     panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
     fullPrompt,
-    model: openCodexMeta?.requested?.model || dom.model.value.trim(),
-    endpoint: dom.apiEndpoint.value.trim(),
+    model: openCodexMeta?.requested?.model || apiSnapshot?.model || dom.model.value.trim(),
+    endpoint: apiSnapshot?.endpoint || dom.apiEndpoint.value.trim(),
     size: options.size || options.retryContext?.size || getSelectedSize(),
     imageUrl,
     originalUrl: originalImageUrl,
     retryCount: options.retryContext?.retryCount ?? getGlobalRetryCount(),
     billing,
     usage,
-    provider: openCodexMeta?.provider || options.provider || "",
+    provider: openCodexMeta?.provider || options.provider || apiSnapshot?.provider || "",
     operation: openCodexMeta?.operation || options.operation ||
       ((options.retryContext?.references?.length || referenceImages.length) ? "edit" : "generation"),
     requested: openCodexMeta?.requested ? { ...openCodexMeta.requested } : null,
@@ -9348,15 +9683,16 @@ function releaseCardImageCache(card) {
 }
 
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
-  const structuredError = errMsg && typeof errMsg === "object" && errMsg.imageError;
   const errorDetail = classifyImageApiError(errMsg);
   const message = String(errMsg?.message || errMsg || "生成失败");
-  const requiresEdit = Boolean(structuredError && errorDetail.requiresEdit);
-  const retryBlocked = Boolean(structuredError && (
+  const requiresEdit = Boolean(errorDetail.requiresEdit);
+  const retryBlocked = Boolean(
     errorDetail.retryPolicy === "never"
     || errorDetail.retryPolicy === "after_configuration_change"
     || errorDetail.retryPolicy === "edit_required"
-  ));
+    || errorDetail.retryPolicy === "manual_unknown_outcome"
+    || errorDetail.category === "provider_ui_unavailable"
+  );
   setRetryContext(card, panelId, {
     ...(card._retryContext || {}),
     ...(retryContext || {}),
@@ -9545,6 +9881,7 @@ function cancelRetryAllFailedRun({ announce = true } = {}) {
   run.suppressCompletionStatus ||= !announce;
   if (!run.cancelRequested) {
     run.cancelRequested = true;
+    run.abortController?.abort();
     run.cards.forEach(card => card._cardRetryAbortController?.abort());
     const queuedCards = run.pendingCards.splice(0);
     queuedCards.forEach(restoreQueuedRetryCard);
@@ -9573,7 +9910,7 @@ function executeRetryAllFailedRun(run) {
       if (run.finished) return;
       if (run.cancelRequested) run.pendingCards.length = 0;
 
-      while (!run.cancelRequested && run.activeCount < getProviderConcurrency() && run.pendingCards.length > 0) {
+      while (!run.cancelRequested && run.activeCount < run.providerConcurrency && run.pendingCards.length > 0) {
         const card = run.pendingCards.shift();
         refreshRetryQueuePositions(run);
         const attempt = (run.attempts.get(card) || 0) + 1;
@@ -9584,6 +9921,16 @@ function executeRetryAllFailedRun(run) {
           let terminal = false;
           try {
             if (card?.isConnected && card.classList.contains("is-failed")) {
+              const beforeRetry = imageTaskStability.retryDirective(
+                card._lastImageError || classifyImageApiError(card.dataset.errorMessage || ""),
+                { attempt, baseDelayMs: 1500, phase: "submit" },
+              );
+              // The first attempt follows an explicit user click and starts
+              // immediately. Backoff applies only after this run observes a
+              // fresh transient failure from the provider.
+              if (attempt > 1 && beforeRetry.retryable && beforeRetry.delayMs > 0) {
+                await sleep(beforeRetry.delayMs, run.abortController.signal);
+              }
               result = await retryResultCard(card, false, {
                 // “失败后追加次数”由本层统一控制。单次调用不再嵌套 HTTP 400 自动重试，
                 // 否则填写 10 会变成 11 个队列轮次 × 每轮 11 次请求。
@@ -9597,10 +9944,19 @@ function executeRetryAllFailedRun(run) {
               run.ok++;
               terminal = true;
             } else if (!run.cancelRequested && card?.isConnected && card.classList.contains("is-failed") && attempt < run.maxAttempts) {
+              const nextDirective = imageTaskStability.retryDirective(
+                card._lastImageError || classifyImageApiError(card.dataset.errorMessage || ""),
+                { attempt, baseDelayMs: 1500, phase: "submit" },
+              );
+              if (!nextDirective.retryable) {
+                run.failed++;
+                terminal = true;
+              } else {
               // 失败后放到队尾，先让其它卡片获得请求机会；成功后不会走到这里。
-              run.pendingCards.push(card);
-              run.requeued++;
-              refreshRetryQueuePositions(run);
+                run.pendingCards.push(card);
+                run.requeued++;
+                refreshRetryQueuePositions(run);
+              }
             } else {
               run.failed++;
               terminal = true;
@@ -9623,14 +9979,24 @@ function executeRetryAllFailedRun(run) {
         finish();
         return;
       }
-      // 留出一个短暂空闲窗口，接住与最后一个重试几乎同时落下的新失败卡。
-      // 更晚出现的失败卡会在 finally 释放全局锁后显示为下一轮可重试项。
+      if (run.sourceGenerationRun && !run.sourceGenerationRun.settled) {
+        if (run.idleTimer === null) {
+          run.idleTimer = setTimeout(() => {
+            run.idleTimer = null;
+            enqueueFailedCardsForRetryRun(run);
+            run.pump();
+          }, 250);
+        }
+        return;
+      }
+      // 原始生成 run 已结束后再留一个稳定窗口；期间产生的任何新失败仍会
+      // 由 updateFailedRetryTools() 动态加入，确保“全部重试”真的是全量收口。
       if (run.idleTimer === null) {
         run.idleTimer = setTimeout(() => {
           run.idleTimer = null;
           if (run.activeCount === 0 && run.pendingCards.length === 0) finish();
           else run.pump();
-        }, 150);
+        }, 300);
       }
     };
 
@@ -9668,7 +10034,11 @@ async function retryAllFailedResults() {
     started: false,
     cancelRequested: false,
     suppressCompletionStatus: false,
+    sourceGenerationRun: activeGenerationRun,
+    providerConcurrency: Math.max(1, Number(cards[0]?._retryContext?.apiSnapshot?.providerConcurrency || getProviderConcurrency())),
+    abortController: new AbortController(),
   };
+  run.sourceGenerationRun?.settledPromise?.then(() => run.pump?.());
   retryAllFailedRun = run;
   enqueueFailedCardsForRetryRun(run, cards);
   updateFailedRetryTools();
@@ -9811,9 +10181,10 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     const references = Array.isArray(context.references) ? context.references : undefined;
     const data = await callImageAPI(promptText, size, 1, `${label} ${panelId}`, {
       references, maxRetries: retryCount, signal: cardAbort.signal,
+      apiSnapshot: context.apiSnapshot,
       onRetryAttempt: info => updateCardRetryAttempt(card, info),
       onTaskSubmitted: task => isProject
-        ? updateProjectCheckpoint(currentComicHistoryId, panelId, {
+        ? updateProjectCheckpoint(context.projectId || currentComicHistoryId, panelId, {
             status: task.status || "queued",
             gatewayTask: task,
           })
@@ -9823,6 +10194,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
       skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
       recordPrompt: isProject ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
       fullPrompt: promptText,
+      apiSnapshot: context.apiSnapshot,
       retryContext: { ...context, prompt: promptText, fullPrompt: promptText, size, retryCount },
     });
     // HTTP 200 不等于生图成功；中转站偶尔会返回空 data。replacePlaceholder() 已将卡片
@@ -9830,7 +10202,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     if (!record) return false;
     if (record) {
       if (isProject) {
-        await updateComicHistoryPanel(currentComicHistoryId, panelId, record);
+        await updateComicHistoryPanel(context.projectId || currentComicHistoryId, panelId, record);
       } else {
         await replaceSingleHistoryRecord(card._historyRecordId, record);
         card._historyRecordId = record.id;
@@ -9846,7 +10218,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     }
     markPlaceholderFailed(card, panelId, err, { ...context, prompt: promptText, size, retryCount });
     if (isProject) {
-      await updateProjectCheckpoint(currentComicHistoryId, panelId, {
+      await updateProjectCheckpoint(context.projectId || currentComicHistoryId, panelId, {
         status: "failed",
         error: err?.message || err,
       });
@@ -9912,8 +10284,14 @@ let lastGeneratedCacheCleanupAt = 0;
 function openHistoryBlobDb() {
   if (typeof indexedDB === "undefined") return Promise.reject(new Error("IndexedDB unavailable"));
   if (historyBlobDbPromise) return historyBlobDbPromise;
-  historyBlobDbPromise = new Promise((resolve, reject) => {
+  const attempt = new Promise((resolve, reject) => {
     const request = indexedDB.open(HISTORY_BLOB_DB, 3);
+    let settled = false;
+    const fail = error => {
+      if (settled) return;
+      settled = true;
+      reject(error instanceof Error ? error : new Error(String(error || "历史图片数据库打开失败")));
+    };
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(HISTORY_BLOB_STORE)) {
         request.result.createObjectStore(HISTORY_BLOB_STORE);
@@ -9932,8 +10310,28 @@ function openHistoryBlobDb() {
       // packaged WebView at startup. New writes receive metadata normally, and
       // users can still clear all legacy entries with the cache-clear action.
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("历史图片数据库打开失败"));
+    request.onsuccess = () => {
+      if (settled) {
+        request.result.close();
+        return;
+      }
+      settled = true;
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        historyBlobDbPromise = null;
+      };
+      db.onclose = () => {
+        if (historyBlobDbPromise) historyBlobDbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => fail(request.error || new Error("历史图片数据库打开失败"));
+    request.onblocked = () => fail(new Error("历史图片数据库升级被其他窗口阻塞，请关闭重复打开的软件窗口后重试"));
+  });
+  historyBlobDbPromise = attempt.catch(error => {
+    historyBlobDbPromise = null;
+    throw error;
   });
   return historyBlobDbPromise;
 }
@@ -9998,6 +10396,30 @@ async function clearGeneratedCacheStore() {
   });
 }
 
+function collectLiveGeneratedCacheKeys() {
+  const keys = new Set();
+  const seen = new Set();
+  const visit = value => {
+    if (value == null) return;
+    if (typeof value === "string") {
+      if (value.startsWith("cache://")) keys.add(value.slice(8));
+      return;
+    }
+    if (typeof value !== "object" || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value)) value.forEach(visit);
+    else Object.values(value).forEach(visit);
+  };
+  visit(loadHistory());
+  visit(generatedImageUrls);
+  dom.resultGrid?.querySelectorAll?.(".result-item").forEach(card => {
+    if (card._generatedCacheKey) keys.add(String(card._generatedCacheKey));
+    visit(card._zipImage);
+    visit(card._retryContext);
+  });
+  return keys;
+}
+
 async function cleanupGeneratedImageCache({ now = Date.now(), updateStatus = false, force = false } = {}) {
   if (!force && !updateStatus && Number(now) - lastGeneratedCacheCleanupAt < 60 * 60 * 1000) return 0;
   lastGeneratedCacheCleanupAt = Number(now);
@@ -10005,6 +10427,7 @@ async function cleanupGeneratedImageCache({ now = Date.now(), updateStatus = fal
   const cutoff = Number(now) - retentionDays * 24 * 60 * 60 * 1000;
   generatedCacheCleanupQueue = generatedCacheCleanupQueue.catch(() => {}).then(async () => {
     const db = await openHistoryBlobDb();
+    const liveKeys = collectLiveGeneratedCacheKeys();
     let removed = 0;
     await new Promise((resolve, reject) => {
       const tx = db.transaction([GENERATED_CACHE_STORE, GENERATED_CACHE_META_STORE], "readwrite");
@@ -10015,9 +10438,11 @@ async function cleanupGeneratedImageCache({ now = Date.now(), updateStatus = fal
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) return;
-        generatedStore.delete(cursor.primaryKey);
-        metaStore.delete(cursor.primaryKey);
-        removed += 1;
+        if (!liveKeys.has(String(cursor.primaryKey))) {
+          generatedStore.delete(cursor.primaryKey);
+          metaStore.delete(cursor.primaryKey);
+          removed += 1;
+        }
         cursor.continue();
       };
       tx.oncomplete = resolve;
@@ -10145,12 +10570,7 @@ async function setHistoryImageSource(img, imageUrl, fallbackUrl = "") {
 }
 
 function loadHistory() {
-  try {
-    const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+  return safeStorageReadJson(HISTORY_KEY, [], Array.isArray);
 }
 
 function isHistoryProject(item) {
@@ -10227,20 +10647,25 @@ function saveHistory(list) {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, limit);
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(normalized));
+    if (!safeStorageSetItem(HISTORY_KEY, JSON.stringify(normalized))) {
+      throw new Error("history metadata write failed");
+    }
     void scheduleHistoryBlobPrune();
   } catch (err) {
     const compact = normalized
       .map(compactHistoryItem)
       .slice(0, Math.max(20, Math.floor(limit / 2)));
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(compact));
+      if (!safeStorageSetItem(HISTORY_KEY, JSON.stringify(compact))) {
+        throw new Error("compacted history metadata write failed");
+      }
       void scheduleHistoryBlobPrune();
     } catch (compactError) {
       // History persistence is secondary to a successful image result. A
       // storage quota failure must not turn a completed image into a failed
       // card and cause another paid submission.
       console.warn("History metadata persistence skipped after quota exhaustion", compactError);
+      showStatus("图片已生成，但历史记录缓存写入失败；当前图片仍可下载。", "error");
     }
     console.warn("历史项目元数据超出 localStorage 限制，已裁剪旧记录并退回 URL 存储", err);
   }
@@ -10296,6 +10721,21 @@ async function saveGenerationProject(project) {
 }
 
 let projectCheckpointQueue = Promise.resolve();
+
+function deriveProjectCheckpointStatus(project) {
+  const panels = Array.isArray(project?.panels) ? project.panels : [];
+  if (!panels.length) return project?.status || "running";
+  const statuses = panels.map(panel => String(panel.status || panel.gatewayTaskStatus || "pending").toLowerCase());
+  const success = statuses.filter(status => status === "success" || status === "succeeded").length;
+  const failed = statuses.filter(status => ["failed", "error"].includes(status)).length;
+  const canceled = statuses.filter(status => ["canceled", "cancelled"].includes(status)).length;
+  const terminal = success + failed + canceled;
+  if (terminal < statuses.length) return "running";
+  if (success === statuses.length) return "completed";
+  if (success > 0) return "partial";
+  if (canceled === statuses.length) return "canceled";
+  return "failed";
+}
 
 function initializeProjectCheckpoint(project) {
   if (!project?.id || loadSettings().historyEnabled === false) return;
@@ -10371,6 +10811,7 @@ function updateProjectCheckpoint(projectId, panelId, update = {}) {
       project.originalUrl = project.images[0]?.originalUrl || "";
     }
     if (update.projectStatus) project.status = update.projectStatus;
+    else project.status = deriveProjectCheckpointStatus(project);
     project.updatedAt = new Date().toISOString();
     saveHistory(list);
   };
@@ -10386,7 +10827,19 @@ function finalizeProjectCheckpoint(projectId, completed, failed) {
 
 const resumedGatewayTaskIds = new Set();
 
-async function resumeGatewayCheckpointTasks() {
+async function resolveProjectApiKey(project, provider) {
+  const endpoint = String(project?.endpoint || "");
+  const profile = loadAllApis().find(config => apiConfigIdentityMatches(config, provider, endpoint));
+  if (!profile) throw new Error(`未找到可用于恢复 ${apiProviderLabel(provider)} 任务的已保存 API 配置`);
+  if (profile.apiKey) return profile.apiKey;
+  if (profile.hasSecureKey && profile.id && secureStorageBridgeAvailable()) {
+    const value = await queueSecureStorageOperation(() => nativeDownload.loadSecret(secureApiKeyName(profile.id)));
+    if (value) return String(value);
+  }
+  throw new Error(`恢复 ${apiProviderLabel(provider)} 任务所需的 API Key 不可用`);
+}
+
+async function runGatewayCheckpointResumePass() {
   if (!nativeDownload.available()) return;
   const pending = [];
   loadHistory().forEach(project => {
@@ -10455,6 +10908,16 @@ async function resumeGatewayCheckpointTasks() {
           startedAt,
           operation: panel.hadReferences ? "edit" : "generation",
         });
+      } else if (provider === "grsai") {
+        const apiKey = await resolveProjectApiKey(project, provider);
+        requested = {
+          model: project.model || "gpt-image-2",
+          size,
+          n: 1,
+        };
+        data = await pollGrsaiTaskById(grsaiEndpointBase(project.endpoint), apiKey, taskId, {
+          announce: false,
+        });
       } else {
         if (!codexGatewayCredentials) throw new Error("ChatGPT image gateway credentials are unavailable");
         requested = {
@@ -10472,9 +10935,9 @@ async function resumeGatewayCheckpointTasks() {
         });
       }
       const item = data?.data?.[0];
-      if (!item?.b64_json) throw new Error("Resumed gateway task returned no image bytes");
-      const mimeType = item.mime_type || inferImageMimeFromBase64(item.b64_json);
-      const imageUrl = `data:${mimeType};base64,${item.b64_json}`;
+      if (!item?.b64_json && !item?.url) throw new Error("Resumed gateway task returned no image");
+      const mimeType = item.mime_type || (item.b64_json ? inferImageMimeFromBase64(item.b64_json) : "image/png");
+      const imageUrl = item.b64_json ? `data:${mimeType};base64,${item.b64_json}` : String(item.url);
       const meta = data._openCodex || {};
       const dimensions = meta.response?.finalSize || meta.response?.size || requested.size;
       const [width, height] = String(dimensions || "").split("x").map(Number);
@@ -10529,6 +10992,32 @@ async function resumeGatewayCheckpointTasks() {
     }
   }), 2);
 }
+
+let gatewayCheckpointResumePromise = null;
+
+function resumeGatewayCheckpointTasks({ reason = "manual" } = {}) {
+  if (gatewayCheckpointResumePromise) return gatewayCheckpointResumePromise;
+  gatewayCheckpointResumePromise = runGatewayCheckpointResumePass()
+    .catch(error => {
+      console.warn(`断点恢复任务执行失败（${reason}）`, error);
+      throw error;
+    })
+    .finally(() => {
+      gatewayCheckpointResumePromise = null;
+    });
+  return gatewayCheckpointResumePromise;
+}
+
+window.AIImageGeneratorResumePendingTasks = () => resumeGatewayCheckpointTasks({ reason: "manual" });
+window.addEventListener("online", () => {
+  void resumeGatewayCheckpointTasks({ reason: "online" }).catch(() => {});
+});
+document.addEventListener("ai-generator-resume-pending", () => {
+  void resumeGatewayCheckpointTasks({ reason: "manual-event" }).catch(() => {});
+});
+setInterval(() => {
+  if (navigator.onLine !== false) void resumeGatewayCheckpointTasks({ reason: "periodic" }).catch(() => {});
+}, 60_000);
 
 // 重试单图模式的某张图片成功后：删掉它原来那条历史记录，用新结果重新入一条
 // （而不是留着旧记录不管、平白多出一条重复记录）。
@@ -11189,11 +11678,12 @@ const nativeDownload = (() => {
         const status = Number(meta?.status || 0);
         if (status < 200 || status >= 300) return meta;
         while (offset < byteLength) {
+          throwIfAborted(options.signal || null);
           const part = await request("nativeFetchBlobChunk", {
             transferId,
             offset,
             length: Math.min(chunkSize, byteLength - offset),
-          });
+          }, options.timeoutMs ?? 120000, options.signal || null);
           const bytes = base64ToBytes(part?.base64 || "");
           const nextOffset = Number(part?.nextOffset);
           if (!bytes.length || !Number.isFinite(nextOffset) || nextOffset <= offset) {
@@ -11523,7 +12013,7 @@ function migrateApiKeysToSecureStorage() {
   ));
   if (current?.apiKey) saveConfig(current);
   if (apis.some(api => api.apiKey)) saveAllApis(apis);
-  if (!dom.apiKey.value && current?.hasSecureKey) applyConfig(current);
+  if (!dom.apiKey.value && current?.hasSecureKey) void applyConfig(current);
 }
 
 window.addEventListener("aigen-native-ready", () => {
@@ -12417,8 +12907,7 @@ function registerServiceWorker() {
 // 启动时静默检测一次更新；如果有新版本，弹窗询问是否立即更新（不打扰用户的话直接取消即可）。
 async function checkForUpdatesOnLaunch() {
   try {
-    let state = {};
-    try { state = JSON.parse(localStorage.getItem(UPDATE_CHECK_STATE_KEY) || "{}"); } catch {}
+    const state = safeStorageReadJson(UPDATE_CHECK_STATE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
     if (Date.now() - Number(state.lastCheckedAt || 0) < UPDATE_CHECK_INTERVAL_MS) return;
     const info = await checkForUpdates({ silent: true });
     if (!info?.isNewer) return;
@@ -12428,7 +12917,7 @@ async function checkForUpdatesOnLaunch() {
     if (shouldUpdate) {
       await downloadLatestUpdate(true);
     } else {
-      localStorage.setItem(UPDATE_CHECK_STATE_KEY, JSON.stringify({
+      safeStorageSetItem(UPDATE_CHECK_STATE_KEY, JSON.stringify({
         ...state,
         lastCheckedAt: Date.now(),
         dismissedVersion: info.latest,
@@ -12460,9 +12949,9 @@ function applyTemporaryStartupConfig() {
   updateApiQuickState();
 }
 
-function restoreSavedConfigurationOnStartup() {
+async function restoreSavedConfigurationOnStartup() {
   const config = loadConfig();
-  applyConfig(config);
+  await applyConfig(config);
   if (!config.endpoint) dom.apiEndpoint.placeholder = GRSAI_API_ENDPOINT;
   if (!config.model) dom.model.placeholder = "gpt-image-2";
   renderSavedApis();
@@ -12474,7 +12963,7 @@ function restoreSavedConfigurationOnStartup() {
   if (config?.id) {
     const idx = findSavedApiIndex(config.id, loadAllApis());
     if (idx >= 0) {
-      dom.savedApis.value = String(idx);
+      dom.savedApis.value = String(config.id);
       customSelects.savedApis?.syncLabel();
     }
   }
@@ -12482,13 +12971,13 @@ function restoreSavedConfigurationOnStartup() {
   updateApiQuickState();
 }
 
-function initializeApplication() {
+async function initializeApplication() {
   let recoverableStartupError = "";
   syncCodexGatewayProviderVisibility();
   try {
     // This must remain at the end of the module. applyConfig may use model and
     // pricing constants declared later in app.js.
-    restoreSavedConfigurationOnStartup();
+    await restoreSavedConfigurationOnStartup();
   } catch (error) {
     recoverableStartupError = recordApplicationStartupError(error);
     console.warn("Saved configuration restore failed; starting with temporary defaults.", error);
@@ -12496,6 +12985,7 @@ function initializeApplication() {
   }
 
   initI18n();
+  showStorageRecoveryIssues();
   registerServiceWorker();
   initManualWheelScrollFix();
   setTimeout(() => {
@@ -12506,7 +12996,7 @@ function initializeApplication() {
     setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);
   }
   setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);
-  setTimeout(() => { void resumeGatewayCheckpointTasks(); }, 1800);
+  setTimeout(() => { void resumeGatewayCheckpointTasks({ reason: "startup" }); }, 1800);
   window.__AI_GEN_APP_READY = true;
   window.dispatchEvent(new CustomEvent("ai-generator-ready"));
 
@@ -12516,7 +13006,16 @@ function initializeApplication() {
 }
 
 try {
-  initializeApplication();
+  void initializeApplication().catch(error => {
+    const message = recordApplicationStartupError(error);
+    console.error("Application startup failed.", error);
+    const status = dom.status || document.querySelector("#status");
+    if (status) {
+      status.textContent = `程序初始化失败：${message}`;
+      status.classList.remove("hidden", "success");
+      status.classList.add("error");
+    }
+  });
 } catch (error) {
   const message = recordApplicationStartupError(error);
   console.error("Application startup failed.", error);

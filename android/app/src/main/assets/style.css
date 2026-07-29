@@ -10,13 +10,18 @@
   --surface2: #22272e;
   --surface3: #2d343d;
   --surface-elevated: #1e2329;
+  --surface-soft: #20252b;
+  --surface-hover: #2b323a;
+  --surface-2: var(--surface2);
   --border: rgba(190, 198, 210, 0.16);
   --border-strong: rgba(190, 198, 210, 0.28);
   --text: #eef3f8;
   --text2: #b8c3d1;
   --text3: #98a7ba;
+  --text-muted: var(--text3);
   --primary: #879cff;
   --primary-hover: #a0b0ff;
+  --primary-strong: #b6c1ff;
   --primary-gradient-end: #70c3d3;
   --primary-glow: rgba(135, 156, 255, 0.15);
   --primary-glow-strong: rgba(135, 156, 255, 0.30);
@@ -40,13 +45,18 @@
   --surface2: #f3f6fd;
   --surface3: #e6edfa;
   --surface-elevated: #ffffff;
+  --surface-soft: #f7f9fe;
+  --surface-hover: #eaf0fb;
+  --surface-2: var(--surface2);
   --border: #e3e9f4;
   --border-strong: #ccd8ec;
   --text: #16203a;
   --text2: #59657f;
   --text3: #66748c;
+  --text-muted: var(--text3);
   --primary: #2f6bf3;
   --primary-hover: #1f59df;
+  --primary-strong: #1d50cd;
   --primary-gradient-end: #5d8cff;
   --primary-glow: rgba(47, 107, 243, 0.14);
   --primary-glow-strong: rgba(47, 107, 243, 0.26);
@@ -211,7 +221,7 @@ body {
   color: var(--text);
 }
 .icon-btn {
-  width: 38px; height: 38px; border-radius: 50%;
+  width: 40px; height: 40px; min-width: 40px; min-height: 40px; border-radius: 50%;
   background: var(--surface2); border: 2px solid var(--border);
   color: var(--text); font-size: 1.1rem; cursor: pointer;
   transition: var(--transition); display: flex; align-items: center; justify-content: center;
@@ -1363,6 +1373,8 @@ select.custom-select-native {
 .password-wrap input { padding-right: 40px; }
 .password-wrap button {
   position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
   background: none; border: none; cursor: pointer; font-size: 1rem; padding: 6px; line-height: 1;
 }
 
@@ -1456,7 +1468,21 @@ select.custom-select-native {
   font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: var(--transition);
   font-family: inherit; white-space: nowrap;
 }
-.btn-xs { padding: 4px 8px; font-size: 0.75rem; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+.btn-xs {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 0.75rem;
+  background: var(--surface2);
+  color: var(--text2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+#deleteSavedApi,
+#deleteSizePreset {
+  min-width: 32px;
+  padding-inline: 7px;
+}
 .btn-xs:hover { border-color: var(--primary); color: var(--text); }
 .btn-sm { padding: 6px 12px; font-size: 0.8rem; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
 .btn-sm:hover { border-color: var(--primary); }
@@ -3472,8 +3498,10 @@ main.result-panel .result-actions .btn {
   }
 
   .icon-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .platform-strip {
@@ -3527,11 +3555,11 @@ main.result-panel .result-actions .btn {
 
   .language-select,
   .icon-btn {
-    height: 38px;
+    height: 40px;
   }
 
   .icon-btn {
-    width: 38px;
+    width: 40px;
   }
 
   .main-layout {

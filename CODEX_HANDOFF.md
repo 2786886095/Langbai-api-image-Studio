@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.7
+# Codex / Claude Handoff: AI 图片生成器 v1.6.8
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,16 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.7+84`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.8+85`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.8 全面稳定性与真实就绪门禁
+
+- Gemini 状态拆分为登录就绪和生图就绪；只有 `temporary_chat_available`、`fullsize_download_available` 与当前 selector 协议同时成立才允许生成并自动收起登录界面。
+- `gemini-embedded-worker.js` 不再把 URL 变化当作临时对话成功证据；若落入普通会话会返回首页并恢复同一任务检查点，图片基线在临时对话确认后才采集。
+- Windows WebView2 使用同一环境下的命名 Profile 隔离账号，并在启动前迁移旧版 Gemini Profile；主程序增加单实例、APP_READY 健康探测和失败重建退避。
+- ChatGPT/Gemini 的系统安全存储改为全局 FIFO，ChatGPT 账号状态采用原子写入、`.tmp`/`.bak` 恢复；安装器只结束当前安装目录中的内置网关。
+- Web 任务生命周期重构：供应商快照、终态错误、取消、失败全重试、GrsAI 轮询、缓存/历史、离线 SW 版本一致性均有专项测试。
+- 发布门禁：Node 全量回归、Flutter analyze/test、Windows 安装覆盖与数据保留、四端 CI、包内版本/资源哈希及 APK 签名。
 
 ## v1.6.7 Gemini 临时对话入口与假就绪修复
 
