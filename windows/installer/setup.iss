@@ -83,7 +83,8 @@ begin
   if not FileExists(TargetPath) then
     exit;
 
-  EscapedTarget := StringChangeEx(TargetPath, '''', '''''', True);
+  EscapedTarget := TargetPath;
+  StringChangeEx(EscapedTarget, '''', '''''', True);
   ScriptPath := ExpandConstant('{tmp}\langbai-stop-bundled-gateway.ps1');
   Script :=
     '$ErrorActionPreference = ''Stop''' + #13#10 +
