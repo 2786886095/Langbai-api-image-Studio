@@ -28,4 +28,28 @@ void main() {
       isFalse,
     );
   });
+
+  test('automatic updates always target the running executable directory', () {
+    expect(
+      windowsAutomaticUpdateInstallDirectory(
+        resolvedExecutable: r'F:\Apps\Langbai\ai_image_generator.exe',
+      ),
+      r'F:\Apps\Langbai',
+    );
+  });
+
+  test('update download limit accepts unknown and bounded lengths only', () {
+    expect(
+      downloadLengthFitsLimit(-1, maximumBytes: 100),
+      isTrue,
+    );
+    expect(
+      downloadLengthFitsLimit(100, maximumBytes: 100),
+      isTrue,
+    );
+    expect(
+      downloadLengthFitsLimit(101, maximumBytes: 100),
+      isFalse,
+    );
+  });
 }

@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import 'secure_storage_queue.dart';
 
 const String _geminiAccountsKey = 'gemini_web_accounts_v1';
 const String _geminiAutoSwitchKey = 'gemini_web_auto_switch_v1';
@@ -152,9 +153,8 @@ class GeminiAccountStore {
   GeminiAccountStore(this.storage);
 
   final FlutterSecureStorage storage;
-  Future<void> _mutationChain = Future<void>.value();
 
-  Future<List<GeminiAccountMetadata>> load() async {
+  Future<List<GeminiAccountMetadata>> _loadUnlocked() async {
     final raw = await storage.read(key: _geminiAccountsKey);
     if (raw == null || raw.isEmpty) return <GeminiAccountMetadata>[];
     try {
@@ -172,34 +172,33 @@ class GeminiAccountStore {
     }
   }
 
-  Future<bool> autoSwitchEnabled() async {
-    final raw = (await storage.read(key: _geminiAutoSwitchKey) ?? '').trim();
-    return raw != 'false';
-  }
+  Future<List<GeminiAccountMetadata>> load() =>
+      SecureStorageQueue.run(_loadUnlocked);
 
-  Future<bool> setAutoSwitchEnabled(bool enabled) async {
-    await storage.write(
-      key: _geminiAutoSwitchKey,
-      value: enabled ? 'true' : 'false',
-    );
-    return enabled;
-  }
+  Future<bool> autoSwitchEnabled() => SecureStorageQueue.run(() async {
+        final raw =
+            (await storage.read(key: _geminiAutoSwitchKey) ?? '').trim();
+        return raw != 'false';
+      });
+
+  Future<bool> setAutoSwitchEnabled(bool enabled) =>
+      SecureStorageQueue.run(() async {
+        await storage.write(
+          key: _geminiAutoSwitchKey,
+          value: enabled ? 'true' : 'false',
+        );
+        return enabled;
+      });
 
   Future<T> _mutate<T>(
     Future<T> Function(List<GeminiAccountMetadata> accounts) operation,
-  ) {
-    final completer = Completer<T>();
-    _mutationChain = _mutationChain.catchError((Object _) {}).then((_) async {
-      try {
-        completer.complete(await operation(await load()));
-      } catch (error, stackTrace) {
-        completer.completeError(error, stackTrace);
-      }
-    });
-    return completer.future;
-  }
+  ) =>
+      SecureStorageQueue.run(
+        () async => operation(await _loadUnlocked()),
+      );
 
-  Future<void> _write(List<GeminiAccountMetadata> accounts) => storage.write(
+  Future<void> _writeUnlocked(List<GeminiAccountMetadata> accounts) =>
+      storage.write(
         key: _geminiAccountsKey,
         value: jsonEncode(accounts.map((item) => item.toJson()).toList()),
       );
@@ -216,14 +215,14 @@ class GeminiAccountStore {
         } else {
           accounts.add(account);
         }
-        await _write(accounts);
+        await _writeUnlocked(accounts);
         return accounts;
       });
 
   Future<List<GeminiAccountMetadata>> remove(String id) =>
       _mutate((accounts) async {
         accounts.removeWhere((account) => account.localAccountId == id);
-        await _write(accounts);
+        await _writeUnlocked(accounts);
         return accounts;
       });
 }

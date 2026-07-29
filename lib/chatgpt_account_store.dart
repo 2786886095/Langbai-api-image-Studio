@@ -176,16 +176,23 @@ class ChatGptAccountStore {
           ].join(Platform.pathSeparator),
         );
 
+  static Future<void> _processMutationTail = Future<void>.value();
+
   final Directory root;
 
   Directory get profilesRoot => Directory(<String>[
         root.path,
-        chatGptProfilesDirectoryName
+        chatGptProfilesDirectoryName,
       ].join(Platform.pathSeparator));
 
   File get accountIndexFile => File(<String>[
         root.path,
-        chatGptAccountIndexFileName
+        chatGptAccountIndexFileName,
+      ].join(Platform.pathSeparator));
+
+  File get _lockFile => File(<String>[
+        root.path,
+        'chatgpt-accounts.lock',
       ].join(Platform.pathSeparator));
 
   Directory profileDirectory(String accountId) => Directory(
@@ -202,87 +209,192 @@ class ChatGptAccountStore {
         ].join(Platform.pathSeparator),
       );
 
-  Future<ChatGptAccountRecord> ensurePrimaryAccount() async {
-    final accounts = await readAccounts();
-    if (accounts.isNotEmpty) {
-      await profileDirectory(accounts.first.localAccountId)
-          .create(recursive: true);
-      return accounts.first;
-    }
-    final record =
-        ChatGptAccountRecord.signedOut(createLocalChatGptAccountId());
-    await profileDirectory(record.localAccountId).create(recursive: true);
-    await writeAccounts(<ChatGptAccountRecord>[record]);
-    await writeState(record);
-    return record;
-  }
-
-  Future<List<ChatGptAccountRecord>> readAccounts() async {
-    try {
-      if (!await accountIndexFile.exists()) return <ChatGptAccountRecord>[];
-      final decoded = jsonDecode(await accountIndexFile.readAsString());
-      if (decoded is! List) return <ChatGptAccountRecord>[];
-      final result = <ChatGptAccountRecord>[];
-      for (final item in decoded) {
-        if (item is! Map) continue;
-        final id = item['local_account_id']?.toString();
-        if (id == null) continue;
-        try {
-          result.add(ChatGptAccountRecord.fromJson(
-            item,
-            expectedAccountId: id,
-          ));
-        } on FormatException {
-          // Ignore malformed metadata without touching profile directories.
+  Future<T> _withStoreLock<T>(Future<T> Function() operation) {
+    final attempt =
+        _processMutationTail.catchError((Object _) {}).then((_) async {
+      RandomAccessFile? handle;
+      try {
+        await root.create(recursive: true);
+        handle = await _lockFile.open(mode: FileMode.append);
+        await handle.lock(FileLock.exclusive);
+        return await operation();
+      } finally {
+        if (handle != null) {
+          try {
+            await handle.unlock();
+          } catch (_) {
+            // Closing the handle still releases an OS-level lock.
+          }
+          await handle.close();
         }
       }
-      return result;
-    } catch (_) {
-      return <ChatGptAccountRecord>[];
-    }
+    });
+    _processMutationTail = attempt.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return attempt;
   }
 
-  Future<ChatGptAccountRecord> readState(String accountId) async {
+  Future<ChatGptAccountRecord> ensurePrimaryAccount() =>
+      _withStoreLock(() async {
+        final accounts = await _readAccountsUnlocked();
+        if (accounts.isNotEmpty) {
+          await profileDirectory(accounts.first.localAccountId)
+              .create(recursive: true);
+          return accounts.first;
+        }
+        final record =
+            ChatGptAccountRecord.signedOut(createLocalChatGptAccountId());
+        await profileDirectory(record.localAccountId).create(recursive: true);
+        await _writeAccountsUnlocked(<ChatGptAccountRecord>[record]);
+        await _writeStateFileUnlocked(record);
+        return record;
+      });
+
+  Future<List<ChatGptAccountRecord>> readAccounts() =>
+      _withStoreLock(_readAccountsUnlocked);
+
+  Future<List<ChatGptAccountRecord>> _readAccountsUnlocked() async {
+    final decoded = await _readRecoveredJson(
+      accountIndexFile,
+      (value) => value is List,
+    );
+    if (decoded is! List) return <ChatGptAccountRecord>[];
+    final result = <ChatGptAccountRecord>[];
+    for (final item in decoded) {
+      if (item is! Map) continue;
+      final id = item['local_account_id']?.toString();
+      if (id == null) continue;
+      try {
+        result.add(ChatGptAccountRecord.fromJson(
+          item,
+          expectedAccountId: id,
+        ));
+      } on FormatException {
+        // Ignore malformed metadata without touching profile directories.
+      }
+    }
+    return result;
+  }
+
+  Future<ChatGptAccountRecord> readState(String accountId) {
     final id = validateLocalChatGptAccountId(accountId);
+    return _withStoreLock(() => _readStateUnlocked(id));
+  }
+
+  Future<ChatGptAccountRecord> _readStateUnlocked(String id) async {
+    final decoded = await _readRecoveredJson(
+      stateFile(id),
+      (value) => value is Map,
+    );
+    if (decoded is! Map) return ChatGptAccountRecord.signedOut(id);
     try {
-      final file = stateFile(id);
-      if (!await file.exists()) return ChatGptAccountRecord.signedOut(id);
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map) return ChatGptAccountRecord.signedOut(id);
-      return ChatGptAccountRecord.fromJson(
-        decoded,
-        expectedAccountId: id,
-      );
+      return ChatGptAccountRecord.fromJson(decoded, expectedAccountId: id);
     } catch (_) {
       return ChatGptAccountRecord.signedOut(id);
     }
   }
 
-  Future<void> writeState(ChatGptAccountRecord record) async {
-    final file = stateFile(record.localAccountId);
-    await _writeJsonAtomically(file, record.toJson());
-    final accounts = await readAccounts();
-    final next = <ChatGptAccountRecord>[
-      record,
-      ...accounts.where(
-        (item) => item.localAccountId != record.localAccountId,
-      ),
+  Future<void> writeState(ChatGptAccountRecord record) =>
+      _withStoreLock(() async {
+        await _writeStateFileUnlocked(record);
+        final accounts = await _readAccountsUnlocked();
+        final next = <ChatGptAccountRecord>[
+          record,
+          ...accounts.where(
+            (item) => item.localAccountId != record.localAccountId,
+          ),
+        ];
+        await _writeAccountsUnlocked(next);
+      });
+
+  Future<void> _writeStateFileUnlocked(ChatGptAccountRecord record) =>
+      _writeJsonAtomically(stateFile(record.localAccountId), record.toJson());
+
+  Future<void> writeAccounts(List<ChatGptAccountRecord> records) =>
+      _withStoreLock(() => _writeAccountsUnlocked(records));
+
+  Future<void> _writeAccountsUnlocked(
+    List<ChatGptAccountRecord> records,
+  ) =>
+      _writeJsonAtomically(
+        accountIndexFile,
+        records.map((record) => record.toJson()).toList(growable: false),
+      );
+
+  Future<Object?> _readRecoveredJson(
+    File primary,
+    bool Function(Object? value) validator,
+  ) async {
+    final candidates = <File>[
+      primary,
+      File('${primary.path}.tmp'),
+      File('${primary.path}.bak'),
     ];
-    await writeAccounts(next);
+    final valid = <String, ({File file, Object? value})>{};
+    for (final candidate in candidates) {
+      try {
+        if (!await candidate.exists()) continue;
+        final value = jsonDecode(await candidate.readAsString());
+        if (!validator(value)) continue;
+        valid[candidate.path] = (
+          file: candidate,
+          value: value,
+        );
+      } catch (_) {
+        // Keep searching the primary, interrupted .tmp, and .bak copies.
+      }
+    }
+    if (valid.isEmpty) return null;
+    // A complete fixed .tmp means the process crashed after flushing the new
+    // value but before replacing the primary. It is therefore authoritative
+    // even on filesystems whose timestamp resolution cannot order both files.
+    // Without a valid .tmp, keep a valid primary; use .bak only for recovery.
+    final selected = valid['${primary.path}.tmp'] ??
+        valid[primary.path] ??
+        valid['${primary.path}.bak']!;
+    if (selected.file.path != primary.path) {
+      await _promoteRecoveredJson(primary, selected.value);
+      if (selected.file.path.endsWith('.tmp') && await selected.file.exists()) {
+        await selected.file.delete();
+      }
+    }
+    return selected.value;
   }
 
-  Future<void> writeAccounts(List<ChatGptAccountRecord> records) async {
-    await _writeJsonAtomically(
-      accountIndexFile,
-      records.map((record) => record.toJson()).toList(growable: false),
-    );
+  Future<void> _promoteRecoveredJson(File primary, Object? value) async {
+    await primary.parent.create(recursive: true);
+    final recovery = File('${primary.path}.recovering');
+    if (await recovery.exists()) await recovery.delete();
+    await recovery.writeAsString(jsonEncode(value), flush: true);
+    if (await primary.exists()) await primary.delete();
+    await recovery.rename(primary.path);
   }
 
   Future<void> _writeJsonAtomically(File file, Object value) async {
     await file.parent.create(recursive: true);
     final temporary = File('${file.path}.tmp');
-    await temporary.writeAsString(jsonEncode(value), flush: true);
-    if (await file.exists()) await file.delete();
-    await temporary.rename(file.path);
+    final backup = File('${file.path}.bak');
+    if (await temporary.exists()) await temporary.delete();
+    final encoded = jsonEncode(value);
+    await temporary.writeAsString(encoded, flush: true);
+    // Verify the complete temporary file before moving the previous primary.
+    jsonDecode(await temporary.readAsString());
+
+    var movedPrimary = false;
+    try {
+      if (await file.exists()) {
+        if (await backup.exists()) await backup.delete();
+        await file.rename(backup.path);
+        movedPrimary = true;
+      }
+      await temporary.rename(file.path);
+    } catch (_) {
+      if (!await file.exists() && movedPrimary && await backup.exists()) {
+        await backup.copy(file.path);
+      }
+      rethrow;
+    }
   }
 }

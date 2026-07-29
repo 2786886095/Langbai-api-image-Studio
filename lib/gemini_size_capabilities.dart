@@ -18,6 +18,10 @@ const List<String> geminiDimensionModes = <String>[
 Map<String, Object?> geminiWebCapabilities({
   required bool companionConnected,
   required bool sessionAvailable,
+  bool generationReady = false,
+  bool temporaryChatAvailable = false,
+  bool fullsizeDownloadAvailable = false,
+  bool selectorPackCompatible = false,
   int effectiveConcurrency = 1,
 }) =>
     <String, Object?>{
@@ -29,8 +33,12 @@ Map<String, Object?> geminiWebCapabilities({
       'effective_concurrency': effectiveConcurrency,
       'companion_connected': companionConnected,
       'session_available': sessionAvailable,
+      'generation_ready': generationReady,
+      'temporary_chat_available': temporaryChatAvailable,
+      'fullsize_download_available': fullsizeDownloadAvailable,
+      'selector_pack_compatible': selectorPackCompatible,
       'temporary_chat_required': true,
-      'fullsize_download': true,
+      'fullsize_download': fullsizeDownloadAvailable,
       'reference_images': <String, Object?>{
         'verified_max': 1,
         'client_limit': 20,

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <utility> // std::pair
 #include <vector>
@@ -138,6 +139,10 @@ private:
     EventRegistrationToken m_permissionRequestedToken{};
 };
 wil::com_ptr<ICoreWebView2Environment> g_env;
+std::mutex g_env_mutex;
+bool g_env_creation_pending = false;
+std::wstring g_env_user_data_folder;
+std::vector<std::function<void(HRESULT)>> g_env_callbacks;
 
 // --------------------------------------------------------------------------
 
@@ -149,24 +154,75 @@ MyWebView* MyWebView::Create(HWND hWnd,
 
 HRESULT InitWebViewRuntime(PCWSTR pwUserDataFolder, std::function<void(HRESULT)> callback = nullptr)
 {
-    if (g_env != NULL) {
-        if (callback != nullptr) callback(S_OK);
-        return S_OK;
+    const std::wstring requestedFolder =
+        pwUserDataFolder != nullptr ? pwUserDataFolder : L"";
+    HRESULT immediateResult = E_PENDING;
+    {
+        std::lock_guard<std::mutex> lock(g_env_mutex);
+        if (g_env != NULL) {
+            immediateResult =
+                g_env_user_data_folder == requestedFolder ? S_OK : E_INVALIDARG;
+        } else if (g_env_creation_pending) {
+            if (g_env_user_data_folder != requestedFolder) {
+                immediateResult = E_INVALIDARG;
+            } else {
+                if (callback != nullptr) g_env_callbacks.push_back(callback);
+                return S_OK;
+            }
+        } else {
+            g_env_creation_pending = true;
+            g_env_user_data_folder = requestedFolder;
+            if (callback != nullptr) g_env_callbacks.push_back(callback);
+        }
+    }
+    if (immediateResult != E_PENDING) {
+        if (callback != nullptr) callback(immediateResult);
+        return immediateResult;
     }
 
-    return CreateCoreWebView2EnvironmentWithOptions(nullptr, pwUserDataFolder, nullptr,
+    const HRESULT startResult =
+        CreateCoreWebView2EnvironmentWithOptions(nullptr, pwUserDataFolder, nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [callback](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
-                if (result == S_OK) {
-                    g_env = env;
+            [](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+                std::vector<std::function<void(HRESULT)>> callbacks;
+                {
+                    std::lock_guard<std::mutex> lock(g_env_mutex);
+                    if (SUCCEEDED(result) && env != nullptr) {
+                        g_env = env;
+                    } else {
+                        g_env = nullptr;
+                        g_env_user_data_folder.clear();
+                    }
+                    g_env_creation_pending = false;
+                    callbacks.swap(g_env_callbacks);
                 }
-                if (callback != nullptr) callback(result);
+                for (const auto& pendingCallback : callbacks) {
+                    if (pendingCallback != nullptr) pendingCallback(result);
+                }
                 return result;
             }).Get());
+    if (FAILED(startResult)) {
+        std::vector<std::function<void(HRESULT)>> callbacks;
+        {
+            std::lock_guard<std::mutex> lock(g_env_mutex);
+            g_env_creation_pending = false;
+            g_env_user_data_folder.clear();
+            callbacks.swap(g_env_callbacks);
+        }
+        for (const auto& pendingCallback : callbacks) {
+            if (pendingCallback != nullptr) pendingCallback(startResult);
+        }
+    }
+    return startResult;
 }
 
 HRESULT ReleaseWebViewRuntime()
 {
+    std::lock_guard<std::mutex> lock(g_env_mutex);
+    g_env = nullptr;
+    g_env_creation_pending = false;
+    g_env_user_data_folder.clear();
+    g_env_callbacks.clear();
     return S_OK;
 }
 
@@ -435,7 +491,7 @@ HRESULT MyWebViewImpl::initialize(
                             COREWEBVIEW2_PROCESS_FAILED_KIND kind = COREWEBVIEW2_PROCESS_FAILED_KIND_UNKNOWN_PROCESS_EXITED;
                             if (SUCCEEDED(args->get_ProcessFailedKind(&kind)) && params.onProcessFailed) {
                                 if (kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED) {
-                                    g_env = nullptr;
+                                    ReleaseWebViewRuntime();
                                 }
                                 params.onProcessFailed(static_cast<int>(kind));
                             }

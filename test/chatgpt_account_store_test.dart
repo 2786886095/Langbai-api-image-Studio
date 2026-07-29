@@ -104,5 +104,70 @@ void main() {
           isTrue);
       expect(await state.exists(), isTrue);
     });
+
+    test('recovers a newer complete auth state from the fixed tmp file',
+        () async {
+      final account = await store.ensurePrimaryAccount();
+      final state = store.stateFile(account.localAccountId);
+      final temporary = File('${state.path}.tmp');
+      final recovered = account.copyWith(
+        displayName: 'Recovered account',
+        status: 'ready',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await temporary.writeAsString(
+        jsonEncode(recovered.toJson()),
+        flush: true,
+      );
+
+      final value = await store.readState(account.localAccountId);
+
+      expect(value.displayName, 'Recovered account');
+      expect(value.status, 'ready');
+      expect(await temporary.exists(), isFalse);
+      expect(
+        jsonDecode(await state.readAsString())['display_name'],
+        'Recovered account',
+      );
+    });
+
+    test('recovers auth state from bak when the primary is corrupted',
+        () async {
+      final account = await store.ensurePrimaryAccount();
+      final first = account.copyWith(displayName: 'Backup account');
+      final second = account.copyWith(displayName: 'Current account');
+      await store.writeState(first);
+      await store.writeState(second);
+      final state = store.stateFile(account.localAccountId);
+      expect(await File('${state.path}.bak').exists(), isTrue);
+      await state.writeAsString('{truncated', flush: true);
+
+      final value = await store.readState(account.localAccountId);
+
+      expect(value.displayName, 'Backup account');
+      expect(jsonDecode(await state.readAsString()), isA<Map>());
+    });
+
+    test('recovers the account index from an interrupted tmp replacement',
+        () async {
+      final first = await store.ensurePrimaryAccount();
+      final second =
+          ChatGptAccountRecord.signedOut(createLocalChatGptAccountId());
+      final temporary = File('${store.accountIndexFile.path}.tmp');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await temporary.writeAsString(
+        jsonEncode(<Map<String, String>>[
+          first.toJson(),
+          second.toJson(),
+        ]),
+        flush: true,
+      );
+
+      final accounts = await store.readAccounts();
+
+      expect(accounts.map((item) => item.localAccountId),
+          contains(second.localAccountId));
+      expect(await temporary.exists(), isFalse);
+    });
   });
 }

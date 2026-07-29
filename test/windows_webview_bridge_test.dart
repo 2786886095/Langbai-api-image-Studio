@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
+import 'package:ai_image_generator/main.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,7 @@ void main() {
     final controller = WinWebViewController(
       params: const WindowsWebViewControllerCreationParams(
         userDataFolder: r'C:\test-profile',
+        profileName: 'profile-a',
         suspendDuringDeactive: false,
         useTopLevelWindowHost: true,
       ),
@@ -40,6 +42,7 @@ void main() {
 
     final create = calls.firstWhere((call) => call.method == 'create');
     expect((create.arguments as Map)['useTopLevelWindowHost'], isTrue);
+    expect((create.arguments as Map)['profileName'], 'profile-a');
     final webviewId = (create.arguments as Map)['webviewId'] as int;
     final inboundDone = Completer<void>();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -75,5 +78,26 @@ void main() {
     await controller.dispose();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+  });
+
+  test('Windows health snapshot rejects startup errors and missing controls',
+      () {
+    final healthy = WindowsAppHealthSnapshot.fromJavaScriptResult(
+      '{"ready":true,"error":"","missing":[]}',
+    );
+    expect(healthy.healthy, isTrue);
+
+    final failed = WindowsAppHealthSnapshot.fromJavaScriptResult(
+      '"{\\"ready\\":false,\\"error\\":\\"bootstrap failed\\",'
+      '\\"missing\\":[\\"#settingsBtn\\"]}"',
+    );
+    expect(failed.healthy, isFalse);
+    expect(failed.startupError, 'bootstrap failed');
+    expect(failed.missingControls, contains('#settingsBtn'));
+  });
+
+  test('main WebView explicitly retains the legacy default profile', () {
+    expect(windowsMainWebViewProfileName, 'Default');
+    expect(windowsSelfTestWebViewProfileName, isNot('Default'));
   });
 }

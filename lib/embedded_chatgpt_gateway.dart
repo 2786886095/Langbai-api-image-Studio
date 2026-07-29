@@ -7,6 +7,8 @@ const int embeddedGatewayFirstPort = 18081;
 const int embeddedGatewayLastPort = 18100;
 const String embeddedGatewayProcessName = 'langbai_chatgpt_gateway.exe';
 
+typedef EmbeddedGatewayStartAttempt = Future<Map<String, Object?>> Function();
+
 String randomGatewaySecret({int bytes = 32, Random? random}) {
   final source = random ?? Random.secure();
   return List<int>.generate(bytes, (_) => source.nextInt(256))
@@ -25,25 +27,65 @@ String embeddedGatewayExecutablePath({
   ].join(Platform.pathSeparator);
 }
 
+bool isLikelyGatewayPortBindingFailure(Object error, String stderr) {
+  final text = '$error\n$stderr'.toLowerCase();
+  return text.contains('address already in use') ||
+      text.contains('only one usage of each socket address') ||
+      text.contains('errno 10048') ||
+      text.contains('winerror 10048') ||
+      (text.contains('bind') && text.contains('port'));
+}
+
+String gatewayStopByPathPowerShell(String executablePath) {
+  final escaped = File(executablePath).absolute.path.replaceAll("'", "''");
+  return r'''$target=[IO.Path]::GetFullPath('''
+      "'$escaped'"
+      r'''); Get-CimInstance Win32_Process -Filter "Name='langbai_chatgpt_gateway.exe'" | Where-Object { $_.ExecutablePath -and ([IO.Path]::GetFullPath($_.ExecutablePath) -eq $target) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop }''';
+}
+
 class EmbeddedChatGptGatewayManager {
   EmbeddedChatGptGatewayManager({
     this.firstPort = embeddedGatewayFirstPort,
     this.lastPort = embeddedGatewayLastPort,
-  });
+    this.startupTimeout = const Duration(seconds: 25),
+    EmbeddedGatewayStartAttempt? startAttemptForTesting,
+  }) : _startAttemptForTesting = startAttemptForTesting;
 
   final int firstPort;
   final int lastPort;
+  final Duration startupTimeout;
+  final EmbeddedGatewayStartAttempt? _startAttemptForTesting;
   Process? _process;
   Future<Map<String, Object?>>? _startFuture;
   String _apiKey = '';
   String _bridgeSecret = '';
   int _port = 0;
   String _lastError = '';
+  bool _gatewayReady = false;
+  bool _stopping = false;
 
-  bool get running => _process != null && _port > 0;
+  bool get running => _gatewayReady && _process != null && _port > 0;
 
-  Future<Map<String, Object?>> configuration() =>
-      _startFuture ??= _startInternal();
+  Future<Map<String, Object?>> configuration() {
+    final existing = _startFuture;
+    if (existing != null) return existing;
+    final attempt = _runStartAttempt();
+    _startFuture = attempt;
+    return attempt;
+  }
+
+  Future<Map<String, Object?>> _runStartAttempt() async {
+    try {
+      final result =
+          await (_startAttemptForTesting?.call() ?? _startInternal());
+      if (_startAttemptForTesting != null) _startFuture = null;
+      return result;
+    } catch (_) {
+      await _resetAfterFailedStart();
+      _startFuture = null;
+      rethrow;
+    }
+  }
 
   Future<Map<String, Object?>> _startInternal() async {
     if (!Platform.isWindows) {
@@ -51,29 +93,64 @@ class EmbeddedChatGptGatewayManager {
         'The bundled ChatGPT web image gateway is currently available on Windows only.',
       );
     }
-    final override =
-        (Platform.environment['LANGBAI_EMBEDDED_GATEWAY_EXECUTABLE'] ?? '')
-            .trim();
-    final executable = override.isNotEmpty
-        ? File(override)
-        : File(embeddedGatewayExecutablePath(
-            executableDirectory: File(Platform.resolvedExecutable).parent.path,
-          ));
+    final executable = _resolveExecutable();
     if (!await executable.exists()) {
       _lastError = 'Bundled image gateway executable is missing.';
       throw FileSystemException(_lastError, executable.path);
     }
 
-    _apiKey = randomGatewaySecret();
-    _bridgeSecret = randomGatewaySecret();
-    _port = await _findAvailablePort();
     final dataDirectory = Directory(<String>[
       _localAppData(),
       'LangbaiImageStudio',
       'EmbeddedChatGptGateway',
     ].join(Platform.pathSeparator));
     await dataDirectory.create(recursive: true);
+    _apiKey = randomGatewaySecret();
+    _bridgeSecret = randomGatewaySecret();
+    _lastError = '';
 
+    final attemptedPorts = <int>{};
+    final maxPortAttempts = min(3, lastPort - firstPort + 1);
+    Object? lastPortError;
+    for (var attempt = 0; attempt < maxPortAttempts; attempt++) {
+      final candidate = await _findAvailablePort(excluding: attemptedPorts);
+      attemptedPorts.add(candidate);
+      _port = candidate;
+      try {
+        return await _launchAtPort(
+          executable: executable,
+          dataDirectory: dataDirectory,
+          port: candidate,
+        );
+      } catch (error) {
+        lastPortError = error;
+        final retryPort = attempt + 1 < maxPortAttempts &&
+            isLikelyGatewayPortBindingFailure(error, _lastError);
+        await _stopTrackedProcess(clearSecrets: false);
+        if (!retryPort) rethrow;
+      }
+    }
+    throw StateError(
+      'Bundled image gateway could not bind a port: $lastPortError',
+    );
+  }
+
+  File _resolveExecutable() {
+    final override =
+        (Platform.environment['LANGBAI_EMBEDDED_GATEWAY_EXECUTABLE'] ?? '')
+            .trim();
+    return override.isNotEmpty
+        ? File(override)
+        : File(embeddedGatewayExecutablePath(
+            executableDirectory: File(Platform.resolvedExecutable).parent.path,
+          ));
+  }
+
+  Future<Map<String, Object?>> _launchAtPort({
+    required File executable,
+    required Directory dataDirectory,
+    required int port,
+  }) async {
     final environment = <String, String>{
       ...Platform.environment,
       'CHATGPT2API_AUTH_KEY': _apiKey,
@@ -83,27 +160,34 @@ class EmbeddedChatGptGatewayManager {
         dataDirectory.path,
         'config.json',
       ].join(Platform.pathSeparator),
-      'LANGBAI_GATEWAY_PORT': '$_port',
+      'LANGBAI_GATEWAY_PORT': '$port',
       'LANGBAI_PARENT_PID': '$pid',
       'PYTHONUTF8': '1',
     };
-    _process = await Process.start(
+    final launched = await Process.start(
       executable.path,
       const <String>[],
       workingDirectory: executable.parent.path,
       environment: environment,
       mode: ProcessStartMode.normal,
     );
-    unawaited(_process!.stdout.drain<void>());
-    unawaited(_process!.stderr
+    _process = launched;
+    _gatewayReady = false;
+    unawaited(launched.stdout.drain<void>());
+    unawaited(launched.stderr
         .transform(utf8.decoder)
-        .listen((line) => _lastError = line.trim())
+        .transform(const LineSplitter())
+        .listen((line) {
+          final value = line.trim();
+          if (value.isNotEmpty) _lastError = value;
+        })
         .asFuture<void>()
         .catchError((Object _) {}));
+    _watchProcessExit(launched);
 
-    final deadline = DateTime.now().add(const Duration(seconds: 25));
+    final deadline = DateTime.now().add(startupTimeout);
     while (DateTime.now().isBefore(deadline)) {
-      final exitCode = await _exitCodeIfFinished(_process!);
+      final exitCode = await _exitCodeIfFinished(launched);
       if (exitCode != null) {
         throw ProcessException(
           executable.path,
@@ -114,23 +198,39 @@ class EmbeddedChatGptGatewayManager {
           exitCode,
         );
       }
-      if (await _healthReady()) {
+      if (identical(_process, launched) && await _healthReady(port)) {
+        _gatewayReady = true;
         return <String, Object?>{
-          'baseUrl': 'http://127.0.0.1:$_port/v1',
+          'baseUrl': 'http://127.0.0.1:$port/v1',
           'apiKey': _apiKey,
           'embedded': true,
-          'port': _port,
+          'port': port,
         };
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    await stop();
     throw TimeoutException(
       _lastError.isEmpty
           ? 'Bundled image gateway did not become ready.'
           : _lastError,
-      const Duration(seconds: 25),
+      startupTimeout,
     );
+  }
+
+  void _watchProcessExit(Process process) {
+    unawaited(process.exitCode.then((exitCode) {
+      if (!identical(_process, process)) return;
+      final wasReady = _gatewayReady;
+      _process = null;
+      _gatewayReady = false;
+      _port = 0;
+      _apiKey = '';
+      _bridgeSecret = '';
+      if (!_stopping && _lastError.isEmpty) {
+        _lastError = 'Bundled image gateway exited with code $exitCode.';
+      }
+      if (wasReady) _startFuture = null;
+    }));
   }
 
   Future<void> setSessionToken(
@@ -185,35 +285,62 @@ class EmbeddedChatGptGatewayManager {
   }
 
   Future<void> stop() async {
-    final process = _process;
-    _process = null;
-    _port = 0;
     _startFuture = null;
-    if (process == null) return;
-    process.kill();
+    await _stopTrackedProcess(clearSecrets: true);
+  }
+
+  Future<void> _stopTrackedProcess({required bool clearSecrets}) async {
+    final process = _process;
+    _stopping = true;
+    _process = null;
+    _gatewayReady = false;
+    _port = 0;
+    if (clearSecrets) {
+      _apiKey = '';
+      _bridgeSecret = '';
+    }
     try {
-      await process.exitCode.timeout(const Duration(seconds: 3));
-    } on TimeoutException {
-      process.kill(ProcessSignal.sigkill);
+      if (process == null) return;
+      process.kill();
+      try {
+        await process.exitCode.timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        process.kill(ProcessSignal.sigkill);
+        await process.exitCode.timeout(const Duration(seconds: 3));
+      }
+    } finally {
+      _stopping = false;
     }
   }
 
-  /// Stops both the gateway tracked by this app instance and stale gateways
-  /// left by earlier hard application exits. Windows cannot replace a running
-  /// executable, so this must finish before an update installer is launched.
+  Future<void> _resetAfterFailedStart() async {
+    await _stopTrackedProcess(clearSecrets: true);
+    _port = 0;
+    _gatewayReady = false;
+  }
+
+  /// Stops only the helper started from this installation directory. Other
+  /// installed, portable, or test copies must keep their own tasks alive.
   Future<void> stopAllForUpdate() async {
     await stop();
     if (!Platform.isWindows) return;
+    final executable = _resolveExecutable();
     final result = await Process.run(
-      'taskkill.exe',
-      const <String>['/F', '/IM', embeddedGatewayProcessName],
+      'powershell.exe',
+      <String>[
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        gatewayStopByPathPowerShell(executable.path),
+      ],
       runInShell: false,
-    ).timeout(const Duration(seconds: 8));
-    // taskkill returns 128 when no matching process exists.
-    if (result.exitCode != 0 && result.exitCode != 128) {
+    ).timeout(const Duration(seconds: 12));
+    if (result.exitCode != 0) {
       throw ProcessException(
-        'taskkill.exe',
-        const <String>['/F', '/IM', embeddedGatewayProcessName],
+        'powershell.exe',
+        const <String>[],
         '${result.stdout}\n${result.stderr}'.trim(),
         result.exitCode,
       );
@@ -221,8 +348,9 @@ class EmbeddedChatGptGatewayManager {
     await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
-  Future<int> _findAvailablePort() async {
+  Future<int> _findAvailablePort({Set<int> excluding = const <int>{}}) async {
     for (var candidate = firstPort; candidate <= lastPort; candidate++) {
+      if (excluding.contains(candidate)) continue;
       try {
         final socket = await ServerSocket.bind(
           InternetAddress.loopbackIPv4,
@@ -240,11 +368,11 @@ class EmbeddedChatGptGatewayManager {
     );
   }
 
-  Future<bool> _healthReady() async {
+  Future<bool> _healthReady(int port) async {
     final client = HttpClient()..findProxy = (_) => 'DIRECT';
     try {
       final request = await client.getUrl(
-        Uri.parse('http://127.0.0.1:$_port/healthz'),
+        Uri.parse('http://127.0.0.1:$port/healthz'),
       );
       final response =
           await request.close().timeout(const Duration(seconds: 2));

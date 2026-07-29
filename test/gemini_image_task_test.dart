@@ -58,6 +58,10 @@ void main() {
     final capabilities = geminiWebCapabilities(
       companionConnected: true,
       sessionAvailable: true,
+      generationReady: true,
+      temporaryChatAvailable: true,
+      fullsizeDownloadAvailable: true,
+      selectorPackCompatible: true,
       effectiveConcurrency: 2,
     );
 

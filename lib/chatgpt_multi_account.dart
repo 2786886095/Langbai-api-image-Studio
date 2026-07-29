@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'secure_storage_queue.dart';
+
 const String chatGptAccountsSecureKey = 'langbai_chatgpt_accounts_v1';
 const String chatGptActiveAccountSecureKey =
     'langbai_chatgpt_active_account_v1';
@@ -336,7 +338,7 @@ class ChatGptMultiAccountStore {
   String tokenKey(String localAccountId) =>
       '$chatGptTokenSecureKeyPrefix$localAccountId';
 
-  Future<List<ChatGptSecureAccount>> readAccounts() async {
+  Future<List<ChatGptSecureAccount>> _readAccountsUnlocked() async {
     try {
       final raw = await storage.read(key: chatGptAccountsSecureKey);
       if (raw == null || raw.isEmpty) return <ChatGptSecureAccount>[];
@@ -354,7 +356,12 @@ class ChatGptMultiAccountStore {
     }
   }
 
-  Future<void> writeAccounts(List<ChatGptSecureAccount> accounts) {
+  Future<List<ChatGptSecureAccount>> readAccounts() =>
+      SecureStorageQueue.run(_readAccountsUnlocked);
+
+  Future<void> _writeAccountsUnlocked(
+    List<ChatGptSecureAccount> accounts,
+  ) {
     return storage.write(
       key: chatGptAccountsSecureKey,
       value: jsonEncode(
@@ -363,89 +370,104 @@ class ChatGptMultiAccountStore {
     );
   }
 
+  Future<void> writeAccounts(List<ChatGptSecureAccount> accounts) =>
+      SecureStorageQueue.run(() => _writeAccountsUnlocked(accounts));
+
   Future<ChatGptSecureAccount> importSession(
     String rawInput, {
     String? preferredLocalAccountId,
-  }) async {
-    final parsed = ParsedChatGptSession.parse(rawInput);
-    final accounts = await readAccounts();
-    final duplicateIndex = accounts.indexWhere(
-      (account) => account.accountFingerprint == parsed.accountFingerprint,
-    );
-    final preferredIndex = preferredLocalAccountId == null
-        ? -1
-        : accounts.indexWhere(
-            (account) => account.localAccountId == preferredLocalAccountId,
+  }) =>
+      SecureStorageQueue.run(() async {
+        final parsed = ParsedChatGptSession.parse(rawInput);
+        final accounts = await _readAccountsUnlocked();
+        final duplicateIndex = accounts.indexWhere(
+          (account) => account.accountFingerprint == parsed.accountFingerprint,
+        );
+        final preferredIndex = preferredLocalAccountId == null
+            ? -1
+            : accounts.indexWhere(
+                (account) => account.localAccountId == preferredLocalAccountId,
+              );
+        final existingIndex =
+            duplicateIndex >= 0 ? duplicateIndex : preferredIndex;
+        final localId = existingIndex >= 0
+            ? accounts[existingIndex].localAccountId
+            : (preferredLocalAccountId?.trim().isNotEmpty == true
+                ? preferredLocalAccountId!.trim()
+                : _newLocalAccountId());
+        final expiresAt = parsed.expiresAt?.toUtc().toIso8601String() ?? '';
+        final now = DateTime.now().toUtc().toIso8601String();
+        final account = ChatGptSecureAccount(
+          localAccountId: localId,
+          accountFingerprint: parsed.accountFingerprint,
+          displayName: parsed.displayName,
+          maskedEmail: parsed.maskedEmail,
+          planLabel: parsed.planLabel,
+          expiresAt: expiresAt,
+          lastVerifiedAt: now,
+          status: parsed.expiresAt != null &&
+                  !parsed.expiresAt!.toUtc().isAfter(DateTime.now().toUtc())
+              ? 'expired'
+              : 'ready',
+          lastError: '',
+        );
+        final next = <ChatGptSecureAccount>[...accounts];
+        if (existingIndex >= 0) {
+          next[existingIndex] = account;
+        } else {
+          next.add(account);
+        }
+        await storage.write(
+          key: tokenKey(localId),
+          value: parsed.accessToken,
+        );
+        await _writeAccountsUnlocked(next);
+        final active =
+            (await storage.read(key: chatGptActiveAccountSecureKey) ?? '')
+                .trim();
+        if (active.isEmpty ||
+            !next.any((item) => item.localAccountId == active)) {
+          await storage.write(
+            key: chatGptActiveAccountSecureKey,
+            value: localId,
           );
-    final existingIndex = duplicateIndex >= 0 ? duplicateIndex : preferredIndex;
-    final localId = existingIndex >= 0
-        ? accounts[existingIndex].localAccountId
-        : (preferredLocalAccountId?.trim().isNotEmpty == true
-            ? preferredLocalAccountId!.trim()
-            : _newLocalAccountId());
-    final expiresAt = parsed.expiresAt?.toUtc().toIso8601String() ?? '';
-    final now = DateTime.now().toUtc().toIso8601String();
-    final account = ChatGptSecureAccount(
-      localAccountId: localId,
-      accountFingerprint: parsed.accountFingerprint,
-      displayName: parsed.displayName,
-      maskedEmail: parsed.maskedEmail,
-      planLabel: parsed.planLabel,
-      expiresAt: expiresAt,
-      lastVerifiedAt: now,
-      status: parsed.expiresAt != null &&
-              !parsed.expiresAt!.toUtc().isAfter(DateTime.now().toUtc())
-          ? 'expired'
-          : 'ready',
-      lastError: '',
-    );
-    final next = <ChatGptSecureAccount>[...accounts];
-    if (existingIndex >= 0) {
-      next[existingIndex] = account;
-    } else {
-      next.add(account);
-    }
-    await storage.write(
-      key: tokenKey(localId),
-      value: parsed.accessToken,
-    );
-    await writeAccounts(next);
-    final active = await activeAccountId();
-    if (active.isEmpty || !next.any((item) => item.localAccountId == active)) {
-      await selectAccount(localId);
-    }
-    return account;
-  }
+        }
+        return account;
+      });
 
-  Future<String> activeAccountId() async =>
-      (await storage.read(key: chatGptActiveAccountSecureKey) ?? '').trim();
+  Future<String> activeAccountId() => SecureStorageQueue.run(() async =>
+      (await storage.read(key: chatGptActiveAccountSecureKey) ?? '').trim());
 
-  Future<bool> autoSwitchEnabled() async =>
-      (await storage.read(key: chatGptAutoSwitchSecureKey)) != 'false';
+  Future<bool> autoSwitchEnabled() => SecureStorageQueue.run(() async =>
+      (await storage.read(key: chatGptAutoSwitchSecureKey)) != 'false');
 
-  Future<void> setAutoSwitch(bool enabled) => storage.write(
-        key: chatGptAutoSwitchSecureKey,
-        value: enabled ? 'true' : 'false',
+  Future<void> setAutoSwitch(bool enabled) => SecureStorageQueue.run(
+        () => storage.write(
+          key: chatGptAutoSwitchSecureKey,
+          value: enabled ? 'true' : 'false',
+        ),
       );
 
-  Future<void> selectAccount(String localAccountId) async {
-    final accounts = await readAccounts();
-    if (!accounts.any((item) => item.localAccountId == localAccountId)) {
-      throw const FormatException('ChatGPT account was not found.');
-    }
-    await storage.write(
-      key: chatGptActiveAccountSecureKey,
-      value: localAccountId,
-    );
-  }
+  Future<void> selectAccount(String localAccountId) =>
+      SecureStorageQueue.run(() async {
+        final accounts = await _readAccountsUnlocked();
+        if (!accounts.any((item) => item.localAccountId == localAccountId)) {
+          throw const FormatException('ChatGPT account was not found.');
+        }
+        await storage.write(
+          key: chatGptActiveAccountSecureKey,
+          value: localAccountId,
+        );
+      });
 
-  Future<String> readToken(String localAccountId) async {
-    final token = await storage.read(key: tokenKey(localAccountId)) ?? '';
-    if (token.length < 32) {
-      throw const FormatException('ChatGPT account token is missing.');
-    }
-    return token;
-  }
+  Future<String> readToken(String localAccountId) =>
+      SecureStorageQueue.run(() async {
+        final token = await storage.read(key: tokenKey(localAccountId)) ?? '';
+        if (token.length < 32) {
+          throw const FormatException('ChatGPT account token is missing.');
+        }
+        return token;
+      });
 
   /// Rehydrates a newly started in-process gateway from persisted secure
   /// storage. Updating the desktop app restarts the gateway process, but must
@@ -485,87 +507,112 @@ class ChatGptMultiAccountStore {
     return accounts.isEmpty ? null : accounts.first;
   }
 
-  Future<void> deleteAccount(String localAccountId) async {
-    final accounts = await readAccounts();
-    final next = accounts
-        .where((item) => item.localAccountId != localAccountId)
-        .toList(growable: false);
-    await storage.delete(key: tokenKey(localAccountId));
-    await writeAccounts(next);
-    if (await activeAccountId() == localAccountId) {
-      if (next.isEmpty) {
-        await storage.delete(key: chatGptActiveAccountSecureKey);
-      } else {
-        await selectAccount(next.first.localAccountId);
-      }
-    }
-  }
+  Future<void> deleteAccount(String localAccountId) =>
+      SecureStorageQueue.run(() async {
+        final accounts = await _readAccountsUnlocked();
+        final next = accounts
+            .where((item) => item.localAccountId != localAccountId)
+            .toList(growable: false);
+        await storage.delete(key: tokenKey(localAccountId));
+        await _writeAccountsUnlocked(next);
+        final active =
+            (await storage.read(key: chatGptActiveAccountSecureKey) ?? '')
+                .trim();
+        if (active == localAccountId) {
+          if (next.isEmpty) {
+            await storage.delete(key: chatGptActiveAccountSecureKey);
+          } else {
+            await storage.write(
+              key: chatGptActiveAccountSecureKey,
+              value: next.first.localAccountId,
+            );
+          }
+        }
+      });
 
   Future<ChatGptSecureAccount> markAccount(
     String localAccountId, {
     required String status,
     String lastError = '',
-  }) async {
-    final accounts = await readAccounts();
-    final index =
-        accounts.indexWhere((item) => item.localAccountId == localAccountId);
-    if (index < 0) {
-      throw const FormatException('ChatGPT account was not found.');
-    }
-    final normalizedStatus =
-        chatGptAccountAvailabilityStates.contains(status) ? status : 'unknown';
-    final nextAccount = accounts[index].copyWith(
-      status: normalizedStatus,
-      lastError: lastError,
-      lastVerifiedAt: normalizedStatus == 'ready'
-          ? DateTime.now().toUtc().toIso8601String()
-          : null,
-    );
-    final next = <ChatGptSecureAccount>[...accounts]..[index] = nextAccount;
-    await writeAccounts(next);
-    return nextAccount;
-  }
+  }) =>
+      SecureStorageQueue.run(() async {
+        final accounts = await _readAccountsUnlocked();
+        final index = accounts
+            .indexWhere((item) => item.localAccountId == localAccountId);
+        if (index < 0) {
+          throw const FormatException('ChatGPT account was not found.');
+        }
+        final normalizedStatus =
+            chatGptAccountAvailabilityStates.contains(status)
+                ? status
+                : 'unknown';
+        final nextAccount = accounts[index].copyWith(
+          status: normalizedStatus,
+          lastError: lastError,
+          lastVerifiedAt: normalizedStatus == 'ready'
+              ? DateTime.now().toUtc().toIso8601String()
+              : null,
+        );
+        final next = <ChatGptSecureAccount>[...accounts]..[index] = nextAccount;
+        await _writeAccountsUnlocked(next);
+        return nextAccount;
+      });
 
   Future<ChatGptSecureAccount?> rotateAfterFailure({
     required String failedStatus,
     required String reason,
-  }) async {
-    final accounts = await readAccounts();
-    if (accounts.isEmpty) return null;
-    var currentId = await activeAccountId();
-    var currentIndex =
-        accounts.indexWhere((item) => item.localAccountId == currentId);
-    if (currentIndex < 0) currentIndex = 0;
-    final current = accounts[currentIndex].copyWith(
-      status: failedStatus,
-      lastError: reason,
-    );
-    final updated = <ChatGptSecureAccount>[...accounts]..[currentIndex] =
-        current;
-    await writeAccounts(updated);
-    if (!await autoSwitchEnabled()) return null;
+  }) =>
+      SecureStorageQueue.run(() async {
+        final accounts = await _readAccountsUnlocked();
+        if (accounts.isEmpty) return null;
+        var currentId =
+            (await storage.read(key: chatGptActiveAccountSecureKey) ?? '')
+                .trim();
+        var currentIndex =
+            accounts.indexWhere((item) => item.localAccountId == currentId);
+        if (currentIndex < 0) currentIndex = 0;
+        final current = accounts[currentIndex].copyWith(
+          status: failedStatus,
+          lastError: reason,
+        );
+        final updated = <ChatGptSecureAccount>[...accounts]..[currentIndex] =
+            current;
+        await _writeAccountsUnlocked(updated);
+        if ((await storage.read(key: chatGptAutoSwitchSecureKey)) == 'false') {
+          return null;
+        }
 
-    for (var offset = 1; offset < updated.length; offset++) {
-      final candidate = updated[(currentIndex + offset) % updated.length];
-      if (!candidate.isSelectable) continue;
-      await selectAccount(candidate.localAccountId);
-      return candidate;
-    }
-    return null;
-  }
+        for (var offset = 1; offset < updated.length; offset++) {
+          final candidate = updated[(currentIndex + offset) % updated.length];
+          if (!candidate.isSelectable) continue;
+          await storage.write(
+            key: chatGptActiveAccountSecureKey,
+            value: candidate.localAccountId,
+          );
+          return candidate;
+        }
+        return null;
+      });
 
-  Future<Map<String, Object?>> snapshot() async {
-    final accounts = await readAccounts();
-    var active = await activeAccountId();
-    if (active.isEmpty && accounts.isNotEmpty) {
-      active = accounts.first.localAccountId;
-      await selectAccount(active);
-    }
-    return <String, Object?>{
-      'accounts':
-          accounts.map((account) => account.toJson()).toList(growable: false),
-      'active_account_id': active,
-      'auto_switch': await autoSwitchEnabled(),
-    };
-  }
+  Future<Map<String, Object?>> snapshot() => SecureStorageQueue.run(() async {
+        final accounts = await _readAccountsUnlocked();
+        var active =
+            (await storage.read(key: chatGptActiveAccountSecureKey) ?? '')
+                .trim();
+        if (active.isEmpty && accounts.isNotEmpty) {
+          active = accounts.first.localAccountId;
+          await storage.write(
+            key: chatGptActiveAccountSecureKey,
+            value: active,
+          );
+        }
+        return <String, Object?>{
+          'accounts': accounts
+              .map((account) => account.toJson())
+              .toList(growable: false),
+          'active_account_id': active,
+          'auto_switch':
+              (await storage.read(key: chatGptAutoSwitchSecureKey)) != 'false',
+        };
+      });
 }

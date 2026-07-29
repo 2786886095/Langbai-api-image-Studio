@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'gemini_account_store.dart';
 import 'gemini_image_task.dart';
 import 'gemini_size_capabilities.dart';
+import 'secure_storage_queue.dart';
 
 const String _geminiPairingKeyStorage = 'gemini_web_pairing_key_v1';
 const String _geminiActiveAccountStorage = 'gemini_web_active_account_v1';
@@ -19,7 +20,7 @@ const int _maxJsonBytes = 80 * 1024 * 1024;
 const int _maxImageBytes = 60 * 1024 * 1024;
 const Duration _companionLeaseDuration = Duration(minutes: 2);
 const Duration _geminiRateLimitCooldown = Duration(minutes: 15);
-const String _geminiSelectorPackVersion = '2026.07.30.2';
+const String geminiSelectorPackVersion = '2026.07.30.3';
 final RegExp _geminiUuidPattern = RegExp(
   r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
   caseSensitive: false,
@@ -102,15 +103,22 @@ class GeminiWebGatewayManager {
         DateTime.now().difference(seen) < const Duration(seconds: 20);
   }
 
+  Future<GeminiAccountMetadata?> _activeAccountMetadata() async {
+    if (_activeAccountId.isEmpty) return null;
+    return (await accountStore.load())
+        .where((account) => account.localAccountId == _activeAccountId)
+        .firstOrNull;
+  }
+
   int get port => _server?.port ?? 0;
   String get baseUrl => 'http://127.0.0.1:$port/v1';
 
   Future<void> start() async {
     if (_server != null) return;
     _pairingKey = await _loadOrCreatePairingKey();
-    _activeAccountId =
+    _activeAccountId = await SecureStorageQueue.run(() async =>
         (await secureStorage.read(key: _geminiActiveAccountStorage) ?? '')
-            .trim();
+            .trim());
     final accountIds =
         (await accountStore.load()).map((account) => account.localAccountId);
     if (_activeAccountId.isNotEmpty && !accountIds.contains(_activeAccountId)) {
@@ -157,7 +165,7 @@ class GeminiWebGatewayManager {
       'embedded': true,
       'provider': 'gemini_web',
       'companionConnected': companionConnected,
-      'selectorPackVersion': _geminiSelectorPackVersion,
+      'selectorPackVersion': geminiSelectorPackVersion,
       'accounts':
           (await accountStore.load()).map(_accountSnapshotJson).toList(),
       'activeAccountId': _activeAccountId,
@@ -183,9 +191,11 @@ class GeminiWebGatewayManager {
       throw StateError('Gemini account not found');
     }
     _activeAccountId = id;
-    await secureStorage.write(
-      key: _geminiActiveAccountStorage,
-      value: _activeAccountId,
+    await SecureStorageQueue.run(
+      () => secureStorage.write(
+        key: _geminiActiveAccountStorage,
+        value: _activeAccountId,
+      ),
     );
     return accountsSnapshot();
   }
@@ -194,7 +204,9 @@ class GeminiWebGatewayManager {
     await accountStore.remove(id);
     if (_activeAccountId == id) {
       _activeAccountId = '';
-      await secureStorage.delete(key: _geminiActiveAccountStorage);
+      await SecureStorageQueue.run(
+        () => secureStorage.delete(key: _geminiActiveAccountStorage),
+      );
       await _switchActiveAccount(excluding: <String>{id});
     }
     return accountsSnapshot();
@@ -215,6 +227,9 @@ class GeminiWebGatewayManager {
       <String, Object?>{
         ...account.toJson(),
         'browser_connected': _accountConnected(account.localAccountId),
+        'logged_in': account.loginReady,
+        'generation_ready': _accountAvailable(account),
+        'selector_pack_compatible': account.status != 'protocol_changed',
         'task_ready': _accountAvailable(account),
         'queue_eligible': _accountEligible(account),
       };
@@ -222,11 +237,15 @@ class GeminiWebGatewayManager {
   Future<void> _setActiveAccount(String id) async {
     _activeAccountId = id;
     if (id.isEmpty) {
-      await secureStorage.delete(key: _geminiActiveAccountStorage);
+      await SecureStorageQueue.run(
+        () => secureStorage.delete(key: _geminiActiveAccountStorage),
+      );
     } else {
-      await secureStorage.write(
-        key: _geminiActiveAccountStorage,
-        value: id,
+      await SecureStorageQueue.run(
+        () => secureStorage.write(
+          key: _geminiActiveAccountStorage,
+          value: id,
+        ),
       );
     }
   }
@@ -480,16 +499,17 @@ class GeminiWebGatewayManager {
     return true;
   }
 
-  Future<String> _loadOrCreatePairingKey() async {
-    final existing =
-        (await secureStorage.read(key: _geminiPairingKeyStorage) ?? '').trim();
-    if (RegExp(r'^[a-f0-9]{64}$').hasMatch(existing)) return existing;
-    final random = Random.secure();
-    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-    final value = sha256.convert(bytes).toString();
-    await secureStorage.write(key: _geminiPairingKeyStorage, value: value);
-    return value;
-  }
+  Future<String> _loadOrCreatePairingKey() => SecureStorageQueue.run(() async {
+        final existing =
+            (await secureStorage.read(key: _geminiPairingKeyStorage) ?? '')
+                .trim();
+        if (RegExp(r'^[a-f0-9]{64}$').hasMatch(existing)) return existing;
+        final random = Random.secure();
+        final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+        final value = sha256.convert(bytes).toString();
+        await secureStorage.write(key: _geminiPairingKeyStorage, value: value);
+        return value;
+      });
 
   Future<Directory> _resolveRoot() async {
     final env = Platform.environment;
@@ -699,24 +719,43 @@ class GeminiWebGatewayManager {
         return;
       }
       if (path == '/healthz' && request.method == 'GET') {
+        final activeAccount = await _activeAccountMetadata();
+        final browserConnected = activeAccount != null &&
+            _accountConnected(activeAccount.localAccountId);
+        final selectorCompatible =
+            activeAccount != null && activeAccount.status != 'protocol_changed';
         await _json(response, 200, <String, Object?>{
           'status': 'ok',
           'provider': 'gemini_web',
           'version': '1.6.0',
           'companion_connected': companionConnected,
-          'session_available': activeSessionAvailable,
-          'temporary_chat_available': companionConnected,
-          'fullsize_download_available': companionConnected,
+          'session_available': browserConnected && activeAccount.loginReady,
+          'generation_ready': browserConnected && activeAccount.available,
+          'temporary_chat_available':
+              activeAccount?.temporaryChatAvailable == true,
+          'fullsize_download_available':
+              activeAccount?.fullsizeDownloadAvailable == true,
+          'selector_pack_compatible': selectorCompatible,
         });
         return;
       }
       if (path == '/v1/capabilities' && request.method == 'GET') {
+        final activeAccount = await _activeAccountMetadata();
+        final browserConnected = activeAccount != null &&
+            _accountConnected(activeAccount.localAccountId);
         await _json(
           response,
           200,
           geminiWebCapabilities(
             companionConnected: companionConnected,
-            sessionAvailable: activeSessionAvailable,
+            sessionAvailable: browserConnected && activeAccount.loginReady,
+            generationReady: browserConnected && activeAccount.available,
+            temporaryChatAvailable:
+                activeAccount?.temporaryChatAvailable == true,
+            fullsizeDownloadAvailable:
+                activeAccount?.fullsizeDownloadAvailable == true,
+            selectorPackCompatible: activeAccount != null &&
+                activeAccount.status != 'protocol_changed',
             effectiveConcurrency: _effectiveConcurrency,
           ),
         );
@@ -892,7 +931,7 @@ class GeminiWebGatewayManager {
         final selectorPackVersion =
             body['selector_pack_version']?.toString() ?? '';
         final selectorPackCompatible =
-            selectorPackVersion == _geminiSelectorPackVersion;
+            selectorPackVersion == geminiSelectorPackVersion;
         final incomingStatus = body['status']?.toString() ?? 'ready';
         final loginReady = selectorPackCompatible && incomingStatus == 'ready';
         final retainedAccountState = existing != null && existing.coolingDown;
@@ -948,7 +987,7 @@ class GeminiWebGatewayManager {
           'account_uuid': account.accountUuid,
           'auto_switch': await accountStore.autoSwitchEnabled(),
           'selector_pack_compatible': selectorPackCompatible,
-          'expected_selector_pack_version': _geminiSelectorPackVersion,
+          'expected_selector_pack_version': geminiSelectorPackVersion,
         });
         return;
       }

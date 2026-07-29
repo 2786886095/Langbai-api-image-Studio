@@ -10,12 +10,14 @@ import 'package:webview_flutter/webview_flutter.dart' as mobile_webview;
 import 'package:webview_win_floating/webview_win_floating.dart'
     as windows_webview;
 
+import 'secure_storage_queue.dart';
+
 const String _geminiStartUrl = 'https://gemini.google.com/app';
 const int _maxNativeTransportBytes = 96 * 1024 * 1024;
 const MethodChannel _geminiSessionChannel =
     MethodChannel('com.aigen.ai_image_generator/gemini_sessions');
 const String _geminiSessionStoragePrefix = 'gemini_web_session_v1:';
-const String _geminiEmbeddedSelectorPackVersion = '2026.07.30.2';
+const String geminiEmbeddedSelectorPackVersion = '2026.07.30.3';
 
 typedef GeminiEmbeddedConfigLoader = Future<GeminiEmbeddedBrowserConfig>
     Function(String profileId);
@@ -119,12 +121,19 @@ class GeminiMobileSessionVault {
     final snapshot =
         await _geminiSessionChannel.invokeMethod<Object?>('capture');
     if (snapshot == null) return;
-    await _storage.write(key: _key(profileId), value: jsonEncode(snapshot));
+    await SecureStorageQueue.run(
+      () => _storage.write(
+        key: _key(profileId),
+        value: jsonEncode(snapshot),
+      ),
+    );
   }
 
   Future<void> restore(String profileId) async {
     if (!_uuidPattern.hasMatch(profileId) || Platform.isWindows) return;
-    final raw = await _storage.read(key: _key(profileId));
+    final raw = await SecureStorageQueue.run(
+      () => _storage.read(key: _key(profileId)),
+    );
     final snapshot = raw == null || raw.isEmpty ? null : jsonDecode(raw);
     await _geminiSessionChannel.invokeMethod<void>(
       'restore',
@@ -134,7 +143,9 @@ class GeminiMobileSessionVault {
 
   Future<void> remove(String profileId) async {
     if (!_uuidPattern.hasMatch(profileId)) return;
-    await _storage.delete(key: _key(profileId));
+    await SecureStorageQueue.run(
+      () => _storage.delete(key: _key(profileId)),
+    );
   }
 }
 
@@ -330,7 +341,7 @@ class _GeminiNativeTransport {
         'fullsize_download_available': true,
         'effective_concurrency': 1,
         'platform': 'embedded:$platform',
-        'selector_pack_version': _geminiEmbeddedSelectorPackVersion,
+        'selector_pack_version': geminiEmbeddedSelectorPackVersion,
       },
     });
     final status = int.tryParse(response['status']?.toString() ?? '') ?? 0;
@@ -508,23 +519,123 @@ $workerSource
 ''';
 }
 
-String _windowsGeminiProfilePath(String profileId) {
-  final localAppData = Platform.environment['LOCALAPPDATA'];
-  if (localAppData == null || localAppData.trim().isEmpty) {
+String windowsGeminiWebViewDataPath({String? localAppData}) {
+  final base = localAppData ?? Platform.environment['LOCALAPPDATA'];
+  if (base == null || base.trim().isEmpty) {
     throw const FileSystemException('LOCALAPPDATA is unavailable.');
   }
   return <String>[
-    localAppData,
+    base,
+    'flutter_webview_windows',
+    'ai_image_generator',
+  ].join(Platform.pathSeparator);
+}
+
+String windowsGeminiWebViewProfileName(String profileId) {
+  if (!_uuidPattern.hasMatch(profileId)) {
+    throw const FormatException('Invalid Gemini profile id.');
+  }
+  return 'gemini-${profileId.toLowerCase()}';
+}
+
+String _legacyWindowsGeminiProfilePath(
+  String profileId, {
+  String? localAppData,
+}) {
+  final base = localAppData ?? Platform.environment['LOCALAPPDATA'];
+  if (base == null || base.trim().isEmpty) {
+    throw const FileSystemException('LOCALAPPDATA is unavailable.');
+  }
+  return <String>[
+    base,
     'AI Image Generator',
     'gemini_embedded_webview',
     profileId.toLowerCase(),
   ].join(Platform.pathSeparator);
 }
 
+Future<void> migrateWindowsGeminiProfilesBeforeWebViewStart(
+  Iterable<String> profileIds, {
+  String? localAppData,
+}) async {
+  final sharedRoot = Directory(
+    windowsGeminiWebViewDataPath(localAppData: localAppData),
+  );
+  final profilesRoot = Directory(<String>[
+    sharedRoot.path,
+    'EBWebView',
+  ].join(Platform.pathSeparator));
+  for (final value in profileIds) {
+    final profileId = value.trim().toLowerCase();
+    if (!_uuidPattern.hasMatch(profileId)) continue;
+    final legacyDefault = Directory(<String>[
+      _legacyWindowsGeminiProfilePath(
+        profileId,
+        localAppData: localAppData,
+      ),
+      'EBWebView',
+      'Default',
+    ].join(Platform.pathSeparator));
+    if (!await legacyDefault.exists()) continue;
+    final destination = Directory(<String>[
+      profilesRoot.path,
+      windowsGeminiWebViewProfileName(profileId),
+    ].join(Platform.pathSeparator));
+    if (await destination.exists()) continue;
+    await profilesRoot.create(recursive: true);
+    final temporary = Directory(
+      '${destination.path}.migrating-${DateTime.now().microsecondsSinceEpoch}',
+    );
+    try {
+      await _copyWebViewProfileDirectory(legacyDefault, temporary);
+      await temporary.rename(destination.path);
+    } catch (_) {
+      if (await temporary.exists()) {
+        await temporary.delete(recursive: true);
+      }
+      rethrow;
+    }
+  }
+}
+
+Future<void> _copyWebViewProfileDirectory(
+  Directory source,
+  Directory destination,
+) async {
+  await destination.create(recursive: true);
+  await for (final entity in source.list(followLinks: false)) {
+    final name =
+        entity.uri.pathSegments.where((segment) => segment.isNotEmpty).last;
+    if (name == 'LOCK' ||
+        name == 'SingletonLock' ||
+        name == 'SingletonCookie' ||
+        name == 'SingletonSocket') {
+      continue;
+    }
+    final targetPath =
+        <String>[destination.path, name].join(Platform.pathSeparator);
+    if (entity is Directory) {
+      await _copyWebViewProfileDirectory(entity, Directory(targetPath));
+    } else if (entity is File) {
+      await entity.copy(targetPath);
+    }
+  }
+}
+
+Future<String> resolveWindowsGeminiWebViewProfileName(
+  String profileId, {
+  String? localAppData,
+}) async =>
+    windowsGeminiWebViewProfileName(profileId);
+
 Future<void> deleteGeminiEmbeddedProfileData(String profileId) async {
   if (!_uuidPattern.hasMatch(profileId)) return;
   if (Platform.isWindows) {
-    final directory = Directory(_windowsGeminiProfilePath(profileId));
+    // v1.6.7 and earlier attempted to isolate accounts with separate UDFs.
+    // The patched WebView2 runtime now uses one environment and a real named
+    // profile. Only remove the unused legacy directory here; deleting an
+    // active WebView2 profile directory behind the runtime would corrupt it.
+    final directory = Directory(_legacyWindowsGeminiProfilePath(profileId));
     if (await directory.exists()) {
       await directory.delete(recursive: true);
     }
@@ -553,7 +664,7 @@ Map<String, dynamic>? _decodeNativeMessage(Object? raw) {
 bool _isReadyMessage(Map<String, dynamic> message) {
   return message['source'] == 'langbai-gemini-executor' &&
       message['type'] == 'login_state' &&
-      (message['login_ready'] == true || message['status'] == 'ready');
+      message['generation_ready'] == true;
 }
 
 bool _isPageReadyMessage(Map<String, dynamic> message) {
@@ -567,33 +678,75 @@ Future<Map<String, Object?>> _registerPageReadyMessage({
   required Map<String, dynamic> message,
   required String platform,
 }) async {
+  final temporaryChatAvailable = message['temporary_chat_available'] == true;
+  final fullsizeDownloadAvailable =
+      message['fullsize_download_available'] == true;
   final snapshot = await transport.registerLoggedInProfile(
     platform: platform,
-    temporaryChatAvailable: message['temporary_chat_available'] == true,
+    temporaryChatAvailable: temporaryChatAvailable,
     maskedEmail: message['masked_email']?.toString() ?? '',
   );
+  return geminiEmbeddedReadinessEvent(
+    accountId: snapshot['local_account_id']?.toString() ?? '',
+    accountUuid:
+        snapshot['account_uuid']?.toString() ?? transport.config.profileId,
+    maskedEmail: message['masked_email']?.toString() ?? '',
+    loginReady: true,
+    temporaryChatAvailable: temporaryChatAvailable,
+    fullsizeDownloadAvailable: fullsizeDownloadAvailable,
+    selectorPackCompatible: snapshot['selector_pack_compatible'] == true,
+  );
+}
+
+Map<String, Object?> geminiEmbeddedReadinessEvent({
+  required String accountId,
+  required String accountUuid,
+  required String maskedEmail,
+  required bool loginReady,
+  required bool temporaryChatAvailable,
+  required bool fullsizeDownloadAvailable,
+  required bool selectorPackCompatible,
+}) {
+  final generationReady = loginReady &&
+      temporaryChatAvailable &&
+      fullsizeDownloadAvailable &&
+      selectorPackCompatible;
   return <String, Object?>{
     'source': 'langbai-gemini-executor',
     'type': 'login_state',
-    'status': 'ready',
-    'login_ready': true,
-    'account_id': snapshot['local_account_id']?.toString() ?? '',
-    'account_uuid':
-        snapshot['account_uuid']?.toString() ?? transport.config.profileId,
-    'masked_email': message['masked_email']?.toString() ?? '',
-    'temporary_chat_available': message['temporary_chat_available'] == true,
+    'status': generationReady ? 'ready' : 'logged_in',
+    'login_ready': loginReady,
+    'generation_ready': generationReady,
+    'account_id': accountId,
+    'account_uuid': accountUuid,
+    'masked_email': maskedEmail,
+    'temporary_chat_available': temporaryChatAvailable,
+    'fullsize_download_available': fullsizeDownloadAvailable,
+    'selector_pack_compatible': selectorPackCompatible,
   };
 }
 
-String _statusText(Map<String, dynamic> message) {
+String geminiEmbeddedStatusText(Map<String, dynamic> message) {
   final type = message['type']?.toString() ?? '';
   final status = message['status']?.toString() ?? '';
   final code = message['code']?.toString() ?? '';
   if (type == 'transport_error') {
     return '本机网关连接失败${code.isEmpty ? '' : '（$code）'}';
   }
-  if (status == 'ready' || message['login_ready'] == true) {
-    return '登录已就绪，后台连接保持中';
+  if (message['generation_ready'] == true) {
+    return '已就绪，可以生成图片';
+  }
+  if (message['login_ready'] == true) {
+    if (message['selector_pack_compatible'] == false) {
+      return '已登录，但页面版本尚未兼容';
+    }
+    if (message['temporary_chat_available'] != true) {
+      return '已登录，但临时对话入口尚未识别或不可用';
+    }
+    if (message['fullsize_download_available'] != true) {
+      return '已登录，但完整尺寸图片下载能力尚不可用';
+    }
+    return '已登录，正在确认生图能力';
   }
   if (status == 'page_ready') return '页面已就绪，正在连接本机网关';
   if (status == 'login_required') return '请在此页面完成 Gemini 登录';
@@ -694,7 +847,7 @@ class _GeminiMobileEmbeddedBrowserState
   String _platform = 'mobile';
   bool _initializing = false;
   bool _pageReadyRegistrationInFlight = false;
-  bool _pageReadyRegistered = false;
+  String _lastPageCapabilitySignature = '';
   int _handledRevision = -1;
 
   @override
@@ -745,7 +898,7 @@ class _GeminiMobileEmbeddedBrowserState
         }
         _controller = null;
         _transport = null;
-        _pageReadyRegistered = false;
+        _lastPageCapabilitySignature = '';
       }
       await _sessionVault.restore(config.profileId);
       final platform = Platform.isAndroid
@@ -844,11 +997,15 @@ class _GeminiMobileEmbeddedBrowserState
 
   Future<void> _completePageReady(Map<String, dynamic> message) async {
     final transport = _transport;
-    if (transport == null ||
-        _pageReadyRegistered ||
-        _pageReadyRegistrationInFlight) {
+    if (transport == null || _pageReadyRegistrationInFlight) {
       return;
     }
+    final capabilitySignature = jsonEncode(<Object?>[
+      message['temporary_chat_available'] == true,
+      message['fullsize_download_available'] == true,
+      message['masked_email']?.toString() ?? '',
+    ]);
+    if (capabilitySignature == _lastPageCapabilitySignature) return;
     _pageReadyRegistrationInFlight = true;
     try {
       final event = await _registerPageReadyMessage(
@@ -856,12 +1013,14 @@ class _GeminiMobileEmbeddedBrowserState
         message: message,
         platform: _platform,
       );
-      _pageReadyRegistered = true;
+      _lastPageCapabilitySignature = capabilitySignature;
       await _emit(event);
       if (_activeProfileId.isNotEmpty) {
         await _sessionVault.capture(_activeProfileId);
       }
-      widget.requestController.collapse();
+      if (event['generation_ready'] == true) {
+        widget.requestController.collapse();
+      }
     } catch (error) {
       await _emit(<String, Object?>{
         'source': 'langbai-gemini-host',
@@ -911,7 +1070,9 @@ class _GeminiMobileEmbeddedBrowserState
   }
 
   Future<void> _emit(Map<String, Object?> event) async {
-    if (mounted) setState(() => _status = _statusText(event));
+    if (mounted) {
+      setState(() => _status = geminiEmbeddedStatusText(event));
+    }
     await widget.onEvent(event);
   }
 
@@ -986,7 +1147,7 @@ class _GeminiWindowsEmbeddedBrowserState
   String _status = '正在加载 Gemini 登录页';
   bool _initializing = false;
   bool _pageReadyRegistrationInFlight = false;
-  bool _pageReadyRegistered = false;
+  String _lastPageCapabilitySignature = '';
   int _handledRevision = -1;
   String _lastStatusSignature = '';
 
@@ -1045,13 +1206,16 @@ class _GeminiWindowsEmbeddedBrowserState
         final stale = _controller;
         _controller = null;
         _transport = null;
-        _pageReadyRegistered = false;
+        _lastPageCapabilitySignature = '';
         if (stale != null) await stale.dispose();
       }
       final injectedWorker = await _loadInjectedWorker(config, 'windows');
+      final windowsProfileName =
+          await resolveWindowsGeminiWebViewProfileName(config.profileId);
       controller = windows_webview.WinWebViewController(
         params: windows_webview.WindowsWebViewControllerCreationParams(
-          userDataFolder: _windowsGeminiProfilePath(config.profileId),
+          userDataFolder: windowsGeminiWebViewDataPath(),
+          profileName: windowsProfileName,
           suspendDuringDeactive: false,
           // The app's main WebView uses the full-window native host. The
           // Gemini login surface must instead respect its Flutter widget
@@ -1179,11 +1343,15 @@ class _GeminiWindowsEmbeddedBrowserState
 
   Future<void> _completePageReady(Map<String, dynamic> message) async {
     final transport = _transport;
-    if (transport == null ||
-        _pageReadyRegistered ||
-        _pageReadyRegistrationInFlight) {
+    if (transport == null || _pageReadyRegistrationInFlight) {
       return;
     }
+    final capabilitySignature = jsonEncode(<Object?>[
+      message['temporary_chat_available'] == true,
+      message['fullsize_download_available'] == true,
+      message['masked_email']?.toString() ?? '',
+    ]);
+    if (capabilitySignature == _lastPageCapabilitySignature) return;
     _pageReadyRegistrationInFlight = true;
     try {
       final event = await _registerPageReadyMessage(
@@ -1191,9 +1359,11 @@ class _GeminiWindowsEmbeddedBrowserState
         message: message,
         platform: 'windows',
       );
-      _pageReadyRegistered = true;
+      _lastPageCapabilitySignature = capabilitySignature;
       await _emit(event);
-      widget.requestController.collapse();
+      if (event['generation_ready'] == true) {
+        widget.requestController.collapse();
+      }
     } catch (error) {
       await _emit(<String, Object?>{
         'source': 'langbai-gemini-host',
@@ -1371,7 +1541,9 @@ class _GeminiWindowsEmbeddedBrowserState
   }
 
   Future<void> _emit(Map<String, Object?> event) async {
-    if (mounted) setState(() => _status = _statusText(event));
+    if (mounted) {
+      setState(() => _status = geminiEmbeddedStatusText(event));
+    }
     await widget.onEvent(event);
   }
 

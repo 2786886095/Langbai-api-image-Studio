@@ -24,11 +24,43 @@ import 'embedded_chatgpt_gateway.dart';
 import 'android_chatgpt_gateway.dart';
 import 'gemini_embedded_browser.dart';
 import 'gemini_web_gateway.dart';
+import 'secure_storage_queue.dart';
 
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
 bool _windowsWebViewSelfTest = false;
 bool _windowsWebViewInputSelfTest = false;
+const int maximumUpdateDownloadBytes = 512 * 1024 * 1024;
+const int updateDownloadDiskReserveBytes = 128 * 1024 * 1024;
+// The legacy main WebView used WebView2's default profile. Naming it
+// explicitly preserves existing localStorage (including saved API profiles)
+// while still making the host's profile contract unambiguous.
+const String windowsMainWebViewProfileName = 'Default';
+const String windowsSelfTestWebViewProfileName = 'langbai-self-test-main';
+
+String windowsSharedWebViewDataPath({String? localAppData}) {
+  final base = localAppData ?? Platform.environment['LOCALAPPDATA'];
+  if (base == null || base.trim().isEmpty) {
+    throw const FileSystemException('LOCALAPPDATA is unavailable.');
+  }
+  return <String>[
+    base,
+    'flutter_webview_windows',
+    'ai_image_generator',
+  ].join(Platform.pathSeparator);
+}
+
+String windowsAutomaticUpdateInstallDirectory({
+  String? resolvedExecutable,
+}) =>
+    File(resolvedExecutable ?? Platform.resolvedExecutable)
+        .absolute
+        .parent
+        .path;
+
+bool downloadLengthFitsLimit(int length, {required int maximumBytes}) =>
+    length < 0 || length <= maximumBytes;
+
 const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
 );
@@ -277,23 +309,11 @@ Future<Object?> _performSecretAction(
   }
 }
 
-Future<void> _secureStorageOperationChain = Future<void>.value();
-
 Future<Object?> _handleSecretAction(
   String action,
   Map<String, dynamic> payload,
-) {
-  final completer = Completer<Object?>();
-  _secureStorageOperationChain =
-      _secureStorageOperationChain.catchError((Object _) {}).then((_) async {
-    try {
-      completer.complete(await _performSecretAction(action, payload));
-    } catch (error, stackTrace) {
-      completer.completeError(error, stackTrace);
-    }
-  });
-  return completer.future;
-}
+) =>
+    SecureStorageQueue.run(() => _performSecretAction(action, payload));
 
 Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -319,6 +339,16 @@ Future<void> main(List<String> arguments) async {
     final geminiAccounts = await _geminiWebGateway.accountsSnapshot();
     final activeGeminiAccount =
         geminiAccounts['active_account_id']?.toString() ?? '';
+    if (Platform.isWindows) {
+      final accounts = geminiAccounts['accounts'];
+      await migrateWindowsGeminiProfilesBeforeWebViewStart(
+        accounts is List
+            ? accounts
+                .whereType<Map>()
+                .map((item) => item['local_account_id']?.toString() ?? '')
+            : const <String>[],
+      );
+    }
     if (activeGeminiAccount.isNotEmpty) {
       _geminiEmbeddedBrowserRequestController.activate(activeGeminiAccount);
     }
@@ -413,8 +443,12 @@ class _ChatGptAuthShellState extends State<ChatGptAuthShell> {
       ));
       final controller = windows_webview.WinWebViewController(
         params: windows_webview.WindowsWebViewControllerCreationParams(
+          // Existing ChatGPT sessions already live in one UDF per account.
+          // Keep that directory and select the legacy default profile
+          // explicitly so the profileName hardening does not sign users out.
           userDataFolder:
               _store.profileDirectory(widget.accountId).absolute.path,
+          profileName: 'Default',
           suspendDuringDeactive: false,
           useTopLevelWindowHost: true,
         ),
@@ -889,6 +923,7 @@ Future<File> _downloadUrlToFile(
   File target, {
   Map<String, dynamic> proxyPayload = const <String, dynamic>{},
   String expectedSha256 = '',
+  int maximumBytes = maximumUpdateDownloadBytes,
 }) async {
   if (!_isExternalHttpUrl(url)) {
     throw PlatformException(
@@ -918,11 +953,36 @@ Future<File> _downloadUrlToFile(
         message: 'HTTP ${response.statusCode}',
       );
     }
+    final declaredLength = response.contentLength;
+    if (!downloadLengthFitsLimit(
+      declaredLength,
+      maximumBytes: maximumBytes,
+    )) {
+      throw PlatformException(
+        code: 'download_too_large',
+        message:
+            'Download is $declaredLength bytes; the safety limit is $maximumBytes bytes.',
+      );
+    }
+    await _preflightDownloadDiskSpace(
+      target,
+      declaredLength > 0 ? declaredLength : maximumBytes,
+    );
     await target.parent.create(recursive: true);
     if (await partial.exists()) await partial.delete();
     final sink = partial.openWrite();
+    var receivedBytes = 0;
     try {
-      await response.timeout(const Duration(minutes: 2)).pipe(sink);
+      await for (final chunk in response.timeout(const Duration(minutes: 2))) {
+        receivedBytes += chunk.length;
+        if (receivedBytes > maximumBytes) {
+          throw PlatformException(
+            code: 'download_too_large',
+            message: 'Download exceeded the $maximumBytes byte safety limit.',
+          );
+        }
+        sink.add(chunk);
+      }
     } finally {
       await sink.close();
     }
@@ -945,6 +1005,40 @@ Future<File> _downloadUrlToFile(
     rethrow;
   } finally {
     client.close(force: true);
+  }
+}
+
+Future<void> _preflightDownloadDiskSpace(File target, int expectedBytes) async {
+  if (!Platform.isWindows || expectedBytes <= 0) return;
+  final escaped = target.absolute.path.replaceAll("'", "''");
+  try {
+    final result = await Process.run(
+      'powershell.exe',
+      <String>[
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        "\$path=[IO.Path]::GetFullPath('$escaped');"
+            "\$root=[IO.Path]::GetPathRoot(\$path);"
+            "\$drive=[IO.DriveInfo]::new(\$root);"
+            "[Console]::Write(\$drive.AvailableFreeSpace)",
+      ],
+      runInShell: false,
+    ).timeout(const Duration(seconds: 8));
+    final available = int.tryParse(result.stdout.toString().trim());
+    if (result.exitCode != 0 || available == null) return;
+    final required = expectedBytes + updateDownloadDiskReserveBytes;
+    if (available < required) {
+      throw PlatformException(
+        code: 'insufficient_disk_space',
+        message:
+            'Update requires at least $required free bytes; only $available bytes are available.',
+      );
+    }
+  } on PlatformException {
+    rethrow;
+  } catch (_) {
+    // A failed advisory probe must not block an otherwise verifiable update.
   }
 }
 
@@ -1383,6 +1477,74 @@ class _WindowsFileTransfer {
   int bytesWritten = 0;
 }
 
+const String windowsAppHealthProbeScript = r'''
+(() => {
+  const required = [
+    "#settingsBtn",
+    "#settingsModal",
+    "[data-mode='comic']",
+    "#comicPanelSection",
+    "#languageMenuButton",
+    "#themeToggle",
+    "#historyBtn",
+    "#exportBtn"
+  ];
+  const missing = required.filter(selector => !document.querySelector(selector));
+  const errors = Array.isArray(window.__AI_GEN_STARTUP_ERRORS)
+    ? window.__AI_GEN_STARTUP_ERRORS.map(value => String(value || "")).filter(Boolean)
+    : [];
+  return JSON.stringify({
+    ready: window.__AI_GEN_APP_READY === true,
+    error: errors.length ? errors[errors.length - 1] : "",
+    missing
+  });
+})()
+''';
+
+class WindowsAppHealthSnapshot {
+  const WindowsAppHealthSnapshot({
+    required this.ready,
+    required this.startupError,
+    required this.missingControls,
+  });
+
+  final bool ready;
+  final String startupError;
+  final List<String> missingControls;
+
+  bool get healthy => ready && startupError.isEmpty && missingControls.isEmpty;
+
+  String get failureDescription {
+    if (startupError.isNotEmpty) return 'startup error: $startupError';
+    if (missingControls.isNotEmpty) {
+      return 'missing controls: ${missingControls.join(', ')}';
+    }
+    return 'application did not report APP_READY';
+  }
+
+  factory WindowsAppHealthSnapshot.fromJavaScriptResult(Object? result) {
+    Object? decoded = result;
+    for (var attempt = 0; attempt < 2 && decoded is String; attempt++) {
+      try {
+        decoded = jsonDecode(decoded);
+      } catch (_) {
+        break;
+      }
+    }
+    if (decoded is! Map) {
+      throw FormatException('Invalid Windows health result: $result');
+    }
+    final missing = decoded['missing'];
+    return WindowsAppHealthSnapshot(
+      ready: decoded['ready'] == true,
+      startupError: decoded['error']?.toString().trim() ?? '',
+      missingControls: missing is List
+          ? missing.map((value) => value.toString()).toList(growable: false)
+          : const <String>[],
+    );
+  }
+}
+
 class _WindowsWebShellState extends State<WindowsWebShell>
     with WidgetsBindingObserver {
   windows_webview.WinWebViewController? _controller;
@@ -1409,8 +1571,22 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_initializeWebView());
+    unawaited(_initializeWindowsWebViewWithBackoff());
     unawaited(_initializeChatGptAuthMonitor());
+  }
+
+  Future<bool> _initializeWindowsWebViewWithBackoff({
+    int maxAttempts = 3,
+  }) async {
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (await _initializeWebView()) return true;
+      if (attempt < maxAttempts) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 400 * (1 << (attempt - 1))),
+        );
+      }
+    }
+    return false;
   }
 
   Future<void> _initializeChatGptAuthMonitor() async {
@@ -1506,13 +1682,16 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     }
   }
 
-  Future<void> _initializeWebView() async {
+  Future<bool> _initializeWebView() async {
     final generation = ++_webViewGeneration;
     windows_webview.WinWebViewController? controller;
     try {
       controller = windows_webview.WinWebViewController(
         params: windows_webview.WindowsWebViewControllerCreationParams(
           userDataFolder: _windowsWebViewDataPath(),
+          profileName: _windowsWebViewSelfTest || _windowsWebViewInputSelfTest
+              ? windowsSelfTestWebViewProfileName
+              : windowsMainWebViewProfileName,
           suspendDuringDeactive: false,
           useTopLevelWindowHost: true,
         ),
@@ -1543,15 +1722,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
             if (generation != _webViewGeneration) return;
             _trustedWindowsDocument = _isTrustedWindowsUrl(url);
             if (_trustedWindowsDocument) {
-              _failedHealthChecks = 0;
-              unawaited(_syncWindowsDownloadDirs());
               unawaited(controller!.requestFocus());
-              if (_windowsWebViewSelfTest) {
-                unawaited(_runWindowsWebViewSelfTest(controller));
-              }
-              if (_windowsWebViewInputSelfTest) {
-                unawaited(_prepareWindowsWebViewInputSelfTest(controller));
-              }
             }
           },
           onUrlChange: (change) {
@@ -1581,36 +1752,80 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       await controller.loadRequest(Uri.parse(_windowsIndexUrl!));
       if (generation != _webViewGeneration) {
         await controller.dispose();
-        return;
+        return false;
       }
-      if (!mounted) return;
+      final health = await _waitForWindowsAppReady(controller, generation);
+      if (!health.healthy) {
+        throw StateError(health.failureDescription);
+      }
+      if (!mounted) return false;
       setState(() {
         _isReady = true;
         _errorTitle = null;
         _errorMessage = null;
       });
+      _failedHealthChecks = 0;
+      await _syncWindowsDownloadDirs();
+      await controller.requestFocus();
       _startWindowsWebViewHealthChecks();
+      if (_windowsWebViewSelfTest) {
+        unawaited(_runWindowsWebViewSelfTest(controller));
+      }
+      if (_windowsWebViewInputSelfTest) {
+        unawaited(_prepareWindowsWebViewInputSelfTest(controller));
+      }
+      return true;
     } on Object catch (error) {
       if (controller != null) await controller.dispose();
       if (generation == _webViewGeneration) _controller = null;
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
+        _isReady = false;
         _errorTitle = 'Windows WebView 启动失败';
         _errorMessage = error.toString();
       });
+      return false;
     }
   }
 
   String _windowsWebViewDataPath() {
-    final localAppData = Platform.environment['LOCALAPPDATA'];
-    if (localAppData == null || localAppData.trim().isEmpty) {
-      throw const FileSystemException('LOCALAPPDATA is unavailable.');
+    return windowsSharedWebViewDataPath();
+  }
+
+  Future<WindowsAppHealthSnapshot> _probeWindowsAppHealth(
+    windows_webview.WinWebViewController controller,
+  ) async {
+    final result = await controller
+        .runJavaScriptReturningResult(windowsAppHealthProbeScript)
+        .timeout(const Duration(seconds: 3));
+    return WindowsAppHealthSnapshot.fromJavaScriptResult(result);
+  }
+
+  Future<WindowsAppHealthSnapshot> _waitForWindowsAppReady(
+    windows_webview.WinWebViewController controller,
+    int generation,
+  ) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
+    Object? lastError;
+    while (DateTime.now().isBefore(deadline)) {
+      if (generation != _webViewGeneration) {
+        throw StateError('Windows WebView initialization was superseded.');
+      }
+      try {
+        final health = await _probeWindowsAppHealth(controller);
+        if (health.startupError.isNotEmpty) return health;
+        if (health.ready) return health;
+      } catch (error) {
+        lastError = error;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    return [
-      localAppData,
-      'flutter_webview_windows',
-      'ai_image_generator',
-    ].join(Platform.pathSeparator);
+    throw TimeoutException(
+      lastError == null
+          ? 'Windows application did not report APP_READY.'
+          : 'Windows application readiness probe failed: $lastError',
+      const Duration(seconds: 20),
+    );
   }
 
   Future<mobile_webview.NavigationDecision> _handleWindowsNavigationRequest(
@@ -1637,6 +1852,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     windows_webview.WinWebViewController controller,
   ) async {
     try {
+      await _verifyWindowsWebViewProfileIsolation();
       final result = await controller.runJavaScriptReturningResult(r'''
 (() => Boolean(
   window.__AI_GEN_APP_READY === true &&
@@ -1675,6 +1891,110 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       debugPrint('Windows WebView self-test failed: $error');
       exit(4);
     }
+  }
+
+  Future<void> _verifyWindowsWebViewProfileIsolation() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final serving = server.forEach((request) async {
+      request.response.headers.contentType = ContentType.html;
+      request.response.write(
+        '<!doctype html><meta charset="utf-8"><title>profile-probe</title>',
+      );
+      await request.response.close();
+    });
+    windows_webview.WinWebViewController? first;
+    windows_webview.WinWebViewController? second;
+    try {
+      const firstProfile = 'langbai-self-test-profile-a';
+      const secondProfile = 'langbai-self-test-profile-b';
+      first = windows_webview.WinWebViewController(
+        params: windows_webview.WindowsWebViewControllerCreationParams(
+          userDataFolder: _windowsWebViewDataPath(),
+          profileName: firstProfile,
+          suspendDuringDeactive: false,
+        ),
+      );
+      second = windows_webview.WinWebViewController(
+        params: windows_webview.WindowsWebViewControllerCreationParams(
+          userDataFolder: _windowsWebViewDataPath(),
+          profileName: secondProfile,
+          suspendDuringDeactive: false,
+        ),
+      );
+      await Future.wait(<Future<void>>[
+        first.setJavaScriptMode(mobile_webview.JavaScriptMode.unrestricted),
+        second.setJavaScriptMode(mobile_webview.JavaScriptMode.unrestricted),
+      ]);
+      final probeUrl = Uri.parse('http://127.0.0.1:${server.port}/probe');
+      await Future.wait(<Future<void>>[
+        first.loadRequest(probeUrl),
+        second.loadRequest(probeUrl),
+      ]);
+      await Future.wait(<Future<void>>[
+        _waitForProbeDocument(first),
+        _waitForProbeDocument(second),
+      ]);
+      const key = '__langbai_webview_profile_isolation_probe';
+      await first.runJavaScript(
+        "localStorage.removeItem('$key'); localStorage.setItem('$key', 'A');",
+      );
+      await second.runJavaScript("localStorage.removeItem('$key');");
+      final secondBefore = await second.runJavaScriptReturningResult(
+        "localStorage.getItem('$key')",
+      );
+      await second.runJavaScript("localStorage.setItem('$key', 'B');");
+      final firstAfter = await first.runJavaScriptReturningResult(
+        "localStorage.getItem('$key')",
+      );
+      if (!_javaScriptResultIsNull(secondBefore) ||
+          _javaScriptStringValue(firstAfter) != 'A') {
+        throw StateError(
+          'WebView2 named profiles did not isolate local storage.',
+        );
+      }
+      await Future.wait(<Future<void>>[
+        first.runJavaScript("localStorage.removeItem('$key');"),
+        second.runJavaScript("localStorage.removeItem('$key');"),
+      ]);
+    } finally {
+      await first?.dispose();
+      await second?.dispose();
+      await server.close(force: true);
+      await serving.catchError((Object _) {});
+    }
+  }
+
+  Future<void> _waitForProbeDocument(
+    windows_webview.WinWebViewController controller,
+  ) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 8));
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final value = await controller.runJavaScriptReturningResult(
+          'document.readyState',
+        );
+        if (_javaScriptStringValue(value) == 'complete') return;
+      } catch (_) {
+        // Controller creation and navigation are asynchronous.
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw TimeoutException('WebView2 profile probe page did not load.');
+  }
+
+  bool _javaScriptResultIsNull(Object? value) =>
+      value == null || value.toString() == 'null';
+
+  String _javaScriptStringValue(Object? value) {
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is String) return decoded;
+      } catch (_) {
+        return value;
+      }
+    }
+    return value?.toString() ?? '';
   }
 
   Future<void> _prepareWindowsWebViewInputSelfTest(
@@ -1721,11 +2041,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       return;
     }
     try {
-      final result = await controller
-          .runJavaScriptReturningResult('1')
-          .timeout(const Duration(seconds: 8));
-      if (result.toString() != '1') {
-        throw StateError('unexpected health result: $result');
+      final health = await _probeWindowsAppHealth(controller);
+      if (!health.healthy) {
+        throw StateError(health.failureDescription);
       }
       _failedHealthChecks = 0;
     } catch (error) {
@@ -1748,8 +2066,14 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     try {
       if (staleController != null) await staleController.dispose();
       await Future<void>.delayed(const Duration(milliseconds: 250));
-      await _initializeWebView();
-      debugPrint('Windows WebView recovered: $reason');
+      final recovered = await _initializeWindowsWebViewWithBackoff();
+      if (recovered) {
+        debugPrint('Windows WebView recovered: $reason');
+      } else {
+        debugPrint(
+          'Windows WebView recovery exhausted retries: $reason',
+        );
+      }
     } catch (error) {
       debugPrint('Windows WebView recovery failed: $error');
     } finally {
@@ -2422,7 +2746,10 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       // 探测：默认用当前正在运行的 exe 所在目录（_effectiveWindowsInstallDir() 没有手动覆盖
       // 时的兜底值），如果用户在设置里手动选过安装目录（比如想更新覆盖到另一个盘上的旧版本），
       // 就用那个覆盖值。
-      final installDir = _effectiveWindowsInstallDir();
+      // Automatic updates always replace the executable that initiated the
+      // update. The separately saved migration directory must never redirect
+      // an unattended update to another installation.
+      final installDir = windowsAutomaticUpdateInstallDirectory();
       // exit(0) bypasses Flutter widget disposal, so dispose() cannot be the
       // only place that stops the bundled gateway. Stop the tracked child and
       // stale copies before Inno Setup starts replacing files.
@@ -2433,7 +2760,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           '/SILENT',
           '/NORESTART',
           '/CLOSEAPPLICATIONS',
-          '/RESTARTAPPLICATIONS',
+          '/LANGBAILAUNCH',
           '/DIR=$installDir',
         ],
         mode: ProcessStartMode.detached,
