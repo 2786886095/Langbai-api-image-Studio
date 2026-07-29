@@ -6,12 +6,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import androidx.documentfile.provider.DocumentFile
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.aigen.ai_image_generator/downloads"
+    private val chatGptGatewayChannel =
+        "com.aigen.ai_image_generator/chatgpt_gateway"
     private val prefsName = "download_dirs"
     private val requestChooseDir = 4101
     private val requestChooseFiles = 4102
@@ -50,6 +54,57 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            chatGptGatewayChannel
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "generate" -> {
+                    val accessToken = call.argument<String>("accessToken") ?: ""
+                    val bodyJson = call.argument<String>("bodyJson") ?: "{}"
+                    runPythonImageTask(accessToken, bodyJson, result)
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun runPythonImageTask(
+        accessToken: String,
+        bodyJson: String,
+        result: MethodChannel.Result
+    ) {
+        if (accessToken.isBlank()) {
+            result.error(
+                "authentication_failed",
+                "The selected ChatGPT account has no access token.",
+                null
+            )
+            return
+        }
+        Thread({
+            try {
+                if (!Python.isStarted()) {
+                    Python.start(AndroidPlatform(applicationContext))
+                }
+                val module = Python.getInstance()
+                    .getModule("android_chatgpt_gateway")
+                val response = module.callAttr(
+                    "generate",
+                    accessToken,
+                    bodyJson
+                ).toString()
+                runOnUiThread { result.success(response) }
+            } catch (error: Throwable) {
+                runOnUiThread {
+                    result.error(
+                        "android_gateway_error",
+                        error.message ?: error.toString(),
+                        null
+                    )
+                }
+            }
+        }, "langbai-android-chatgpt-image").start()
     }
 
     private fun chooseFiles(

@@ -2,27 +2,28 @@
 
 > 单图生成 · 漫画分镜 · 气泡嵌字 —— 一套 Web 内核，多端可用（浏览器 / PWA / Windows / macOS / iOS / 安卓 App）。
 
-「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、GrsAI、OpenAI 兼容接口；Windows v1.5.0 还可直接启动软件自带的 ChatGPT 网页生图网关。
+「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、GrsAI、OpenAI 兼容接口；Windows 与 Android v1.5.4 还可直接启动软件自带的 ChatGPT 网页生图网关。
 
-## v1.5.0：Windows 内置 ChatGPT 网页生图
+## v1.5.4：Windows 与 Android 内置 ChatGPT 网页生图
 
 - Windows 安装包已内置图片专用网关，启动软件时自动在 `127.0.0.1:18081–18100` 的可用端口运行，关闭软件后随主程序退出，不再要求用户另装 Python 或手动启动网关。
+- Android APK 已内置移动端图片网关和 Python 图像处理运行时；用户无需安装额外网关，软件会在 App 进程内启动仅绑定 `127.0.0.1` 的本机服务。
 - 支持两种账号导入方式：
-  - 在独立的官方 ChatGPT 登录窗口完成登录，验证成功后登录窗口自动关闭；
-  - 用系统默认浏览器打开 `https://chatgpt.com/api/auth/session`，全选复制页面内容，再粘贴到软件中智能提取 `accessToken`。
+  - Windows 可在独立的官方 ChatGPT 登录窗口完成登录，验证成功后登录窗口自动关闭；
+  - Windows 与 Android 均可用系统默认浏览器打开 `https://chatgpt.com/api/auth/session`，全选复制页面内容，再粘贴到软件中智能提取 `accessToken`。
 - 支持保存多个 ChatGPT 账号、随时切换当前账号，并可在当前账号明确返回 `401`、`429`、登录失效或额度不足时切换下一账号，仅重试当前图片。
 - 每个异步生图任务在提交时绑定账号，避免并发任务因切换账号而串号。
 - Session 令牌只保存在操作系统安全存储，并只在运行时发送给本机内置网关；不进入 Local Storage、历史记录、项目文件或导出 ZIP。
 - 内置服务只暴露生图、参考图编辑、异步任务、健康检查和本机会话桥；文字接口保持 `404`。
 
-> **适用范围与边界：** 内置 ChatGPT 网页生图目前仅随 Windows 安装包提供。它是非官方网页兼容层，不等同于 OpenAI 官方 Image API，也不保证任意账号都有图片额度；ChatGPT 网页协议变化后可能需要升级软件。Android、iOS、macOS 继续使用官方 API、GrsAI 或自定义 API。
+> **适用范围与边界：** 内置 ChatGPT 网页生图随 Windows 与 Android 安装包提供。它是非官方网页兼容层，不等同于 OpenAI 官方 Image API，也不保证任意账号都有图片额度；ChatGPT 网页协议变化、Arkose/Turnstile 交互验证或账号风控出现后可能需要重新获取令牌或升级软件。iOS、macOS 继续使用官方 API、GrsAI 或自定义 API。
 
 ## 推荐 API 配置
 
 - 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)（不是广告，纯粹自己感觉好用）
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
-- 软件内保留四种入口：`官方 API`、`ChatGPT 网页生图（Windows）`、`GrsAI 生图 API`、`自定义 API`
-- Windows 选择 `ChatGPT 网页生图` 时，由软件从内置网关读取随机运行时地址和密钥；用户界面不保存或要求填写本机网关密钥
+- 软件内保留四种入口：`官方 API`、`ChatGPT 网页生图（Windows / Android）`、`GrsAI 生图 API`、`自定义 API`
+- Windows 或 Android 选择 `ChatGPT 网页生图` 时，由软件从各自内置网关读取随机运行时地址和密钥；用户界面不保存或要求填写本机网关密钥
 - ChatGPT 网页生图固定使用 `gpt-image-2`，单次请求固定 `n=1`；多图和漫画分镜由客户端拆成独立、可恢复的异步任务
 - ChatGPT 网页生图支持文生图、最多 20 张参考图的语义编辑，以及软件内蒙版合成式局部重绘；“精确输出”通过覆盖裁切实现，可能裁掉边缘内容
 - 官方 API 和 GrsAI 生图 API 会自动填入默认地址；自定义 API 可以保存，也可以设为默认使用
@@ -37,7 +38,7 @@
 ## ✨ 功能
 
 - **三种工作流**：单图生成 + 漫画分镜批量生成 + 参考图气泡嵌字
-- **多平台 API 适配**：OpenAI 官方 Image API、Windows 内置 ChatGPT 网页生图、GrsAI generate/result、OpenAI 兼容 generations/edits
+- **多平台 API 适配**：OpenAI 官方 Image API、Windows / Android 内置 ChatGPT 网页生图、GrsAI generate/result、OpenAI 兼容 generations/edits
 - **ChatGPT 多账号**：安全导入、手动切换、额度/登录失败自动切换、任务级账号绑定
 - 参考图上传 / TXT 导入 / 自定义分辨率 / 官方与常用尺寸预设 / 有限并发控制
 - **生图历史**（漫画按「项目」保存）、失败一键重试、可调重试次数
@@ -54,9 +55,11 @@
 | `lib/main.dart` | Flutter WebView 壳（Windows / 安卓，CI 同步构建 macOS / iOS 包） |
 | `lib/chatgpt_multi_account.dart` | ChatGPT Session 识别、多账号元数据和系统安全存储 |
 | `lib/embedded_chatgpt_gateway.dart` | Windows 内置网关生命周期、随机密钥和动态端口管理 |
+| `lib/android_chatgpt_gateway.dart` | Android 内置网关生命周期、任务队列、随机密钥和动态端口管理 |
 | `embedded_gateway/` | Windows 图片专用网关源码、PyInstaller 构建与隔离冒烟测试 |
 | `windows/installer/setup.iss` | Inno Setup 安装脚本，CI 用它编译出 `AI-Image-Generator-Setup.exe` |
-| `android/app/src/main/kotlin/.../MainActivity.kt` | 原生桥：下载 / SAF 目录 / native fetch |
+| `android/app/src/main/kotlin/.../MainActivity.kt` | 原生桥：下载 / SAF 目录 / native fetch / Android Python 生图 |
+| `android/app/src/main/python/android_chatgpt_gateway.py` | Android ChatGPT 网页协议、参考图上传、结果轮询与精确尺寸处理 |
 | `api-proxy.js` | 桌面浏览器本地 CORS 代理 |
 | `sw.js` / `manifest.webmanifest` | PWA 支持 |
 | `qa/regression-runner.js` | 浏览器端回归测试 |

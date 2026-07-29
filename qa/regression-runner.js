@@ -263,7 +263,7 @@ async function testCustomSelects(cdp) {
   assertQa(apiProviderFlow.openNow, "Clicking the API type trigger should open the dropdown list.", apiProviderFlow);
   assertQa(
     apiProviderFlow.options.length === 3 && !apiProviderFlow.options.some(option => /Codex/i.test(option)),
-    "Plain browser provider dropdown should list Official, GrsAI and Custom only; the local Codex gateway is Windows-app only.",
+    "Plain browser provider dropdown should list Official, GrsAI and Custom only; the local ChatGPT gateway belongs to packaged Windows/Android apps.",
     apiProviderFlow,
   );
   assertQa(apiProviderFlow.hitOk, "The rendered option button should be the actual real hit-test target (not obscured by anything).", apiProviderFlow);
@@ -5295,7 +5295,7 @@ async function testRetainedProviderProfilesAndGatewayMigration(cdp) {
   assertQa(result.legacy.provider === "codexImageGateway" && result.legacy.endpoint === "http://127.0.0.1:18081/v1" && result.legacy.apiKey === "", "Legacy OpenCodex profiles must migrate to the dedicated gateway without retaining the placeholder key.", result);
   assertQa(result.gatewayProfile.provider === "codexImageGateway" && result.gatewayProfile.apiKey === "" && result.gatewayProfile.model === "gpt-image-2", "Gateway profiles must never persist the local bearer credential.", result);
   assertQa(result.grsaiOptionPresent && result.officialOptionPresent && result.customOptionPresent, "GrsAI, Official OpenAI and Custom API choices must all be preserved.", result);
-  assertQa(result.gatewayOptionHidden && !result.gatewayInBrowserList, "The Windows-only gateway must be absent from the plain-browser custom dropdown instead of leaving an unusable choice.", result);
+  assertQa(result.gatewayOptionHidden && !result.gatewayInBrowserList, "The native Windows/Android gateway must be absent from the plain-browser custom dropdown instead of leaving an unusable choice.", result);
 }
 
 async function testProviderPanelsResponsiveAfterGateway(cdp) {
@@ -5325,6 +5325,108 @@ async function testProviderPanelsResponsiveAfterGateway(cdp) {
     })()`, true);
     assertQa(result.checks.every(item => !item.hidden && item.left >= item.inputLeft - 1 && item.right <= item.inputRight + 1 && item.scrollWidth <= item.clientWidth + 1 && item.overflowButtons === 0), "Every provider panel must fit the input column without clipped or unclickable controls.", { viewport, result });
     assertQa(!result.bodyOverflow, "Provider controls must not introduce horizontal page overflow.", { viewport, result });
+  }
+}
+
+async function testAndroidChatGptGatewayEntry(cdp) {
+  logStep("Android exposes the ChatGPT web image provider with manual token import and keeps built-in browser login hidden");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      localStorage.clear();
+      window.__AI_GEN_NATIVE_PLATFORM = "android";
+      window.__androidGatewayCalls = [];
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          window.__androidGatewayCalls.push(payload);
+          let result = {};
+          if (payload.action === "loadCodexImageGatewayConfig") {
+            result = { baseUrl: "http://127.0.0.1:18081/v1", apiKey: "${"d".repeat(64)}" };
+          } else if (payload.action === "getChatGptAccounts") {
+            result = {
+              accounts: [{
+                local_account_id: "33333333-3333-4333-8333-333333333333",
+                display_name: "Android QA",
+                masked_email: "a***@example.com",
+                plan_label: "plus",
+                status: "ready",
+              }],
+              active_account_id: "33333333-3333-4333-8333-333333333333",
+              auto_switch: true,
+            };
+          } else if (payload.action === "getChatGptAuthState") {
+            result = { status: "ready" };
+          } else if (payload.action === "openChatGptSessionPage") {
+            result = true;
+          } else if (payload.action === "nativeFetch") {
+            const url = String(payload.url || "");
+            result = url.endsWith("/healthz")
+              ? { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "ok", session_available: true }) }
+              : { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ image_only: true, generations: true, edits: true, async_tasks: true, models: ["gpt-image-2"], max_reference_images: 20, default_concurrency: 1, max_concurrency: 100, dimension_modes: ["native", "strict_native", "exact_output"] }) };
+          }
+          setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
+        }
+      };
+    `,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "android-chatgpt-gateway-entry", { width: 430, height: 820, mobile: true });
+    const result = await cdp.eval(`(async () => {
+      await new Promise(r => setTimeout(r, 80));
+      document.getElementById("configSection").open = true;
+      applyApiProvider("codexImageGateway", { forceEndpoint: true });
+      const ready = await checkCodexGatewayHealth({ announce: false, force: true });
+      customSelects.apiProvider.renderOptions();
+      const option = dom.apiProvider.querySelector('option[value="codexImageGateway"]');
+      const customOption = [...document.querySelectorAll("#apiProviderCustomList .custom-select-option")]
+        .find(item => /ChatGPT/i.test(item.textContent));
+      dom.openChatGptSessionPage.click();
+      await new Promise(r => setTimeout(r, 30));
+      return {
+        platform: getRuntimePlatform(),
+        ready,
+        selectedProvider: dom.apiProvider.value,
+        optionHidden: option?.hidden === true,
+        customOptionVisible: !!customOption,
+        providerPanelVisible: !dom.codexGatewayProviderPanel.classList.contains("hidden"),
+        authCardVisible: !dom.chatGptAuthCard.classList.contains("hidden"),
+        loginHidden: dom.chatGptLogin.classList.contains("hidden"),
+        reloginHidden: dom.chatGptRelogin.classList.contains("hidden"),
+        sessionButtonVisible: !dom.openChatGptSessionPage.classList.contains("hidden"),
+        importButtonVisible: !dom.importChatGptSession.classList.contains("hidden"),
+        accountItems: dom.chatGptAccountList.querySelectorAll(".chatgpt-account-item").length,
+        sessionOpenCalls: window.__androidGatewayCalls.filter(call => call.action === "openChatGptSessionPage").length,
+        configCalls: window.__androidGatewayCalls.filter(call => call.action === "loadCodexImageGatewayConfig").length,
+      };
+    })()`, true);
+    assertQa(
+      result.platform === "android"
+        && result.ready
+        && result.selectedProvider === "codexImageGateway"
+        && !result.optionHidden
+        && result.customOptionVisible
+        && result.providerPanelVisible,
+      "Android must expose and activate the ChatGPT web image provider instead of hiding it as Windows-only.",
+      result,
+    );
+    assertQa(
+      result.authCardVisible
+        && result.loginHidden
+        && result.reloginHidden
+        && result.sessionButtonVisible
+        && result.importButtonVisible
+        && result.accountItems === 1
+        && result.sessionOpenCalls === 1
+        && result.configCalls >= 1,
+      "Android must use the system-browser session page plus manual token import while keeping the unsupported built-in login window hidden.",
+      result,
+    );
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
   }
 }
 
@@ -5702,6 +5804,7 @@ async function main() {
     await testDesktopProxyControls(cdp);
     await testRetainedProviderProfilesAndGatewayMigration(cdp);
     await testProviderPanelsResponsiveAfterGateway(cdp);
+    await testAndroidChatGptGatewayEntry(cdp);
     await testCodexImageGatewayIntegration(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);

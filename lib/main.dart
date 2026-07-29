@@ -21,6 +21,7 @@ import 'codex_image_gateway_config.dart';
 import 'chatgpt_account_store.dart';
 import 'chatgpt_multi_account.dart';
 import 'embedded_chatgpt_gateway.dart';
+import 'android_chatgpt_gateway.dart';
 
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
@@ -33,6 +34,8 @@ final ChatGptMultiAccountStore _chatGptMultiAccountStore =
     ChatGptMultiAccountStore(_secureStorage);
 final EmbeddedChatGptGatewayManager _embeddedChatGptGateway =
     EmbeddedChatGptGatewayManager();
+final AndroidChatGptGatewayManager _androidChatGptGateway =
+    AndroidChatGptGatewayManager();
 
 Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
   if (Platform.isWindows) {
@@ -41,6 +44,19 @@ Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
     } catch (error) {
       debugPrint('Bundled ChatGPT image gateway unavailable: $error');
     }
+  }
+  if (Platform.isAndroid) {
+    final active = await _chatGptMultiAccountStore.activeAccount();
+    if (active != null) {
+      final token = await _chatGptMultiAccountStore.readToken(
+        active.localAccountId,
+      );
+      await _androidChatGptGateway.setSessionToken(
+        token,
+        accountId: active.localAccountId,
+      );
+    }
+    return _androidChatGptGateway.configuration();
   }
   final fallback = await loadCodexImageGatewayConfig();
   return <String, Object?>{
@@ -58,6 +74,12 @@ Future<void> _activateChatGptAccount(String localAccountId) async {
   if (Platform.isWindows) {
     final token = await _chatGptMultiAccountStore.readToken(localAccountId);
     await _embeddedChatGptGateway.setSessionToken(
+      token,
+      accountId: localAccountId,
+    );
+  } else if (Platform.isAndroid) {
+    final token = await _chatGptMultiAccountStore.readToken(localAccountId);
+    await _androidChatGptGateway.setSessionToken(
       token,
       accountId: localAccountId,
     );
@@ -95,6 +117,11 @@ Future<Map<String, Object?>> _deleteChatGptAccount(
   final active = await _chatGptMultiAccountStore.activeAccount();
   if (Platform.isWindows) {
     await _embeddedChatGptGateway.clearSessionToken(accountId: id);
+    if (wasActive && active != null) {
+      await _activateChatGptAccount(active.localAccountId);
+    }
+  } else if (Platform.isAndroid) {
+    _androidChatGptGateway.clearSessionToken(accountId: id);
     if (wasActive && active != null) {
       await _activateChatGptAccount(active.localAccountId);
     }

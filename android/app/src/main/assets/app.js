@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.5.3";
+const APP_VERSION = "1.5.4";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -662,7 +662,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
     codexGatewayApi: "ChatGPT 网页生图",
     codexGatewayPanelTitle: "ChatGPT 网页生图",
-    codexGatewayPanelHint: "仅使用当前 Edge 登录账号的 ChatGPT 网页生图额度；本机直连 127.0.0.1，不经过桌面代理。",
+    codexGatewayPanelHint: "使用已导入的 ChatGPT 账号网页生图额度；Windows 与 Android 均启动本机网关，令牌只进入系统安全存储与运行内存。",
     codexGatewayQuality: "输出质量",
     codexGatewayQualityHint: "草稿更快；标准适合批量分镜；高质量适合关键镜头。",
     codexGatewayDimensionMode: "尺寸处理",
@@ -678,10 +678,10 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthChecking: "正在连接 ChatGPT 网页生图网关…",
     codexGatewayHealthReady: "网关可用 · {detail}",
     codexGatewayHealthFailed: "网关不可用：{reason}",
-    codexGatewayKeyHint: "凭据由 Windows 软件从本机安全读取，不保存到配置中",
+    codexGatewayKeyHint: "凭据由 Windows 或 Android 软件从系统安全存储读取，仅进入运行内存，不保存到 API 配置中",
     codexGatewayReferenceBoards: "已接收 {count} 张参考图；网关将聚合为编号参考板",
     chatGptAuthTitle: "内置 ChatGPT 官方登录",
-    chatGptAuthStageHint: "当前阶段只管理独立登录会话，生图仍沿用现有本地网关。",
+    chatGptAuthStageHint: "账号令牌保存在系统安全存储；Windows 与 Android 会自动启动本机生图网关。",
     chatGptLogin: "登录 ChatGPT", chatGptRelogin: "重新登录", chatGptLogout: "退出账号",
     chatGptSignedOut: "尚未登录", chatGptReady: "登录有效",
     chatGptWorking: "正在验证登录…", chatGptExpired: "登录已过期",
@@ -689,7 +689,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
   }),
   "zh-Hant": Object.freeze({
     codexGatewayApi: "ChatGPT 網頁生圖", codexGatewayPanelTitle: "ChatGPT 網頁生圖",
-    codexGatewayPanelHint: "獨立 image-only 閘道；軟體從本機安全讀取憑證，直連 127.0.0.1，不經桌面代理。",
+    codexGatewayPanelHint: "使用已匯入的 ChatGPT 帳號網頁生圖額度；Windows 與 Android 均啟動本機閘道，令牌只進入系統安全儲存與執行記憶體。",
     codexGatewayQuality: "輸出品質", codexGatewayQualityHint: "草稿較快；標準適合批次分鏡；高品質適合關鍵鏡頭。",
     codexGatewayDimensionMode: "尺寸處理", codexGatewayDimensionModeHint: "精確輸出會無拉伸覆蓋裁切；邊緣內容可能被裁掉。原生模式保留上游尺寸。",
     codexGatewayAsync: "使用可恢復非同步任務", codexGatewayAsyncHint: "批次分鏡會儲存任務 ID；網路中斷或軟體重啟後繼續輪詢，不重新提交。",
@@ -698,10 +698,10 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "並發可輸入 1–100，預設 10；實際速度、審核與限流由上游帳號狀態決定。",
     codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 ChatGPT 網頁生圖…",
     codexGatewayHealthReady: "閘道可用 · {detail}", codexGatewayHealthFailed: "閘道不可用：{reason}",
-    codexGatewayKeyHint: "憑證由 Windows 軟體從本機安全讀取，不儲存到設定中",
+    codexGatewayKeyHint: "憑證由 Windows 或 Android 軟體從系統安全儲存讀取，只進入執行記憶體，不儲存到 API 設定中",
     codexGatewayReferenceBoards: "已接收 {count} 張參考圖；閘道將聚合為編號參考板",
     chatGptAuthTitle: "內建 ChatGPT 官方登入",
-    chatGptAuthStageHint: "目前階段只管理獨立登入工作階段，生圖仍沿用現有本機閘道。",
+    chatGptAuthStageHint: "帳號權杖保存在系統安全儲存；Windows 與 Android 會自動啟動本機生圖閘道。",
     chatGptLogin: "登入 ChatGPT", chatGptRelogin: "重新登入", chatGptLogout: "登出帳號",
     chatGptSignedOut: "尚未登入", chatGptReady: "登入有效",
     chatGptWorking: "正在驗證登入…", chatGptExpired: "登入已過期",
@@ -709,7 +709,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
   }),
   en: Object.freeze({
     codexGatewayApi: "ChatGPT Web Image", codexGatewayPanelTitle: "ChatGPT Web Image",
-    codexGatewayPanelHint: "Uses only the current Edge ChatGPT web image session and connects directly to the local 127.0.0.1 gateway.",
+    codexGatewayPanelHint: "Uses an imported ChatGPT web image account. Windows and Android start a local gateway; tokens stay in secure storage and runtime memory.",
     codexGatewayQuality: "Output quality", codexGatewayQualityHint: "Draft is faster, Standard suits batches, and High suits key frames.",
     codexGatewayDimensionMode: "Dimension handling", codexGatewayDimensionModeHint: "Exact output uses cover cropping without stretching, so edge content may be cropped. Native preserves upstream dimensions.",
     codexGatewayAsync: "Use resumable async tasks", codexGatewayAsyncHint: "Batch task IDs are checkpointed. Polling resumes after a disconnect or app restart without resubmission.",
@@ -718,10 +718,10 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "Concurrency is configurable from 1–100 with a default of 10; actual speed and limits depend on the upstream account.",
     codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the ChatGPT web image gateway…",
     codexGatewayHealthReady: "Gateway ready · {detail}", codexGatewayHealthFailed: "Gateway unavailable: {reason}",
-    codexGatewayKeyHint: "The Windows app loads the local credential securely in memory; it is not saved in API profiles",
+    codexGatewayKeyHint: "Windows or Android loads the credential from OS secure storage into runtime memory only; it is not saved in API profiles",
     codexGatewayReferenceBoards: "{count} references received; the gateway will compile numbered contact sheets",
     chatGptAuthTitle: "Built-in official ChatGPT sign-in",
-    chatGptAuthStageHint: "This stage manages an isolated sign-in session only; image generation still uses the existing local gateway.",
+    chatGptAuthStageHint: "Account tokens stay in OS secure storage; Windows and Android automatically start a local image gateway.",
     chatGptLogin: "Sign in to ChatGPT", chatGptRelogin: "Sign in again", chatGptLogout: "Sign out",
     chatGptSignedOut: "Not signed in", chatGptReady: "Sign-in valid",
     chatGptWorking: "Verifying sign-in…", chatGptExpired: "Sign-in expired",
@@ -729,7 +729,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
   }),
   ja: Object.freeze({
     codexGatewayApi: "ChatGPT Web 画像", codexGatewayPanelTitle: "ChatGPT Web 画像",
-    codexGatewayPanelHint: "画像専用ゲートウェイです。Windows アプリがローカル資格情報をメモリに読み込み、127.0.0.1 に直接接続します。",
+    codexGatewayPanelHint: "インポート済み ChatGPT アカウントの画像生成枠を使用します。Windows と Android はローカルゲートウェイを起動し、トークンは安全な保存領域と実行メモリだけで使用します。",
     codexGatewayQuality: "出力品質", codexGatewayQualityHint: "草稿は高速、標準は一括生成、高品質は重要カット向けです。",
     codexGatewayDimensionMode: "サイズ処理", codexGatewayDimensionModeHint: "正確出力は引き伸ばさずカバー裁切するため、端が切れる場合があります。ネイティブは上流サイズを保持します。",
     codexGatewayAsync: "再開可能な非同期タスク", codexGatewayAsyncHint: "タスク ID を保存し、切断や再起動後も再送信せずポーリングを再開します。",
@@ -738,10 +738,10 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "同時生成数は 1～100、既定値は 10 です。実際の速度、審査、制限は上流アカウントに依存します。",
     codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "ChatGPT Web 画像に接続中…",
     codexGatewayHealthReady: "ゲートウェイ利用可能 · {detail}", codexGatewayHealthFailed: "ゲートウェイ利用不可：{reason}",
-    codexGatewayKeyHint: "Windows アプリがローカル資格情報を安全にメモリへ読み込み、API 設定には保存しません",
+    codexGatewayKeyHint: "Windows または Android が OS の安全な保存領域から資格情報を実行メモリだけに読み込み、API 設定には保存しません",
     codexGatewayReferenceBoards: "参照画像 {count} 枚を受信。番号付き参照ボードに統合します",
     chatGptAuthTitle: "内蔵 ChatGPT 公式ログイン",
-    chatGptAuthStageHint: "この段階では分離ログインのみを管理し、画像生成は既存のローカルゲートウェイを使用します。",
+    chatGptAuthStageHint: "アカウントトークンは OS の安全な領域に保存され、Windows と Android はローカル画像ゲートウェイを自動起動します。",
     chatGptLogin: "ChatGPT にログイン", chatGptRelogin: "再ログイン", chatGptLogout: "ログアウト",
     chatGptSignedOut: "未ログイン", chatGptReady: "ログイン有効",
     chatGptWorking: "ログインを確認中…", chatGptExpired: "ログイン期限切れ",
@@ -749,7 +749,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
   }),
   ko: Object.freeze({
     codexGatewayApi: "ChatGPT 웹 이미지", codexGatewayPanelTitle: "ChatGPT 웹 이미지",
-    codexGatewayPanelHint: "이미지 전용 게이트웨이입니다. Windows 앱이 로컬 자격 증명을 메모리에 읽고 127.0.0.1로 직접 연결합니다.",
+    codexGatewayPanelHint: "가져온 ChatGPT 계정의 웹 이미지 한도를 사용합니다. Windows와 Android는 로컬 게이트웨이를 시작하며 토큰은 보안 저장소와 실행 메모리에서만 사용됩니다.",
     codexGatewayQuality: "출력 품질", codexGatewayQualityHint: "초안은 빠르고 표준은 일괄 작업, 고품질은 주요 장면에 적합합니다.",
     codexGatewayDimensionMode: "크기 처리", codexGatewayDimensionModeHint: "정확 출력은 늘리지 않고 커버 자르기를 사용하므로 가장자리가 잘릴 수 있습니다. 원본 모드는 업스트림 크기를 유지합니다.",
     codexGatewayAsync: "재개 가능한 비동기 작업", codexGatewayAsyncHint: "작업 ID를 저장하여 연결 중단이나 앱 재시작 후 재제출 없이 폴링을 재개합니다.",
@@ -758,10 +758,10 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "동시 생성 수는 1–100, 기본값은 10입니다. 실제 속도, 검토 및 제한은 업스트림 계정 상태에 따라 달라집니다.",
     codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "ChatGPT 웹 이미지에 연결 중…",
     codexGatewayHealthReady: "게이트웨이 사용 가능 · {detail}", codexGatewayHealthFailed: "게이트웨이 사용 불가: {reason}",
-    codexGatewayKeyHint: "Windows 앱이 로컬 자격 증명을 안전하게 메모리에 읽으며 API 설정에는 저장하지 않습니다",
+    codexGatewayKeyHint: "Windows 또는 Android가 OS 보안 저장소의 자격 증명을 실행 메모리에서만 사용하며 API 설정에는 저장하지 않습니다",
     codexGatewayReferenceBoards: "참고 이미지 {count}장을 받았습니다. 번호 참조 보드로 통합합니다",
     chatGptAuthTitle: "내장 ChatGPT 공식 로그인",
-    chatGptAuthStageHint: "현재 단계는 분리된 로그인 세션만 관리하며 이미지 생성은 기존 로컬 게이트웨이를 사용합니다.",
+    chatGptAuthStageHint: "계정 토큰은 OS 보안 저장소에 보관되며 Windows와 Android는 로컬 이미지 게이트웨이를 자동으로 시작합니다.",
     chatGptLogin: "ChatGPT 로그인", chatGptRelogin: "다시 로그인", chatGptLogout: "로그아웃",
     chatGptSignedOut: "로그인 안 됨", chatGptReady: "로그인 유효",
     chatGptWorking: "로그인 확인 중…", chatGptExpired: "로그인 만료",
@@ -772,7 +772,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
 const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
     chatGptAuthTitle: "ChatGPT 网页账号",
-    chatGptAuthStageHint: "令牌仅保存在系统安全存储；Windows 版会自动启动内置生图网关。",
+    chatGptAuthStageHint: "令牌仅保存在系统安全存储；Windows 与 Android 会自动启动各自的内置生图网关。",
     chatGptLogin: "内置网页登录", chatGptRelogin: "重新登录", chatGptLogout: "移除当前账号",
     chatGptOpenSession: "浏览器获取令牌", chatGptImport: "识别并导入",
     chatGptImportLabel: "粘贴 Session JSON 或 accessToken",
@@ -793,7 +793,7 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
   }),
   "zh-Hant": Object.freeze({
     chatGptAuthTitle: "ChatGPT 網頁帳號",
-    chatGptAuthStageHint: "權杖只保存在系統安全儲存；Windows 版會自動啟動內建生圖閘道。",
+    chatGptAuthStageHint: "權杖只保存在系統安全儲存；Windows 與 Android 會自動啟動各自的內建生圖閘道。",
     chatGptLogin: "內建網頁登入", chatGptRelogin: "重新登入", chatGptLogout: "移除目前帳號",
     chatGptOpenSession: "瀏覽器取得權杖", chatGptImport: "辨識並匯入",
     chatGptImportLabel: "貼上 Session JSON 或 accessToken",
@@ -814,7 +814,7 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
   }),
   en: Object.freeze({
     chatGptAuthTitle: "ChatGPT web accounts",
-    chatGptAuthStageHint: "Tokens stay in OS secure storage. Windows starts the bundled image gateway automatically.",
+    chatGptAuthStageHint: "Tokens stay in OS secure storage. Windows and Android start their bundled image gateways automatically.",
     chatGptLogin: "Built-in web sign-in", chatGptRelogin: "Sign in again", chatGptLogout: "Remove active account",
     chatGptOpenSession: "Get token in browser", chatGptImport: "Detect and import",
     chatGptImportLabel: "Paste Session JSON or accessToken",
@@ -835,7 +835,7 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
   }),
   ja: Object.freeze({
     chatGptAuthTitle: "ChatGPT Web アカウント",
-    chatGptAuthStageHint: "トークンは OS の安全な領域だけに保存され、Windows 版は内蔵画像ゲートウェイを自動起動します。",
+    chatGptAuthStageHint: "トークンは OS の安全な領域だけに保存され、Windows と Android は各環境の内蔵画像ゲートウェイを自動起動します。",
     chatGptLogin: "内蔵 Web ログイン", chatGptRelogin: "再ログイン", chatGptLogout: "現在のアカウントを削除",
     chatGptOpenSession: "ブラウザーでトークン取得", chatGptImport: "検出して登録",
     chatGptImportLabel: "Session JSON または accessToken を貼り付け",
@@ -856,7 +856,7 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
   }),
   ko: Object.freeze({
     chatGptAuthTitle: "ChatGPT 웹 계정",
-    chatGptAuthStageHint: "토큰은 OS 보안 저장소에만 보관되며 Windows 앱은 내장 이미지 게이트웨이를 자동으로 시작합니다.",
+    chatGptAuthStageHint: "토큰은 OS 보안 저장소에만 보관되며 Windows와 Android는 각 환경의 내장 이미지 게이트웨이를 자동으로 시작합니다.",
     chatGptLogin: "내장 웹 로그인", chatGptRelogin: "다시 로그인", chatGptLogout: "현재 계정 삭제",
     chatGptOpenSession: "브라우저에서 토큰 받기", chatGptImport: "인식 후 가져오기",
     chatGptImportLabel: "Session JSON 또는 accessToken 붙여넣기",
@@ -2731,13 +2731,13 @@ function syncCodexGatewayGenerateAvailability() {
 
 function syncCodexGatewayProviderVisibility() {
   const option = dom.apiProvider?.querySelector(`option[value="${CODEX_IMAGE_GATEWAY_PROVIDER}"]`);
-  if (option) option.hidden = !isNativeWindowsWebview();
+  if (option) option.hidden = !isNativeChatGptGatewayWebview();
   customSelects.apiProvider?.renderOptions?.();
   customSelects.apiProvider?.syncLabel?.();
 }
 
 async function loadCodexGatewayCredentials() {
-  if (!isNativeWindowsWebview()) throw new Error("ChatGPT 网页生图仅在 Windows 软件中可用");
+  if (!isNativeChatGptGatewayWebview()) throw new Error("ChatGPT 网页生图仅在 Windows 或 Android 软件中可用");
   const loaded = await nativeDownload.loadCodexImageGatewayConfig();
   const baseUrl = codexImageGateway.normalizeBaseUrl(loaded?.baseUrl || CODEX_IMAGE_GATEWAY_BASE_URL);
   const apiKey = String(loaded?.apiKey || "").trim();
@@ -2762,6 +2762,7 @@ async function checkCodexGatewayHealth({ announce = false, force = true } = {}) 
       if (!health.ok) throw new Error(`健康检查 HTTP ${health.status}`);
       const healthBody = await health.json().catch(() => ({}));
       if (healthBody?.status !== "ok") throw new Error(healthBody?.message || healthBody?.status || "健康检查失败");
+      if (healthBody?.session_available === false) throw new Error("请先导入一个可用的 ChatGPT 账号令牌");
       const capsResponse = await smartFetch(`${credentials.baseUrl}/image-capabilities`, {
         headers: { Accept: "application/json", Authorization: `Bearer ${credentials.apiKey}` },
         nativeTimeoutMs: 5000, forceDirectProxy: true,
@@ -4706,6 +4707,10 @@ function getUpdateActionKey(platform = getRuntimePlatform()) {
 // 旧 texture 壳的兼容逻辑还会读取这个判定；windowed 壳另有能力标记。
 function isNativeWindowsWebview() {
   return nativeDownload.available() && getRuntimePlatform() === "windows";
+}
+
+function isNativeChatGptGatewayWebview() {
+  return nativeDownload.available() && ["windows", "android"].includes(getRuntimePlatform());
 }
 
 function isNativeDesktopWebview() {

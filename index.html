@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260729-1-5-3">
+  <link rel="stylesheet" href="style.css?v=20260729-1-5-4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -82,7 +82,7 @@
               </div>
               <select id="apiProvider" class="custom-select-native" tabindex="-1" aria-hidden="true">
                 <option value="official">官方 API</option>
-              <option value="codexImageGateway" data-windows-native-only="true">ChatGPT 网页生图</option>
+                <option value="codexImageGateway" data-native-gateway-only="true">ChatGPT 网页生图</option>
                 <option value="grsai" selected>GrsAI 生图 API</option>
                 <option value="custom">自定义 API</option>
               </select>
@@ -214,7 +214,7 @@
                 <span class="provider-badge provider-badge-opencodex">WEB</span>
                 <div>
                   <h3 id="codexGatewayProviderTitle">ChatGPT 网页生图</h3>
-                  <p id="codexGatewayProviderHint">仅使用当前 Edge 登录账号的 ChatGPT 网页生图额度；本机直连 127.0.0.1，不经过桌面代理。</p>
+                  <p id="codexGatewayProviderHint">使用已导入的 ChatGPT 账号网页生图额度；Windows 与 Android 均启动本机网关，令牌只进入系统安全存储与运行内存。</p>
                 </div>
               </div>
 
@@ -224,7 +224,7 @@
                   <div class="chatgpt-account-copy">
                     <strong id="chatGptAuthTitle">ChatGPT 网页账号</strong>
                     <span id="chatGptAuthIdentity">尚未导入账号</span>
-                    <small id="chatGptAuthStageHint">令牌仅保存在系统安全存储；Windows 版会自动启动内置生图网关。</small>
+                    <small id="chatGptAuthStageHint">令牌仅保存在系统安全存储；Windows 与 Android 会自动启动各自的内置生图网关。</small>
                   </div>
                   <span class="chatgpt-account-status" id="chatGptAuthStatus" data-state="signed_out">未连接</span>
                 </div>
@@ -746,7 +746,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.5.3</strong>
+            <strong id="currentVersionLabel">v1.5.4</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -940,9 +940,9 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260729-1-5-3"></script>
-  <script src="image-task-stability.js?v=20260729-1-5-3"></script>
-  <script src="codex-image-gateway.js?v=20260729-1-5-3"></script>
-  <script src="app.js?v=20260729-1-5-3"></script>
+  <script src="bootstrap-guard.js?v=20260729-1-5-4"></script>
+  <script src="image-task-stability.js?v=20260729-1-5-4"></script>
+  <script src="codex-image-gateway.js?v=20260729-1-5-4"></script>
+  <script src="app.js?v=20260729-1-5-4"></script>
 </body>
 </html>
