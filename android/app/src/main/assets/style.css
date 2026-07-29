@@ -699,7 +699,6 @@ details[open] .config-toggle::before { content: '▼ '; }
 
 .gemini-account-main,
 .gemini-account-actions,
-.gemini-pairing-row,
 .gemini-account-item {
   display: flex;
   align-items: center;
@@ -721,13 +720,24 @@ details[open] .config-toggle::before { content: '▼ '; }
   color: var(--text-muted);
 }
 
-.gemini-pairing-row input {
-  min-width: 0;
-  flex: 1;
-}
-
 .gemini-account-actions {
   flex-wrap: wrap;
+}
+
+.gemini-auto-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  margin-left: auto;
+  color: var(--text2);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.gemini-auto-switch input {
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .gemini-account-list {
@@ -746,6 +756,14 @@ details[open] .config-toggle::before { content: '▼ '; }
 .gemini-account-item > div:first-child {
   display: grid;
   min-width: 0;
+  gap: 2px;
+}
+
+.gemini-account-item > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .gemini-account-item span,
@@ -754,6 +772,23 @@ details[open] .config-toggle::before { content: '▼ '; }
   color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .gemini-auto-switch {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .gemini-account-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .gemini-account-item > div:last-child {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .opencodex-health-row {

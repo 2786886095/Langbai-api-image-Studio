@@ -30,8 +30,7 @@ jobs:
           node --check gemini-image-size-registry.js
           node --check gemini-web-image-adapter.js
           node --check gemini-selector-pack.js
-          node --check gemini_companion/chromium/content-script.js
-          node --check gemini_companion/chromium/service-worker.js
+          node --check gemini-embedded-worker.js
           node --check api-proxy.js
           node --check qa/regression-runner.js
           node --check qa/static-audit.js
@@ -159,17 +158,17 @@ jobs:
         shell: pwsh
         run: |
           $assets = "build/windows/x64/runner/Release/data/flutter_assets"
-          foreach ($name in @("index.html", "bootstrap-guard.js", "image-task-stability.js", "codex-image-gateway.js", "gemini-image-size-registry.js", "gemini-web-image-adapter.js", "gemini-selector-pack.js", "gemini_companion/chromium/manifest.json", "gemini_companion/chromium/content-script.js", "gemini_companion/chromium/service-worker.js", "app.js", "style.css")) {
+          foreach ($name in @("index.html", "bootstrap-guard.js", "image-task-stability.js", "codex-image-gateway.js", "gemini-image-size-registry.js", "gemini-web-image-adapter.js", "gemini-selector-pack.js", "gemini-embedded-worker.js", "app.js", "style.css")) {
             $path = Join-Path $assets $name
             if (-not (Test-Path $path) -or (Get-Item $path).Length -le 0) {
               throw "Missing or empty packaged frontend asset: $name"
             }
           }
-          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.6.0";' -Quiet)) {
-            throw "Packaged app.js is not v1.6.0."
+          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.6.1";' -Quiet)) {
+            throw "Packaged app.js is not v1.6.1."
           }
-          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260729-1-6-0' -Quiet)) {
-            throw "Packaged index.html does not reference the v1.6.0 bootstrap guard."
+          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260729-1-6-1' -Quiet)) {
+            throw "Packaged index.html does not reference the v1.6.1 bootstrap guard."
           }
       - name: Run hidden Windows WebView2 startup smoke test
         shell: pwsh
@@ -243,19 +242,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed with exit code $LASTEXITCODE" }
           Copy-Item "windows\installer\Output\AI-Image-Generator-Setup.exe" "AI-Image-Generator-Setup.exe"
           (Get-FileHash "AI-Image-Generator-Setup.exe" -Algorithm SHA256).Hash.ToLower() + "  AI-Image-Generator-Setup.exe" | Set-Content "AI-Image-Generator-Setup.exe.sha256" -Encoding ascii
-      - name: Package Gemini Chromium companion
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "gemini_companion\chromium\*" -DestinationPath "Langbai-Gemini-Chromium-Companion-v1.6.0.zip" -CompressionLevel Optimal
-          (Get-FileHash "Langbai-Gemini-Chromium-Companion-v1.6.0.zip" -Algorithm SHA256).Hash.ToLower() + "  Langbai-Gemini-Chromium-Companion-v1.6.0.zip" | Set-Content "Langbai-Gemini-Chromium-Companion-v1.6.0.zip.sha256" -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: |
             AI-Image-Generator-Setup.exe
             AI-Image-Generator-Setup.exe.sha256
-            Langbai-Gemini-Chromium-Companion-v1.6.0.zip
-            Langbai-Gemini-Chromium-Companion-v1.6.0.zip.sha256
           if-no-files-found: error
 
   macos:

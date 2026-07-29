@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
+import android.webkit.CookieManager
 import androidx.documentfile.provider.DocumentFile
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
@@ -16,6 +17,8 @@ class MainActivity : FlutterActivity() {
     private val channelName = "com.aigen.ai_image_generator/downloads"
     private val chatGptGatewayChannel =
         "com.aigen.ai_image_generator/chatgpt_gateway"
+    private val geminiSessionsChannel =
+        "com.aigen.ai_image_generator/gemini_sessions"
     private val prefsName = "download_dirs"
     private val requestChooseDir = 4101
     private val requestChooseFiles = 4102
@@ -66,6 +69,101 @@ class MainActivity : FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            geminiSessionsChannel
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "capture" -> captureGeminiSession(result)
+                "restore" -> restoreGeminiSession(
+                    call.argument<Any?>("snapshot"),
+                    result
+                )
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private val geminiSessionUrls = listOf(
+        "https://gemini.google.com/",
+        "https://accounts.google.com/",
+        "https://myaccount.google.com/"
+    )
+
+    private fun captureGeminiSession(result: MethodChannel.Result) {
+        try {
+            val manager = CookieManager.getInstance()
+            val snapshot = geminiSessionUrls.mapNotNull { url ->
+                val header = manager.getCookie(url)
+                if (header.isNullOrBlank()) null else mapOf(
+                    "url" to url,
+                    "header" to header
+                )
+            }
+            result.success(snapshot)
+        } catch (error: Throwable) {
+            result.error(
+                "gemini_session_capture_failed",
+                error.message ?: error.toString(),
+                null
+            )
+        }
+    }
+
+    private fun restoreGeminiSession(
+        rawSnapshot: Any?,
+        result: MethodChannel.Result
+    ) {
+        try {
+            val manager = CookieManager.getInstance()
+            // ChatGPT and other providers share Android's CookieManager.
+            // Expire only names observed on approved Google/Gemini origins.
+            geminiSessionUrls.forEach { url ->
+                val host = Uri.parse(url).host ?: return@forEach
+                val current = manager.getCookie(url).orEmpty()
+                current.split(";").forEach cookieLoop@{ rawCookie ->
+                    val name = rawCookie.substringBefore("=").trim()
+                    if (name.isEmpty()) return@cookieLoop
+                    manager.setCookie(
+                        url,
+                        "$name=; Max-Age=0; Path=/; Domain=$host; Secure; SameSite=None"
+                    )
+                    manager.setCookie(
+                        url,
+                        "$name=; Max-Age=0; Path=/; Domain=.google.com; Secure; SameSite=None"
+                    )
+                }
+            }
+
+            val snapshot = rawSnapshot as? List<*> ?: emptyList<Any?>()
+            snapshot.forEach entryLoop@{ rawEntry ->
+                val entry = rawEntry as? Map<*, *> ?: return@entryLoop
+                val url = entry["url"]?.toString() ?: return@entryLoop
+                if (!geminiSessionUrls.contains(url)) return@entryLoop
+                val header = entry["header"]?.toString() ?: return@entryLoop
+                header.split(";").forEach cookieLoop@{ rawCookie ->
+                    val cookie = rawCookie.trim()
+                    val separator = cookie.indexOf('=')
+                    if (separator <= 0) return@cookieLoop
+                    val name = cookie.substring(0, separator).trim()
+                    val value = cookie.substring(separator + 1)
+                    if (name.isNotEmpty()) {
+                        manager.setCookie(
+                            url,
+                            "$name=$value; Path=/; Secure; SameSite=None"
+                        )
+                    }
+                }
+            }
+            manager.flush()
+            result.success(true)
+        } catch (error: Throwable) {
+            result.error(
+                "gemini_session_restore_failed",
+                error.message ?: error.toString(),
+                null
+            )
         }
     }
 

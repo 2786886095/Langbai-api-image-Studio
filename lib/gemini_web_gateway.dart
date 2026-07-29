@@ -18,7 +18,26 @@ const int _geminiPortEnd = 18199;
 const int _maxJsonBytes = 80 * 1024 * 1024;
 const int _maxImageBytes = 60 * 1024 * 1024;
 const Duration _companionLeaseDuration = Duration(seconds: 45);
+const Duration _geminiRateLimitCooldown = Duration(minutes: 15);
 const String _geminiSelectorPackVersion = '2026.07.29.1';
+final RegExp _geminiUuidPattern = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  caseSensitive: false,
+);
+const Set<String> _geminiQuotaCodes = <String>{
+  'gemini_rate_limited',
+  'quota_exhausted',
+  'insufficient_quota',
+  'rate_limit_error',
+  'rate_limited',
+};
+const Set<String> _geminiAuthenticationCodes = <String>{
+  'gemini_login_required',
+  'authentication_failed',
+  'invalid_session',
+  'session_expired',
+  'unauthorized',
+};
 
 const Map<String, Set<String>> _geminiStatusTransitions = <String, Set<String>>{
   'queued': <String>{'preparing_temporary_chat'},
@@ -124,16 +143,21 @@ class GeminiWebGatewayManager {
           .map((account) => account.toJson())
           .toList(),
       'activeAccountId': _activeAccountId,
+      'autoSwitch': await accountStore.autoSwitchEnabled(),
     };
   }
 
-  Future<Map<String, Object?>> accountsSnapshot() async => <String, Object?>{
-        'accounts': (await accountStore.load())
-            .map((account) => account.toJson())
-            .toList(),
-        'active_account_id': _activeAccountId,
-        'companion_connected': companionConnected,
-      };
+  Future<Map<String, Object?>> accountsSnapshot() async {
+    final accounts = await accountStore.load();
+    return <String, Object?>{
+      'accounts': accounts.map((account) => account.toJson()).toList(),
+      'active_account_id': _activeAccountId,
+      'auto_switch': await accountStore.autoSwitchEnabled(),
+      'companion_connected': companionConnected,
+      'ready_account_count':
+          accounts.where((account) => _accountAvailable(account)).length,
+    };
+  }
 
   Future<Map<String, Object?>> selectAccount(String id) async {
     final accounts = await accountStore.load();
@@ -153,8 +177,241 @@ class GeminiWebGatewayManager {
     if (_activeAccountId == id) {
       _activeAccountId = '';
       await secureStorage.delete(key: _geminiActiveAccountStorage);
+      await _switchActiveAccount(excluding: <String>{id});
     }
     return accountsSnapshot();
+  }
+
+  bool _accountConnected(String id) {
+    final seen = _companionProfiles[id];
+    return seen != null &&
+        DateTime.now().difference(seen) < const Duration(seconds: 20);
+  }
+
+  bool _accountAvailable(GeminiAccountMetadata account) =>
+      account.available && _accountConnected(account.localAccountId);
+
+  bool _accountEligible(GeminiAccountMetadata account) => account.available;
+
+  Future<void> _setActiveAccount(String id) async {
+    _activeAccountId = id;
+    if (id.isEmpty) {
+      await secureStorage.delete(key: _geminiActiveAccountStorage);
+    } else {
+      await secureStorage.write(
+        key: _geminiActiveAccountStorage,
+        value: id,
+      );
+    }
+  }
+
+  Future<GeminiAccountMetadata?> _switchActiveAccount({
+    Set<String> excluding = const <String>{},
+  }) async {
+    if (!await accountStore.autoSwitchEnabled()) return null;
+    final accounts = await accountStore.load();
+    final next = accounts
+        .where((account) =>
+            !excluding.contains(account.localAccountId) &&
+            _accountEligible(account))
+        .firstOrNull;
+    if (next != null) await _setActiveAccount(next.localAccountId);
+    return next;
+  }
+
+  Future<GeminiAccountMetadata?> _submissionAccount() async {
+    final accounts = await accountStore.load();
+    final active = accounts
+        .where((account) => account.localAccountId == _activeAccountId)
+        .firstOrNull;
+    // A persisted ready account remains a valid queue target while its hidden
+    // WebView is still starting. The task will wait for that specific browser
+    // profile instead of incorrectly claiming that no account exists.
+    if (active != null && _accountEligible(active)) return active;
+    return _switchActiveAccount(
+      excluding:
+          active == null ? const <String>{} : <String>{active.localAccountId},
+    );
+  }
+
+  String _normalizedUuid(Object? value) {
+    final normalized = value?.toString().trim().toLowerCase() ?? '';
+    return _geminiUuidPattern.hasMatch(normalized) ? normalized : '';
+  }
+
+  String _legacyAccountId(String profileId) => sha256
+      .convert(utf8.encode('gemini:$profileId'))
+      .toString()
+      .substring(0, 32);
+
+  String _errorCode(Object? error) {
+    if (error is Map) {
+      return (error['code'] ?? error['type'] ?? error['status'])
+          .toString()
+          .trim()
+          .toLowerCase();
+    }
+    return '';
+  }
+
+  String _errorMessage(Object? error) {
+    if (error is Map) {
+      return (error['message'] ?? error['detail'] ?? error['error'] ?? '')
+          .toString()
+          .trim();
+    }
+    return error?.toString().trim() ?? '';
+  }
+
+  bool _quotaFailure(String code, String message) =>
+      _geminiQuotaCodes.contains(code) ||
+      RegExp(r'\b(quota|rate.?limit|too many requests)\b', caseSensitive: false)
+          .hasMatch(message);
+
+  bool _authenticationFailure(String code, String message) =>
+      _geminiAuthenticationCodes.contains(code) ||
+      RegExp(
+        r'\b(login|required|signed out|session expired|unauthori[sz]ed)\b',
+        caseSensitive: false,
+      ).hasMatch(message);
+
+  Future<GeminiAccountMetadata?> _recordAccountReport(
+    String accountId, {
+    required String status,
+    bool? loginReady,
+    Object? error,
+  }) async {
+    final accounts = await accountStore.load();
+    final current = accounts
+        .where((account) => account.localAccountId == accountId)
+        .firstOrNull;
+    if (current == null) return null;
+
+    final now = DateTime.now().toUtc();
+    final code = _errorCode(error);
+    final message = _errorMessage(error);
+    final quotaFailure = _quotaFailure(code, message);
+    final authenticationFailure = _authenticationFailure(code, message);
+    var nextStatus = status.trim().isEmpty ? current.status : status.trim();
+    var nextLoginReady = loginReady ?? current.loginReady;
+    var quotaState = current.quotaState;
+    var cooldownUntil = current.cooldownUntil;
+    var lastQuotaAt = current.lastQuotaAt;
+
+    if (quotaFailure) {
+      final exhausted = code.contains('quota') ||
+          RegExp(r'\bquota\b', caseSensitive: false).hasMatch(message);
+      nextStatus = exhausted ? 'quota_exhausted' : 'rate_limited';
+      quotaState = exhausted ? 'exhausted' : 'cooldown';
+      cooldownUntil = now.add(_geminiRateLimitCooldown).toIso8601String();
+      lastQuotaAt = now.toIso8601String();
+    } else if (authenticationFailure || nextStatus == 'needs_login') {
+      nextStatus = 'needs_login';
+      nextLoginReady = false;
+    } else if (nextStatus == 'ready' && nextLoginReady) {
+      final cooldown = DateTime.tryParse(current.cooldownUntil);
+      if (<String>{'cooldown', 'exhausted'}.contains(current.quotaState) &&
+          cooldown != null &&
+          cooldown.isAfter(now)) {
+        nextStatus = current.quotaState == 'exhausted'
+            ? 'quota_exhausted'
+            : 'rate_limited';
+      } else {
+        quotaState = 'available';
+        cooldownUntil = '';
+      }
+    }
+
+    final updated = current.copyWith(
+      status: nextStatus,
+      loginReady: nextLoginReady,
+      quotaState: quotaState,
+      cooldownUntil: cooldownUntil,
+      lastErrorCode: code,
+      lastQuotaAt: lastQuotaAt,
+      lastVerifiedAt: now.toIso8601String(),
+      lastError: message,
+    );
+    await accountStore.upsert(updated);
+
+    if (_activeAccountId == accountId &&
+        (quotaFailure || authenticationFailure || !updated.available)) {
+      await _switchActiveAccount(excluding: <String>{accountId});
+    }
+    return updated;
+  }
+
+  Future<void> _recordAccountSuccess(String accountId) async {
+    final account = (await accountStore.load())
+        .where((item) => item.localAccountId == accountId)
+        .firstOrNull;
+    if (account == null) return;
+    await accountStore.upsert(account.copyWith(
+      status: 'ready',
+      loginReady: true,
+      quotaState: 'available',
+      cooldownUntil: '',
+      lastErrorCode: '',
+      lastVerifiedAt: DateTime.now().toUtc().toIso8601String(),
+      lastError: '',
+    ));
+  }
+
+  List<String> _taskAttemptedAccounts(GeminiImageTask task) {
+    final value = task.audit['account_attempts'];
+    if (value is! List) return <String>[];
+    return value
+        .map((item) => item.toString())
+        .where((id) => id.isNotEmpty)
+        .toList();
+  }
+
+  Future<bool> _requeueAfterAccountFailure(
+    GeminiImageTask task,
+    Object? error,
+  ) async {
+    final code = _errorCode(error);
+    final message = _errorMessage(error);
+    if (!_quotaFailure(code, message) &&
+        !_authenticationFailure(code, message)) {
+      return false;
+    }
+
+    await _recordAccountReport(
+      task.accountId,
+      status: _authenticationFailure(code, message)
+          ? 'needs_login'
+          : 'quota_exhausted',
+      error: error,
+    );
+    if (!await accountStore.autoSwitchEnabled()) return false;
+
+    final attempted = <String>{
+      ..._taskAttemptedAccounts(task),
+      task.accountId,
+    };
+    final next = await _switchActiveAccount(excluding: attempted);
+    if (next == null) return false;
+
+    task.audit = <String, Object?>{
+      ...task.audit,
+      'account_attempts': attempted.toList(),
+      'last_account_error': <String, Object?>{
+        'account_id': task.accountId,
+        'code': code,
+        'message': message,
+        'at': DateTime.now().toUtc().toIso8601String(),
+      },
+      'auto_switched_to': next.localAccountId,
+    };
+    task.accountId = next.localAccountId;
+    task.status = _accountConnected(next.localAccountId)
+        ? 'queued'
+        : 'waiting_for_browser';
+    task.error = null;
+    task.updatedAt = DateTime.now().toUtc();
+    _clearClaim(task);
+    return true;
   }
 
   Future<String> _loadOrCreatePairingKey() async {
@@ -308,7 +565,7 @@ class GeminiWebGatewayManager {
     response.headers
       ..set('Access-Control-Allow-Origin', '*')
       ..set('Access-Control-Allow-Headers',
-          'authorization,content-type,x-langbai-account-id,x-langbai-audit')
+          'authorization,content-type,x-langbai-account-id,x-langbai-claim-id,x-langbai-audit')
       ..set('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
       ..set('Cache-Control', 'no-store')
       ..set('X-Content-Type-Options', 'nosniff');
@@ -403,6 +660,13 @@ class GeminiWebGatewayManager {
         await _json(response, 200, await accountsSnapshot());
         return;
       }
+      if (path == '/v1/accounts/auto-switch' && request.method == 'POST') {
+        final body = await _readJson(request);
+        final enabled = body['enabled'] != false;
+        await accountStore.setAutoSwitchEnabled(enabled);
+        await _json(response, 200, await accountsSnapshot());
+        return;
+      }
       if (path == '/v1/image-tasks' && request.method == 'POST') {
         final body = await _readJson(request);
         if (body['provider'] != 'geminiWeb' ||
@@ -417,16 +681,13 @@ class GeminiWebGatewayManager {
           });
           return;
         }
-        final registeredAccounts = await accountStore.load();
-        if (_activeAccountId.isEmpty ||
-            !registeredAccounts.any(
-              (account) => account.localAccountId == _activeAccountId,
-            )) {
+        final submissionAccount = await _submissionAccount();
+        if (submissionAccount == null) {
           await _json(response, 409, <String, Object?>{
             'error': <String, Object?>{
               'code': 'gemini_account_required',
               'message':
-                  'Select a connected Gemini browser account before submitting.',
+                  'Connect a ready Gemini account with available quota before submitting.',
             }
           });
           return;
@@ -446,8 +707,10 @@ class GeminiWebGatewayManager {
           id: id,
           clientRequestId: requestId,
           request: body,
-          status: companionConnected ? 'queued' : 'waiting_for_browser',
-          accountId: _activeAccountId,
+          status: _accountConnected(submissionAccount.localAccountId)
+              ? 'queued'
+              : 'waiting_for_browser',
+          accountId: submissionAccount.localAccountId,
         );
         _tasks[id] = task;
         await _persistTasks();
@@ -520,23 +783,52 @@ class GeminiWebGatewayManager {
           });
           return;
         }
-        final localId = sha256
-            .convert(utf8.encode('gemini:$profileId'))
-            .toString()
-            .substring(0, 32);
+        final accountUuid = _normalizedUuid(
+          body['account_uuid'] ?? body['local_account_uuid'],
+        );
+        final accounts = await accountStore.load();
+        final existing = accounts
+            .where((account) =>
+                (accountUuid.isNotEmpty &&
+                    account.accountUuid == accountUuid) ||
+                account.browserProfileId == profileId)
+            .firstOrNull;
+        // Existing hashed IDs remain stable so queued v1 tasks keep their
+        // account binding. New embedded profiles use their local UUID directly.
+        final localId = existing?.localAccountId ??
+            (accountUuid.isNotEmpty
+                ? accountUuid
+                : _legacyAccountId(profileId));
         final selectorPackVersion =
             body['selector_pack_version']?.toString() ?? '';
         final selectorPackCompatible =
             selectorPackVersion == _geminiSelectorPackVersion;
+        final incomingStatus = body['status']?.toString() ?? 'ready';
+        final loginReady = selectorPackCompatible && incomingStatus == 'ready';
+        final retainedAccountState = existing != null && existing.coolingDown;
         final account = GeminiAccountMetadata(
           localAccountId: localId,
+          accountUuid: accountUuid.isNotEmpty
+              ? accountUuid
+              : (existing?.accountUuid ?? ''),
           displayName: body['display_name']?.toString() ?? 'Gemini 浏览器账号',
           maskedEmail: body['masked_email']?.toString() ?? '',
           browserProfileId: profileId,
           platform: body['platform']?.toString() ?? Platform.operatingSystem,
           status: selectorPackCompatible
-              ? (body['status']?.toString() ?? 'ready')
+              ? (retainedAccountState
+                  ? existing.status
+                  : (loginReady ? 'ready' : 'needs_login'))
               : 'protocol_changed',
+          loginReady: loginReady,
+          quotaState: retainedAccountState
+              ? existing.quotaState
+              : (existing?.quotaState == 'unknown'
+                  ? 'available'
+                  : (existing?.quotaState ?? 'available')),
+          cooldownUntil: existing?.cooldownUntil ?? '',
+          lastErrorCode: retainedAccountState ? existing.lastErrorCode : '',
+          lastQuotaAt: existing?.lastQuotaAt ?? '',
           lastVerifiedAt: DateTime.now().toUtc().toIso8601String(),
           temporaryChatAvailable: selectorPackCompatible &&
               body['temporary_chat_available'] == true,
@@ -546,24 +838,49 @@ class GeminiWebGatewayManager {
                 body['effective_concurrency']?.toString() ?? '',
               ) ??
               1,
-          lastError: body['last_error']?.toString() ?? '',
+          lastError: retainedAccountState
+              ? existing.lastError
+              : (body['last_error']?.toString() ?? ''),
         );
         await accountStore.upsert(account);
         _companionProfiles[localId] = DateTime.now();
         if (_activeAccountId.isEmpty) {
-          _activeAccountId = localId;
-          await secureStorage.write(
-            key: _geminiActiveAccountStorage,
-            value: _activeAccountId,
-          );
+          await _setActiveAccount(localId);
         }
         _effectiveConcurrency = account.effectiveConcurrency.clamp(1, 10);
         await _json(response, 200, <String, Object?>{
           ...await accountsSnapshot(),
           'local_account_id': localId,
+          'account_uuid': account.accountUuid,
+          'auto_switch': await accountStore.autoSwitchEnabled(),
           'selector_pack_compatible': selectorPackCompatible,
           'expected_selector_pack_version': _geminiSelectorPackVersion,
         });
+        return;
+      }
+      if (path == '/v1/companion/account-report' && request.method == 'POST') {
+        _lastCompanionSeen = DateTime.now();
+        final body = await _readJson(request);
+        final accountId = body['account_id']?.toString() ??
+            request.headers.value('x-langbai-account-id') ??
+            '';
+        if (accountId.isEmpty ||
+            !(await accountStore.load())
+                .any((account) => account.localAccountId == accountId)) {
+          await _json(response, 404, <String, Object?>{
+            'error': <String, Object?>{'code': 'gemini_account_not_found'}
+          });
+          return;
+        }
+        _companionProfiles[accountId] = DateTime.now();
+        await _recordAccountReport(
+          accountId,
+          status: body['status']?.toString() ?? 'unknown',
+          loginReady:
+              body['login_ready'] is bool ? body['login_ready'] as bool : null,
+          error: body['error'],
+        );
+        await _json(response, 200, await accountsSnapshot());
         return;
       }
       if (path == '/v1/companion/tasks/next' && request.method == 'GET') {
@@ -574,9 +891,7 @@ class GeminiWebGatewayManager {
             .firstOrNull;
         if (accountId.isEmpty ||
             registeredAccount == null ||
-            registeredAccount.status != 'ready' ||
-            !registeredAccount.temporaryChatAvailable ||
-            !registeredAccount.fullsizeDownloadAvailable) {
+            !_accountAvailable(registeredAccount)) {
           await _json(response, 403, <String, Object?>{
             'error': <String, Object?>{
               'code': 'gemini_account_mismatch',
@@ -665,9 +980,19 @@ class GeminiWebGatewayManager {
           });
           return;
         }
+        final error = body['error'];
+        if (<String>{'failed', 'needs_login'}.contains(nextStatus) &&
+            await _requeueAfterAccountFailure(task, error)) {
+          await _persistTasks();
+          await _json(response, 200, <String, Object?>{
+            ...task.toJson(),
+            'auto_switched': true,
+            'retry_account_id': task.accountId,
+          });
+          return;
+        }
         task.status = nextStatus;
         _renewClaim(task);
-        final error = body['error'];
         if (error is Map) {
           task.error =
               error.map((key, value) => MapEntry(key.toString(), value));
@@ -750,6 +1075,7 @@ class GeminiWebGatewayManager {
           ...task.audit,
           'output_sha256': sha256.convert(bytes).toString(),
         };
+        await _recordAccountSuccess(task.accountId);
         await _persistTasks();
         await _json(response, 200, task.toJson());
         return;

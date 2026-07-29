@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.5.0
+# Codex / Claude Handoff: AI 图片生成器 v1.6.1
 
 更新时间：2026-07-29
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,35 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.5.0+72`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.1+78`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.1 Gemini 软件内登录、多账号与隐藏任务
+
+- Gemini 是独立供应商 `geminiWeb`，不复用或改写官方 OpenAI、ChatGPT 网页生图、GrsAI、自定义 API 的配置或密钥。
+- Windows 使用按本机 UUID 隔离的 WebView2 user-data 目录；Android/iOS/macOS 使用系统安全存储保存每个本机 UUID 对应的 Google Cookie 快照。删除账号时同时清理对应本地会话。
+- `lib/gemini_embedded_browser.dart` 负责软件内登录页、登录完成自动收起、隐藏 WebView、原生消息传输与顶层导航白名单。真实本机网关 Bearer Key 只留在 Dart 内存，注入页面只看到无效占位值。
+- `gemini-embedded-worker.js` 在隐藏 Gemini 页面中执行临时对话、参考图上传、结果定位和带检查点的任务上报。旧 `gemini_companion/` 扩展源码和发布 ZIP 已删除。
+- `lib/gemini_web_gateway.dart` 继续只监听 `127.0.0.1:18160–18199`；任务固定绑定账号。额度或登录失效时，在启用自动切换的前提下只把当前任务转交给尚未尝试的可用账号。
+- Android 的 Gemini 会话恢复严禁调用 `CookieManager.removeAllCookies()`，否则会同时清除 ChatGPT 等其他内置网页登录。当前实现仅过期 Google/Gemini 域已观察到的 Cookie。
+- 图片成功后沿用现有 IndexedDB 本地缓存策略；下载、ZIP 或保存到文件夹时才写入用户输出目录。Gemini 账号 Cookie、配对密钥不会进入历史、项目 JSON 或 ZIP。
+- Google 可能因 OAuth `disallowed_useragent` 或网页结构调整阻止嵌入式登录；CI 能验证宿主、资源、消息桥和任务协议，但不能代替真实 Google 账号、区域与额度验证。遇到此类变化应显示具体错误，不得静默退化为系统浏览器扩展。
+
+### v1.6.1 发布硬门槛
+
+```powershell
+node --check app.js
+node --check gemini-embedded-worker.js
+node qa/static-audit.js
+node --test qa/api-proxy.test.js
+node --test qa/image-task-stability.test.js
+node qa/codex-image-gateway-adapter.test.js
+node qa/gemini-web-adapter.test.js
+node qa/regression-runner.js
+flutter analyze
+flutter test
+```
+
+四端 CI 还必须实际编译 Android、Windows、macOS、iOS；Windows 包必须包含 `gemini-embedded-worker.js` 并通过既有 WebView2 启动与原生命中测试。发布页使用中文，并明确真实 Gemini 登录仍受 Google 策略、区域、审核和额度约束。
 
 ## v1.5.0 Windows 内置 ChatGPT 网页生图与多账号
 

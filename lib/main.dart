@@ -22,6 +22,7 @@ import 'chatgpt_account_store.dart';
 import 'chatgpt_multi_account.dart';
 import 'embedded_chatgpt_gateway.dart';
 import 'android_chatgpt_gateway.dart';
+import 'gemini_embedded_browser.dart';
 import 'gemini_web_gateway.dart';
 
 const _appTitle = 'AI 图片生成器';
@@ -39,6 +40,9 @@ final AndroidChatGptGatewayManager _androidChatGptGateway =
     AndroidChatGptGatewayManager();
 final GeminiWebGatewayManager _geminiWebGateway =
     GeminiWebGatewayManager(_secureStorage);
+final GeminiEmbeddedBrowserRequestController
+    _geminiEmbeddedBrowserRequestController =
+    GeminiEmbeddedBrowserRequestController();
 
 Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
   if (Platform.isWindows) {
@@ -161,18 +165,78 @@ Future<Map<String, Object?>> _rotateChatGptAccount(
 Future<Map<String, Object?>> _loadGeminiWebGatewayConfig() =>
     _geminiWebGateway.configuration();
 
+Future<GeminiEmbeddedBrowserConfig> _loadGeminiEmbeddedBrowserConfig(
+  String requestedProfileId,
+) async {
+  final gateway = await _geminiWebGateway.configuration();
+  var profileId = requestedProfileId.trim();
+  if (profileId.isEmpty) profileId = createGeminiEmbeddedProfileId();
+  try {
+    return GeminiEmbeddedBrowserConfig.fromGateway(
+      gateway: gateway,
+      profileId: profileId,
+    );
+  } on FormatException {
+    profileId = createGeminiEmbeddedProfileId();
+    return GeminiEmbeddedBrowserConfig.fromGateway(
+      gateway: gateway,
+      profileId: profileId,
+    );
+  }
+}
+
 Future<Map<String, Object?>> _selectGeminiAccount(
   Map<String, dynamic> payload,
-) =>
-    _geminiWebGateway.selectAccount(payload['accountId']?.toString() ?? '');
+) async {
+  final accountId = payload['accountId']?.toString() ?? '';
+  final snapshot = await _geminiWebGateway.selectAccount(accountId);
+  _geminiEmbeddedBrowserRequestController.activate(accountId);
+  return snapshot;
+}
 
 Future<Map<String, Object?>> _deleteGeminiAccount(
   Map<String, dynamic> payload,
-) =>
-    _geminiWebGateway.deleteAccount(payload['accountId']?.toString() ?? '');
+) async {
+  final accountId = payload['accountId']?.toString() ?? '';
+  final snapshot = await _geminiWebGateway.deleteAccount(accountId);
+  final next = snapshot['active_account_id']?.toString() ?? '';
+  _geminiEmbeddedBrowserRequestController.activate(
+    next.isNotEmpty ? next : createGeminiEmbeddedProfileId(),
+  );
+  // Let the embedded browser capture/dispose the previous profile before its
+  // secure session or WebView2 data directory is removed.
+  await Future<void>.delayed(const Duration(milliseconds: 800));
+  try {
+    await deleteGeminiEmbeddedProfileData(accountId);
+  } catch (error) {
+    debugPrint('Cannot remove deleted Gemini profile data: $error');
+  }
+  return snapshot;
+}
 
-Future<bool> _openGeminiWebLogin() =>
-    _openSystemExternalUrl('https://gemini.google.com/app');
+Future<Map<String, Object?>> _setGeminiAutoSwitch(
+  Map<String, dynamic> payload,
+) async {
+  await _geminiWebGateway.accountStore
+      .setAutoSwitchEnabled(payload['enabled'] != false);
+  return _geminiWebGateway.accountsSnapshot();
+}
+
+Future<bool> _openGeminiWebLogin([Map<String, dynamic>? payload]) async {
+  final requested = payload?['accountId']?.toString().trim() ?? '';
+  _geminiEmbeddedBrowserRequestController.show(
+    requested.isEmpty ? createGeminiEmbeddedProfileId() : requested,
+  );
+  return true;
+}
+
+void _applyGeminiEmbeddedHostEvent(Map<String, Object?> event) {
+  if (event['type'] != 'account_switch_requested') return;
+  final accountId = event['active_account_id']?.toString() ?? '';
+  if (accountId.isNotEmpty) {
+    _geminiEmbeddedBrowserRequestController.activate(accountId);
+  }
+}
 
 String _validateSecretKey(Object? value) {
   final key = value?.toString().trim() ?? '';
@@ -249,8 +313,14 @@ Future<void> main(List<String> arguments) async {
       arguments.contains('--windows-webview-input-self-test');
   try {
     await _geminiWebGateway.start();
+    final geminiAccounts = await _geminiWebGateway.accountsSnapshot();
+    final activeGeminiAccount =
+        geminiAccounts['active_account_id']?.toString() ?? '';
+    if (activeGeminiAccount.isNotEmpty) {
+      _geminiEmbeddedBrowserRequestController.activate(activeGeminiAccount);
+    }
   } catch (error) {
-    debugPrint('Gemini browser companion gateway unavailable: $error');
+    debugPrint('Gemini embedded browser gateway unavailable: $error');
   }
   runApp(const AiImageGeneratorApp());
 }
@@ -1065,8 +1135,11 @@ class _MobileWebShellState extends State<MobileWebShell>
         case 'deleteGeminiAccount':
           result = await _deleteGeminiAccount(payload);
           break;
+        case 'setGeminiAutoSwitch':
+          result = await _setGeminiAutoSwitch(payload);
+          break;
         case 'openGeminiWebLogin':
-          result = await _openGeminiWebLogin();
+          result = await _openGeminiWebLogin(payload);
           break;
         case 'cancelNativeFetch':
           _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
@@ -1222,12 +1295,40 @@ class _MobileWebShellState extends State<MobileWebShell>
     );
   }
 
+  Future<void> _handleGeminiEmbeddedEvent(
+    Map<String, Object?> event,
+  ) async {
+    _applyGeminiEmbeddedHostEvent(event);
+    await _controller.runJavaScript(
+      'window.AiGenAndroidBridge && window.AiGenAndroidBridge.onGeminiLoginState && '
+      'window.AiGenAndroidBridge.onGeminiLoginState(${jsonEncode(event)});',
+    );
+    if (event['login_ready'] == true || event['status'] == 'ready') {
+      final snapshot = await _geminiWebGateway.accountsSnapshot();
+      await _controller.runJavaScript(
+        'window.AiGenAndroidBridge && window.AiGenAndroidBridge.onGeminiAccountChanged && '
+        'window.AiGenAndroidBridge.onGeminiAccountChanged(${jsonEncode(snapshot)});',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _appBackground,
       body: SafeArea(
-          child: mobile_webview.WebViewWidget(controller: _controller)),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            mobile_webview.WebViewWidget(controller: _controller),
+            GeminiMobileEmbeddedBrowser(
+              requestController: _geminiEmbeddedBrowserRequestController,
+              loadConfig: _loadGeminiEmbeddedBrowserConfig,
+              onEvent: _handleGeminiEmbeddedEvent,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1289,6 +1390,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   bool _isWindowSizeDegenerate = false;
   bool _trustedWindowsDocument = false;
   bool _isRebuildingWebView = false;
+  bool _geminiBrowserVisible = false;
   int _webViewGeneration = 0;
   int _failedHealthChecks = 0;
   Timer? _webViewHealthTimer;
@@ -1389,8 +1491,10 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       final controller = _controller;
       if (controller != null) {
         unawaited(() async {
-          await controller.setVisibility(!degenerate);
-          if (!degenerate) await controller.requestFocus();
+          await controller.setVisibility(!degenerate && !_geminiBrowserVisible);
+          if (!degenerate && !_geminiBrowserVisible) {
+            await controller.requestFocus();
+          }
         }()
             .catchError((Object error) {
           debugPrint('Cannot update Windows WebView visibility: $error');
@@ -1750,8 +1854,11 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         case 'deleteGeminiAccount':
           result = await _deleteGeminiAccount(payload);
           break;
+        case 'setGeminiAutoSwitch':
+          result = await _setGeminiAutoSwitch(payload);
+          break;
         case 'openGeminiWebLogin':
-          result = await _openGeminiWebLogin();
+          result = await _openGeminiWebLogin(payload);
           break;
         case 'getChatGptAuthState':
           result = await _currentChatGptAuthState();
@@ -2372,6 +2479,37 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     );
   }
 
+  Future<void> _handleGeminiEmbeddedEvent(
+    Map<String, Object?> event,
+  ) async {
+    _applyGeminiEmbeddedHostEvent(event);
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.runJavaScript(
+      'window.AiGenAndroidBridge && window.AiGenAndroidBridge.onGeminiLoginState && '
+      'window.AiGenAndroidBridge.onGeminiLoginState(${jsonEncode(event)});',
+    );
+    if (event['login_ready'] == true || event['status'] == 'ready') {
+      final snapshot = await _geminiWebGateway.accountsSnapshot();
+      await controller.runJavaScript(
+        'window.AiGenAndroidBridge && window.AiGenAndroidBridge.onGeminiAccountChanged && '
+        'window.AiGenAndroidBridge.onGeminiAccountChanged(${jsonEncode(snapshot)});',
+      );
+    }
+  }
+
+  void _handleGeminiVisibilityChanged(bool visible) {
+    if (_geminiBrowserVisible == visible) return;
+    _geminiBrowserVisible = visible;
+    final controller = _controller;
+    if (controller == null) return;
+    unawaited(controller
+        .setVisibility(!visible && !_isWindowSizeDegenerate)
+        .catchError((Object error) {
+      debugPrint('Cannot switch between the app and Gemini WebView: $error');
+    }));
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -2394,7 +2532,19 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _appBackground,
-      body: _buildBody(),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildBody(),
+          GeminiWindowsEmbeddedBrowser(
+            requestController: _geminiEmbeddedBrowserRequestController,
+            loadConfig: _loadGeminiEmbeddedBrowserConfig,
+            onEvent: _handleGeminiEmbeddedEvent,
+            onVisibilityChanged: _handleGeminiVisibilityChanged,
+            windowSuppressed: _isWindowSizeDegenerate,
+          ),
+        ],
+      ),
     );
   }
 

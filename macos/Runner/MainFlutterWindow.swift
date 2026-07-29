@@ -1,9 +1,12 @@
 import Cocoa
 import FlutterMacOS
+import WebKit
 
 class MainFlutterWindow: NSWindow {
   private let downloadsChannelName = "com.aigen.ai_image_generator/downloads"
+  private let geminiSessionsChannelName = "com.aigen.ai_image_generator/gemini_sessions"
   private var downloadsChannel: FlutterMethodChannel?
+  private var geminiSessionsChannel: FlutterMethodChannel?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -27,7 +30,108 @@ class MainFlutterWindow: NSWindow {
     }
     downloadsChannel = channel
 
+    let geminiChannel = FlutterMethodChannel(
+      name: geminiSessionsChannelName,
+      binaryMessenger: bridgeRegistrar.messenger
+    )
+    geminiChannel.setMethodCallHandler { [weak self] call, result in
+      self?.handleGeminiSessionCall(call, result: result)
+    }
+    geminiSessionsChannel = geminiChannel
+
     super.awakeFromNib()
+  }
+
+  private func handleGeminiSessionCall(
+    _ call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    switch call.method {
+    case "capture":
+      captureGeminiSession(result: result)
+    case "restore":
+      let arguments = call.arguments as? [String: Any] ?? [:]
+      restoreGeminiSession(snapshot: arguments["snapshot"], result: result)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func isGeminiCookieDomain(_ value: String) -> Bool {
+    let domain = value.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+    return domain == "google.com" || domain.hasSuffix(".google.com")
+  }
+
+  private func captureGeminiSession(result: @escaping FlutterResult) {
+    WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
+      guard let self = self else {
+        result(FlutterError(code: "unavailable", message: "The app is unavailable.", details: nil))
+        return
+      }
+      let snapshot: [[String: Any]] = cookies
+        .filter { self.isGeminiCookieDomain($0.domain) }
+        .map { cookie in
+          var value: [String: Any] = [
+            "name": cookie.name,
+            "value": cookie.value,
+            "domain": cookie.domain,
+            "path": cookie.path,
+            "secure": cookie.isSecure,
+            "httpOnly": cookie.isHTTPOnly,
+          ]
+          if let expires = cookie.expiresDate {
+            value["expires"] = expires.timeIntervalSince1970
+          }
+          return value
+        }
+      result(snapshot)
+    }
+  }
+
+  private func restoreGeminiSession(snapshot: Any?, result: @escaping FlutterResult) {
+    let store = WKWebsiteDataStore.default().httpCookieStore
+    store.getAllCookies { [weak self] cookies in
+      guard let self = self else {
+        result(FlutterError(code: "unavailable", message: "The app is unavailable.", details: nil))
+        return
+      }
+      let deleteGroup = DispatchGroup()
+      for cookie in cookies where self.isGeminiCookieDomain(cookie.domain) {
+        deleteGroup.enter()
+        store.delete(cookie) { deleteGroup.leave() }
+      }
+      deleteGroup.notify(queue: .main) {
+        let entries = snapshot as? [[String: Any]] ?? []
+        let setGroup = DispatchGroup()
+        for entry in entries {
+          guard
+            let name = entry["name"] as? String,
+            let value = entry["value"] as? String,
+            let domain = entry["domain"] as? String,
+            self.isGeminiCookieDomain(domain)
+          else { continue }
+          var properties: [HTTPCookiePropertyKey: Any] = [
+            .name: name,
+            .value: value,
+            .domain: domain,
+            .path: entry["path"] as? String ?? "/",
+          ]
+          if entry["secure"] as? Bool == true {
+            properties[.secure] = "TRUE"
+          }
+          if entry["httpOnly"] as? Bool == true {
+            properties[HTTPCookiePropertyKey("HttpOnly")] = "TRUE"
+          }
+          if let expires = entry["expires"] as? Double {
+            properties[.expires] = Date(timeIntervalSince1970: expires)
+          }
+          guard let cookie = HTTPCookie(properties: properties) else { continue }
+          setGroup.enter()
+          store.setCookie(cookie) { setGroup.leave() }
+        }
+        setGroup.notify(queue: .main) { result(true) }
+      }
+    }
   }
 
   private func handleDownloadCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

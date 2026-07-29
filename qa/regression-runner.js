@@ -5784,7 +5784,8 @@ async function testGeminiWebImageIntegration(cdp) {
                 effective_concurrency: 1,
               }],
               activeAccountId: "gemini-account-qa",
-              companionConnected: true,
+              embeddedBrowserConnected: true,
+              autoSwitch: true,
             };
           } else if (payload.action === "getGeminiAccounts") {
             result = {
@@ -5796,7 +5797,8 @@ async function testGeminiWebImageIntegration(cdp) {
                 effective_concurrency: 1,
               }],
               active_account_id: "gemini-account-qa",
-              companion_connected: true,
+              embedded_browser_connected: true,
+              auto_switch: true,
             };
           } else if (payload.action === "loadSecret") {
             result = "";
@@ -5805,7 +5807,7 @@ async function testGeminiWebImageIntegration(cdp) {
             const url = String(payload.url || "");
             if (url.endsWith("/healthz")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
-                status: "ok", provider: "gemini_web", companion_connected: true,
+                 status: "ok", provider: "gemini_web", embedded_browser_connected: true,
                 session_available: true, temporary_chat_available: true,
                 fullsize_download_available: true,
               }) };
@@ -5817,7 +5819,7 @@ async function testGeminiWebImageIntegration(cdp) {
             } else if (url.endsWith("/v1/accounts")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
                 accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
-                active_account_id: "gemini-account-qa", companion_connected: true,
+                 active_account_id: "gemini-account-qa", embedded_browser_connected: true, auto_switch: true,
               }) };
             } else if (method === "POST" && url.endsWith("/v1/image-tasks")) {
               window.__geminiBodies.push({
@@ -5868,6 +5870,13 @@ async function testGeminiWebImageIntegration(cdp) {
             result = true;
           } else if (payload.action === "openGeminiWebLogin") {
             result = true;
+          } else if (payload.action === "setGeminiAutoSwitch") {
+            result = {
+              accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
+              active_account_id: "gemini-account-qa",
+              embedded_browser_connected: true,
+              auto_switch: payload.enabled,
+            };
           }
           setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
         }
@@ -5890,6 +5899,10 @@ async function testGeminiWebImageIntegration(cdp) {
         clientQueue: 10,
       });
       const ready = await checkGeminiHealth({ announce: false, force: true });
+      await nativeDownload.openGeminiWebLogin();
+      dom.geminiAutoSwitch.checked = false;
+      dom.geminiAutoSwitch.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 20));
       const submitted = [];
       const data = ready ? await callImageAPI("QA Gemini image", "1024x1024", 1, "QA", {
         geminiWebOptions: getGeminiWebOptions(),
@@ -5915,6 +5928,9 @@ async function testGeminiWebImageIntegration(cdp) {
       cancelController.abort();
       const cancelResult = await cancelPoll;
       await new Promise(resolve => setTimeout(resolve, 20));
+      const untrustedDownload = await geminiGatewayDownloadBlob(
+        "https://attacker.invalid/v1/image-tasks/stolen/files/0",
+      ).then(() => "unexpected-success").catch(error => String(error?.message || error));
       const item = data?.data?.[0] || null;
       return {
         ready,
@@ -5923,7 +5939,10 @@ async function testGeminiWebImageIntegration(cdp) {
         optionHidden: [...dom.apiProvider.options].find(option => option.value === "geminiWeb")?.hidden,
         model: dom.model.value,
         endpoint: dom.apiEndpoint.value,
-        pairingVisible: dom.geminiPairingKey.value.length,
+        pairingControlRemoved: !document.getElementById("geminiPairingKey") && !document.getElementById("copyGeminiPairingKey"),
+        autoSwitchValue: dom.geminiAutoSwitch.checked,
+        loginCalls: window.__geminiCalls.filter(call => call.action === "openGeminiWebLogin"),
+        autoSwitchCalls: window.__geminiCalls.filter(call => call.action === "setGeminiAutoSwitch"),
         apiKeyValue: dom.apiKey.value,
         profile,
         submitted,
@@ -5936,6 +5955,8 @@ async function testGeminiWebImageIntegration(cdp) {
         explicitCustom,
         cancelResult,
         cancelCalls: window.__geminiCalls.filter(call => String(call.url || "").endsWith("/v1/image-tasks/gemini_cancel_qa/cancel")),
+        untrustedDownload,
+        untrustedCalls: window.__geminiCalls.filter(call => String(call.url || "").includes("attacker.invalid")),
         leakedKey: JSON.stringify(localStorage).includes(window.__geminiKey),
       };
     })()`, true);
@@ -5950,11 +5971,15 @@ async function testGeminiWebImageIntegration(cdp) {
       result,
     );
     assertQa(
-      result.pairingVisible === 64
+      result.pairingControlRemoved
+        && result.loginCalls.length === 1
+        && result.autoSwitchCalls.length === 1
+        && result.autoSwitchCalls[0].enabled === false
+        && result.autoSwitchValue === false
         && result.apiKeyValue === ""
         && result.profile.apiKey === ""
         && !result.leakedKey,
-      "Gemini pairing credentials must stay in native memory and never enter API profiles or Local Storage.",
+      "Gemini must use the in-app login flow, persist auto-switch through the native bridge, and keep loopback credentials out of API profiles and Local Storage.",
       result,
     );
     assertQa(
@@ -5974,6 +5999,12 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.fileCalls[0].headers?.Authorization === `Bearer ${"d".repeat(64)}`
         && result.fileCalls[0].proxyMode === "direct",
       "Gemini protected result URLs must be authenticated and converted to local image bytes before preview.",
+      result,
+    );
+    assertQa(
+      /不受信任|untrusted/i.test(result.untrustedDownload)
+        && result.untrustedCalls.length === 0,
+      "Gemini loopback credentials must never be forwarded to a result URL outside the active local gateway.",
       result,
     );
     assertQa(

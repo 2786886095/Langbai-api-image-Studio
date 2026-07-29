@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.6.1";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -1409,10 +1409,10 @@ const dom = {
   importChatGptSession: $("#importChatGptSession"),
   chatGptAutoSwitch: $("#chatGptAutoSwitch"),
   chatGptAccountList: $("#chatGptAccountList"),
-  geminiPairingKey: $("#geminiPairingKey"),
-  copyGeminiPairingKey: $("#copyGeminiPairingKey"),
   openGeminiLogin: $("#openGeminiLogin"),
   testGeminiHealth: $("#testGeminiHealth"),
+  geminiAutoSwitch: $("#geminiAutoSwitch"),
+  geminiAutoSwitchLabel: $("#geminiAutoSwitchLabel"),
   geminiAccountIdentity: $("#geminiAccountIdentity"),
   geminiAccountStatus: $("#geminiAccountStatus"),
   geminiAccountList: $("#geminiAccountList"),
@@ -2524,50 +2524,50 @@ function updateCodexGatewayOptionAvailability() {
 
 const GEMINI_WEB_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
-    title: "Gemini 网页生图", hint: "使用系统浏览器中的 Gemini 登录；Google Cookie 不进入软件。任务强制使用临时对话并下载完整尺寸图片。",
-    accountTitle: "系统浏览器账号", accountEmpty: "尚未配对浏览器伴侣", accountHint: "首次使用需加载随软件发布的浏览器扩展，并粘贴下方本机配对密钥。",
-    copyKey: "复制密钥", copied: "配对密钥已复制", login: "系统浏览器登录", test: "检测浏览器伴侣",
-    idle: "未连接", checking: "正在检测…", ready: "浏览器伴侣已连接", failed: "伴侣不可用：{reason}",
+    title: "Gemini 网页生图", hint: "在软件内完成 Gemini 登录；登录成功后窗口自动收起，后续任务由隐藏浏览器执行。",
+    accountTitle: "软件内 Gemini 账号", accountEmpty: "尚未登录 Gemini", accountHint: "账号只保存在当前设备的本地会话中；登录成功后页面自动收起，额度不足时可自动切换账号。",
+    login: "添加 / 登录账号", relogin: "重新登录", test: "检测内置浏览器", autoSwitch: "额度不足时自动切换账号",
+    idle: "未连接", checking: "正在检测…", ready: "内置浏览器已就绪", failed: "内置浏览器不可用：{reason}",
     sizeMode: "尺寸模式", sizeHint: "原生模式保存网页实际像素；精确输出会无拉伸裁切缩放；本地 4K 是网页 2K 后处理。",
     ratio: "网页构图比例", crop: "精确输出策略", quality: "网页质量意图", queue: "本地队列上限",
     facts: "临时对话 · 网页原生 2K · 完整尺寸下载 · 精确尺寸审计",
     capability: "已实测 2048×2048 与 2528×1696；其他比例以生成后实际尺寸为准。",
   }),
   "zh-Hant": Object.freeze({
-    title: "Gemini 網頁生圖", hint: "使用系統瀏覽器中的 Gemini 登入；Google Cookie 不進入軟體。任務強制使用臨時對話並下載完整尺寸圖片。",
-    accountTitle: "系統瀏覽器帳號", accountEmpty: "尚未配對瀏覽器伴侶", accountHint: "首次使用需載入隨軟體發佈的瀏覽器擴充功能，並貼上下方本機配對密鑰。",
-    copyKey: "複製密鑰", copied: "配對密鑰已複製", login: "系統瀏覽器登入", test: "偵測瀏覽器伴侶",
-    idle: "未連線", checking: "正在偵測…", ready: "瀏覽器伴侶已連線", failed: "伴侶無法使用：{reason}",
+    title: "Gemini 網頁生圖", hint: "在軟體內完成 Gemini 登入；登入成功後視窗會自動收起，後續任務由隱藏瀏覽器執行。",
+    accountTitle: "軟體內 Gemini 帳號", accountEmpty: "尚未登入 Gemini", accountHint: "帳號只保存在目前裝置的本機工作階段；登入成功後頁面自動收起，額度不足時可自動切換帳號。",
+    login: "新增 / 登入帳號", relogin: "重新登入", test: "偵測內建瀏覽器", autoSwitch: "額度不足時自動切換帳號",
+    idle: "未連線", checking: "正在偵測…", ready: "內建瀏覽器已就緒", failed: "內建瀏覽器無法使用：{reason}",
     sizeMode: "尺寸模式", sizeHint: "原生模式保留網頁實際像素；精確輸出會等比裁切縮放；本機 4K 是網頁 2K 後處理。",
     ratio: "網頁構圖比例", crop: "精確輸出策略", quality: "網頁品質意圖", queue: "本機佇列上限",
     facts: "臨時對話 · 網頁原生 2K · 完整尺寸下載 · 精確尺寸稽核",
     capability: "已實測 2048×2048 與 2528×1696；其他比例以生成後實際尺寸為準。",
   }),
   en: Object.freeze({
-    title: "Gemini Web Images", hint: "Uses the Gemini account in your system browser. Google cookies never enter the app. Tasks require Temporary Chat and full-size downloads.",
-    accountTitle: "System browser account", accountEmpty: "Browser companion not paired", accountHint: "Load the bundled browser extension once, then paste the local pairing key below.",
-    copyKey: "Copy key", copied: "Pairing key copied", login: "Sign in in browser", test: "Test companion",
-    idle: "Disconnected", checking: "Checking…", ready: "Browser companion connected", failed: "Companion unavailable: {reason}",
+    title: "Gemini Web Images", hint: "Sign in to Gemini inside the app. The login view closes automatically, while a hidden browser runs later tasks.",
+    accountTitle: "In-app Gemini account", accountEmpty: "Not signed in to Gemini", accountHint: "Sessions remain local to this device. The app can switch accounts automatically when the active account has no quota.",
+    login: "Add / sign in", relogin: "Sign in again", test: "Test embedded browser", autoSwitch: "Switch accounts when quota is unavailable",
+    idle: "Disconnected", checking: "Checking…", ready: "Embedded browser ready", failed: "Embedded browser unavailable: {reason}",
     sizeMode: "Dimension mode", sizeHint: "Native keeps web pixels; Exact Output crops and scales without stretching; Local 4K post-processes the web 2K result.",
     ratio: "Web composition ratio", crop: "Exact-output strategy", quality: "Web quality intent", queue: "Local queue limit",
     facts: "Temporary Chat · web-native 2K · full-size download · dimension audit",
     capability: "2048×2048 and 2528×1696 are verified locally; decoded output is authoritative for other ratios.",
   }),
   ja: Object.freeze({
-    title: "Gemini ウェブ画像", hint: "システムブラウザの Gemini ログインを使用します。Google Cookie はアプリに入りません。一時チャットとフルサイズ取得を必須にします。",
-    accountTitle: "システムブラウザのアカウント", accountEmpty: "ブラウザ伴侶は未接続です", accountHint: "同梱ブラウザ拡張を読み込み、下のローカル接続キーを貼り付けてください。",
-    copyKey: "キーをコピー", copied: "接続キーをコピーしました", login: "ブラウザでログイン", test: "伴侶を確認",
-    idle: "未接続", checking: "確認中…", ready: "ブラウザ伴侶に接続済み", failed: "伴侶を利用できません：{reason}",
+    title: "Gemini ウェブ画像", hint: "アプリ内で Gemini にログインします。成功後は画面を自動で閉じ、非表示ブラウザがタスクを実行します。",
+    accountTitle: "アプリ内 Gemini アカウント", accountEmpty: "Gemini に未ログイン", accountHint: "セッションはこの端末だけに保存されます。上限到達時は別アカウントへ自動切替できます。",
+    login: "追加 / ログイン", relogin: "再ログイン", test: "内蔵ブラウザを確認", autoSwitch: "上限到達時に自動切替",
+    idle: "未接続", checking: "確認中…", ready: "内蔵ブラウザ準備完了", failed: "内蔵ブラウザを利用できません：{reason}",
     sizeMode: "サイズモード", sizeHint: "ネイティブは実画素を保持し、正確出力は非伸縮で切り抜きます。ローカル 4K は 2K の後処理です。",
     ratio: "ウェブ構図比率", crop: "正確出力方式", quality: "ウェブ品質意図", queue: "ローカルキュー上限",
     facts: "一時チャット · ウェブ原生 2K · フルサイズ取得 · サイズ監査",
     capability: "2048×2048 と 2528×1696 は検証済みです。他の比率は実画像を基準にします。",
   }),
   ko: Object.freeze({
-    title: "Gemini 웹 이미지", hint: "시스템 브라우저의 Gemini 로그인을 사용합니다. Google 쿠키는 앱으로 들어오지 않습니다. 임시 채팅과 전체 크기 다운로드를 필수로 사용합니다.",
-    accountTitle: "시스템 브라우저 계정", accountEmpty: "브라우저 도우미가 연결되지 않음", accountHint: "동봉된 브라우저 확장을 로드한 뒤 아래 로컬 페어링 키를 붙여 넣으세요.",
-    copyKey: "키 복사", copied: "페어링 키를 복사함", login: "브라우저에서 로그인", test: "도우미 확인",
-    idle: "연결 안 됨", checking: "확인 중…", ready: "브라우저 도우미 연결됨", failed: "도우미 사용 불가: {reason}",
+    title: "Gemini 웹 이미지", hint: "앱 안에서 Gemini에 로그인합니다. 성공하면 화면이 자동으로 닫히고 숨겨진 브라우저가 작업을 실행합니다.",
+    accountTitle: "앱 내 Gemini 계정", accountEmpty: "Gemini에 로그인하지 않음", accountHint: "세션은 현재 기기에만 저장됩니다. 할당량이 없으면 다른 계정으로 자동 전환할 수 있습니다.",
+    login: "계정 추가 / 로그인", relogin: "다시 로그인", test: "내장 브라우저 확인", autoSwitch: "할당량 부족 시 계정 자동 전환",
+    idle: "연결 안 됨", checking: "확인 중…", ready: "내장 브라우저 준비됨", failed: "내장 브라우저 사용 불가: {reason}",
     sizeMode: "크기 모드", sizeHint: "네이티브는 웹 픽셀을 유지하고 정확 출력은 늘리지 않고 자릅니다. 로컬 4K는 웹 2K 후처리입니다.",
     ratio: "웹 구성 비율", crop: "정확 출력 방식", quality: "웹 품질 의도", queue: "로컬 대기열 상한",
     facts: "임시 채팅 · 웹 네이티브 2K · 전체 크기 다운로드 · 크기 감사",
@@ -2812,9 +2812,9 @@ function updateGeminiLanguage() {
     const element = document.getElementById(id);
     if (element) element.textContent = geminiText(key);
   }
-  if (dom.copyGeminiPairingKey) dom.copyGeminiPairingKey.textContent = geminiText("copyKey");
   if (dom.openGeminiLogin) dom.openGeminiLogin.textContent = geminiText("login");
   if (dom.testGeminiHealth) dom.testGeminiHealth.textContent = geminiText("test");
+  if (dom.geminiAutoSwitchLabel) dom.geminiAutoSwitchLabel.textContent = geminiText("autoSwitch");
   const labels = {
     "zh-CN": {
       modes: ["原生完整", "严格原生", "精确输出", "本地 4K"],
@@ -3009,7 +3009,7 @@ let geminiHealthCheckedAt = 0;
 let geminiHealthPromise = null;
 let geminiCredentials = null;
 let geminiCapabilities = null;
-let geminiAccountsState = { accounts: [], active_account_id: "", companion_connected: false };
+let geminiAccountsState = { accounts: [], active_account_id: "", embedded_browser_connected: false, auto_switch: true };
 
 function isGeminiWebSelected() {
   return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === GEMINI_WEB_PROVIDER;
@@ -3036,8 +3036,14 @@ function renderGeminiAccounts(state = {}) {
   geminiAccountsState = {
     accounts: Array.isArray(state.accounts) ? state.accounts : [],
     active_account_id: String(state.active_account_id || state.activeAccountId || ""),
-    companion_connected: state.companion_connected === true || state.companionConnected === true,
+    embedded_browser_connected: state.embedded_browser_connected === true
+      || state.embeddedBrowserConnected === true
+      || state.worker_connected === true
+      || state.companion_connected === true
+      || state.companionConnected === true,
+    auto_switch: state.auto_switch !== false && state.autoSwitch !== false,
   };
+  if (dom.geminiAutoSwitch) dom.geminiAutoSwitch.checked = geminiAccountsState.auto_switch;
   if (dom.geminiAccountIdentity) {
     const active = geminiAccountsState.accounts.find(account => account.local_account_id === geminiAccountsState.active_account_id)
       || geminiAccountsState.accounts[0];
@@ -3070,6 +3076,15 @@ function renderGeminiAccounts(state = {}) {
       });
       actions.append(use);
     }
+    const relogin = document.createElement("button");
+    relogin.type = "button";
+    relogin.className = "btn btn-xs";
+    relogin.textContent = geminiText("relogin");
+    relogin.addEventListener("click", async () => {
+      await nativeDownload.openGeminiWebLogin(account.local_account_id);
+      showStatus(currentLanguage === "en" ? "Complete sign-in in the in-app window." : "请在软件内窗口完成 Gemini 登录。", "info");
+    });
+    actions.append(relogin);
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "btn btn-danger btn-xs";
@@ -3090,10 +3105,9 @@ async function loadGeminiCredentials() {
   const loaded = await nativeDownload.loadGeminiWebGatewayConfig();
   const baseUrl = geminiWebImage.normalizeBaseUrl(loaded?.baseUrl || GEMINI_WEB_BASE_URL);
   const apiKey = String(loaded?.apiKey || "").trim();
-  if (!geminiWebImage.validatePairingKey(apiKey)) throw new Error("Gemini 浏览器伴侣配对密钥无效");
+  if (!geminiWebImage.validatePairingKey(apiKey)) throw new Error("Gemini 内置浏览器本机连接密钥无效");
   geminiCredentials = { baseUrl, apiKey };
   if (dom.apiEndpoint && isGeminiWebSelected()) dom.apiEndpoint.value = baseUrl;
-  if (dom.geminiPairingKey) dom.geminiPairingKey.value = apiKey;
   renderGeminiAccounts(loaded || {});
   return geminiCredentials;
 }
@@ -3118,8 +3132,11 @@ async function checkGeminiHealth({ announce = false, force = true } = {}) {
       if (!healthResponse.ok) throw new Error(`健康检查 HTTP ${healthResponse.status}`);
       const health = await healthResponse.json();
       if (health.status !== "ok") throw new Error(health.message || "本机桥未就绪");
-      if (health.companion_connected !== true) throw new Error("浏览器扩展尚未配对或 Gemini 页面未打开");
-      if (health.session_available !== true) throw new Error("请在系统浏览器登录 Gemini，并保持 Gemini 页面打开");
+      const browserConnected = health.embedded_browser_connected === true
+        || health.worker_connected === true
+        || health.companion_connected === true;
+      if (!browserConnected) throw new Error("内置 Gemini 浏览器尚未启动");
+      if (health.session_available !== true) throw new Error("请点击“添加 / 登录账号”并在软件内完成 Gemini 登录");
       const capsResponse = await smartFetch(`${credentials.baseUrl}/capabilities`, {
         headers, nativeTimeoutMs: 5000, forceDirectProxy: true,
       });
@@ -3138,7 +3155,7 @@ async function checkGeminiHealth({ announce = false, force = true } = {}) {
     } catch (error) {
       geminiCapabilities = null;
       geminiHealthCheckedAt = 0;
-      const reason = String(error?.message || error || "Gemini 浏览器伴侣");
+      const reason = String(error?.message || error || "Gemini 内置浏览器");
       setGeminiHealthState("error", reason);
       if (announce) showStatus(interpolate(geminiText("failed"), { reason }), "error");
       return false;
@@ -3317,7 +3334,7 @@ function updateApiProviderHint(provider = dom.apiProvider?.value || "custom") {
   const hints = {
     official: `${cleanText("officialApi")} · ${OFFICIAL_API_ENDPOINT}`,
     [CODEX_IMAGE_GATEWAY_PROVIDER]: `${cleanText("codexGatewayApi")} · ${CODEX_IMAGE_GATEWAY_BASE_URL}`,
-    [GEMINI_WEB_PROVIDER]: `${cleanText("geminiWebApi")} · 系统浏览器伴侣`,
+    [GEMINI_WEB_PROVIDER]: `${cleanText("geminiWebApi")} · 软件内置浏览器`,
     grsai: cleanText("apiProviderHint"),
     custom: `${cleanText("customApi")} · ${cleanText("apiUrl")}`,
   };
@@ -3344,7 +3361,7 @@ function applyApiProvider(provider = "custom", options = {}) {
   } else if (next === GEMINI_WEB_PROVIDER) {
     dom.apiEndpoint.value = geminiCredentials?.baseUrl || GEMINI_WEB_BASE_URL;
     dom.apiKey.value = "";
-    dom.apiKey.placeholder = currentLanguage === "en" ? "Managed by local companion" : "由本机浏览器伴侣管理";
+    dom.apiKey.placeholder = currentLanguage === "en" ? "Managed by the embedded browser" : "由软件内置浏览器管理";
     dom.model.value = GEMINI_WEB_MODEL;
     setModelChoices([GEMINI_WEB_MODEL]);
   } else if (dom.apiKey) {
@@ -3810,27 +3827,20 @@ dom.testGeminiHealth?.addEventListener("click", () => {
 dom.openGeminiLogin?.addEventListener("click", async () => {
   try {
     await nativeDownload.openGeminiWebLogin();
-    showStatus(currentLanguage === "en" ? "Gemini opened in the system browser." : "已在系统浏览器打开 Gemini；登录后保持页面开启并点击检测。", "info");
+    showStatus(currentLanguage === "en" ? "Complete sign-in in the in-app Gemini window." : "请在软件内窗口完成 Gemini 登录；成功后窗口会自动收起。", "info");
   } catch (error) {
     showStatus(`${geminiText("failed")} ${error?.message || error}`, "error");
   }
 });
-dom.copyGeminiPairingKey?.addEventListener("click", async () => {
-  const key = String(dom.geminiPairingKey?.value || "");
-  if (!key) {
-    await loadGeminiCredentials().catch(() => null);
-  }
-  const value = String(dom.geminiPairingKey?.value || "");
-  if (!value) return;
+dom.geminiAutoSwitch?.addEventListener("change", async () => {
+  const previous = geminiAccountsState.auto_switch;
+  const enabled = !!dom.geminiAutoSwitch.checked;
   try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    dom.geminiPairingKey.type = "text";
-    dom.geminiPairingKey.select();
-    document.execCommand("copy");
-    dom.geminiPairingKey.type = "password";
+    renderGeminiAccounts(await nativeDownload.setGeminiAutoSwitch(enabled));
+  } catch (error) {
+    dom.geminiAutoSwitch.checked = previous;
+    showStatus(`${geminiText("failed")} ${error?.message || error}`, "error");
   }
-  showStatus(geminiText("copied"), "success");
 });
 [dom.geminiRatio, dom.geminiCropMode, dom.geminiQualityIntent, dom.geminiClientQueue].forEach(control => {
   control?.addEventListener("change", () => {
@@ -6965,7 +6975,7 @@ async function geminiGatewayResponseError(response) {
     payload = text ? JSON.parse(text) : null;
   } catch {}
   const detail = payload?.error || payload || {};
-  const message = detail?.message || detail?.detail || text || `Gemini companion HTTP ${response.status}`;
+  const message = detail?.message || detail?.detail || text || `Gemini embedded browser HTTP ${response.status}`;
   const error = new Error(`HTTP ${response.status}: ${message}`);
   error.status = response.status;
   error.code = String(detail?.code || "");
@@ -7009,8 +7019,11 @@ async function geminiGatewayDownloadBlob(value, signal = null) {
   throwIfAborted(signal);
   const credentials = geminiCredentials || await loadGeminiCredentials();
   const raw = String(value || "").trim();
-  if (!raw) throw new Error("Gemini companion task returned no image URL");
-  const url = new URL(raw, `${credentials.baseUrl.replace(/\/+$/, "")}/`).toString();
+  if (!raw) throw new Error("Gemini 内置浏览器任务未返回图片地址");
+  const protectedPath = geminiGatewayProtectedImagePath(raw);
+  if (!protectedPath) throw new Error("Gemini 内置浏览器返回了不受信任的图片地址");
+  const gatewayOrigin = new URL(credentials.baseUrl).origin;
+  const url = new URL(protectedPath, `${gatewayOrigin}/`).toString();
   const result = await nativeDownload.nativeFetchBlob(url, {
     Authorization: `Bearer ${credentials.apiKey}`,
     Accept: "image/*",
@@ -7246,7 +7259,7 @@ registerAdapter({
 
   async fetchModels() {
     if (!(await checkGeminiHealth({ announce: false, force: true }))) {
-      throw new Error(geminiHealthDetail || "Gemini browser companion is unavailable");
+      throw new Error(geminiHealthDetail || "Gemini 内置浏览器不可用");
     }
     setModelChoices([GEMINI_WEB_MODEL]);
     dom.model.value = GEMINI_WEB_MODEL;
@@ -7258,7 +7271,7 @@ registerAdapter({
     throwIfAborted(signal);
     if (Number(n) !== 1) throw new Error("Gemini web tasks require n=1; batch generation queues separate tasks");
     if (!(await checkGeminiHealth({ announce: false, force: false }))) {
-      throw new Error(geminiHealthDetail || "Gemini browser companion is unavailable");
+      throw new Error(geminiHealthDetail || "Gemini 内置浏览器不可用");
     }
     const geminiOptions = geminiImageSizes.normalizeOptions(
       options.geminiWebOptions || getGeminiWebOptions(),
@@ -7286,7 +7299,7 @@ registerAdapter({
       timeoutMs: 30000,
     });
     const taskId = geminiWebImage.extractTaskId(submitted);
-    if (!taskId) throw new Error("Gemini companion did not return a task ID");
+    if (!taskId) throw new Error("Gemini 内置浏览器未返回任务 ID");
     await options.onTaskSubmitted?.({
       id: taskId,
       status: String(submitted.status || "queued"),
@@ -10296,7 +10309,7 @@ async function resumeGatewayCheckpointTasks() {
       let requested;
       let data;
       if (provider === GEMINI_WEB_PROVIDER) {
-        if (!geminiCredentials) throw new Error("Gemini companion credentials are unavailable");
+        if (!geminiCredentials) throw new Error("Gemini 内置浏览器连接信息不可用");
         const options = geminiImageSizes.normalizeOptions({
           ...(project.geminiWebOptions || {}),
           targetSize: size,
@@ -10996,6 +11009,19 @@ const nativeDownload = (() => {
       updateDirLabels();
       if (!dom.historyModal?.classList.contains("hidden")) renderHistory();
       showStatus("已从后台返回，页面状态已刷新", "info");
+    },
+    onGeminiAccountChanged(snapshot) {
+      renderGeminiAccounts(snapshot || {});
+      geminiHealthCheckedAt = 0;
+      void checkGeminiHealth({ announce: false, force: true });
+    },
+    onGeminiLoginState(state) {
+      const status = String(state?.status || "");
+      if (status === "ready") {
+        showStatus(currentLanguage === "en" ? "Gemini sign-in completed." : "Gemini 登录成功，登录窗口已自动收起。", "success");
+      } else if (status === "error" && state?.message) {
+        showStatus(`${geminiText("failed")} ${state.message}`, "error");
+      }
     }
   };
 
@@ -11125,7 +11151,8 @@ const nativeDownload = (() => {
     getGeminiAccounts() { return request("getGeminiAccounts", {}, 10000); },
     selectGeminiAccount(accountId) { return request("selectGeminiAccount", { accountId }, 10000); },
     deleteGeminiAccount(accountId) { return request("deleteGeminiAccount", { accountId }, 10000); },
-    openGeminiWebLogin() { return request("openGeminiWebLogin", {}, 10000); },
+    setGeminiAutoSwitch(enabled) { return request("setGeminiAutoSwitch", { enabled: !!enabled }, 10000); },
+    openGeminiWebLogin(accountId = "") { return request("openGeminiWebLogin", { accountId }, 20000); },
   };
 })();
 
@@ -11588,7 +11615,7 @@ function codexGatewayProtectedImagePath(value) {
     const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
     const isGatewayPort = port >= 18080 && port <= 18100;
     if (!isLoopback || !isGatewayPort) return "";
-    return /^\/v1\/image-tasks\/[^/]+\/files\/\d+$/.test(parsed.pathname)
+    return /^\/v1\/image-tasks\/[^/]+\/files\/0$/.test(parsed.pathname)
       ? `${parsed.pathname}${parsed.search}`
       : "";
   } catch {
@@ -11602,13 +11629,16 @@ function isCodexGatewayProtectedImageUrl(value) {
 
 function geminiGatewayProtectedImagePath(value) {
   try {
-    const parsed = new URL(String(value || ""));
+    const parsed = new URL(
+      String(value || ""),
+      `${String(GEMINI_WEB_BASE_URL || "").replace(/\/+$/, "")}/`,
+    );
     const hostname = parsed.hostname.toLowerCase();
     const port = Number(parsed.port || 0);
     const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
     const isGatewayPort = port >= 18160 && port <= 18199;
     if (!isLoopback || !isGatewayPort) return "";
-    return /^\/v1\/image-tasks\/[^/]+\/files\/\d+$/.test(parsed.pathname)
+    return /^\/v1\/image-tasks\/[^/]+\/files\/0$/.test(parsed.pathname)
       ? `${parsed.pathname}${parsed.search}`
       : "";
   } catch {

@@ -15,7 +15,7 @@ const codexImageGateway = read("codex-image-gateway.js");
 const geminiSizeRegistry = read("gemini-image-size-registry.js");
 const geminiWebAdapter = read("gemini-web-image-adapter.js");
 const geminiSelectorPack = read("gemini-selector-pack.js");
-const geminiCompanionSelectorPack = read("gemini_companion/chromium/selector-pack.js");
+const geminiEmbeddedWorker = read("gemini-embedded-worker.js");
 const bootstrapGuard = read("bootstrap-guard.js");
 const pubspec = read("pubspec.yaml");
 const html = read("index.html");
@@ -31,6 +31,7 @@ const chatGptMultiAccount = read("lib/chatgpt_multi_account.dart");
 const embeddedChatGptGateway = read("lib/embedded_chatgpt_gateway.dart");
 const androidChatGptGateway = read("lib/android_chatgpt_gateway.dart");
 const geminiWebGateway = read("lib/gemini_web_gateway.dart");
+const geminiEmbeddedBrowser = read("lib/gemini_embedded_browser.dart");
 const androidBuild = read("android/app/build.gradle");
 const androidSettings = read("android/settings.gradle");
 const androidMainActivity = read("android/app/src/main/kotlin/com/aigen/ai_image_generator/MainActivity.kt");
@@ -52,30 +53,32 @@ const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.6.0", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.6\.0\+77$/m);
+assert.equal(version, "1.6.1", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.6\.1\+78$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
 assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
 assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
 assert.match(pubspec, /^\s*- gemini-image-size-registry\.js$/m);
 assert.match(pubspec, /^\s*- gemini-web-image-adapter\.js$/m);
 assert.match(pubspec, /^\s*- gemini-selector-pack\.js$/m);
+assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
+assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.0/);
-assert.match(html, /20260729-1-6-0/g);
-assert.match(sw, /ai-image-generator-1-6-0-20260729/);
+assert.match(html, /v1\.6\.1/);
+assert.match(html, /20260729-1-6-1/g);
+assert.match(sw, /ai-image-generator-1-6-1-20260729/);
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,0,77/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.0"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.0";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-0/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,1,78/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.1"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.1";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-1/);
 assert.match(workflow, /codex-image-gateway\.js/);
-assert.match(workflow, /Langbai-Gemini-Chromium-Companion-v1\.6\.0\.zip/);
+assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
+assert.match(workflow, /gemini-embedded-worker\.js/);
 assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
-assert.match(workflow, /gemini_companion\/chromium\/manifest\.json/);
 assert.match(app, /function isNativeChatGptGatewayWebview\(\)/);
 assert.match(app, /\["windows", "android"\]\.includes\(getRuntimePlatform\(\)\)/);
 assert.match(app, /session_available === false/);
@@ -144,7 +147,7 @@ for (const id of [
   "openInpaintFromFile", "inpaintModal", "inpaintMaskCanvas", "inpaintBrush", "inpaintEraser",
   "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
-  "geminiProviderPanel", "geminiPairingKey", "openGeminiLogin",
+  "geminiProviderPanel", "openGeminiLogin", "geminiAutoSwitch",
   "testGeminiHealth", "geminiAccountList", "geminiSizeMode",
   "geminiRatio", "geminiCropMode", "geminiQualityIntent", "geminiClientQueue",
 ]) {
@@ -159,11 +162,19 @@ assert.match(geminiSizeRegistry, /high_quality_resample/);
 assert.match(geminiWebAdapter, /temporary_chat_required:\s*true/);
 assert.match(geminiWebAdapter, /client_request_id/);
 assert.match(geminiSelectorPack, /temporaryChat/);
-assert.equal(
-  geminiSelectorPack,
-  geminiCompanionSelectorPack,
-  "The app and Chromium companion must ship one identical Gemini selector pack",
-);
+assert.match(geminiEmbeddedWorker, /__LANGBAI_GEMINI_EMBEDDED_CONFIG/);
+assert.match(geminiEmbeddedWorker, /__LANGBAI_GEMINI_NATIVE_REQUEST/);
+assert.match(geminiEmbeddedWorker, /bodyBase64/);
+assert.match(geminiEmbeddedBrowser, /GeminiMobileEmbeddedBrowser/);
+assert.match(geminiEmbeddedBrowser, /GeminiWindowsEmbeddedBrowser/);
+assert.match(geminiEmbeddedBrowser, /gemini-embedded-worker\.js/);
+assert.match(geminiEmbeddedBrowser, /gemini_sessions/);
+assert.match(geminiEmbeddedBrowser, /deleteGeminiEmbeddedProfileData/);
+assert.match(androidMainActivity, /gemini_sessions/);
+assert.doesNotMatch(androidMainActivity, /removeAllCookies/);
+assert.match(iosDelegate, /gemini_sessions/);
+assert.match(macWindow, /gemini_sessions/);
+assert.doesNotMatch(geminiWebGateway, /https?:\/\/(?!127\.0\.0\.1|localhost)/);
 assert.match(geminiWebGateway, /HttpServer\.bind/);
 assert.match(geminiWebGateway, /_geminiActiveAccountStorage/);
 assert.match(geminiWebGateway, /\/v1\/companion\/tasks\/next/);
@@ -178,6 +189,8 @@ assert.match(macReleaseEntitlements, /com\.apple\.security\.network\.server/);
 assert.match(app, /geminiGatewayDownloadBlob/);
 assert.match(app, /function geminiGatewayProtectedImagePath/);
 assert.match(app, /port >= 18160 && port <= 18199/);
+assert.match(app, /const gatewayOrigin = new URL\(credentials\.baseUrl\)\.origin/);
+assert.match(app, /new URL\(protectedPath, `\$\{gatewayOrigin\}\/`\)/);
 assert.match(codexImageGateway, /http:\/\/127\.0\.0\.1:18081\/v1/);
 assert.match(codexImageGateway, /MAX_REFERENCE_IMAGES\s*=\s*20/);
 assert.match(codexImageGateway, /asyncTasks:\s*true/);
@@ -290,6 +303,7 @@ for (const file of [
   "app.js", "bootstrap-guard.js", "image-task-stability.js",
   "codex-image-gateway.js", "gemini-image-size-registry.js",
   "gemini-web-image-adapter.js", "gemini-selector-pack.js",
+  "gemini-embedded-worker.js",
   "index.html", "style.css", "sw.js", "manifest.webmanifest",
 ]) {
   assert.equal(

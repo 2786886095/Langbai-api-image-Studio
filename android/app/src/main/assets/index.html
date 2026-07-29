@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260729-1-6-0">
+  <link rel="stylesheet" href="style.css?v=20260729-1-6-1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -306,26 +306,26 @@
                 <span class="provider-badge provider-badge-gemini">G</span>
                 <div>
                   <h3 id="geminiProviderTitle">Gemini 网页生图</h3>
-                  <p id="geminiProviderHint">使用系统浏览器中的 Gemini 登录；Google Cookie 不进入软件。任务强制使用临时对话并下载完整尺寸图片。</p>
+                  <p id="geminiProviderHint">在软件内完成 Gemini 登录；登录成功后窗口自动收起，后续任务由隐藏浏览器执行。</p>
                 </div>
               </div>
 
               <section class="gemini-account-card" aria-labelledby="geminiAccountTitle">
                 <div class="gemini-account-main">
                   <div>
-                    <strong id="geminiAccountTitle">系统浏览器账号</strong>
-                    <span id="geminiAccountIdentity">尚未配对浏览器伴侣</span>
-                    <small id="geminiAccountHint">首次使用需加载随软件发布的浏览器扩展，并粘贴下方本机配对密钥。</small>
+                    <strong id="geminiAccountTitle">软件内 Gemini 账号</strong>
+                    <span id="geminiAccountIdentity">尚未登录 Gemini</span>
+                    <small id="geminiAccountHint">账号会保存在当前设备的独立本地会话中；登录成功后页面自动收起，额度不足时可自动切换账号。</small>
                   </div>
                   <span id="geminiAccountStatus" class="opencodex-health-status" data-state="idle" role="status">未连接</span>
                 </div>
-                <div class="gemini-pairing-row">
-                  <input type="password" id="geminiPairingKey" readonly aria-label="Gemini 浏览器伴侣配对密钥">
-                  <button type="button" id="copyGeminiPairingKey" class="btn btn-xs">复制密钥</button>
-                </div>
                 <div class="gemini-account-actions">
-                  <button type="button" id="openGeminiLogin" class="btn btn-primary btn-xs">系统浏览器登录</button>
-                  <button type="button" id="testGeminiHealth" class="btn btn-xs">检测浏览器伴侣</button>
+                  <button type="button" id="openGeminiLogin" class="btn btn-primary btn-xs">添加 / 登录账号</button>
+                  <button type="button" id="testGeminiHealth" class="btn btn-xs">检测内置浏览器</button>
+                  <label class="gemini-auto-switch">
+                    <input type="checkbox" id="geminiAutoSwitch" checked>
+                    <span id="geminiAutoSwitchLabel">额度不足时自动切换账号</span>
+                  </label>
                 </div>
                 <div class="gemini-account-list" id="geminiAccountList" role="list" aria-live="polite"></div>
               </section>
@@ -834,7 +834,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.0</strong>
+            <strong id="currentVersionLabel">v1.6.1</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -1028,12 +1028,12 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260729-1-6-0"></script>
-  <script src="image-task-stability.js?v=20260729-1-6-0"></script>
-  <script src="codex-image-gateway.js?v=20260729-1-6-0"></script>
-  <script src="gemini-image-size-registry.js?v=20260729-1-6-0"></script>
-  <script src="gemini-web-image-adapter.js?v=20260729-1-6-0"></script>
-  <script src="gemini-selector-pack.js?v=20260729-1-6-0"></script>
-  <script src="app.js?v=20260729-1-6-0"></script>
+  <script src="bootstrap-guard.js?v=20260729-1-6-1"></script>
+  <script src="image-task-stability.js?v=20260729-1-6-1"></script>
+  <script src="codex-image-gateway.js?v=20260729-1-6-1"></script>
+  <script src="gemini-image-size-registry.js?v=20260729-1-6-1"></script>
+  <script src="gemini-web-image-adapter.js?v=20260729-1-6-1"></script>
+  <script src="gemini-selector-pack.js?v=20260729-1-6-1"></script>
+  <script src="app.js?v=20260729-1-6-1"></script>
 </body>
 </html>

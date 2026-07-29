@@ -4,16 +4,18 @@
 
 「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的中文图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、ChatGPT 网页生图、Gemini 网页生图、GrsAI 与 OpenAI 兼容接口。
 
-## v1.6.0：Gemini 网页生图（浏览器伴侣）
+## v1.6.1：Gemini 网页生图（软件内登录）
 
 - 新增独立的 `Gemini 网页生图` 供应商，不复用或覆盖 ChatGPT、官方 OpenAI、GrsAI、自定义 API 的配置与账号。
-- 软件只保存本机随机配对密钥、脱敏账号元数据和任务检查点；Google Cookie、Token 和完整邮箱留在系统浏览器中，不进入软件、历史项目或导出文件。
+- Windows、Android、macOS、iOS 均由软件内置浏览器打开 Gemini 登录页；登录状态确认后登录界面自动收起，后续任务继续在隐藏浏览器中执行。
+- 支持添加多个 Gemini 账号、手动切换，以及当前账号明确额度不足或登录失效后的自动切换；账号会话只保存在当前设备，不跨设备同步。
+- 软件只保存本机随机连接密钥、脱敏账号元数据和任务检查点；登录会话留在操作系统 WebView 的本地隔离存储中，不进入历史项目或导出文件。
 - 每张图片固定创建独立的 Gemini 临时对话任务，生成前后检查普通历史列表是否发生变化，并通过带鉴权的本机回环服务下载完整尺寸图片。
 - 支持原生完整尺寸、严格原生、精确输出和本地 4K 四种尺寸模式；软件读取图片真实像素，等比裁切或包含缩放，不做非等比拉伸，并保存尺寸审计。
-- 本地可排队 1–100 张；界面会按浏览器伴侣实际报告的能力限制有效并发。任务提交后保存任务 ID，软件重启后继续轮询原任务，不重复提交。
-- Chromium 浏览器伴侣源码位于 `gemini_companion/chromium/`，正式 Release 同时提供可加载的 ZIP。首次使用需在支持扩展的系统浏览器中手动加载并粘贴软件显示的配对密钥。
+- 本地可排队 1–100 张；界面会按内置浏览器实际报告的能力限制有效并发。任务提交后保存任务 ID，软件重启后继续轮询原任务，不重复提交。
+- 图片生成成功后立即进入软件本地缓存；只有点击下载、导出 ZIP 或保存到文件夹时，才写入用户选择的输出目录。
 
-> **平台边界：** Windows 的 Edge/Chrome 扩展链路已进入本版代码与自动回归。Android 只有使用支持 Chromium 扩展的浏览器时才具备同类能力；系统 Chrome 通常不支持桌面扩展。macOS/iOS 的 Safari Web Extension 尚未随本仓库实现，因此这些平台会保留入口诊断，但本版不宣称 Safari 端到端已验证。Gemini 网页结构变化后可能需要更新浏览器伴侣选择器。
+> **平台边界：** Gemini 网页结构或 Google 登录策略变化后仍可能需要更新软件。四端安装包会验证内置浏览器、账号切换和任务桥；真实账号的额度、审核与区域可用性由 Google 决定。
 
 ## v1.5.4：Windows 与 Android 内置 ChatGPT 网页生图
 
@@ -33,7 +35,7 @@
 
 - 推荐生图中转网站：[https://grsai.com/zh](https://grsai.com/zh)（不是广告，纯粹自己感觉好用）
 - GrsAI 生图 API 地址：`https://grsai.dakka.com.cn/v1/api/generate`
-- 软件内保留四种入口：`官方 API`、`ChatGPT 网页生图（Windows / Android）`、`GrsAI 生图 API`、`自定义 API`
+- 软件内保留五种入口：`官方 API`、`ChatGPT 网页生图（Windows / Android）`、`Gemini 网页生图（四端）`、`GrsAI 生图 API`、`自定义 API`
 - Windows 或 Android 选择 `ChatGPT 网页生图` 时，由软件从各自内置网关读取随机运行时地址和密钥；用户界面不保存或要求填写本机网关密钥
 - ChatGPT 网页生图固定使用 `gpt-image-2`，单次请求固定 `n=1`；多图和漫画分镜由客户端拆成独立、可恢复的异步任务
 - ChatGPT 网页生图支持文生图、最多 20 张参考图的语义编辑，以及软件内蒙版合成式局部重绘；“精确输出”通过覆盖裁切实现，可能裁掉边缘内容
@@ -49,7 +51,7 @@
 ## ✨ 功能
 
 - **三种工作流**：单图生成 + 漫画分镜批量生成 + 参考图气泡嵌字
-- **多平台 API 适配**：OpenAI 官方 Image API、Windows / Android 内置 ChatGPT 网页生图、GrsAI generate/result、OpenAI 兼容 generations/edits
+- **多平台 API 适配**：OpenAI 官方 Image API、Windows / Android 内置 ChatGPT 网页生图、四端内置 Gemini 网页生图、GrsAI generate/result、OpenAI 兼容 generations/edits
 - **ChatGPT 多账号**：安全导入、手动切换、额度/登录失败自动切换、任务级账号绑定
 - 参考图上传 / TXT 导入 / 自定义分辨率 / 官方与常用尺寸预设 / 有限并发控制
 - **生图历史**（漫画按「项目」保存）、失败一键重试、可调重试次数

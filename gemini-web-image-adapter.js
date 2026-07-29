@@ -14,7 +14,7 @@
   function normalizeBaseUrl(value) {
     const raw = String(value || DEFAULT_BASE_URL).trim().replace(/\/+$/, "");
     if (!/^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d{2,5}\/v1$/i.test(raw)) {
-      throw new Error("Gemini browser companion must use a loopback /v1 URL");
+      throw new Error("Gemini embedded browser bridge must use a loopback /v1 URL");
     }
     return raw.replace("localhost", "127.0.0.1");
   }
