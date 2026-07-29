@@ -46,8 +46,18 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Code]
 function IsLangbaiLaunchRequested(): Boolean;
+var
+  Index: Integer;
 begin
-  Result := CmdLineParamExists('/LANGBAILAUNCH');
+  Result := False;
+  for Index := 1 to ParamCount do
+  begin
+    if CompareText(ParamStr(Index), '/LANGBAILAUNCH') = 0 then
+    begin
+      Result := True;
+      exit;
+    end;
+  end;
 end;
 
 function ShouldOfferInteractiveLaunch(): Boolean;
