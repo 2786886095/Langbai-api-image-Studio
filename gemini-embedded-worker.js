@@ -543,9 +543,14 @@ if (typeof module !== "undefined" && module.exports) {
       '[aria-pressed="true"],[aria-selected="true"],[aria-current="page"],[data-state="active"],[data-selected="true"]',
     ) || (SELECTORS.temporaryChatActiveCss || [])
       .some(selector => [...document.querySelectorAll(selector)].some(visible));
-    const controlText = normalizedText(control);
-    const exitControlVisible = !!control
-      && textMatchesCandidates(controlText, SELECTORS.temporaryChatExit || []);
+    const exitControlVisible = [...document.querySelectorAll(
+      'button,[role="button"],[role="tooltip"],[aria-label],[title],[data-tooltip]',
+    )]
+      .filter(visible)
+      .some(element => textMatchesCandidates(
+        normalizedText(element),
+        SELECTORS.temporaryChatExit || [],
+      ));
     const activeExplanationVisible = [...document.querySelectorAll(
       'h1,h2,h3,[role="heading"],[role="status"],[aria-label],[title],[placeholder],[data-test-id]',
     )]
