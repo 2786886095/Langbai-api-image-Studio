@@ -214,12 +214,20 @@
         resolve(data.response);
       };
       addEventListener("message", listener);
-      postMessage({
+      const command = {
         source: "langbai-gemini-executor",
         type,
         requestId,
         ...(type === "native-request" ? { payload } : payload),
-      }, "*");
+      };
+      if (
+        type !== "native-request"
+        && typeof globalThis.__LANGBAI_GEMINI_NATIVE_REPORT === "function"
+      ) {
+        globalThis.__LANGBAI_GEMINI_NATIVE_REPORT(command);
+      } else {
+        postMessage(command, "*");
+      }
     });
   }
 
@@ -317,6 +325,11 @@
       dataState: element.getAttribute("data-state") || "",
       disabled: element.matches(":disabled,[aria-disabled=true]"),
       className: String(element.className || "").slice(0, 240),
+      attributes: Object.fromEntries(
+        [...element.attributes]
+          .slice(0, 24)
+          .map(attribute => [attribute.name, attribute.value.slice(0, 180)]),
+      ),
       rect: {
         left: Math.round(rect.left),
         top: Math.round(rect.top),
@@ -324,6 +337,37 @@
         height: Math.round(rect.height),
       },
     };
+  }
+
+  function temporaryChatStateSnapshot() {
+    const matching = [...document.querySelectorAll(
+      'button,[role="button"],[aria-label],[title],h1,h2,h3,[role="heading"]',
+    )]
+      .filter(element => /temporary chat|临时对话|臨時對話|一時的なチャット|임시 채팅/i.test(normalizedText(element)))
+      .slice(0, 20)
+      .map(element => [
+        element.tagName.toLowerCase(),
+        element.getAttribute("aria-label") || "",
+        String(element.className || "").slice(0, 100),
+        String(element.parentElement?.className || "").slice(0, 100),
+        normalizedText(element.parentElement).slice(0, 120),
+      ]);
+    const active = document.activeElement;
+    return {
+      url: location.href,
+      title: document.title,
+      visibility: document.visibilityState,
+      focused: document.hasFocus(),
+      active: normalizedText(active).slice(0, 120),
+      matching,
+      historyCount: historyDigest().count,
+    };
+  }
+
+  function isTemporaryChatSurfaceActive() {
+    return [...document.querySelectorAll('h1,h2,h3,[role="heading"]')]
+      .filter(visible)
+      .some(element => /temporary chat|临时对话|臨時對話|一時的なチャット|임시 채팅/i.test(normalizedText(element)));
   }
 
   async function activateControl(element) {
@@ -651,22 +695,42 @@
         || exitLabel
         || /\b(active|selected|checked|toggled)\b/i.test(String(element.className || ""));
     };
-    if (!isActive(button)) {
+    if (!isActive(button) && !isTemporaryChatSurfaceActive()) {
       const beforeUrl = location.href;
       const beforeText = normalizedText(button);
+      const beforeState = temporaryChatStateSnapshot();
+      const inputTrace = [];
+      const traceInput = event => {
+        const target = event.target instanceof Element ? event.target : null;
+        inputTrace.push({
+          type: event.type,
+          trusted: event.isTrusted === true,
+          target: target?.tagName?.toLowerCase?.() || "",
+          ariaLabel: target?.getAttribute?.("aria-label") || "",
+        });
+      };
+      const tracedEvents = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"];
+      tracedEvents.forEach(type => document.addEventListener(type, traceInput, true));
       writeTemporaryChatCheckpoint(taskId);
       await activateControl(button);
       const deadline = Date.now() + 6000;
       while (Date.now() < deadline) {
         await sleep(250);
         button = findByCandidates(allTemporaryChatLabels);
-        if (isActive(button) || location.href !== beforeUrl) {
+        if (
+          isActive(button)
+          || isTemporaryChatSurfaceActive()
+          || location.href !== beforeUrl
+        ) {
+          tracedEvents.forEach(type => document.removeEventListener(type, traceInput, true));
           clearTemporaryChatCheckpoint(taskId);
           return true;
         }
       }
+      tracedEvents.forEach(type => document.removeEventListener(type, traceInput, true));
       clearTemporaryChatCheckpoint(taskId);
       const afterText = normalizedText(button);
+      const afterState = temporaryChatStateSnapshot();
       const overlays = [...document.querySelectorAll(
         '[role="dialog"],[role="menu"],[role="menuitem"],[aria-modal="true"]',
       )]
@@ -682,7 +746,9 @@
           + ` before=${JSON.stringify(beforeText.slice(0, 160))}`
           + ` after=${JSON.stringify(afterText.slice(0, 160))}`
           + ` urlChanged=${location.href !== beforeUrl}`
-          + ` control=${JSON.stringify(describeControl(button))}`
+          + ` stateChanged=${JSON.stringify(beforeState) !== JSON.stringify(afterState)}`
+          + ` state=${JSON.stringify(afterState)}`
+          + ` trustedEvents=${inputTrace.map(event => `${event.type}:${event.trusted ? 1 : 0}`).join(",")}`
           + ` overlays=${JSON.stringify(overlays)}`,
         ),
         { code: "temporary_chat_unverified" },
@@ -696,7 +762,7 @@
     if (action) {
       await activateControl(action);
       await sleep(500);
-      return;
+      return true;
     }
     const tools = findByCandidates(["Tools", "工具", "ツール", "도구"]);
     if (tools) {
@@ -704,9 +770,10 @@
       await sleep(500);
       action = findByCandidates(SELECTORS.imageAction);
     }
-    if (!action) throw Object.assign(new Error("未识别到 Gemini 生图入口"), { code: "image_action_missing" });
+    if (!action) return false;
     await activateControl(action);
     await sleep(500);
+    return true;
   }
 
   function setComposerText(composer, text) {
@@ -813,15 +880,71 @@
     urls.push(image.currentSrc || image.src);
     const unique = [...new Set(urls.filter(Boolean))];
     let best = null;
+    const failures = [];
     for (const url of unique.slice(0, 12)) {
       try {
         const response = await fetch(url, { credentials: "include", cache: "no-store" });
-        if (!response.ok || !(response.headers.get("content-type") || "").startsWith("image/")) continue;
+        if (!response.ok) {
+          failures.push(`page:${response.status}:${new URL(url, location.href).hostname}`);
+          continue;
+        }
         const blob = await response.blob();
-        if (!best || blob.size > best.size) best = blob;
-      } catch {}
+        const contentType = response.headers.get("content-type") || blob.type || "";
+        if (
+          blob.size > 0
+          && (
+            contentType.startsWith("image/")
+            || url.startsWith("blob:")
+            || url.startsWith("data:image/")
+          )
+          && (!best || blob.size > best.size)
+        ) best = blob;
+      } catch (error) {
+        failures.push(`page:${String(error?.name || error)}:${String(url).slice(0, 120)}`);
+      }
+      if (
+        /^https:\/\//i.test(url)
+        && readEmbeddedConfig()?.embedded
+        && String(readEmbeddedConfig()?.platform || "").toLowerCase() === "windows"
+      ) {
+        try {
+          const downloaded = await postMessageNativeCommand(
+            "image-download-request",
+            { url },
+            90000,
+          );
+          const bytes = decodeBase64(downloaded?.bodyBase64 || downloaded?.body_base64);
+          const blob = new Blob(
+            [bytes],
+            { type: downloaded?.contentType || downloaded?.content_type || "application/octet-stream" },
+          );
+          if (blob.size > 0 && (!best || blob.size > best.size)) best = blob;
+        } catch (error) {
+          failures.push(`native:${error?.code || error?.name || "error"}:${new URL(url).hostname}`);
+        }
+      }
     }
-    if (!best) throw Object.assign(new Error("未定位到可下载的完整尺寸图片"), { code: "fullsize_download_missing" });
+    if (!best) {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0);
+        best = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      } catch (error) {
+        failures.push(`canvas:${String(error?.name || error)}`);
+      }
+    }
+    if (!best) {
+      throw Object.assign(
+        new Error(
+          `未定位到可下载的完整尺寸图片。sources=${JSON.stringify(unique.map(url => String(url).slice(0, 180)).slice(0, 8))}`
+          + ` failures=${JSON.stringify(failures.slice(0, 12))}`,
+        ),
+        { code: "fullsize_download_missing" },
+      );
+    }
     return best;
   }
 
@@ -864,10 +987,14 @@
       await event(task, "uploading_references");
       await uploadReferences(request.references || []);
       await event(task, "submitting");
-      await enableImageAction();
+      const explicitImageAction = await enableImageAction();
       const composer = findComposer();
       if (!composer) throw Object.assign(new Error("未识别到 Gemini 输入框"), { code: "selector_pack_outdated" });
-      setComposerText(composer, request.prompt || "");
+      const requestedPrompt = String(request.prompt || "").trim();
+      const prompt = explicitImageAction
+        ? requestedPrompt
+        : `请生成一张图片，不要只回复文字。\n\n${requestedPrompt}`;
+      setComposerText(composer, prompt);
       await sleep(300);
       const send = findByCandidates(SELECTORS.send);
       if (send) await activateControl(send);
@@ -887,6 +1014,7 @@
       }
       const audit = {
         selector_pack_version: SELECTORS.version,
+        image_action_mode: explicitImageAction ? "explicit_tool" : "direct_pro_prompt",
         temporary_chat_verified: true,
         history_guard: historyGuard,
         history_count_before: before.count,

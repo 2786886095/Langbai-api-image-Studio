@@ -77,6 +77,7 @@ test("uses the Windows native input bridge for Gemini controls", () => {
     "utf8",
   );
   assert.match(worker, /"trusted-click-request"/);
+  assert.match(worker, /"image-download-request"/);
   assert.match(worker, /await activateControl\(button\)/);
   assert.match(worker, /await activateControl\(action\)/);
   assert.match(worker, /await activateControl\(send\)/);

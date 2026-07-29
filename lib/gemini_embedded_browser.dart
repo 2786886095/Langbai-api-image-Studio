@@ -192,6 +192,22 @@ const Set<String> _allowedNavigationHosts = <String>{
   'g.co',
 };
 
+const Set<String> _allowedGeminiImageHosts = <String>{
+  'googleusercontent.com',
+  'ggpht.com',
+  'gstatic.com',
+  'googleapis.com',
+  'google.com',
+};
+
+bool _isAllowedGeminiImageUrl(Uri uri) {
+  if (uri.scheme != 'https') return false;
+  final host = uri.host.toLowerCase();
+  return _allowedGeminiImageHosts.any(
+    (allowed) => host == allowed || host.endsWith('.$allowed'),
+  );
+}
+
 class _GeminiNativeTransport {
   _GeminiNativeTransport(this.config);
 
@@ -404,7 +420,11 @@ Future<String> _loadInjectedWorker(
     const message = event?.data;
     if (
       message?.source === "langbai-gemini-executor" &&
-      message?.type === "native-request"
+      (
+        message?.type === "native-request" ||
+        message?.type === "trusted-click-request" ||
+        message?.type === "image-download-request"
+      )
     ) {
       try { sendNative(message); }
       catch (error) {
@@ -1121,6 +1141,10 @@ class _GeminiWindowsEmbeddedBrowserState
       await _handleTrustedClickRequest(message);
       return;
     }
+    if (message['type'] == 'image-download-request') {
+      await _handleImageDownloadRequest(message);
+      return;
+    }
     if (message['type'] == 'native-request') {
       await _handleNativeRequest(message);
       return;
@@ -1245,6 +1269,89 @@ class _GeminiWindowsEmbeddedBrowserState
           'message': error.toString(),
         },
       };
+    }
+    await controller.runJavaScript(
+      'window.postMessage(${jsonEncode(response)}, "*");',
+    );
+  }
+
+  Future<void> _handleImageDownloadRequest(
+    Map<String, dynamic> message,
+  ) async {
+    final requestId = message['requestId']?.toString() ?? '';
+    final controller = _controller;
+    if (requestId.isEmpty || controller == null) return;
+    Map<String, Object?> response;
+    final rawUrl = message['url']?.toString() ?? '';
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || !_isAllowedGeminiImageUrl(uri)) {
+      response = <String, Object?>{
+        'source': 'langbai-gemini-native',
+        'type': 'native-response',
+        'requestId': requestId,
+        'error': <String, Object?>{
+          'code': 'gemini_image_download_forbidden',
+          'message': 'Only HTTPS Google image hosts are permitted.',
+        },
+      };
+    } else {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 20)
+        ..idleTimeout = const Duration(seconds: 60)
+        ..findProxy = (_) => 'DIRECT';
+      try {
+        final request =
+            await client.getUrl(uri).timeout(const Duration(seconds: 30));
+        request.headers.set(HttpHeaders.acceptHeader, 'image/*');
+        final downloaded =
+            await request.close().timeout(const Duration(seconds: 70));
+        if (downloaded.statusCode < 200 || downloaded.statusCode >= 300) {
+          throw HttpException(
+            'Gemini image download returned HTTP ${downloaded.statusCode}.',
+            uri: uri,
+          );
+        }
+        final bytes = <int>[];
+        await for (final chunk
+            in downloaded.timeout(const Duration(seconds: 70))) {
+          bytes.addAll(chunk);
+          if (bytes.length > _maxNativeTransportBytes) {
+            throw const FormatException(
+              'Gemini image exceeds the 96 MiB native limit.',
+            );
+          }
+        }
+        final contentType =
+            downloaded.headers.contentType?.mimeType.toLowerCase() ?? '';
+        if (bytes.isEmpty ||
+            (contentType.isNotEmpty && !contentType.startsWith('image/'))) {
+          throw const FormatException(
+            'Gemini image URL did not return image bytes.',
+          );
+        }
+        response = <String, Object?>{
+          'source': 'langbai-gemini-native',
+          'type': 'native-response',
+          'requestId': requestId,
+          'response': <String, Object?>{
+            'bodyBase64': base64Encode(bytes),
+            'contentType':
+                contentType.isEmpty ? 'application/octet-stream' : contentType,
+          },
+        };
+      } catch (error) {
+        response = <String, Object?>{
+          'source': 'langbai-gemini-native',
+          'type': 'native-response',
+          'requestId': requestId,
+          'error': <String, Object?>{
+            'code': 'gemini_image_download_failed',
+            'message': error.toString(),
+          },
+        };
+      } finally {
+        client.close(force: true);
+      }
     }
     await controller.runJavaScript(
       'window.postMessage(${jsonEncode(response)}, "*");',
