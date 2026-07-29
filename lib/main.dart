@@ -47,22 +47,25 @@ final GeminiEmbeddedBrowserRequestController
 Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
   if (Platform.isWindows) {
     try {
-      return await _embeddedChatGptGateway.configuration();
+      final configuration = await _embeddedChatGptGateway.configuration();
+      await _chatGptMultiAccountStore.restoreGatewaySession(
+        (token, accountId) => _embeddedChatGptGateway.setSessionToken(
+          token,
+          accountId: accountId,
+        ),
+      );
+      return configuration;
     } catch (error) {
       debugPrint('Bundled ChatGPT image gateway unavailable: $error');
     }
   }
   if (Platform.isAndroid) {
-    final active = await _chatGptMultiAccountStore.activeAccount();
-    if (active != null) {
-      final token = await _chatGptMultiAccountStore.readToken(
-        active.localAccountId,
-      );
-      await _androidChatGptGateway.setSessionToken(
+    await _chatGptMultiAccountStore.restoreGatewaySession(
+      (token, accountId) => _androidChatGptGateway.setSessionToken(
         token,
-        accountId: active.localAccountId,
-      );
-    }
+        accountId: accountId,
+      ),
+    );
     return _androidChatGptGateway.configuration();
   }
   final fallback = await loadCodexImageGatewayConfig();

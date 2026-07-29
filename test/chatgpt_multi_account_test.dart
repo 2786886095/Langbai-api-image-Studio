@@ -121,4 +121,51 @@ void main() {
       token,
     );
   });
+
+  test('gateway restart restores the active secure token without reimport',
+      () async {
+    const storage = FlutterSecureStorage();
+    final store = ChatGptMultiAccountStore(storage);
+    final oneToken = tokenFor(sub: 'restore-one');
+    final twoToken = tokenFor(sub: 'restore-two');
+    await store.importSession(oneToken);
+    final two = await store.importSession(twoToken);
+    await store.selectAccount(two.localAccountId);
+    String restoredToken = '';
+    String restoredAccountId = '';
+
+    final restored =
+        await store.restoreGatewaySession((token, accountId) async {
+      restoredToken = token;
+      restoredAccountId = accountId;
+    });
+
+    expect(restored?.localAccountId, two.localAccountId);
+    expect(restoredToken, twoToken);
+    expect(restoredAccountId, two.localAccountId);
+    expect(await store.readAccounts(), hasLength(2));
+  });
+
+  test('gateway restart falls back without deleting damaged account metadata',
+      () async {
+    const storage = FlutterSecureStorage();
+    final store = ChatGptMultiAccountStore(storage);
+    final one = await store.importSession(tokenFor(sub: 'damaged-active'));
+    final twoToken = tokenFor(sub: 'healthy-fallback');
+    final two = await store.importSession(twoToken);
+    await store.selectAccount(one.localAccountId);
+    await storage.delete(key: store.tokenKey(one.localAccountId));
+    String restoredAccountId = '';
+
+    final restored =
+        await store.restoreGatewaySession((token, accountId) async {
+      expect(token, twoToken);
+      restoredAccountId = accountId;
+    });
+
+    expect(restored?.localAccountId, two.localAccountId);
+    expect(restoredAccountId, two.localAccountId);
+    expect(await store.readAccounts(), hasLength(2));
+    expect(await store.activeAccountId(), two.localAccountId);
+  });
 }

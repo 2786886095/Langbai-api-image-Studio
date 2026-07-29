@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.1
+# Codex / Claude Handoff: AI 图片生成器 v1.6.2
 
 更新时间：2026-07-29
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.1+78`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.2+79`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.2 ChatGPT 会话恢复与 Gemini 登录修复
+
+- `ChatGptMultiAccountStore.restoreGatewaySession()` 会在 Windows/Android 内置 ChatGPT 网关启动后，从系统安全存储重新注入当前账号令牌。失败时尝试其他已保存账号，但不删除任何账号元数据或令牌。
+- Windows Gemini 登录 WebView 使用组件内宿主，不再覆盖 Flutter 工具栏；用户可以随时点击返回、刷新或关闭。
+- Gemini 页面探测到 `page_ready` 后，由 Dart 本机鉴权通道调用 `/v1/companion/identity` 保存隔离账号，成功后通知主 Web UI 并自动收起登录页。
+- Google 重定向完成后的 `onPageFinished` 会再次注入带全局防重复标记的探测脚本，避免只依赖 document-created 注入而漏掉登录完成状态。
+- 发布前必须验证：ChatGPT 保存账号后重启仍可用；Gemini 登录成功后账号进入列表且界面自动收起；已有 API、历史、路径和尺寸预设不被重置。
 
 ## v1.6.1 Gemini 软件内登录、多账号与隐藏任务
 

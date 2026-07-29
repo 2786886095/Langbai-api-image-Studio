@@ -15,6 +15,7 @@ const int _maxNativeTransportBytes = 96 * 1024 * 1024;
 const MethodChannel _geminiSessionChannel =
     MethodChannel('com.aigen.ai_image_generator/gemini_sessions');
 const String _geminiSessionStoragePrefix = 'gemini_web_session_v1:';
+const String _geminiEmbeddedSelectorPackVersion = '2026.07.29.1';
 
 typedef GeminiEmbeddedConfigLoader = Future<GeminiEmbeddedBrowserConfig>
     Function(String profileId);
@@ -294,6 +295,46 @@ class _GeminiNativeTransport {
     }
   }
 
+  Future<Map<String, Object?>> registerLoggedInProfile({
+    required String platform,
+    required bool temporaryChatAvailable,
+    String maskedEmail = '',
+  }) async {
+    final response = await send(<String, dynamic>{
+      'url': '${config.baseUrl}/companion/identity',
+      'method': 'POST',
+      'headers': <String, String>{'Content-Type': 'application/json'},
+      'body': <String, Object?>{
+        'browser_profile_id': config.profileId,
+        'account_uuid': config.profileId,
+        'display_name': 'Gemini 网页账号',
+        'masked_email': maskedEmail,
+        'status': 'ready',
+        'temporary_chat_available': temporaryChatAvailable,
+        'fullsize_download_available': true,
+        'effective_concurrency': 1,
+        'platform': 'embedded:$platform',
+        'selector_pack_version': _geminiEmbeddedSelectorPackVersion,
+      },
+    });
+    final status = int.tryParse(response['status']?.toString() ?? '') ?? 0;
+    final body = response['body']?.toString() ?? '';
+    if (status < 200 || status >= 300) {
+      throw HttpException(
+        'Gemini account registration failed (HTTP $status): $body',
+      );
+    }
+    final decoded = body.isEmpty ? <String, dynamic>{} : jsonDecode(body);
+    if (decoded is! Map) {
+      throw const FormatException(
+        'Gemini account registration returned invalid JSON.',
+      );
+    }
+    return decoded.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+  }
+
   bool _isAllowedGatewayRequest(Uri uri) {
     final expected = config.gatewayUri;
     if (uri.scheme != 'http' ||
@@ -386,6 +427,17 @@ Future<String> _loadInjectedWorker(
     const composer = onGemini && document.querySelector(
       'div[contenteditable="true"][role="textbox"],textarea[aria-label],textarea'
     );
+    const interactive = onGemini
+      ? [...document.querySelectorAll('button,[role="button"],[aria-label],[title]')]
+      : [];
+    const textOf = element => [
+      element.textContent,
+      element.getAttribute?.("aria-label"),
+      element.getAttribute?.("title"),
+    ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
+    const temporaryChatAvailable = interactive.some(element =>
+      /temporary chat|临时对话|臨時對話|一時的なチャット|임시 채팅/i.test(textOf(element))
+    );
     sendNative({
       source: "langbai-gemini-executor",
       type: "page_state",
@@ -394,16 +446,25 @@ Future<String> _loadInjectedWorker(
           ? "login_required"
           : "loading",
       url: location.href,
+      browser_profile_id: config.profileId,
+      account_uuid: config.accountUuid,
+      temporary_chat_available: temporaryChatAvailable,
+      fullsize_download_available: true,
     });
   };
-  addEventListener("DOMContentLoaded", reportPageState);
-  addEventListener("pageshow", reportPageState);
-  setTimeout(reportPageState, 300);
-  setTimeout(reportPageState, 1500);
-  new MutationObserver(reportPageState).observe(
-    document.documentElement,
-    { childList: true, subtree: true }
-  );
+  if (!globalThis.__LANGBAI_GEMINI_PAGE_PROBE_STARTED) {
+    globalThis.__LANGBAI_GEMINI_PAGE_PROBE_STARTED = true;
+    addEventListener("DOMContentLoaded", reportPageState);
+    addEventListener("pageshow", reportPageState);
+    setTimeout(reportPageState, 300);
+    setTimeout(reportPageState, 1500);
+    new MutationObserver(reportPageState).observe(
+      document.documentElement,
+      { childList: true, subtree: true }
+    );
+  } else {
+    reportPageState();
+  }
   if (
     location.hostname === "gemini.google.com" ||
     location.hostname.endsWith(".gemini.google.com")
@@ -461,6 +522,35 @@ bool _isReadyMessage(Map<String, dynamic> message) {
   return message['source'] == 'langbai-gemini-executor' &&
       message['type'] == 'login_state' &&
       (message['login_ready'] == true || message['status'] == 'ready');
+}
+
+bool _isPageReadyMessage(Map<String, dynamic> message) {
+  return message['source'] == 'langbai-gemini-executor' &&
+      message['type'] == 'page_state' &&
+      message['status'] == 'page_ready';
+}
+
+Future<Map<String, Object?>> _registerPageReadyMessage({
+  required _GeminiNativeTransport transport,
+  required Map<String, dynamic> message,
+  required String platform,
+}) async {
+  final snapshot = await transport.registerLoggedInProfile(
+    platform: platform,
+    temporaryChatAvailable: message['temporary_chat_available'] == true,
+    maskedEmail: message['masked_email']?.toString() ?? '',
+  );
+  return <String, Object?>{
+    'source': 'langbai-gemini-executor',
+    'type': 'login_state',
+    'status': 'ready',
+    'login_ready': true,
+    'account_id': snapshot['local_account_id']?.toString() ?? '',
+    'account_uuid':
+        snapshot['account_uuid']?.toString() ?? transport.config.profileId,
+    'masked_email': message['masked_email']?.toString() ?? '',
+    'temporary_chat_available': message['temporary_chat_available'] == true,
+  };
 }
 
 String _statusText(Map<String, dynamic> message) {
@@ -569,7 +659,10 @@ class _GeminiMobileEmbeddedBrowserState
   String _activeProfileId = '';
   final GeminiMobileSessionVault _sessionVault = GeminiMobileSessionVault();
   String _status = '正在加载 Gemini 登录页';
+  String _platform = 'mobile';
   bool _initializing = false;
+  bool _pageReadyRegistrationInFlight = false;
+  bool _pageReadyRegistered = false;
   int _handledRevision = -1;
 
   @override
@@ -620,6 +713,7 @@ class _GeminiMobileEmbeddedBrowserState
         }
         _controller = null;
         _transport = null;
+        _pageReadyRegistered = false;
       }
       await _sessionVault.restore(config.profileId);
       final platform = Platform.isAndroid
@@ -629,6 +723,7 @@ class _GeminiMobileEmbeddedBrowserState
               : Platform.isMacOS
                   ? 'macos'
                   : 'mobile';
+      _platform = platform;
       final injectedWorker = await _loadInjectedWorker(config, platform);
       late final mobile_webview.WebViewController controller;
       controller = mobile_webview.WebViewController();
@@ -702,12 +797,48 @@ class _GeminiMobileEmbeddedBrowserState
       await _handleNativeRequest(message);
       return;
     }
+    if (_isPageReadyMessage(message)) {
+      await _completePageReady(message);
+      return;
+    }
     await _emit(message.cast<String, Object?>());
     if (_isReadyMessage(message)) {
       if (_activeProfileId.isNotEmpty) {
         await _sessionVault.capture(_activeProfileId);
       }
       widget.requestController.collapse();
+    }
+  }
+
+  Future<void> _completePageReady(Map<String, dynamic> message) async {
+    final transport = _transport;
+    if (transport == null ||
+        _pageReadyRegistered ||
+        _pageReadyRegistrationInFlight) {
+      return;
+    }
+    _pageReadyRegistrationInFlight = true;
+    try {
+      final event = await _registerPageReadyMessage(
+        transport: transport,
+        message: message,
+        platform: _platform,
+      );
+      _pageReadyRegistered = true;
+      await _emit(event);
+      if (_activeProfileId.isNotEmpty) {
+        await _sessionVault.capture(_activeProfileId);
+      }
+      widget.requestController.collapse();
+    } catch (error) {
+      await _emit(<String, Object?>{
+        'source': 'langbai-gemini-host',
+        'type': 'account_registration_error',
+        'status': 'failed',
+        'message': error.toString(),
+      });
+    } finally {
+      _pageReadyRegistrationInFlight = false;
     }
   }
 
@@ -822,6 +953,8 @@ class _GeminiWindowsEmbeddedBrowserState
   String _activeProfileId = '';
   String _status = '正在加载 Gemini 登录页';
   bool _initializing = false;
+  bool _pageReadyRegistrationInFlight = false;
+  bool _pageReadyRegistered = false;
   int _handledRevision = -1;
   String _lastStatusSignature = '';
 
@@ -880,6 +1013,7 @@ class _GeminiWindowsEmbeddedBrowserState
         final stale = _controller;
         _controller = null;
         _transport = null;
+        _pageReadyRegistered = false;
         if (stale != null) await stale.dispose();
       }
       final injectedWorker = await _loadInjectedWorker(config, 'windows');
@@ -887,7 +1021,10 @@ class _GeminiWindowsEmbeddedBrowserState
         params: windows_webview.WindowsWebViewControllerCreationParams(
           userDataFolder: _windowsGeminiProfilePath(config.profileId),
           suspendDuringDeactive: false,
-          useTopLevelWindowHost: true,
+          // The app's main WebView uses the full-window native host. The
+          // Gemini login surface must instead respect its Flutter widget
+          // bounds so the native page cannot cover the close toolbar.
+          useTopLevelWindowHost: false,
         ),
       );
       await controller.setJavaScriptMode(
@@ -910,6 +1047,22 @@ class _GeminiWindowsEmbeddedBrowserState
               'url': request.url,
             });
             return mobile_webview.NavigationDecision.prevent;
+          },
+          onPageFinished: (_) {
+            // WebView2 normally installs the document-created script. Running
+            // the guarded worker once more after redirects makes login
+            // detection resilient when Google replaces the document during
+            // the OAuth flow.
+            unawaited(controller!.runJavaScript(injectedWorker).catchError(
+              (Object error) {
+                return _emit(<String, Object?>{
+                  'source': 'langbai-gemini-host',
+                  'type': 'injection_error',
+                  'status': 'failed',
+                  'message': error.toString(),
+                });
+              },
+            ));
           },
           onWebResourceError: (error) {
             unawaited(_emit(<String, Object?>{
@@ -964,6 +1117,10 @@ class _GeminiWindowsEmbeddedBrowserState
       await _handleNativeRequest(message);
       return;
     }
+    if (_isPageReadyMessage(message)) {
+      await _completePageReady(message);
+      return;
+    }
     final signature = jsonEncode(<Object?>[
       message['type'],
       message['status'],
@@ -974,6 +1131,35 @@ class _GeminiWindowsEmbeddedBrowserState
     _lastStatusSignature = signature;
     await _emit(message.cast<String, Object?>());
     if (_isReadyMessage(message)) widget.requestController.collapse();
+  }
+
+  Future<void> _completePageReady(Map<String, dynamic> message) async {
+    final transport = _transport;
+    if (transport == null ||
+        _pageReadyRegistered ||
+        _pageReadyRegistrationInFlight) {
+      return;
+    }
+    _pageReadyRegistrationInFlight = true;
+    try {
+      final event = await _registerPageReadyMessage(
+        transport: transport,
+        message: message,
+        platform: 'windows',
+      );
+      _pageReadyRegistered = true;
+      await _emit(event);
+      widget.requestController.collapse();
+    } catch (error) {
+      await _emit(<String, Object?>{
+        'source': 'langbai-gemini-host',
+        'type': 'account_registration_error',
+        'status': 'failed',
+        'message': error.toString(),
+      });
+    } finally {
+      _pageReadyRegistrationInFlight = false;
+    }
   }
 
   Future<void> _handleNativeRequest(Map<String, dynamic> message) async {

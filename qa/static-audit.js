@@ -53,8 +53,8 @@ const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.6.1", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.6\.1\+78$/m);
+assert.equal(version, "1.6.2", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.6\.2\+79$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
 assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
 assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
@@ -65,16 +65,16 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.1/);
-assert.match(html, /20260729-1-6-1/g);
-assert.match(sw, /ai-image-generator-1-6-1-20260729/);
+assert.match(html, /v1\.6\.2/);
+assert.match(html, /20260729-1-6-2/g);
+assert.match(sw, /ai-image-generator-1-6-2-20260729/);
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,1,78/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.1"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.1";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-1/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,2,79/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.2"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.2";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-2/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -170,6 +170,13 @@ assert.match(geminiEmbeddedBrowser, /GeminiWindowsEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /gemini-embedded-worker\.js/);
 assert.match(geminiEmbeddedBrowser, /gemini_sessions/);
 assert.match(geminiEmbeddedBrowser, /deleteGeminiEmbeddedProfileData/);
+assert.match(geminiEmbeddedBrowser, /registerLoggedInProfile/);
+assert.match(geminiEmbeddedBrowser, /status'] == 'page_ready'/);
+assert.match(
+  geminiEmbeddedBrowser,
+  /useTopLevelWindowHost:\s*false/,
+  "Gemini login WebView must preserve the visible Flutter close toolbar.",
+);
 assert.match(androidMainActivity, /gemini_sessions/);
 assert.doesNotMatch(androidMainActivity, /removeAllCookies/);
 assert.match(iosDelegate, /gemini_sessions/);
@@ -247,6 +254,8 @@ assert.match(chatGptMultiAccount, /FlutterSecureStorage/);
 assert.match(chatGptMultiAccount, /chatGptTokenSecureKeyPrefix/);
 assert.match(chatGptMultiAccount, /maskChatGptEmail/);
 assert.match(chatGptMultiAccount, /rotateAfterFailure/);
+assert.match(chatGptMultiAccount, /restoreGatewaySession/);
+assert.match(dartMain, /_chatGptMultiAccountStore\.restoreGatewaySession/);
 assert.doesNotMatch(chatGptMultiAccount, /localStorage|SharedPreferences/);
 assert.match(embeddedChatGptGateway, /18081/);
 assert.match(embeddedChatGptGateway, /18100/);

@@ -10,6 +10,11 @@ const String chatGptActiveAccountSecureKey =
 const String chatGptAutoSwitchSecureKey = 'langbai_chatgpt_auto_switch_v1';
 const String chatGptTokenSecureKeyPrefix = 'langbai_chatgpt_token_v1_';
 
+typedef ChatGptSessionActivator = Future<void> Function(
+  String accessToken,
+  String localAccountId,
+);
+
 const Set<String> chatGptAccountAvailabilityStates = <String>{
   'ready',
   'unknown',
@@ -440,6 +445,35 @@ class ChatGptMultiAccountStore {
       throw const FormatException('ChatGPT account token is missing.');
     }
     return token;
+  }
+
+  /// Rehydrates a newly started in-process gateway from persisted secure
+  /// storage. Updating the desktop app restarts the gateway process, but must
+  /// not require the user to import the same account token again.
+  Future<ChatGptSecureAccount?> restoreGatewaySession(
+    ChatGptSessionActivator activate,
+  ) async {
+    final accounts = await readAccounts();
+    if (accounts.isEmpty) return null;
+    final activeId = await activeAccountId();
+    final candidates = <ChatGptSecureAccount>[
+      ...accounts.where((account) => account.localAccountId == activeId),
+      ...accounts.where((account) => account.localAccountId != activeId),
+    ];
+    for (final account in candidates) {
+      try {
+        final token = await readToken(account.localAccountId);
+        await activate(token, account.localAccountId);
+        if (account.localAccountId != activeId) {
+          await selectAccount(account.localAccountId);
+        }
+        return account;
+      } catch (_) {
+        // Keep every account and token untouched. A later account may still
+        // be readable if one legacy secure-storage entry is damaged.
+      }
+    }
+    return null;
   }
 
   Future<ChatGptSecureAccount?> activeAccount() async {
