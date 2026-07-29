@@ -19,7 +19,7 @@ const int _maxJsonBytes = 80 * 1024 * 1024;
 const int _maxImageBytes = 60 * 1024 * 1024;
 const Duration _companionLeaseDuration = Duration(minutes: 2);
 const Duration _geminiRateLimitCooldown = Duration(minutes: 15);
-const String _geminiSelectorPackVersion = '2026.07.29.1';
+const String _geminiSelectorPackVersion = '2026.07.30.2';
 final RegExp _geminiUuidPattern = RegExp(
   r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
   caseSensitive: false,
@@ -920,12 +920,12 @@ class GeminiWebGatewayManager {
           lastErrorCode: retainedAccountState ? existing.lastErrorCode : '',
           lastQuotaAt: existing?.lastQuotaAt ?? '',
           lastVerifiedAt: DateTime.now().toUtc().toIso8601String(),
-          // Gemini does not keep the temporary-chat control mounted at all
-          // times. A momentary false page probe is advisory only; the worker
-          // verifies and activates temporary chat again for every task.
+          // The page probe recognizes both the stable temp-chat data-test-id
+          // and an already-active temporary-chat surface. Do not retain a
+          // historical true value after the page stops exposing the feature:
+          // that created "ready" accounts that could never execute a task.
           temporaryChatAvailable: selectorPackCompatible &&
-              (body['temporary_chat_available'] == true ||
-                  existing?.temporaryChatAvailable == true),
+              body['temporary_chat_available'] == true,
           fullsizeDownloadAvailable: selectorPackCompatible &&
               body['fullsize_download_available'] == true,
           effectiveConcurrency: int.tryParse(

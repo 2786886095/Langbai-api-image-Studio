@@ -12,6 +12,7 @@
     account: "account_unavailable",
     payload: "payload_too_large",
     rateLimit: "rate_limited",
+    providerUi: "provider_ui_unavailable",
     disconnected: "upstream_disconnected",
     unavailable: "upstream_unavailable",
     timeout: "upstream_timeout",
@@ -93,6 +94,12 @@
       category = ERROR_CATEGORIES.moderation;
       retryPolicy = "edit_required";
       requiresEdit = true;
+    } else if (
+      /selector_pack_outdated|gemini_temporary_chat_unavailable|temporary_chat_(unverified|guard_failed)|gemini_control_(missing|disabled|outside_viewport|occluded)/.test(lower)
+    ) {
+      category = ERROR_CATEGORIES.providerUi;
+      retryPolicy = "after_probe";
+      pausesQueue = true;
     } else if (/gemini_account_(required|not_ready)/.test(lower)) {
       category = ERROR_CATEGORIES.account;
       retryPolicy = "after_configuration_change";

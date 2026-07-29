@@ -55,10 +55,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.6";
-const expectedBuild = 83;
-const expectedCacheToken = "20260730-1-6-6";
-const expectedSwCache = "ai-image-generator-1-6-6-20260730";
+const expectedVersion = "1.6.7";
+const expectedBuild = 84;
+const expectedCacheToken = "20260730-1-6-7";
+const expectedSwCache = "ai-image-generator-1-6-7-20260730";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -72,9 +72,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.6/);
-assert.match(html, /20260730-1-6-6/g);
-assert.match(sw, /ai-image-generator-1-6-6-20260730/);
+assert.match(html, /v1\.6\.7/);
+assert.match(html, /20260730-1-6-7/g);
+assert.match(sw, /ai-image-generator-1-6-7-20260730/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -88,18 +88,18 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,6,83/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.6"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.6";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-6/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,7,84/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.7"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.7";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-7/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
 assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
-assert.match(embeddedGatewayLauncher, /version="1\.6\.6"/);
-assert.match(readme, /^## v1\.6\.6[：:]/m);
-assert.match(handoff, /^# .*v1\.6\.6$/m);
-assert.match(handoff, /源码版本 `1\.6\.6\+83`/);
+assert.match(embeddedGatewayLauncher, /version="1\.6\.7"/);
+assert.match(readme, /^## v1\.6\.7[：:]/m);
+assert.match(handoff, /^# .*v1\.6\.7$/m);
+assert.match(handoff, /源码版本 `1\.6\.7\+84`/);
 assert.match(windowsInstaller, /AppVersion=\{#MyAppVersion\}/);
 assert.match(app, /function isNativeChatGptGatewayWebview\(\)/);
 assert.match(app, /\["windows", "android"\]\.includes\(getRuntimePlatform\(\)\)/);
@@ -184,10 +184,14 @@ assert.match(geminiSizeRegistry, /high_quality_resample/);
 assert.match(geminiWebAdapter, /temporary_chat_required:\s*true/);
 assert.match(geminiWebAdapter, /client_request_id/);
 assert.match(geminiSelectorPack, /temporaryChat/);
+assert.match(geminiSelectorPack, /data-test-id="temp-chat-button"/);
+assert.match(geminiSelectorPack, /临时聊天/);
 assert.match(geminiEmbeddedWorker, /__LANGBAI_GEMINI_EMBEDDED_CONFIG/);
 assert.match(geminiEmbeddedWorker, /globalThis\.top !== globalThis/);
 assert.match(geminiEmbeddedWorker, /TEMPORARY_CHAT_CHECKPOINT_KEY/);
 assert.match(geminiEmbeddedWorker, /ensureTemporaryChat\(task\)/);
+assert.match(geminiEmbeddedWorker, /findTemporaryChatControl/);
+assert.match(geminiEmbeddedWorker, /does not prove Gemini actually entered Temporary Chat/);
 assert.doesNotMatch(app, /GEMINI_WEB_TASK_WAIT_TIMEOUT_MS/);
 const geminiAvailableGetter =
   geminiAccountStore.match(/bool get available =>[\s\S]*?;/)?.[0] || "";
@@ -196,6 +200,7 @@ for (const requiredCondition of [
   /status == 'ready'/,
   /quotaState != 'exhausted'/,
   /!coolingDown/,
+  /temporaryChatAvailable/,
   /fullsizeDownloadAvailable/,
 ]) {
   assert.match(
@@ -204,11 +209,6 @@ for (const requiredCondition of [
     "Gemini account availability must retain every persisted readiness condition",
   );
 }
-assert.doesNotMatch(
-  geminiAvailableGetter,
-  /temporaryChatAvailable/,
-  "A transiently hidden temporary-chat control must not make a signed-in Gemini account unavailable",
-);
 assert.match(geminiWebGateway, /Future<\(int, String, String\)> _submissionAccountError\(\)/);
 for (const accountErrorCode of [
   /'gemini_account_required'/,
@@ -227,8 +227,8 @@ assert.ok(
 );
 assert.match(
   geminiWebGateway,
-  /temporaryChatAvailable:\s*selectorPackCompatible\s*&&[\s\S]*existing\?\.temporaryChatAvailable == true/,
-  "A false heartbeat must not erase a previously verified temporary-chat capability",
+  /temporaryChatAvailable:\s*[\s\S]*selectorPackCompatible\s*&&\s*body\['temporary_chat_available'\]\s*==\s*true/,
+  "Current page capability must be authoritative; stale success must not create a false-ready account",
 );
 assert.match(app, /requireReadyAccount:\s*true/);
 assert.match(app, /function geminiUnavailableReason\(\)/);

@@ -5875,7 +5875,7 @@ async function testGeminiWebImageIntegration(cdp) {
                     account_id: "gemini-account-qa",
                     audit: {
                       temporary_chat_verified: true, history_guard: "passed",
-                      selector_pack_version: "2026.07.29.1",
+                      selector_pack_version: "2026.07.30.2",
                       requested_model_mode: "pro", selected_model_mode: "pro",
                     },
                     result: { data: [{ url: "/v1/image-tasks/gemini_task_qa/files/0" }] },

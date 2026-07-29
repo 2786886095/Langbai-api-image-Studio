@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.6";
+const APP_VERSION = "1.6.7";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2038,9 +2038,10 @@ const IMAGE_ERROR_TEXT = Object.freeze({
     account_unavailable: "Gemini 账号尚未就绪",
     payload_too_large: "请求体过大",
     rate_limited: "上游限流或额度冷却",
-    upstream_disconnected: "ChatGPT 网页生图上游连接断开",
-    upstream_unavailable: "ChatGPT 网页生图暂不可用",
-    upstream_timeout: "ChatGPT 网页生图生成超时",
+    provider_ui_unavailable: "Gemini 网页界面能力不可用",
+    upstream_disconnected: "生图上游连接断开",
+    upstream_unavailable: "生图上游暂不可用",
+    upstream_timeout: "生图任务超时",
     decode_failed: "图片响应解码失败",
     unknown: "生图请求失败",
     editRequired: "请修改当前分镜提示词或参考图后再重试。",
@@ -2049,26 +2050,26 @@ const IMAGE_ERROR_TEXT = Object.freeze({
   }),
   "zh-Hant": Object.freeze({
     moderation_blocked: "內容審核攔截", invalid_parameters: "請求參數不受支援", authentication_failed: "驗證或帳號權限失敗", account_unavailable: "Gemini 帳號尚未就緒",
-    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "ChatGPT 網頁生圖上游連線中斷",
-    upstream_unavailable: "ChatGPT 網頁生圖暫時無法使用", upstream_timeout: "ChatGPT 網頁生圖生成逾時", decode_failed: "圖片回應解碼失敗",
+    payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", provider_ui_unavailable: "Gemini 網頁介面能力不可用", upstream_disconnected: "生圖上游連線中斷",
+    upstream_unavailable: "生圖上游暫時無法使用", upstream_timeout: "生圖任務逾時", decode_failed: "圖片回應解碼失敗",
     unknown: "生圖請求失敗", editRequired: "請修改目前分鏡提示詞或參考圖後再重試。", requestId: "請求 ID", violations: "審核類別",
   }),
   en: Object.freeze({
     moderation_blocked: "Blocked by content moderation", invalid_parameters: "Unsupported request parameters", authentication_failed: "Authentication or account access failed", account_unavailable: "Gemini account is not ready",
-    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "ChatGPT web image upstream connection closed",
-    upstream_unavailable: "ChatGPT web image gateway is unavailable", upstream_timeout: "ChatGPT web image generation timed out", decode_failed: "Image response decoding failed",
+    payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", provider_ui_unavailable: "Gemini web interface capability unavailable", upstream_disconnected: "Image generation upstream connection closed",
+    upstream_unavailable: "Image generation upstream is unavailable", upstream_timeout: "Image generation task timed out", decode_failed: "Image response decoding failed",
     unknown: "Image request failed", editRequired: "Edit this panel prompt or its references before retrying.", requestId: "Request ID", violations: "Safety categories",
   }),
   ja: Object.freeze({
     moderation_blocked: "コンテンツ審査でブロックされました", invalid_parameters: "未対応のリクエストパラメータ", authentication_failed: "認証またはアカウント権限エラー", account_unavailable: "Gemini アカウントの準備ができていません",
-    payload_too_large: "リクエストが大きすぎます", rate_limited: "上流のレート制限またはクォータ待機", upstream_disconnected: "OpenCodex 上流接続が切断されました",
-    upstream_unavailable: "OpenCodex 上流サービスを利用できません", upstream_timeout: "OpenCodex 上流生成がタイムアウトしました", decode_failed: "画像レスポンスのデコードに失敗しました",
+    payload_too_large: "リクエストが大きすぎます", rate_limited: "上流のレート制限またはクォータ待機", provider_ui_unavailable: "Gemini ウェブ画面の機能を利用できません", upstream_disconnected: "画像生成の上流接続が切断されました",
+    upstream_unavailable: "画像生成の上流サービスを利用できません", upstream_timeout: "画像生成タスクがタイムアウトしました", decode_failed: "画像レスポンスのデコードに失敗しました",
     unknown: "画像生成リクエストに失敗しました", editRequired: "このコマのプロンプトまたは参照画像を修正してから再試行してください。", requestId: "リクエスト ID", violations: "審査カテゴリ",
   }),
   ko: Object.freeze({
     moderation_blocked: "콘텐츠 검토에서 차단됨", invalid_parameters: "지원되지 않는 요청 매개변수", authentication_failed: "인증 또는 계정 권한 실패", account_unavailable: "Gemini 계정이 준비되지 않음",
-    payload_too_large: "요청 데이터가 너무 큼", rate_limited: "업스트림 속도 제한 또는 할당량 대기", upstream_disconnected: "OpenCodex 업스트림 연결 끊김",
-    upstream_unavailable: "OpenCodex 업스트림 서비스를 사용할 수 없음", upstream_timeout: "OpenCodex 업스트림 생성 시간 초과", decode_failed: "이미지 응답 디코딩 실패",
+    payload_too_large: "요청 데이터가 너무 큼", rate_limited: "업스트림 속도 제한 또는 할당량 대기", provider_ui_unavailable: "Gemini 웹 화면 기능을 사용할 수 없음", upstream_disconnected: "이미지 생성 업스트림 연결 끊김",
+    upstream_unavailable: "이미지 생성 업스트림 서비스를 사용할 수 없음", upstream_timeout: "이미지 생성 작업 시간 초과", decode_failed: "이미지 응답 디코딩 실패",
     unknown: "이미지 요청 실패", editRequired: "현재 컷 프롬프트나 참고 이미지를 수정한 뒤 다시 시도하세요.", requestId: "요청 ID", violations: "검토 범주",
   }),
 });
@@ -3055,6 +3056,9 @@ function geminiAccountAvailabilityText(account) {
   ) return geminiText("accountCooldown");
   if (account?.login_ready === false || ["needs_login", "session_expired"].includes(String(account?.status || ""))) {
     return geminiText("accountLoginRequired");
+  }
+  if (account?.temporary_chat_available === false) {
+    return currentLanguage === "en" ? "Temporary Chat unavailable" : "未检测到临时对话";
   }
   if (!isGeminiAccountReady(account)) return geminiText("accountPageNotReady");
   return geminiText("accountReady");
@@ -7372,7 +7376,7 @@ registerAdapter({
     const signal = options.signal;
     throwIfAborted(signal);
     if (Number(n) !== 1) throw new Error("Gemini web tasks require n=1; batch generation queues separate tasks");
-    if (!(await checkGeminiHealth({ announce: false, force: false }))) {
+    if (!(await checkGeminiHealth({ announce: false, force: true, requireReadyAccount: true }))) {
       throw new Error(geminiHealthDetail || "Gemini 内置浏览器不可用");
     }
     const geminiOptions = geminiImageSizes.normalizeOptions(

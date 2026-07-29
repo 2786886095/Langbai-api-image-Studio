@@ -9,13 +9,25 @@
 
   const TEMPORARY_CHAT_CHECKPOINT_KEY = "langbai_gemini_temporary_chat_checkpoint_v1";
   const SELECTORS = globalThis.LANGBAI_GEMINI_SELECTORS || Object.freeze({
-    version: "2026.07.29.1",
-    temporaryChat: ["Temporary chat", "临时对话", "臨時對話", "一時的なチャット", "임시 채팅"],
+    version: "2026.07.30.2",
+    temporaryChat: [
+      "Temporary chat", "Start temporary chat", "Turn on temporary chat",
+      "临时对话", "临时聊天", "发起临时对话", "发起临时聊天",
+      "臨時對話", "臨時聊天", "發起臨時對話", "發起臨時聊天",
+      "一時的なチャット", "一時チャット", "임시 채팅",
+    ],
     temporaryChatExit: [
       "Exit temporary chat", "Turn off temporary chat",
       "退出临时对话", "关闭临时对话", "結束臨時對話", "關閉臨時對話",
       "一時的なチャットを終了", "一時的なチャットをオフ",
       "임시 채팅 종료", "임시 채팅 끄기",
+    ],
+    temporaryChatCss: ['[data-test-id="temp-chat-button"]'],
+    temporaryChatActiveText: [
+      "Ask in a temporary chat", "Temporary chats aren't saved",
+      "在临时对话中提问", "在临时聊天中提问", "临时对话不会保存", "临时聊天不会保存",
+      "在臨時對話中提問", "在臨時聊天中提問", "臨時對話不會儲存", "臨時聊天不會儲存",
+      "一時的なチャットで質問", "一時チャットで質問", "임시 채팅에서 질문",
     ],
     imageAction: ["Create image", "Generate image", "生成图片", "產生圖片", "画像を生成", "이미지 생성"],
     send: ["Send message", "Submit", "发送", "傳送", "送信", "보내기"],
@@ -309,7 +321,13 @@
   }
 
   function normalizedText(element) {
-    return `${element?.getAttribute?.("aria-label") || ""} ${element?.textContent || ""}`.replace(/\s+/g, " ").trim();
+    return [
+      element?.getAttribute?.("aria-label") || "",
+      element?.getAttribute?.("title") || "",
+      element?.getAttribute?.("placeholder") || "",
+      element?.getAttribute?.("data-tooltip") || "",
+      element?.textContent || "",
+    ].join(" ").replace(/\s+/g, " ").trim();
   }
 
   function describeControl(element) {
@@ -343,7 +361,7 @@
     const matching = [...document.querySelectorAll(
       'button,[role="button"],[aria-label],[title],h1,h2,h3,[role="heading"]',
     )]
-      .filter(element => /temporary chat|临时对话|臨時對話|一時的なチャット|임시 채팅/i.test(normalizedText(element)))
+      .filter(element => /temporary chat|临时对话|临时聊天|臨時對話|臨時聊天|一時的なチャット|一時チャット|임시 채팅/i.test(normalizedText(element)))
       .slice(0, 20)
       .map(element => [
         element.tagName.toLowerCase(),
@@ -364,10 +382,57 @@
     };
   }
 
+  function candidatePattern(candidates = []) {
+    return candidates
+      .map(value => String(value || "").trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  function textMatchesCandidates(text, candidates = []) {
+    const normalized = String(text || "").toLowerCase();
+    return candidatePattern(candidates).some(candidate => normalized.includes(candidate));
+  }
+
+  function findTemporaryChatControl() {
+    for (const selector of SELECTORS.temporaryChatCss || []) {
+      const found = [...document.querySelectorAll(selector)].find(visible);
+      if (found) {
+        return found.closest("button,[role=button],a") || found;
+      }
+    }
+    return findByCandidates(
+      [
+        ...(SELECTORS.temporaryChat || []),
+        ...(SELECTORS.temporaryChatExit || []),
+      ],
+      'button,[role="button"],a,[data-test-id],[aria-label],[title]',
+    );
+  }
+
   function isTemporaryChatSurfaceActive() {
-    return [...document.querySelectorAll('h1,h2,h3,[role="heading"]')]
+    const control = findTemporaryChatControl();
+    if (control?.closest?.(
+      '[aria-pressed="true"],[aria-selected="true"],[aria-current="page"],[data-state="active"],[data-selected="true"]',
+    )) return true;
+    const activeCandidates = [
+      ...(SELECTORS.temporaryChatActiveText || []),
+      ...(SELECTORS.temporaryChatExit || []),
+    ];
+    return [...document.querySelectorAll(
+      'h1,h2,h3,[role="heading"],[role="status"],[aria-label],[title],[placeholder],[data-test-id]',
+    )]
       .filter(visible)
-      .some(element => /temporary chat|临时对话|臨時對話|一時的なチャット|임시 채팅/i.test(normalizedText(element)));
+      .some(element => textMatchesCandidates(normalizedText(element), activeCandidates));
+  }
+
+  async function waitForTemporaryChatSurface(timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
+    do {
+      const control = findTemporaryChatControl();
+      if (control || isTemporaryChatSurfaceActive()) return control;
+      await sleep(250);
+    } while (Date.now() < deadline);
+    return null;
   }
 
   async function activateControl(element) {
@@ -538,7 +603,7 @@
   }
 
   async function publishIdentity(config) {
-    const temporary = !!findByCandidates(SELECTORS.temporaryChat);
+    const temporary = !!findTemporaryChatControl() || isTemporaryChatSurfaceActive();
     const imageAction = !!findByCandidates(SELECTORS.imageAction);
     const status = findComposer() ? "ready" : "needs_login";
     const body = {
@@ -670,19 +735,26 @@
     const taskId = String(task?.id || "");
     const navigationCheckpoint = readTemporaryChatCheckpoint();
     if (navigationCheckpoint?.taskId === taskId) {
-      // Clicking Gemini's temporary-chat control performs a full document
-      // navigation in the current UI. The old JavaScript context disappears
-      // before it can observe aria-pressed. The gateway returns the same claim
-      // after reload, so this checkpoint is the verifiable continuation point.
+      // A checkpoint only proves that a click preceded document navigation. It
+      // does not prove Gemini actually entered Temporary Chat. Verify the new
+      // page before allowing the prompt to be submitted, otherwise a normal
+      // conversation can leak into Recent chats.
       clearTemporaryChatCheckpoint(taskId);
-      return true;
+      await waitForTemporaryChatSurface(8000);
+      if (isTemporaryChatSurfaceActive()) return true;
     }
     const allTemporaryChatLabels = [
       ...SELECTORS.temporaryChat,
       ...(SELECTORS.temporaryChatExit || []),
     ];
-    let button = findByCandidates(allTemporaryChatLabels);
-    if (!button) throw Object.assign(new Error("未识别到 Gemini 临时对话入口"), { code: "selector_pack_outdated" });
+    let button = findTemporaryChatControl() || await waitForTemporaryChatSurface(8000);
+    if (!button && isTemporaryChatSurfaceActive()) return true;
+    if (!button) {
+      throw Object.assign(
+        new Error("Gemini 页面已登录，但当前页面未提供临时对话入口；请确认这是个人 Google 账号，并重新检测内置浏览器。"),
+        { code: "gemini_temporary_chat_unavailable" },
+      );
+    }
     const isActive = element => {
       if (!(element instanceof Element)) return false;
       const stateNode = element.closest(
@@ -716,7 +788,7 @@
       const deadline = Date.now() + 6000;
       while (Date.now() < deadline) {
         await sleep(250);
-        button = findByCandidates(allTemporaryChatLabels);
+        button = findTemporaryChatControl();
         if (
           isActive(button)
           || isTemporaryChatSurfaceActive()
@@ -1416,7 +1488,12 @@
       }
     } catch (error) {
       if (error?.code === "task_cancelled") return;
-      const protocolFailure = ["temporary_chat_guard_failed", "temporary_chat_unverified", "selector_pack_outdated"].includes(error.code);
+      const protocolFailure = [
+        "temporary_chat_guard_failed",
+        "temporary_chat_unverified",
+        "selector_pack_outdated",
+        "gemini_temporary_chat_unavailable",
+      ].includes(error.code);
       const terminalStatus = protocolFailure
         ? "protocol_changed"
         : error.code === "gemini_login_required"

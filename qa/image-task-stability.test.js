@@ -42,6 +42,24 @@ test("Gemini account readiness is not mislabeled as quota exhaustion", () => {
   assert.equal(detail.pausesQueue, true);
 });
 
+test("Gemini page capability failures are not mislabeled as ChatGPT disconnects", () => {
+  for (const code of [
+    "selector_pack_outdated",
+    "gemini_temporary_chat_unavailable",
+    "temporary_chat_unverified",
+    "temporary_chat_guard_failed",
+  ]) {
+    const detail = stability.classifyApiError({
+      status: 502,
+      code,
+      message: "Gemini Temporary Chat is unavailable.",
+    });
+    assert.equal(detail.category, "provider_ui_unavailable");
+    assert.equal(detail.retryPolicy, "after_probe");
+    assert.equal(detail.pausesQueue, true);
+  }
+});
+
 test("actual dimensions are authoritative", () => {
   assert.equal(stability.evaluateDimensions("1024x1536", 1024, 1536).status, "exact");
   assert.equal(stability.evaluateDimensions("1024x1536", 864, 1821).status, "mismatch");

@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.6
+# Codex / Claude Handoff: AI 图片生成器 v1.6.7
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.6+83`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.7+84`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.7 Gemini 临时对话入口与假就绪修复
+
+- `gemini-selector-pack.js` 加入当前网页稳定入口 `[data-test-id="temp-chat-button"]`，并补齐简繁中文“临时聊天”、启用/退出文案及临时对话页面提示文本。
+- `gemini-embedded-worker.js` 的页面跳转检查点只表示“点击后发生过导航”，不再直接判定临时对话已启用；新页面必须通过按钮激活态、标题、状态文本或输入框提示再次验证。
+- `GeminiAccountMetadata.available` 重新要求当前页面确认 `temporaryChatAvailable`；网页探测同时识别稳定 data-test-id 和已激活页面，避免 v1.6.6 的瞬时控件误判与历史 true 值造成假就绪。
+- Gemini 选择器、临时对话校验及历史守卫错误归类为 `provider_ui_unavailable`，不会再因为 HTTP 502 被显示成 ChatGPT 上游断开。
+- 回归覆盖 `selector_pack_outdated`、`gemini_temporary_chat_unavailable`、`temporary_chat_unverified`、`temporary_chat_guard_failed`，并保持所有账号、API、历史、路径和缓存数据原位升级。
 
 ## v1.6.6 Gemini 账号就绪与批量 409 闪烁修复
 

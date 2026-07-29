@@ -15,7 +15,7 @@ const int _maxNativeTransportBytes = 96 * 1024 * 1024;
 const MethodChannel _geminiSessionChannel =
     MethodChannel('com.aigen.ai_image_generator/gemini_sessions');
 const String _geminiSessionStoragePrefix = 'gemini_web_session_v1:';
-const String _geminiEmbeddedSelectorPackVersion = '2026.07.29.1';
+const String _geminiEmbeddedSelectorPackVersion = '2026.07.30.2';
 
 typedef GeminiEmbeddedConfigLoader = Future<GeminiEmbeddedBrowserConfig>
     Function(String profileId);
@@ -455,9 +455,21 @@ Future<String> _loadInjectedWorker(
       element.getAttribute?.("aria-label"),
       element.getAttribute?.("title"),
     ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
-    const temporaryChatAvailable = interactive.some(element =>
-      /temporary chat|临时对话|臨時對話|一時的なチャット|임시 채팅/i.test(textOf(element))
+    const tempChatControl = onGemini && document.querySelector(
+      '[data-test-id="temp-chat-button"]'
     );
+    const tempChatSurface = onGemini && [
+      ...document.querySelectorAll(
+        'h1,h2,h3,[role="heading"],[role="status"],[aria-label],[title],[placeholder],[data-test-id]'
+      )
+    ].some(element =>
+      /temporary chat|临时对话|临时聊天|臨時對話|臨時聊天|一時的なチャット|一時チャット|임시 채팅/i.test(textOf(element))
+    );
+    const temporaryChatAvailable = !!tempChatControl ||
+      tempChatSurface ||
+      interactive.some(element =>
+        /temporary chat|临时对话|临时聊天|臨時對話|臨時聊天|一時的なチャット|一時チャット|임시 채팅/i.test(textOf(element))
+      );
     sendNative({
       source: "langbai-gemini-executor",
       type: "page_state",

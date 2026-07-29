@@ -2,7 +2,7 @@ import 'package:ai_image_generator/gemini_account_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('ready account defers temporary-chat verification to each task', () {
+  test('ready account requires current temporary-chat capability', () {
     const ready = GeminiAccountMetadata(
       localAccountId: 'account-a',
       status: 'ready',
@@ -14,9 +14,9 @@ void main() {
     expect(ready.available, isTrue);
     expect(
       ready.copyWith(temporaryChatAvailable: false).available,
-      isTrue,
+      isFalse,
       reason:
-          'Gemini can temporarily unmount the control; the worker verifies it when a task starts.',
+          'A signed-in page without Temporary Chat must not be shown as task-ready.',
     );
     expect(
       ready.copyWith(fullsizeDownloadAvailable: false).available,

@@ -55,6 +55,7 @@ class GeminiAccountMetadata {
       status == 'ready' &&
       quotaState != 'exhausted' &&
       !coolingDown &&
+      temporaryChatAvailable &&
       fullsizeDownloadAvailable;
 
   GeminiAccountMetadata copyWith({
