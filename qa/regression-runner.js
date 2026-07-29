@@ -214,7 +214,11 @@ async function loadFresh(cdp, query = "qa", viewport = { width: 1365, height: 76
       bodyLength: document.body?.textContent?.length || 0,
       startupErrors: window.__AI_GEN_STARTUP_ERRORS || [],
     }))()`).catch(err => ({ transientNavigationError: String(err?.message || err) }));
-    if (lastState?.readyState === "complete" && lastState.appReady && lastState.hasGenerateButton) {
+    // External font requests can legitimately keep document.readyState at
+    // "interactive" after the application has fully initialized. Product
+    // readiness is the explicit app flag plus required controls, not the
+    // browser's unrelated load event for optional network assets.
+    if (lastState?.readyState !== "loading" && lastState.appReady && lastState.hasGenerateButton) {
       await sleep(150);
       return;
     }

@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.3
+# Codex / Claude Handoff: AI 图片生成器 v1.6.4
 
 更新时间：2026-07-29
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,17 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.3+80`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.4+81`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.4 Gemini 真实生成与精确尺寸修复
+
+- Windows Gemini 隐藏 WebView 的临时对话、发送等控件改用 WebView2 CDP 可信鼠标事件；普通 `element.click()` 在当前 Gemini 页面可能被忽略。
+- 当前 Gemini Pro 页面不一定提供独立图片工具按钮，执行器会在找不到该按钮时发送明确的生图前缀，但不会改动用户原始提示词记录。
+- Google 图片地址优先在页面内下载；遇到 CORS/凭据限制时由 Windows 原生宿主下载，结果仍只上传到本机鉴权网关。
+- `gemini-embedded-worker.js` 在上传任务结果前按 `requested_size` 处理 `exact_output/local_4k_upscale`，使用等比安全区裁切或 contain，不做非等比拉伸。
+- `app.js` 的结果复核尺寸现在从实际提交的 Gemini task body 派生，修复“任务提交全局尺寸、预览却按旧 adapter size 处理”的错位。
+- 真实验收任务 `gemini_exact_ascii_1785335303976089` 已成功：缓存 PNG 为 `1024×1536`、2,327,569 字节、SHA-256 `1cff4894374a4f57bf526cc6f45f72f723fe958a8ca7d3cf5c6929b188f66402`。
+- 分支 CI `30457603230` 已验证质量门、Windows、Android、macOS、iOS 全部成功；正式发布仍应以 `main` 对应版本 CI 为准。
 
 ## v1.6.3 Gemini 任务续接与全局分辨率
 
