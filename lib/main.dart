@@ -1921,19 +1921,18 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           suspendDuringDeactive: false,
         ),
       );
-      await Future.wait(<Future<void>>[
-        first.setJavaScriptMode(mobile_webview.JavaScriptMode.unrestricted),
-        second.setJavaScriptMode(mobile_webview.JavaScriptMode.unrestricted),
-      ]);
       final probeUrl = Uri.parse('http://127.0.0.1:${server.port}/probe');
-      await Future.wait(<Future<void>>[
-        first.loadRequest(probeUrl),
-        second.loadRequest(probeUrl),
-      ]);
-      await Future.wait(<Future<void>>[
-        _waitForProbeDocument(first),
-        _waitForProbeDocument(second),
-      ]);
+      // The Windows plugin initializes profile controllers through one native
+      // WebView2 environment. Concurrent setup is racy on cold CI machines and
+      // can fail before the isolation assertion runs, so initialize each
+      // profile deterministically while keeping both alive for cross-checking.
+      await first.setJavaScriptMode(mobile_webview.JavaScriptMode.unrestricted);
+      await first.loadRequest(probeUrl);
+      await _waitForProbeDocument(first);
+      await second
+          .setJavaScriptMode(mobile_webview.JavaScriptMode.unrestricted);
+      await second.loadRequest(probeUrl);
+      await _waitForProbeDocument(second);
       const key = '__langbai_webview_profile_isolation_probe';
       await first.runJavaScript(
         "localStorage.removeItem('$key'); localStorage.setItem('$key', 'A');",
