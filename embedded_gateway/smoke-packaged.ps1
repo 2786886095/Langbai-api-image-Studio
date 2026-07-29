@@ -21,6 +21,12 @@ $apiKey = -join ((1..64) | ForEach-Object { "0123456789abcdef"[(Get-Random -Maxi
 $bridgeSecret = -join ((1..64) | ForEach-Object { "0123456789abcdef"[(Get-Random -Maximum 16)] })
 $dataDir = Join-Path $env:TEMP "langbai-gateway-smoke-$([Guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+$smokeImage = Join-Path $dataDir "images\smoke\route-check.png"
+New-Item -ItemType Directory -Force -Path (Split-Path $smokeImage) | Out-Null
+[System.IO.File]::WriteAllBytes(
+  $smokeImage,
+  [byte[]](137, 80, 78, 71, 13, 10, 26, 10, 76, 65, 78, 71, 66, 65, 73, 45, 82, 79, 85, 84, 69)
+)
 
 $oldEnvironment = @{}
 $gatewayEnvironment = @{
@@ -56,6 +62,25 @@ try {
   }
   if ($health.status -ne "ok" -or $health.service -ne "langbai-chatgpt-web-image-gateway") {
     throw "Gateway health response was invalid."
+  }
+
+  $downloadedImage = Join-Path $dataDir "downloaded-route-check.png"
+  Invoke-WebRequest "$base/images/smoke/route-check.png" -OutFile $downloadedImage -TimeoutSec 5
+  $sourceHash = (Get-FileHash -LiteralPath $smokeImage -Algorithm SHA256).Hash
+  $downloadHash = (Get-FileHash -LiteralPath $downloadedImage -Algorithm SHA256).Hash
+  if ($sourceHash -ne $downloadHash) {
+    throw "Gateway image route did not return the persisted image bytes."
+  }
+
+  $missingImageStatus = 0
+  try {
+    Invoke-WebRequest "$base/images/smoke/missing.png" -TimeoutSec 5 | Out-Null
+    $missingImageStatus = 200
+  } catch {
+    $missingImageStatus = [int]$_.Exception.Response.StatusCode
+  }
+  if ($missingImageStatus -ne 404) {
+    throw "Missing gateway image must return HTTP 404; got $missingImageStatus."
   }
 
   $headers = @{ Authorization = "Bearer $apiKey" }
@@ -94,7 +119,7 @@ try {
     throw "Text API must remain absent; got HTTP $textStatus."
   }
 
-  Write-Host "Embedded gateway smoke passed: port=$port image_only=$($capabilities.image_only) text_http=$textStatus"
+  Write-Host "Embedded gateway smoke passed: port=$port image_route=ok image_only=$($capabilities.image_only) text_http=$textStatus"
 } finally {
   if ($process -and -not $process.HasExited) {
     Stop-Process -Id $process.Id -Force

@@ -66,10 +66,11 @@ def create_app():
 
     from api import browser_session, langbai_compat
     from api.errors import install_exception_handlers
+    from services.image_service import get_image_response, get_thumbnail_response
 
     app = FastAPI(
         title="Langbai Embedded ChatGPT Image Gateway",
-        version="1.5.2",
+        version="1.5.3",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -77,6 +78,19 @@ def create_app():
     install_exception_handlers(app)
     app.include_router(browser_session.create_router())
     app.include_router(langbai_compat.create_router())
+
+    # Generated results are persisted below CHATGPT2API_DATA_DIR/images and
+    # returned as loopback /images/... URLs. The bundled image-only launcher
+    # deliberately does not include the full administration router, so expose
+    # only the two read-only image routes needed by preview, reload and save.
+    @app.get("/images/{image_path:path}", include_in_schema=False)
+    async def get_image(image_path: str):
+        return get_image_response(image_path)
+
+    @app.get("/image-thumbnails/{image_path:path}", include_in_schema=False)
+    async def get_image_thumbnail(image_path: str):
+        return get_thumbnail_response(image_path)
+
     return app
 
 
