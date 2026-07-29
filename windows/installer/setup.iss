@@ -70,21 +70,6 @@ begin
   Result := ExpandConstant('{app}\chatgpt_gateway\{#MyGatewayExeName}');
 end;
 
-function IsFileExclusivelyAvailable(const FileName: String): Boolean;
-var
-  Handle: Integer;
-begin
-  if not FileExists(FileName) then
-  begin
-    Result := True;
-    exit;
-  end;
-  Handle := FileOpen(FileName, fmOpenReadWrite or fmShareExclusive);
-  Result := Handle >= 0;
-  if Result then
-    FileClose(Handle);
-end;
-
 function StopBundledGateway(): String;
 var
   TargetPath: String;
@@ -92,7 +77,6 @@ var
   ScriptPath: String;
   Script: String;
   ResultCode: Integer;
-  Attempt: Integer;
 begin
   Result := '';
   TargetPath := GatewayExecutablePath();
@@ -109,7 +93,13 @@ begin
     '  $matches = @(Get-CimInstance Win32_Process -Filter "Name=''{#MyGatewayExeName}''" | ' +
       'Where-Object { $_.ExecutablePath -and ([IO.Path]::GetFullPath($_.ExecutablePath) -eq $target) })' + #13#10 +
     '  foreach ($item in $matches) { Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop }' + #13#10 +
-    '  if ($matches.Count -eq 0) { exit 0 }' + #13#10 +
+    '  if ($matches.Count -eq 0) {' + #13#10 +
+    '    try {' + #13#10 +
+    '      $stream = [IO.File]::Open($target, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)' + #13#10 +
+    '      $stream.Dispose()' + #13#10 +
+    '      exit 0' + #13#10 +
+    '    } catch {}' + #13#10 +
+    '  }' + #13#10 +
     '  Start-Sleep -Milliseconds 200' + #13#10 +
     '} while ([DateTime]::UtcNow -lt $deadline)' + #13#10 +
     'exit 23' + #13#10;
@@ -136,14 +126,6 @@ begin
     Result := '内置生图网关仍在运行，请关闭软件后重试。';
     exit;
   end;
-
-  for Attempt := 1 to 30 do
-  begin
-    if IsFileExclusivelyAvailable(TargetPath) then
-      exit;
-    Sleep(200);
-  end;
-  Result := '内置生图网关文件仍被占用，请关闭软件后重试。';
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

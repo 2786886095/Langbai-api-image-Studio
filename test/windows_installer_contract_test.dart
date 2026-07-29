@@ -13,7 +13,8 @@ void main() {
     expect(source, contains('ShouldOfferInteractiveLaunch'));
     expect(source, contains('IsLangbaiLaunchRequested'));
     expect(source, contains(r'$_.ExecutablePath'));
-    expect(source, contains('IsFileExclusivelyAvailable'));
+    expect(source, contains('[IO.File]::Open'));
+    expect(source, contains('[IO.FileShare]::None'));
     expect(source, isNot(contains('/F /IM "{#MyGatewayExeName}"')));
   });
 }
