@@ -86,4 +86,17 @@ test("uses the Windows native input bridge for Gemini controls", () => {
   assert.doesNotMatch(worker, /\bsend\.click\(\)/);
 });
 
+test("writes exact global dimensions into the cached Gemini task result", () => {
+  const worker = fs.readFileSync(
+    path.join(__dirname, "..", "gemini-embedded-worker.js"),
+    "utf8",
+  );
+  assert.match(worker, /async function transformForRequestedOutput\(blob, request = \{\}\)/);
+  assert.match(worker, /\["exact_output", "local_4k_upscale"\]\.includes\(sizeMode\)/);
+  assert.match(worker, /context\.drawImage\(decoded\.source, \.\.\.sourceRect, \.\.\.targetRect\)/);
+  assert.match(worker, /const processed = await transformForRequestedOutput\(downloadedBlob, request\)/);
+  assert.match(worker, /final_size: `\$\{processed\.final\.width\}x\$\{processed\.final\.height\}`/);
+  assert.match(worker, /body: blob/);
+});
+
 console.log("\nGemini web adapter tests passed.");

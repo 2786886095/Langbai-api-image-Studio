@@ -6015,9 +6015,11 @@ async function testGeminiWebImageIntegration(cdp) {
       result.meta?.audit?.temporaryChatVerified
         && result.meta?.audit?.historyGuard === "passed"
         && result.meta?.response?.nativeSize === "1x1"
+        && result.meta?.response?.finalSize === result.globalSize
+        && /resample|crop|contain/i.test(result.meta?.response?.dimensionAction || "")
         && result.concurrency === 1
         && result.pollCount === 2,
-      "Gemini audit metadata must preserve temporary-chat verification and decoded dimensions, while transient poll failures keep the original task alive.",
+      "Gemini audit metadata must preserve temporary-chat verification, decode the native dimensions, and convert the final image to the app-wide resolution while transient poll failures keep the original task alive.",
       result,
     );
     assertQa(

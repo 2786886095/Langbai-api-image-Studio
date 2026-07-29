@@ -948,6 +948,143 @@
     return best;
   }
 
+  function requestedOutputSize(request = {}) {
+    const width = Math.round(Number(request.requested_size?.width || 0));
+    const height = Math.round(Number(request.requested_size?.height || 0));
+    if (
+      !Number.isFinite(width)
+      || !Number.isFinite(height)
+      || width < 1
+      || height < 1
+      || width > 8192
+      || height > 8192
+      || width * height > 40_000_000
+    ) {
+      throw Object.assign(new Error("全局分辨率无效或超出本地处理上限"), {
+        code: "invalid_output_dimensions",
+      });
+    }
+    return { width, height };
+  }
+
+  async function decodeImageBlob(blob) {
+    if (typeof createImageBitmap === "function") {
+      const bitmap = await createImageBitmap(blob);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => bitmap.close(),
+      };
+    }
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.decoding = "async";
+    try {
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error("Gemini full-size image could not be decoded"));
+        image.src = url;
+      });
+      return {
+        source: image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        close: () => URL.revokeObjectURL(url),
+      };
+    } catch (error) {
+      URL.revokeObjectURL(url);
+      throw error;
+    }
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        blob => blob
+          ? resolve(blob)
+          : reject(Object.assign(new Error("精确尺寸图片编码失败"), { code: "image_encode_failed" })),
+        "image/png",
+      );
+    });
+  }
+
+  async function transformForRequestedOutput(blob, request = {}) {
+    const decoded = await decodeImageBlob(blob);
+    const source = { width: decoded.width, height: decoded.height };
+    try {
+      const sizeMode = String(request.size_mode || "native_fullsize");
+      if (!["exact_output", "local_4k_upscale"].includes(sizeMode)) {
+        return {
+          blob,
+          source,
+          final: source,
+          transform: "none",
+        };
+      }
+
+      const target = requestedOutputSize(request);
+      if (source.width === target.width && source.height === target.height) {
+        return {
+          blob,
+          source,
+          final: target,
+          transform: "none",
+        };
+      }
+
+      const cropMode = request.crop_mode === "contain" ? "contain" : "smart_cover";
+      const canvas = document.createElement("canvas");
+      canvas.width = target.width;
+      canvas.height = target.height;
+      const context = canvas.getContext("2d", { alpha: true });
+      if (!context) {
+        throw Object.assign(new Error("当前内置浏览器不支持图片尺寸处理"), {
+          code: "canvas_unavailable",
+        });
+      }
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+
+      let sourceRect = [0, 0, source.width, source.height];
+      let targetRect = [0, 0, target.width, target.height];
+      let transform = "safe_zone_center_crop+high_quality_resample";
+      if (cropMode === "contain") {
+        const scale = Math.min(target.width / source.width, target.height / source.height);
+        const drawWidth = Math.max(1, Math.round(source.width * scale));
+        const drawHeight = Math.max(1, Math.round(source.height * scale));
+        targetRect = [
+          Math.floor((target.width - drawWidth) / 2),
+          Math.floor((target.height - drawHeight) / 2),
+          drawWidth,
+          drawHeight,
+        ];
+        context.clearRect(0, 0, target.width, target.height);
+        transform = "contain+high_quality_resample";
+      } else {
+        const scale = Math.max(target.width / source.width, target.height / source.height);
+        const cropWidth = Math.min(source.width, target.width / scale);
+        const cropHeight = Math.min(source.height, target.height / scale);
+        sourceRect = [
+          Math.max(0, Math.round((source.width - cropWidth) / 2)),
+          Math.max(0, Math.round((source.height - cropHeight) / 2)),
+          Math.max(1, Math.round(cropWidth)),
+          Math.max(1, Math.round(cropHeight)),
+        ];
+      }
+
+      context.drawImage(decoded.source, ...sourceRect, ...targetRect);
+      return {
+        blob: await canvasToPngBlob(canvas),
+        source,
+        final: target,
+        transform,
+      };
+    } finally {
+      decoded.close();
+    }
+  }
+
   async function event(task, status, error = null, audit = null) {
     const response = await bridgeFetch(`companion/tasks/${encodeURIComponent(task.id)}/events`, {
       method: "POST",
@@ -1006,7 +1143,9 @@
         () => event(task, "generating"),
       );
       await event(task, "locating_full_size");
-      const blob = await fetchFullsize(image);
+      const downloadedBlob = await fetchFullsize(image);
+      const processed = await transformForRequestedOutput(downloadedBlob, request);
+      const blob = processed.blob;
       const after = historyDigest();
       const historyGuard = before.count === after.count && before.digest === after.digest ? "passed" : "failed";
       if (historyGuard !== "passed") {
@@ -1020,9 +1159,9 @@
         history_count_before: before.count,
         history_count_after: after.count,
         requested_size: `${request.requested_size?.width || 0}x${request.requested_size?.height || 0}`,
-        downloaded_fullsize: `${image.naturalWidth}x${image.naturalHeight}`,
-        final_size: `${image.naturalWidth}x${image.naturalHeight}`,
-        transform: "none",
+        downloaded_fullsize: `${processed.source.width}x${processed.source.height}`,
+        final_size: `${processed.final.width}x${processed.final.height}`,
+        transform: processed.transform,
       };
       const auditHeader = btoa(unescape(encodeURIComponent(JSON.stringify(audit)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
       const result = await bridgeFetch(`companion/tasks/${encodeURIComponent(task.id)}/result`, {

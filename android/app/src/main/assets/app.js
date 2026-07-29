@@ -7205,12 +7205,22 @@ registerAdapter({
     const geminiOptions = geminiImageSizes.normalizeOptions(
       options.geminiWebOptions || getGeminiWebOptions(),
     );
-    const resolved = geminiImageSizes.resolveRequest({ ...geminiOptions, targetSize: size });
     const built = geminiWebImage.buildTaskRequest({
       prompt,
       size,
       refs: hasRef ? refs : [],
       options: geminiOptions,
+    });
+    // The Gemini provider deliberately follows the app-wide resolution stored
+    // in geminiOptions. Derive post-processing from the exact submitted task
+    // instead of the generic adapter's legacy `size` argument, otherwise the
+    // gateway and the final preview can silently use different dimensions.
+    const resolved = geminiImageSizes.resolveRequest({
+      ...geminiOptions,
+      targetSize: `${built.requested_size.width}x${built.requested_size.height}`,
+      sizeMode: built.size_mode,
+      cropMode: built.crop_mode,
+      qualityIntent: built.quality_intent,
     });
     const startedAt = Date.now();
     const requestAudit = await imageTaskStability.buildRequestAudit({
