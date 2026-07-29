@@ -50,6 +50,10 @@ public:
 	virtual HRESULT loadUrl(LPCWSTR url) = 0;
 	virtual HRESULT loadHtmlString(LPCWSTR html) = 0;
 	virtual HRESULT runJavascript(LPCWSTR javaScriptString, bool ignoreResult = true, std::function<void(std::string)> callback = NULL) = 0;
+	virtual HRESULT dispatchTrustedMouseClick(
+		double x,
+		double y,
+		std::function<void(HRESULT, std::string)> callback) = 0;
 	virtual HRESULT addScriptToExecuteOnDocumentCreated(
 		LPCWSTR javaScriptString,
 		std::function<void(HRESULT)> callback) = 0;

@@ -1098,11 +1098,15 @@ class _GeminiWindowsEmbeddedBrowserState
   Future<void> _syncVisibility() async {
     final controller = _controller;
     if (controller == null) return;
-    final visible =
+    final loginVisible =
         widget.requestController.visible && !widget.windowSuppressed;
     try {
-      await controller.setVisibility(visible);
-      if (visible) await controller.requestFocus();
+      // The executor must retain a real, non-zero WebView2 viewport while the
+      // login surface is collapsed. Gemini ignores critical controls when the
+      // controller is hidden or reduced to 0x0. build() moves the live native
+      // view off-screen instead of deactivating it.
+      await controller.setVisibility(true);
+      if (loginVisible) await controller.requestFocus();
     } catch (error) {
       debugPrint('Cannot update Gemini WebView visibility: $error');
     }
@@ -1111,6 +1115,10 @@ class _GeminiWindowsEmbeddedBrowserState
   Future<void> _handleMessage(Object? raw) async {
     final message = _decodeNativeMessage(raw);
     if (message == null || message['source'] != 'langbai-gemini-executor') {
+      return;
+    }
+    if (message['type'] == 'trusted-click-request') {
+      await _handleTrustedClickRequest(message);
       return;
     }
     if (message['type'] == 'native-request') {
@@ -1198,6 +1206,51 @@ class _GeminiWindowsEmbeddedBrowserState
     );
   }
 
+  Future<void> _handleTrustedClickRequest(
+    Map<String, dynamic> message,
+  ) async {
+    final requestId = message['requestId']?.toString() ?? '';
+    final controller = _controller;
+    if (requestId.isEmpty || controller == null) return;
+    Map<String, Object?> response;
+    try {
+      final x = double.tryParse(message['x']?.toString() ?? '');
+      final y = double.tryParse(message['y']?.toString() ?? '');
+      if (x == null ||
+          y == null ||
+          !x.isFinite ||
+          !y.isFinite ||
+          x < 0 ||
+          y < 0) {
+        throw const FormatException(
+          'Trusted-click CSS coordinates are invalid.',
+        );
+      }
+      await controller.dispatchTrustedMouseClick(x, y);
+      response = <String, Object?>{
+        'source': 'langbai-gemini-native',
+        'type': 'native-response',
+        'requestId': requestId,
+        'response': <String, Object?>{'ok': true},
+      };
+    } catch (error) {
+      response = <String, Object?>{
+        'source': 'langbai-gemini-native',
+        'type': 'native-response',
+        'requestId': requestId,
+        'error': <String, Object?>{
+          'code': error is PlatformException
+              ? error.code
+              : 'gemini_trusted_click_failed',
+          'message': error.toString(),
+        },
+      };
+    }
+    await controller.runJavaScript(
+      'window.postMessage(${jsonEncode(response)}, "*");',
+    );
+  }
+
   Future<void> _emit(Map<String, Object?> event) async {
     if (mounted) setState(() => _status = _statusText(event));
     await widget.onEvent(event);
@@ -1217,26 +1270,44 @@ class _GeminiWindowsEmbeddedBrowserState
     final visible =
         widget.requestController.visible && !widget.windowSuppressed;
     final controller = _controller;
-    if (!visible) return const SizedBox.shrink();
-    return ColoredBox(
-      color: Colors.white,
-      child: Column(
-        children: [
-          _GeminiBrowserToolbar(
-            status: _status,
-            onBack: () => unawaited(_goBackOrClose()),
-            onReload: () {
-              if (controller != null) unawaited(controller.reload());
-            },
-            onClose: widget.requestController.collapse,
+    if (controller == null) {
+      return visible
+          ? const ColoredBox(
+              color: Colors.white,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : const SizedBox.shrink();
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: visible ? 0 : -1400,
+          top: visible ? 52 : 0,
+          right: visible ? 0 : null,
+          bottom: visible ? 0 : null,
+          width: visible ? null : 1280,
+          height: visible ? null : 720,
+          child: IgnorePointer(
+            ignoring: !visible,
+            child: windows_webview.WinWebViewWidget(controller: controller),
           ),
-          Expanded(
-            child: controller == null
-                ? const Center(child: CircularProgressIndicator())
-                : windows_webview.WinWebViewWidget(controller: controller),
+        ),
+        if (visible)
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            child: _GeminiBrowserToolbar(
+              status: _status,
+              onBack: () => unawaited(_goBackOrClose()),
+              onReload: () {
+                unawaited(controller.reload());
+              },
+              onClose: widget.requestController.collapse,
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }

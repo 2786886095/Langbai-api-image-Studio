@@ -88,6 +88,14 @@ abstract class WebviewWinFloatingPlatform extends PlatformInterface {
     throw UnimplementedError();
   }
 
+  Future<void> dispatchTrustedMouseClick(
+    int webviewId,
+    double x,
+    double y,
+  ) {
+    throw UnimplementedError();
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,

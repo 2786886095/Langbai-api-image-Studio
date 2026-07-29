@@ -248,6 +248,19 @@ class MethodChannelWebviewWinFloating extends WebviewWinFloatingPlatform {
   }
 
   @override
+  Future<void> dispatchTrustedMouseClick(
+    int webviewId,
+    double x,
+    double y,
+  ) async {
+    await methodChannel.invokeMethod<void>('dispatchTrustedMouseClick', {
+      "webviewId": webviewId,
+      "x": x,
+      "y": y,
+    });
+  }
+
+  @override
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,

@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const sizes = require("../gemini-image-size-registry.js");
 const adapter = require("../gemini-web-image-adapter.js");
 
@@ -67,6 +69,20 @@ test("validates companion capabilities and produces a safe audit", () => {
   });
   assert.equal(audit.accountSuffix, "t-id");
   assert.equal(JSON.stringify(audit).includes("secret"), false);
+});
+
+test("uses the Windows native input bridge for Gemini controls", () => {
+  const worker = fs.readFileSync(
+    path.join(__dirname, "..", "gemini-embedded-worker.js"),
+    "utf8",
+  );
+  assert.match(worker, /"trusted-click-request"/);
+  assert.match(worker, /await activateControl\(button\)/);
+  assert.match(worker, /await activateControl\(action\)/);
+  assert.match(worker, /await activateControl\(send\)/);
+  assert.doesNotMatch(worker, /\bbutton\.click\(\)/);
+  assert.doesNotMatch(worker, /\baction\.click\(\)/);
+  assert.doesNotMatch(worker, /\bsend\.click\(\)/);
 });
 
 console.log("\nGemini web adapter tests passed.");

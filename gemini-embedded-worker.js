@@ -11,6 +11,12 @@
   const SELECTORS = globalThis.LANGBAI_GEMINI_SELECTORS || Object.freeze({
     version: "2026.07.29.1",
     temporaryChat: ["Temporary chat", "临时对话", "臨時對話", "一時的なチャット", "임시 채팅"],
+    temporaryChatExit: [
+      "Exit temporary chat", "Turn off temporary chat",
+      "退出临时对话", "关闭临时对话", "結束臨時對話", "關閉臨時對話",
+      "一時的なチャットを終了", "一時的なチャットをオフ",
+      "임시 채팅 종료", "임시 채팅 끄기",
+    ],
     imageAction: ["Create image", "Generate image", "生成图片", "產生圖片", "画像を生成", "이미지 생성"],
     send: ["Send message", "Submit", "发送", "傳送", "送信", "보내기"],
     fullsize: ["Download full size", "Download original", "下载完整尺寸", "下載完整尺寸", "元のサイズをダウンロード", "전체 크기 다운로드"],
@@ -182,12 +188,12 @@
     });
   }
 
-  async function postMessageNativeRequest(payload, timeoutMs) {
+  async function postMessageNativeCommand(type, payload, timeoutMs) {
     const requestId = `gemini_native_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         removeEventListener("message", listener);
-        reject(Object.assign(new Error("Native transport RPC timed out"), { code: "gemini_native_transport_timeout" }));
+        reject(Object.assign(new Error("Native command timed out"), { code: "gemini_native_command_timeout" }));
       }, timeoutMs);
       const listener = event => {
         const data = event?.data;
@@ -201,21 +207,28 @@
         if (data.error) {
           reject(Object.assign(
             new Error(data.error.message || data.error),
-            { code: data.error.code || "gemini_native_transport_failed" },
+            { code: data.error.code || "gemini_native_command_failed" },
           ));
           return;
         }
-        try { resolve(nativeResponse(data.response)); }
-        catch (error) { reject(error); }
+        resolve(data.response);
       };
       addEventListener("message", listener);
       postMessage({
         source: "langbai-gemini-executor",
-        type: "native-request",
+        type,
         requestId,
-        payload,
+        ...(type === "native-request" ? { payload } : payload),
       }, "*");
     });
+  }
+
+  async function postMessageNativeRequest(payload, timeoutMs) {
+    return nativeResponse(await postMessageNativeCommand(
+      "native-request",
+      payload,
+      timeoutMs,
+    ));
   }
 
   async function nativeTransportFetch(url, options, config) {
@@ -289,6 +302,82 @@
 
   function normalizedText(element) {
     return `${element?.getAttribute?.("aria-label") || ""} ${element?.textContent || ""}`.replace(/\s+/g, " ").trim();
+  }
+
+  function describeControl(element) {
+    if (!(element instanceof Element)) return null;
+    const rect = element.getBoundingClientRect();
+    return {
+      tag: element.tagName.toLowerCase(),
+      role: element.getAttribute("role") || "",
+      ariaLabel: element.getAttribute("aria-label") || "",
+      ariaPressed: element.getAttribute("aria-pressed") || "",
+      ariaSelected: element.getAttribute("aria-selected") || "",
+      ariaExpanded: element.getAttribute("aria-expanded") || "",
+      dataState: element.getAttribute("data-state") || "",
+      disabled: element.matches(":disabled,[aria-disabled=true]"),
+      className: String(element.className || "").slice(0, 240),
+      rect: {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      },
+    };
+  }
+
+  async function activateControl(element) {
+    if (!(element instanceof Element)) {
+      throw Object.assign(
+        new Error("The requested Gemini control is missing."),
+        { code: "gemini_control_missing" },
+      );
+    }
+    const config = readEmbeddedConfig() || {};
+    const platform = String(config.platform || "").toLowerCase();
+    if (!config.embedded || platform !== "windows") {
+      element.click();
+      return;
+    }
+    if (element.matches(":disabled,[aria-disabled=true]")) {
+      throw Object.assign(
+        new Error("The requested Gemini control is disabled."),
+        { code: "gemini_control_disabled" },
+      );
+    }
+    element.scrollIntoView({ block: "center", inline: "center" });
+    await sleep(80);
+    const rect = element.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    if (
+      rect.width <= 0
+      || rect.height <= 0
+      || x < 0
+      || y < 0
+      || x >= innerWidth
+      || y >= innerHeight
+    ) {
+      throw Object.assign(
+        new Error(`Gemini control is outside the active viewport: ${JSON.stringify(describeControl(element))}`),
+        { code: "gemini_control_outside_viewport" },
+      );
+    }
+    const hit = document.elementFromPoint(x, y);
+    if (!(hit instanceof Element) || !(hit === element || element.contains(hit) || hit.contains(element))) {
+      throw Object.assign(
+        new Error(
+          `Gemini control is covered by another element: target=${JSON.stringify(describeControl(element))}`
+          + ` hit=${JSON.stringify(describeControl(hit))}`,
+        ),
+        { code: "gemini_control_occluded" },
+      );
+    }
+    await postMessageNativeCommand(
+      "trusted-click-request",
+      { x, y },
+      10000,
+    );
   }
 
   function findByCandidates(candidates, selector = "button,[role=button],a") {
@@ -544,30 +633,58 @@
       clearTemporaryChatCheckpoint(taskId);
       return true;
     }
-    let button = findByCandidates(SELECTORS.temporaryChat);
+    const allTemporaryChatLabels = [
+      ...SELECTORS.temporaryChat,
+      ...(SELECTORS.temporaryChatExit || []),
+    ];
+    let button = findByCandidates(allTemporaryChatLabels);
     if (!button) throw Object.assign(new Error("未识别到 Gemini 临时对话入口"), { code: "selector_pack_outdated" });
     const isActive = element => {
       if (!(element instanceof Element)) return false;
       const stateNode = element.closest(
         '[aria-pressed="true"],[aria-selected="true"],[aria-current="page"],[data-state="active"],[data-selected="true"]',
       );
-      return !!stateNode || /\b(active|selected|checked)\b/i.test(String(element.className || ""));
+      const text = normalizedText(element).toLowerCase();
+      const exitLabel = (SELECTORS.temporaryChatExit || [])
+        .some(candidate => text.includes(candidate.toLowerCase()));
+      return !!stateNode
+        || exitLabel
+        || /\b(active|selected|checked|toggled)\b/i.test(String(element.className || ""));
     };
     if (!isActive(button)) {
+      const beforeUrl = location.href;
+      const beforeText = normalizedText(button);
       writeTemporaryChatCheckpoint(taskId);
-      button.click();
+      await activateControl(button);
       const deadline = Date.now() + 6000;
       while (Date.now() < deadline) {
         await sleep(250);
-        button = findByCandidates(SELECTORS.temporaryChat);
-        if (isActive(button)) {
+        button = findByCandidates(allTemporaryChatLabels);
+        if (isActive(button) || location.href !== beforeUrl) {
           clearTemporaryChatCheckpoint(taskId);
           return true;
         }
       }
       clearTemporaryChatCheckpoint(taskId);
+      const afterText = normalizedText(button);
+      const overlays = [...document.querySelectorAll(
+        '[role="dialog"],[role="menu"],[role="menuitem"],[aria-modal="true"]',
+      )]
+        .filter(visible)
+        .slice(0, 12)
+        .map(element => ({
+          role: element.getAttribute("role") || "",
+          text: normalizedText(element).slice(0, 180),
+        }));
       throw Object.assign(
-        new Error("已点击临时对话，但页面没有返回可验证的启用状态；任务未提交，以避免写入普通历史"),
+        new Error(
+          `已点击临时对话，但页面没有返回可验证的启用状态；任务未提交，以避免写入普通历史。`
+          + ` before=${JSON.stringify(beforeText.slice(0, 160))}`
+          + ` after=${JSON.stringify(afterText.slice(0, 160))}`
+          + ` urlChanged=${location.href !== beforeUrl}`
+          + ` control=${JSON.stringify(describeControl(button))}`
+          + ` overlays=${JSON.stringify(overlays)}`,
+        ),
         { code: "temporary_chat_unverified" },
       );
     }
@@ -577,18 +694,18 @@
   async function enableImageAction() {
     let action = findByCandidates(SELECTORS.imageAction);
     if (action) {
-      action.click();
+      await activateControl(action);
       await sleep(500);
       return;
     }
     const tools = findByCandidates(["Tools", "工具", "ツール", "도구"]);
     if (tools) {
-      tools.click();
+      await activateControl(tools);
       await sleep(500);
       action = findByCandidates(SELECTORS.imageAction);
     }
     if (!action) throw Object.assign(new Error("未识别到 Gemini 生图入口"), { code: "image_action_missing" });
-    action.click();
+    await activateControl(action);
     await sleep(500);
   }
 
@@ -753,7 +870,7 @@
       setComposerText(composer, request.prompt || "");
       await sleep(300);
       const send = findByCandidates(SELECTORS.send);
-      if (send) send.click();
+      if (send) await activateControl(send);
       else composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
       await event(task, "generating");
       const image = await waitForGeneratedImage(

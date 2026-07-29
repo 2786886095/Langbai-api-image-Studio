@@ -528,6 +528,19 @@ class WinWebViewController {
         .runJavaScriptReturningResult(_webviewId, javaScriptString);
   }
 
+  /// Sends a Chromium mouse move/down/up sequence at CSS viewport coordinates.
+  ///
+  /// Unlike HTMLElement.click(), the resulting DOM events travel through the
+  /// browser input pipeline. This is Windows-only.
+  Future<void> dispatchTrustedMouseClick(double x, double y) async {
+    await _initFuture;
+    await WebviewWinFloatingPlatform.instance.dispatchTrustedMouseClick(
+      _webviewId,
+      x,
+      y,
+    );
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     String javaScriptString,
   ) async {

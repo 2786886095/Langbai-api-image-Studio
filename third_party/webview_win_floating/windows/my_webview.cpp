@@ -2,10 +2,13 @@
 
 #include <functional>
 #include <atomic>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <utility> // std::pair
+#include <vector>
 #include <regex>
 
 #include <windows.h>
@@ -53,6 +56,10 @@ public:
     HRESULT loadUrl(PCWSTR url);
     HRESULT loadHtmlString(PCWSTR html);
     HRESULT runJavascript(PCWSTR javaScriptString, bool ignoreResult, std::function<void(std::string)> callback);
+    HRESULT dispatchTrustedMouseClick(
+        double x,
+        double y,
+        std::function<void(HRESULT, std::string)> callback);
     HRESULT addScriptToExecuteOnDocumentCreated(
         PCWSTR javaScriptString,
         std::function<void(HRESULT)> callback);
@@ -615,7 +622,74 @@ HRESULT MyWebViewImpl::runJavascript(LPCWSTR javaScriptString, bool ignoreResult
                 else callback(utf8_encode(resultObjectAsJson));
             }
             return hr;
-        }).Get());
+    }).Get());
+}
+
+HRESULT MyWebViewImpl::dispatchTrustedMouseClick(
+    double x,
+    double y,
+    std::function<void(HRESULT, std::string)> callback)
+{
+    if (!m_pWebview || !std::isfinite(x) || !std::isfinite(y) || x < 0 || y < 0) {
+        return E_INVALIDARG;
+    }
+
+    auto makeParams = [x, y](const wchar_t* type, const wchar_t* button, int buttons) {
+        std::wostringstream stream;
+        stream.precision(15);
+        stream << L"{\"type\":\"" << type << L"\",\"x\":" << x
+               << L",\"y\":" << y;
+        if (button != nullptr) {
+            stream << L",\"button\":\"" << button << L"\""
+                   << L",\"buttons\":" << buttons
+                   << L",\"clickCount\":1";
+        }
+        stream << L"}";
+        return stream.str();
+    };
+
+    auto steps = std::make_shared<std::vector<std::wstring>>();
+    steps->push_back(makeParams(L"mouseMoved", nullptr, 0));
+    steps->push_back(makeParams(L"mousePressed", L"left", 1));
+    steps->push_back(makeParams(L"mouseReleased", L"left", 0));
+    auto index = std::make_shared<size_t>(0);
+    auto runner = std::make_shared<std::function<void()>>();
+    *runner = [this, steps, index, runner, callback]() {
+        const std::wstring params = (*steps)[*index];
+        const HRESULT hr = m_pWebview->CallDevToolsProtocolMethod(
+            L"Input.dispatchMouseEvent",
+            params.c_str(),
+            Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
+                [steps, index, runner, callback](
+                    HRESULT error,
+                    LPCWSTR resultObjectAsJson) -> HRESULT {
+                    if (FAILED(error)) {
+                        *runner = nullptr;
+                        if (callback) callback(error, "");
+                        return S_OK;
+                    }
+                    *index += 1;
+                    if (*index >= steps->size()) {
+                        *runner = nullptr;
+                        if (callback) {
+                            callback(
+                                S_OK,
+                                resultObjectAsJson == nullptr
+                                    ? std::string()
+                                    : utf8_encode(resultObjectAsJson));
+                        }
+                        return S_OK;
+                    }
+                    (*runner)();
+                    return S_OK;
+                }).Get());
+        if (FAILED(hr)) {
+            *runner = nullptr;
+            if (callback) callback(hr, "");
+        }
+    };
+    (*runner)();
+    return S_OK;
 }
 
 HRESULT MyWebViewImpl::addScriptChannelByName(LPCWSTR channelName)

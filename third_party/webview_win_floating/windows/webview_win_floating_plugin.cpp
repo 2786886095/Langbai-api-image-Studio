@@ -531,6 +531,29 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
     if (FAILED(hr))
       shared_result->Error("runJavascript() error");
   } else if (method_call.method_name().compare(
+                 "dispatchTrustedMouseClick") == 0) {
+    std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
+        shared_result = std::move(result);
+    const auto x =
+        std::get<double>(arguments[flutter::EncodableValue("x")]);
+    const auto y =
+        std::get<double>(arguments[flutter::EncodableValue("y")]);
+    const auto hr = webview->dispatchTrustedMouseClick(
+        x, y, [shared_result](HRESULT error, std::string response) {
+          if (FAILED(error)) {
+            shared_result->Error(
+                "dispatchTrustedMouseClick() error",
+                "WebView2 rejected the CDP mouse input sequence.");
+          } else {
+            shared_result->Success(flutter::EncodableValue(response));
+          }
+        });
+    if (FAILED(hr)) {
+      shared_result->Error(
+          "dispatchTrustedMouseClick() error",
+          "Invalid WebView or CSS viewport coordinates.");
+    }
+  } else if (method_call.method_name().compare(
                  "addScriptToExecuteOnDocumentCreated") == 0) {
     std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
         shared_result = std::move(result);
