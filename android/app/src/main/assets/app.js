@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.5";
+const APP_VERSION = "1.6.6";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2035,6 +2035,7 @@ const IMAGE_ERROR_TEXT = Object.freeze({
     moderation_blocked: "内容审核拦截",
     invalid_parameters: "请求参数不受支持",
     authentication_failed: "认证或账号权限失败",
+    account_unavailable: "Gemini 账号尚未就绪",
     payload_too_large: "请求体过大",
     rate_limited: "上游限流或额度冷却",
     upstream_disconnected: "ChatGPT 网页生图上游连接断开",
@@ -2047,25 +2048,25 @@ const IMAGE_ERROR_TEXT = Object.freeze({
     violations: "审核类别",
   }),
   "zh-Hant": Object.freeze({
-    moderation_blocked: "內容審核攔截", invalid_parameters: "請求參數不受支援", authentication_failed: "驗證或帳號權限失敗",
+    moderation_blocked: "內容審核攔截", invalid_parameters: "請求參數不受支援", authentication_failed: "驗證或帳號權限失敗", account_unavailable: "Gemini 帳號尚未就緒",
     payload_too_large: "請求內容過大", rate_limited: "上游限流或額度冷卻", upstream_disconnected: "ChatGPT 網頁生圖上游連線中斷",
     upstream_unavailable: "ChatGPT 網頁生圖暫時無法使用", upstream_timeout: "ChatGPT 網頁生圖生成逾時", decode_failed: "圖片回應解碼失敗",
     unknown: "生圖請求失敗", editRequired: "請修改目前分鏡提示詞或參考圖後再重試。", requestId: "請求 ID", violations: "審核類別",
   }),
   en: Object.freeze({
-    moderation_blocked: "Blocked by content moderation", invalid_parameters: "Unsupported request parameters", authentication_failed: "Authentication or account access failed",
+    moderation_blocked: "Blocked by content moderation", invalid_parameters: "Unsupported request parameters", authentication_failed: "Authentication or account access failed", account_unavailable: "Gemini account is not ready",
     payload_too_large: "Request payload is too large", rate_limited: "Upstream rate limit or quota cooldown", upstream_disconnected: "ChatGPT web image upstream connection closed",
     upstream_unavailable: "ChatGPT web image gateway is unavailable", upstream_timeout: "ChatGPT web image generation timed out", decode_failed: "Image response decoding failed",
     unknown: "Image request failed", editRequired: "Edit this panel prompt or its references before retrying.", requestId: "Request ID", violations: "Safety categories",
   }),
   ja: Object.freeze({
-    moderation_blocked: "コンテンツ審査でブロックされました", invalid_parameters: "未対応のリクエストパラメータ", authentication_failed: "認証またはアカウント権限エラー",
+    moderation_blocked: "コンテンツ審査でブロックされました", invalid_parameters: "未対応のリクエストパラメータ", authentication_failed: "認証またはアカウント権限エラー", account_unavailable: "Gemini アカウントの準備ができていません",
     payload_too_large: "リクエストが大きすぎます", rate_limited: "上流のレート制限またはクォータ待機", upstream_disconnected: "OpenCodex 上流接続が切断されました",
     upstream_unavailable: "OpenCodex 上流サービスを利用できません", upstream_timeout: "OpenCodex 上流生成がタイムアウトしました", decode_failed: "画像レスポンスのデコードに失敗しました",
     unknown: "画像生成リクエストに失敗しました", editRequired: "このコマのプロンプトまたは参照画像を修正してから再試行してください。", requestId: "リクエスト ID", violations: "審査カテゴリ",
   }),
   ko: Object.freeze({
-    moderation_blocked: "콘텐츠 검토에서 차단됨", invalid_parameters: "지원되지 않는 요청 매개변수", authentication_failed: "인증 또는 계정 권한 실패",
+    moderation_blocked: "콘텐츠 검토에서 차단됨", invalid_parameters: "지원되지 않는 요청 매개변수", authentication_failed: "인증 또는 계정 권한 실패", account_unavailable: "Gemini 계정이 준비되지 않음",
     payload_too_large: "요청 데이터가 너무 큼", rate_limited: "업스트림 속도 제한 또는 할당량 대기", upstream_disconnected: "OpenCodex 업스트림 연결 끊김",
     upstream_unavailable: "OpenCodex 업스트림 서비스를 사용할 수 없음", upstream_timeout: "OpenCodex 업스트림 생성 시간 초과", decode_failed: "이미지 응답 디코딩 실패",
     unknown: "이미지 요청 실패", editRequired: "현재 컷 프롬프트나 참고 이미지를 수정한 뒤 다시 시도하세요.", requestId: "요청 ID", violations: "검토 범주",
@@ -2523,6 +2524,8 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "软件内 Gemini 账号", accountEmpty: "尚未登录 Gemini", accountHint: "账号只保存在当前设备的本地会话中；登录成功后页面自动收起，额度不足时可自动切换账号。",
     login: "添加 / 登录账号", relogin: "重新登录", test: "检测内置浏览器", autoSwitch: "额度不足时自动切换账号",
     idle: "未连接", checking: "正在检测…", ready: "内置浏览器已就绪", failed: "内置浏览器不可用：{reason}",
+    accountReady: "可生图", accountCooldown: "额度冷却", accountLoginRequired: "需重新登录", accountPageNotReady: "页面尚未就绪",
+    accountUnavailable: "当前没有可用于生图的 Gemini 账号",
     model: "网页模型", modelHint: "自动保留账号当前模型；快速模型响应更快，Pro 模型更适合复杂画面。",
     quality: "生成策略", qualityHint: "快速会简化细节要求；精细会强调纹理与完整度，通常等待更久。",
     modelAuto: "自动", modelFast: "快速", modelPro: "Pro",
@@ -2536,6 +2539,8 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "軟體內 Gemini 帳號", accountEmpty: "尚未登入 Gemini", accountHint: "帳號只保存在目前裝置的本機工作階段；登入成功後頁面自動收起，額度不足時可自動切換帳號。",
     login: "新增 / 登入帳號", relogin: "重新登入", test: "偵測內建瀏覽器", autoSwitch: "額度不足時自動切換帳號",
     idle: "未連線", checking: "正在偵測…", ready: "內建瀏覽器已就緒", failed: "內建瀏覽器無法使用：{reason}",
+    accountReady: "可生圖", accountCooldown: "額度冷卻", accountLoginRequired: "需重新登入", accountPageNotReady: "頁面尚未就緒",
+    accountUnavailable: "目前沒有可用於生圖的 Gemini 帳號",
     model: "網頁模型", modelHint: "自動會保留帳號目前模型；快速模型回應較快，Pro 模型適合複雜畫面。",
     quality: "生成策略", qualityHint: "快速會簡化細節要求；精細會強調紋理與完整度，通常等待較久。",
     modelAuto: "自動", modelFast: "快速", modelPro: "Pro",
@@ -2549,6 +2554,8 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "In-app Gemini account", accountEmpty: "Not signed in to Gemini", accountHint: "Sessions remain local to this device. The app can switch accounts automatically when the active account has no quota.",
     login: "Add / sign in", relogin: "Sign in again", test: "Test embedded browser", autoSwitch: "Switch accounts when quota is unavailable",
     idle: "Disconnected", checking: "Checking…", ready: "Embedded browser ready", failed: "Embedded browser unavailable: {reason}",
+    accountReady: "Ready for images", accountCooldown: "Quota cooldown", accountLoginRequired: "Sign-in required", accountPageNotReady: "Page not ready",
+    accountUnavailable: "No Gemini account is currently ready for image generation",
     model: "Web model", modelHint: "Auto keeps the account's current model. Fast responds sooner; Pro suits complex scenes.",
     quality: "Generation strategy", qualityHint: "Fast simplifies detail requests. Detail emphasizes texture and completeness and may take longer.",
     modelAuto: "Auto", modelFast: "Fast", modelPro: "Pro",
@@ -2562,6 +2569,8 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "アプリ内 Gemini アカウント", accountEmpty: "Gemini に未ログイン", accountHint: "セッションはこの端末だけに保存されます。上限到達時は別アカウントへ自動切替できます。",
     login: "追加 / ログイン", relogin: "再ログイン", test: "内蔵ブラウザを確認", autoSwitch: "上限到達時に自動切替",
     idle: "未接続", checking: "確認中…", ready: "内蔵ブラウザ準備完了", failed: "内蔵ブラウザを利用できません：{reason}",
+    accountReady: "画像生成可能", accountCooldown: "上限クールダウン", accountLoginRequired: "再ログインが必要", accountPageNotReady: "ページ未準備",
+    accountUnavailable: "画像生成に使用できる Gemini アカウントがありません",
     model: "ウェブモデル", modelHint: "自動は現在のモデルを維持します。Fast は高速、Pro は複雑な画像向けです。",
     quality: "生成方針", qualityHint: "高速は細部指定を簡略化し、精細は質感と完成度を重視するため時間がかかる場合があります。",
     modelAuto: "自動", modelFast: "高速", modelPro: "Pro",
@@ -2575,6 +2584,8 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "앱 내 Gemini 계정", accountEmpty: "Gemini에 로그인하지 않음", accountHint: "세션은 현재 기기에만 저장됩니다. 할당량이 없으면 다른 계정으로 자동 전환할 수 있습니다.",
     login: "계정 추가 / 로그인", relogin: "다시 로그인", test: "내장 브라우저 확인", autoSwitch: "할당량 부족 시 계정 자동 전환",
     idle: "연결 안 됨", checking: "확인 중…", ready: "내장 브라우저 준비됨", failed: "내장 브라우저 사용 불가: {reason}",
+    accountReady: "이미지 생성 가능", accountCooldown: "할당량 대기", accountLoginRequired: "다시 로그인 필요", accountPageNotReady: "페이지 준비 안 됨",
+    accountUnavailable: "이미지 생성에 사용할 수 있는 Gemini 계정이 없습니다",
     model: "웹 모델", modelHint: "자동은 현재 모델을 유지합니다. Fast는 더 빠르고 Pro는 복잡한 장면에 적합합니다.",
     quality: "생성 전략", qualityHint: "빠름은 세부 요구를 줄이고, 정밀은 질감과 완성도를 강조해 더 오래 걸릴 수 있습니다.",
     modelAuto: "자동", modelFast: "빠름", modelPro: "Pro",
@@ -2990,7 +3001,13 @@ let geminiHealthCheckedAt = 0;
 let geminiHealthPromise = null;
 let geminiCredentials = null;
 let geminiCapabilities = null;
-let geminiAccountsState = { accounts: [], active_account_id: "", embedded_browser_connected: false, auto_switch: true };
+let geminiAccountsState = {
+  accounts: [],
+  active_account_id: "",
+  embedded_browser_connected: false,
+  auto_switch: true,
+  ready_account_count: 0,
+};
 
 function isGeminiWebSelected() {
   return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === GEMINI_WEB_PROVIDER;
@@ -3013,9 +3030,79 @@ function setGeminiHealthState(state, detail = "") {
   updateApiQuickState();
 }
 
+function isGeminiAccountReady(account) {
+  if (!account || typeof account !== "object") return false;
+  if (account.task_ready === true) return true;
+  if (account.task_ready === false) return false;
+  if (account.available === true) return true;
+  if (account.available === false) return false;
+  const quotaState = String(account.quota_state || "unknown");
+  const cooldownUntil = Date.parse(account.cooldown_until || "");
+  return account.login_ready !== false
+    && String(account.status || "") === "ready"
+    && quotaState !== "exhausted"
+    && !(quotaState === "cooldown" && Number.isFinite(cooldownUntil) && cooldownUntil > Date.now())
+    && account.fullsize_download_available !== false;
+}
+
+function geminiAccountAvailabilityText(account) {
+  const quotaState = String(account?.quota_state || "unknown");
+  const cooldownUntil = Date.parse(account?.cooldown_until || "");
+  if (
+    quotaState === "exhausted"
+    || (quotaState === "cooldown" && Number.isFinite(cooldownUntil) && cooldownUntil > Date.now())
+    || ["quota_exhausted", "rate_limited"].includes(String(account?.status || ""))
+  ) return geminiText("accountCooldown");
+  if (account?.login_ready === false || ["needs_login", "session_expired"].includes(String(account?.status || ""))) {
+    return geminiText("accountLoginRequired");
+  }
+  if (!isGeminiAccountReady(account)) return geminiText("accountPageNotReady");
+  return geminiText("accountReady");
+}
+
+function geminiReadyAccounts() {
+  return (geminiAccountsState.accounts || []).filter(isGeminiAccountReady);
+}
+
+function geminiAccountSnapshotFingerprint(state = {}) {
+  const accounts = Array.isArray(state.accounts) ? state.accounts : [];
+  return JSON.stringify({
+    active: String(state.active_account_id || state.activeAccountId || ""),
+    connected: state.embedded_browser_connected === true
+      || state.embeddedBrowserConnected === true
+      || state.worker_connected === true
+      || state.companion_connected === true
+      || state.companionConnected === true,
+    autoSwitch: state.auto_switch !== false && state.autoSwitch !== false,
+    accounts: accounts
+      .map(account => ({
+        id: String(account?.local_account_id || ""),
+        status: String(account?.status || ""),
+        loginReady: account?.login_ready !== false,
+        quotaState: String(account?.quota_state || ""),
+        cooldownUntil: String(account?.cooldown_until || ""),
+        available: account?.available === true,
+        taskReady: account?.task_ready === true,
+        browserConnected: account?.browser_connected === true,
+        fullsizeDownload: account?.fullsize_download_available === true,
+        lastErrorCode: String(account?.last_error_code || ""),
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  });
+}
+
+function geminiUnavailableReason() {
+  const accounts = geminiAccountsState.accounts || [];
+  if (!accounts.length) return geminiText("accountEmpty");
+  const active = accounts.find(account => account.local_account_id === geminiAccountsState.active_account_id)
+    || accounts[0];
+  return `${geminiText("accountUnavailable")}：${geminiAccountAvailabilityText(active)}`;
+}
+
 function renderGeminiAccounts(state = {}) {
+  const accounts = Array.isArray(state.accounts) ? state.accounts : [];
   geminiAccountsState = {
-    accounts: Array.isArray(state.accounts) ? state.accounts : [],
+    accounts,
     active_account_id: String(state.active_account_id || state.activeAccountId || ""),
     embedded_browser_connected: state.embedded_browser_connected === true
       || state.embeddedBrowserConnected === true
@@ -3023,6 +3110,9 @@ function renderGeminiAccounts(state = {}) {
       || state.companion_connected === true
       || state.companionConnected === true,
     auto_switch: state.auto_switch !== false && state.autoSwitch !== false,
+    ready_account_count: Number.isFinite(Number(state.ready_account_count))
+      ? Number(state.ready_account_count)
+      : accounts.filter(isGeminiAccountReady).length,
   };
   if (dom.geminiAutoSwitch) dom.geminiAutoSwitch.checked = geminiAccountsState.auto_switch;
   if (dom.geminiAccountIdentity) {
@@ -3042,7 +3132,11 @@ function renderGeminiAccounts(state = {}) {
     const title = document.createElement("strong");
     title.textContent = account.display_name || geminiText("accountTitle");
     const meta = document.createElement("span");
-    meta.textContent = [account.masked_email, account.status, account.effective_concurrency ? `×${account.effective_concurrency}` : ""].filter(Boolean).join(" · ");
+    meta.textContent = [
+      account.masked_email,
+      geminiAccountAvailabilityText(account),
+      account.effective_concurrency ? `×${account.effective_concurrency}` : "",
+    ].filter(Boolean).join(" · ");
     copy.append(title, meta);
     const actions = document.createElement("div");
     if (account.local_account_id !== geminiAccountsState.active_account_id) {
@@ -3093,16 +3187,35 @@ async function loadGeminiCredentials() {
   return geminiCredentials;
 }
 
-async function checkGeminiHealth({ announce = false, force = true } = {}) {
+async function checkGeminiHealth({
+  announce = false,
+  force = true,
+  requireReadyAccount = false,
+  background = false,
+} = {}) {
   if (!isGeminiWebSelected()) return true;
   if (!GEMINI_WEB_MODULES_AVAILABLE) {
     setGeminiHealthState("error", "Gemini 可选组件未加载，请重新安装或更新软件");
     return false;
   }
-  if (!force && geminiHealthState === "ready" && Date.now() - geminiHealthCheckedAt < GEMINI_WEB_HEALTH_CACHE_MS) return true;
-  if (geminiHealthPromise) return geminiHealthPromise;
-  setGeminiHealthState("checking");
-  if (dom.testGeminiHealth) dom.testGeminiHealth.disabled = true;
+  if (
+    !force
+    && geminiHealthState === "ready"
+    && Date.now() - geminiHealthCheckedAt < GEMINI_WEB_HEALTH_CACHE_MS
+    && (!requireReadyAccount || geminiReadyAccounts().length > 0)
+  ) return true;
+  if (geminiHealthPromise) {
+    const healthy = await geminiHealthPromise;
+    if (!healthy || !requireReadyAccount || geminiReadyAccounts().length > 0) return healthy;
+    const reason = geminiUnavailableReason();
+    setGeminiHealthState("error", reason);
+    if (announce) showStatus(interpolate(geminiText("failed"), { reason }), "error");
+    return false;
+  }
+  if (!background) {
+    setGeminiHealthState("checking");
+    if (dom.testGeminiHealth) dom.testGeminiHealth.disabled = true;
+  }
   geminiHealthPromise = (async () => {
     try {
       const credentials = await loadGeminiCredentials();
@@ -3128,7 +3241,11 @@ async function checkGeminiHealth({ announce = false, force = true } = {}) {
       const accountsResponse = await smartFetch(`${credentials.baseUrl}/accounts`, {
         headers, nativeTimeoutMs: 5000, forceDirectProxy: true,
       });
-      if (accountsResponse.ok) renderGeminiAccounts(await accountsResponse.json());
+      if (!accountsResponse.ok) throw new Error(`账号状态检查 HTTP ${accountsResponse.status}`);
+      renderGeminiAccounts(await accountsResponse.json());
+      if (requireReadyAccount && geminiReadyAccounts().length === 0) {
+        throw new Error(geminiUnavailableReason());
+      }
       geminiHealthCheckedAt = Date.now();
       setGeminiHealthState("ready", GEMINI_WEB_MODEL);
       if (announce) showStatus(geminiText("ready"), "success");
@@ -3141,7 +3258,7 @@ async function checkGeminiHealth({ announce = false, force = true } = {}) {
       if (announce) showStatus(interpolate(geminiText("failed"), { reason }), "error");
       return false;
     } finally {
-      if (dom.testGeminiHealth) dom.testGeminiHealth.disabled = false;
+      if (!background && dom.testGeminiHealth) dom.testGeminiHealth.disabled = false;
       geminiHealthPromise = null;
     }
   })();
@@ -6956,9 +7073,17 @@ async function geminiGatewayResponseError(response) {
   } catch {}
   const detail = payload?.error || payload || {};
   const message = detail?.message || detail?.detail || text || `Gemini embedded browser HTTP ${response.status}`;
+  if (payload?.accounts && typeof payload.accounts === "object") {
+    renderGeminiAccounts(payload.accounts);
+    geminiHealthCheckedAt = 0;
+  }
+  const responseCode = String(detail?.code || "");
+  if (["gemini_account_required", "gemini_account_not_ready", "gemini_login_required"].includes(responseCode)) {
+    setGeminiHealthState("error", geminiUnavailableReason());
+  }
   const error = new Error(`HTTP ${response.status}: ${message}`);
   error.status = response.status;
-  error.code = String(detail?.code || "");
+  error.code = responseCode;
   error.requestId = String(detail?.request_id || response.headers.get("x-request-id") || "");
   return makeImageApiError(error);
 }
@@ -8296,7 +8421,17 @@ function validateCommon() {
 
 async function validateProviderReady() {
   if (isCodexGatewaySelected()) return checkCodexGatewayHealth({ announce: true, force: false });
-  if (isGeminiWebSelected()) return checkGeminiHealth({ announce: true, force: false });
+  if (isGeminiWebSelected()) {
+    // Account capability probes can change while the hidden Gemini page is
+    // running. Refresh once before creating any result cards so a blocked
+    // account stops the whole batch instead of flashing through N immediate
+    // HTTP failures.
+    return checkGeminiHealth({
+      announce: true,
+      force: true,
+      requireReadyAccount: true,
+    });
+  }
   return true;
 }
 
@@ -10998,9 +11133,16 @@ const nativeDownload = (() => {
       showStatus("已从后台返回，页面状态已刷新", "info");
     },
     onGeminiAccountChanged(snapshot) {
+      const previousFingerprint = geminiAccountSnapshotFingerprint(geminiAccountsState);
+      const nextFingerprint = geminiAccountSnapshotFingerprint(snapshot || {});
       renderGeminiAccounts(snapshot || {});
+      if (previousFingerprint === nextFingerprint) return;
       geminiHealthCheckedAt = 0;
-      void checkGeminiHealth({ announce: false, force: true });
+      void checkGeminiHealth({
+        announce: false,
+        force: true,
+        background: geminiHealthState === "ready",
+      });
     },
     onGeminiLoginState(state) {
       const status = String(state?.status || "");

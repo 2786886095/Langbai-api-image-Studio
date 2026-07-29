@@ -31,6 +31,17 @@ test("HTTP error families remain distinct", () => {
   assert.equal(stability.classifyApiError("HTTP 503: service unavailable").category, "upstream_unavailable");
 });
 
+test("Gemini account readiness is not mislabeled as quota exhaustion", () => {
+  const detail = stability.classifyApiError({
+    status: 409,
+    code: "gemini_account_not_ready",
+    message: "The selected Gemini browser profile is not ready.",
+  });
+  assert.equal(detail.category, "account_unavailable");
+  assert.equal(detail.retryPolicy, "after_configuration_change");
+  assert.equal(detail.pausesQueue, true);
+});
+
 test("actual dimensions are authoritative", () => {
   assert.equal(stability.evaluateDimensions("1024x1536", 1024, 1536).status, "exact");
   assert.equal(stability.evaluateDimensions("1024x1536", 864, 1821).status, "mismatch");

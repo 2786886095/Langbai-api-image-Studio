@@ -2,7 +2,7 @@ import 'package:ai_image_generator/gemini_account_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('ready account is eligible only with required web capabilities', () {
+  test('ready account defers temporary-chat verification to each task', () {
     const ready = GeminiAccountMetadata(
       localAccountId: 'account-a',
       status: 'ready',
@@ -12,6 +12,12 @@ void main() {
       fullsizeDownloadAvailable: true,
     );
     expect(ready.available, isTrue);
+    expect(
+      ready.copyWith(temporaryChatAvailable: false).available,
+      isTrue,
+      reason:
+          'Gemini can temporarily unmount the control; the worker verifies it when a task starts.',
+    );
     expect(
       ready.copyWith(fullsizeDownloadAvailable: false).available,
       isFalse,
@@ -58,5 +64,18 @@ void main() {
     expect(serialized.keys, isNot(contains('cookie')));
     expect(serialized.keys, isNot(contains('token')));
     expect(serialized.keys, isNot(contains('authorization')));
+  });
+
+  test('explicit login failure is not overwritten by a stale ready status', () {
+    final restored = GeminiAccountMetadata.fromJson(<String, dynamic>{
+      'local_account_id': 'expired-account',
+      'status': 'ready',
+      'login_ready': false,
+      'quota_state': 'available',
+      'fullsize_download_available': true,
+    });
+
+    expect(restored.loginReady, isFalse);
+    expect(restored.available, isFalse);
   });
 }

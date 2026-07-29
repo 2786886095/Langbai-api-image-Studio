@@ -9,6 +9,7 @@
     moderation: "moderation_blocked",
     parameters: "invalid_parameters",
     authentication: "authentication_failed",
+    account: "account_unavailable",
     payload: "payload_too_large",
     rateLimit: "rate_limited",
     disconnected: "upstream_disconnected",
@@ -92,6 +93,10 @@
       category = ERROR_CATEGORIES.moderation;
       retryPolicy = "edit_required";
       requiresEdit = true;
+    } else if (/gemini_account_(required|not_ready)/.test(lower)) {
+      category = ERROR_CATEGORIES.account;
+      retryPolicy = "after_configuration_change";
+      pausesQueue = true;
     } else if (status === 401 || status === 403 || /invalid_api_key|authentication|unauthori[sz]ed|reauth/.test(lower)) {
       category = ERROR_CATEGORIES.authentication;
       retryPolicy = "after_configuration_change";

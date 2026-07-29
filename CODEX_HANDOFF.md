@@ -1,12 +1,19 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.5
+# Codex / Claude Handoff: AI 图片生成器 v1.6.6
 
-更新时间：2026-07-29
+更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.5+82`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.6+83`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.6 Gemini 账号就绪与批量 409 闪烁修复
+
+- `GeminiAccountMetadata.available` 不再依赖页面瞬时的临时对话控件探测；登录、额度、冷却和完整尺寸下载能力仍为硬条件，临时对话由任务工作器逐次验证。
+- 生成前强制读取 `/v1/accounts` 并要求至少一个可用账号；不可用时不创建结果卡、不提交图片任务。
+- 网关将无账号、登录失效、额度冷却和页面未就绪分别返回 409/401/429/409 及独立错误码，前端不会再把账号状态误报成限流。
+- 防回归覆盖普通健康检查与生成预检并发、瞬时临时对话探测为 false、拒绝后账号状态刷新，以及重复提交计数保持不变。
 
 ## v1.6.5 Gemini 无限生成收口与参数恢复
 

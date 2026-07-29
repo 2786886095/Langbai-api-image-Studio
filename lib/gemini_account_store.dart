@@ -55,7 +55,6 @@ class GeminiAccountMetadata {
       status == 'ready' &&
       quotaState != 'exhausted' &&
       !coolingDown &&
-      temporaryChatAvailable &&
       fullsizeDownloadAvailable;
 
   GeminiAccountMetadata copyWith({
@@ -130,7 +129,9 @@ class GeminiAccountMetadata {
       browserProfileId: json['browser_profile_id']?.toString() ?? '',
       platform: json['platform']?.toString() ?? '',
       status: status,
-      loginReady: json['login_ready'] == true || status == 'ready',
+      loginReady: json.containsKey('login_ready')
+          ? json['login_ready'] == true
+          : status == 'ready',
       quotaState: json['quota_state']?.toString() ??
           (status == 'quota_exhausted' ? 'exhausted' : 'unknown'),
       cooldownUntil: json['cooldown_until']?.toString() ?? '',

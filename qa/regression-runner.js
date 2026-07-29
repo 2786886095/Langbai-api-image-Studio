@@ -5770,6 +5770,7 @@ async function testGeminiWebImageIntegration(cdp) {
       window.__geminiBodies = [];
       window.__geminiPolls = 0;
       window.__geminiAutoSwitch = true;
+      window.__geminiAccountAvailable = true;
       window.__geminiKey = "${"d".repeat(64)}";
       window.__geminiPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
       window.FlutterDownload = {
@@ -5786,6 +5787,11 @@ async function testGeminiWebImageIntegration(cdp) {
                 display_name: "QA Gemini",
                 masked_email: "g***@example.com",
                 status: "ready",
+                login_ready: true,
+                quota_state: "available",
+                temporary_chat_available: false,
+                fullsize_download_available: true,
+                available: window.__geminiAccountAvailable,
                 effective_concurrency: 1,
               }],
               activeAccountId: "gemini-account-qa",
@@ -5799,6 +5805,11 @@ async function testGeminiWebImageIntegration(cdp) {
                 display_name: "QA Gemini",
                 masked_email: "g***@example.com",
                 status: "ready",
+                login_ready: true,
+                quota_state: "available",
+                temporary_chat_available: false,
+                fullsize_download_available: true,
+                available: window.__geminiAccountAvailable,
                 effective_concurrency: 1,
               }],
               active_account_id: "gemini-account-qa",
@@ -5823,7 +5834,13 @@ async function testGeminiWebImageIntegration(cdp) {
               }) };
             } else if (url.endsWith("/v1/accounts")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
-                accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
+                accounts: [{
+                  local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready",
+                  login_ready: true, quota_state: "available", temporary_chat_available: false,
+                  fullsize_download_available: true, available: window.__geminiAccountAvailable,
+                  effective_concurrency: 1,
+                }],
+                ready_account_count: window.__geminiAccountAvailable ? 1 : 0,
                  active_account_id: "gemini-account-qa", embedded_browser_connected: true, auto_switch: window.__geminiAutoSwitch,
               }) };
             } else if (method === "POST" && url.endsWith("/v1/image-tasks")) {
@@ -5879,7 +5896,13 @@ async function testGeminiWebImageIntegration(cdp) {
           } else if (payload.action === "setGeminiAutoSwitch") {
             window.__geminiAutoSwitch = payload.enabled;
             result = {
-              accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
+              accounts: [{
+                local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready",
+                login_ready: true, quota_state: "available", temporary_chat_available: false,
+                fullsize_download_available: true, available: window.__geminiAccountAvailable,
+                effective_concurrency: 1,
+              }],
+              ready_account_count: window.__geminiAccountAvailable ? 1 : 0,
               active_account_id: "gemini-account-qa",
               embedded_browser_connected: true,
               auto_switch: window.__geminiAutoSwitch,
@@ -5966,6 +5989,39 @@ async function testGeminiWebImageIntegration(cdp) {
       const untrustedDownload = await geminiGatewayDownloadBlob(
         "https://attacker.invalid/v1/image-tasks/stolen/files/0",
       ).then(() => "unexpected-success").catch(error => String(error?.message || error));
+      const heartbeatSnapshot = JSON.parse(JSON.stringify(geminiAccountsState));
+      const heartbeatChecksBefore = window.__geminiCalls.filter(call => String(call.url || "").endsWith("/healthz")).length;
+      for (let index = 0; index < 20; index += 1) {
+        window.AiGenAndroidBridge.onGeminiAccountChanged(heartbeatSnapshot);
+      }
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const heartbeatChecksAfter = window.__geminiCalls.filter(call => String(call.url || "").endsWith("/healthz")).length;
+      const submissionsBeforeBlockedPreflight = window.__geminiBodies.length;
+      window.__geminiAccountAvailable = false;
+      geminiHealthCheckedAt = 0;
+      const blockedPreflight = await validateProviderReady();
+      const submissionsAfterBlockedPreflight = window.__geminiBodies.length;
+      setGeminiHealthState("ready", GEMINI_WEB_MODEL);
+      await geminiGatewayResponseError({
+        status: 409,
+        text: async () => JSON.stringify({
+          error: { code: "gemini_account_not_ready", message: "Page not ready." },
+          accounts: {
+            ...heartbeatSnapshot,
+            accounts: heartbeatSnapshot.accounts.map(account => ({
+              ...account,
+              available: false,
+              task_ready: false,
+            })),
+            ready_account_count: 0,
+          },
+        }),
+      }).catch(() => {});
+      const healthStateAfterAccount409 = geminiHealthState;
+      geminiHealthPromise = Promise.resolve(true);
+      const sharedHealthBlockedPreflight = await validateProviderReady();
+      geminiHealthPromise = null;
+      const submissionsAfterSharedHealthPreflight = window.__geminiBodies.length;
       const item = data?.data?.[0] || null;
       return {
         ready,
@@ -5996,6 +6052,14 @@ async function testGeminiWebImageIntegration(cdp) {
         cancelCalls: window.__geminiCalls.filter(call => String(call.url || "").endsWith("/v1/image-tasks/gemini_cancel_qa/cancel")),
         untrustedDownload,
         untrustedCalls: window.__geminiCalls.filter(call => String(call.url || "").includes("attacker.invalid")),
+        heartbeatChecksBefore,
+        heartbeatChecksAfter,
+        blockedPreflight,
+        healthStateAfterAccount409,
+        sharedHealthBlockedPreflight,
+        submissionsBeforeBlockedPreflight,
+        submissionsAfterBlockedPreflight,
+        submissionsAfterSharedHealthPreflight,
         leakedKey: JSON.stringify(localStorage).includes(window.__geminiKey),
       };
     })()`, true);
@@ -6019,6 +6083,21 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.profile.apiKey === ""
         && !result.leakedKey,
       "Gemini must use the in-app login flow, persist auto-switch through the native bridge, and keep loopback credentials out of API profiles and Local Storage.",
+      result,
+    );
+    assertQa(
+      result.blockedPreflight === false
+        && result.sharedHealthBlockedPreflight === false
+        && result.healthStateAfterAccount409 === "error"
+        && result.submissionsBeforeBlockedPreflight === 1
+        && result.submissionsAfterBlockedPreflight === 1
+        && result.submissionsAfterSharedHealthPreflight === 1,
+      "A Gemini account that is not ready must stop the batch before any result cards or repeated image-task submissions are created.",
+      result,
+    );
+    assertQa(
+      result.heartbeatChecksBefore === result.heartbeatChecksAfter,
+      "Repeated identical Gemini account heartbeats must not restart the health check or flash the generate controls.",
       result,
     );
     assertQa(

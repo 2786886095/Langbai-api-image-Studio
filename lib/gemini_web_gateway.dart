@@ -88,6 +88,7 @@ class GeminiWebGatewayManager {
   String _activeAccountId = '';
   int _effectiveConcurrency = 1;
   Future<void> _persistenceChain = Future<void>.value();
+  Future<void> _taskSubmissionChain = Future<void>.value();
 
   bool get running => _server != null;
   bool get companionConnected =>
@@ -157,9 +158,8 @@ class GeminiWebGatewayManager {
       'provider': 'gemini_web',
       'companionConnected': companionConnected,
       'selectorPackVersion': _geminiSelectorPackVersion,
-      'accounts': (await accountStore.load())
-          .map((account) => account.toJson())
-          .toList(),
+      'accounts':
+          (await accountStore.load()).map(_accountSnapshotJson).toList(),
       'activeAccountId': _activeAccountId,
       'autoSwitch': await accountStore.autoSwitchEnabled(),
     };
@@ -168,7 +168,7 @@ class GeminiWebGatewayManager {
   Future<Map<String, Object?>> accountsSnapshot() async {
     final accounts = await accountStore.load();
     return <String, Object?>{
-      'accounts': accounts.map((account) => account.toJson()).toList(),
+      'accounts': accounts.map(_accountSnapshotJson).toList(),
       'active_account_id': _activeAccountId,
       'auto_switch': await accountStore.autoSwitchEnabled(),
       'companion_connected': companionConnected,
@@ -211,6 +211,14 @@ class GeminiWebGatewayManager {
 
   bool _accountEligible(GeminiAccountMetadata account) => account.available;
 
+  Map<String, Object?> _accountSnapshotJson(GeminiAccountMetadata account) =>
+      <String, Object?>{
+        ...account.toJson(),
+        'browser_connected': _accountConnected(account.localAccountId),
+        'task_ready': _accountAvailable(account),
+        'queue_eligible': _accountEligible(account),
+      };
+
   Future<void> _setActiveAccount(String id) async {
     _activeAccountId = id;
     if (id.isEmpty) {
@@ -249,6 +257,44 @@ class GeminiWebGatewayManager {
     return _switchActiveAccount(
       excluding:
           active == null ? const <String>{} : <String>{active.localAccountId},
+    );
+  }
+
+  Future<(int, String, String)> _submissionAccountError() async {
+    final accounts = await accountStore.load();
+    if (accounts.isEmpty) {
+      return (
+        HttpStatus.conflict,
+        'gemini_account_required',
+        'Add and sign in to a Gemini account before submitting.',
+      );
+    }
+    final active = accounts
+        .where((account) => account.localAccountId == _activeAccountId)
+        .firstOrNull;
+    final candidates =
+        active == null ? accounts : <GeminiAccountMetadata>[active];
+    if (candidates.any((account) =>
+        account.quotaState == 'exhausted' || account.coolingDown)) {
+      return (
+        HttpStatus.tooManyRequests,
+        'gemini_rate_limited',
+        'The selected Gemini account is in quota cooldown. Wait for the cooldown or select another account.',
+      );
+    }
+    if (candidates.any((account) =>
+        !account.loginReady ||
+        <String>{'needs_login', 'session_expired'}.contains(account.status))) {
+      return (
+        HttpStatus.unauthorized,
+        'gemini_login_required',
+        'The selected Gemini account needs to sign in again.',
+      );
+    }
+    return (
+      HttpStatus.conflict,
+      'gemini_account_not_ready',
+      'The selected Gemini browser profile is not ready. Refresh the account status or sign in again.',
     );
   }
 
@@ -371,6 +417,8 @@ class GeminiWebGatewayManager {
       cooldownUntil: '',
       lastErrorCode: '',
       lastVerifiedAt: DateTime.now().toUtc().toIso8601String(),
+      temporaryChatAvailable: true,
+      fullsizeDownloadAvailable: true,
       lastError: '',
     ));
   }
@@ -699,41 +747,65 @@ class GeminiWebGatewayManager {
           });
           return;
         }
-        final submissionAccount = await _submissionAccount();
-        if (submissionAccount == null) {
-          await _json(response, 409, <String, Object?>{
-            'error': <String, Object?>{
-              'code': 'gemini_account_required',
-              'message':
-                  'Connect a ready Gemini account with available quota before submitting.',
+        final previousSubmission = _taskSubmissionChain;
+        final submissionGate = Completer<void>();
+        _taskSubmissionChain = submissionGate.future;
+        try {
+          try {
+            await previousSubmission;
+          } catch (_) {
+            // A failed prior request must not permanently block later task
+            // submissions.
+          }
+          final requestId = body['client_request_id']?.toString() ?? '';
+          final duplicate = _tasks.values
+              .where((task) =>
+                  requestId.isNotEmpty && task.clientRequestId == requestId)
+              .firstOrNull;
+          if (duplicate != null) {
+            if (jsonEncode(duplicate.request) != jsonEncode(body)) {
+              await _json(response, HttpStatus.conflict, <String, Object?>{
+                'error': <String, Object?>{
+                  'code': 'idempotency_conflict',
+                  'message':
+                      'The same client_request_id was already used for a different Gemini request.',
+                }
+              });
+            } else {
+              await _json(response, 200, duplicate.toJson());
             }
-          });
+            return;
+          }
+          final submissionAccount = await _submissionAccount();
+          if (submissionAccount == null) {
+            final (status, code, message) = await _submissionAccountError();
+            await _json(response, status, <String, Object?>{
+              'error': <String, Object?>{
+                'code': code,
+                'message': message,
+              },
+              'accounts': await accountsSnapshot(),
+            });
+            return;
+          }
+          final id =
+              'gemini_${DateTime.now().microsecondsSinceEpoch}_${Random.secure().nextInt(1 << 32).toRadixString(16)}';
+          final task = GeminiImageTask(
+            id: id,
+            clientRequestId: requestId,
+            request: body,
+            status: _accountConnected(submissionAccount.localAccountId)
+                ? 'queued'
+                : 'waiting_for_browser',
+            accountId: submissionAccount.localAccountId,
+          );
+          _tasks[id] = task;
+          await _persistTasks();
+          await _json(response, 202, task.toJson());
           return;
+        } finally {
+          if (!submissionGate.isCompleted) submissionGate.complete();
         }
-        final requestId = body['client_request_id']?.toString() ?? '';
-        final duplicate = _tasks.values
-            .where((task) =>
-                requestId.isNotEmpty && task.clientRequestId == requestId)
-            .firstOrNull;
-        if (duplicate != null) {
-          await _json(response, 200, duplicate.toJson());
-          return;
-        }
-        final id =
-            'gemini_${DateTime.now().microsecondsSinceEpoch}_${Random.secure().nextInt(1 << 32).toRadixString(16)}';
-        final task = GeminiImageTask(
-          id: id,
-          clientRequestId: requestId,
-          request: body,
-          status: _accountConnected(submissionAccount.localAccountId)
-              ? 'queued'
-              : 'waiting_for_browser',
-          accountId: submissionAccount.localAccountId,
-        );
-        _tasks[id] = task;
-        await _persistTasks();
-        await _json(response, 202, task.toJson());
-        return;
       }
       final taskMatch = RegExp(r'^/v1/image-tasks/([^/]+)$').firstMatch(path);
       if (taskMatch != null && request.method == 'GET') {
@@ -848,8 +920,12 @@ class GeminiWebGatewayManager {
           lastErrorCode: retainedAccountState ? existing.lastErrorCode : '',
           lastQuotaAt: existing?.lastQuotaAt ?? '',
           lastVerifiedAt: DateTime.now().toUtc().toIso8601String(),
+          // Gemini does not keep the temporary-chat control mounted at all
+          // times. A momentary false page probe is advisory only; the worker
+          // verifies and activates temporary chat again for every task.
           temporaryChatAvailable: selectorPackCompatible &&
-              body['temporary_chat_available'] == true,
+              (body['temporary_chat_available'] == true ||
+                  existing?.temporaryChatAvailable == true),
           fullsizeDownloadAvailable: selectorPackCompatible &&
               body['fullsize_download_available'] == true,
           effectiveConcurrency: int.tryParse(
