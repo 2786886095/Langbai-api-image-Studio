@@ -1,9 +1,13 @@
 "use strict";
 
 (() => {
+  // WebView2 injects document-created scripts into child frames as well. Only
+  // the top-level Gemini document may claim and execute an image task.
+  if (globalThis.top !== globalThis) return;
   if (globalThis.__LANGBAI_GEMINI_COMPANION_STARTED) return;
   globalThis.__LANGBAI_GEMINI_COMPANION_STARTED = true;
 
+  const TEMPORARY_CHAT_CHECKPOINT_KEY = "langbai_gemini_temporary_chat_checkpoint_v1";
   const SELECTORS = globalThis.LANGBAI_GEMINI_SELECTORS || Object.freeze({
     version: "2026.07.29.1",
     temporaryChat: ["Temporary chat", "临时对话", "臨時對話", "一時的なチャット", "임시 채팅"],
@@ -497,7 +501,49 @@
     return { count: links.length, digest: links.join("\n") };
   }
 
-  async function ensureTemporaryChat() {
+  function readTemporaryChatCheckpoint() {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(TEMPORARY_CHAT_CHECKPOINT_KEY) || "null");
+      if (
+        value
+        && typeof value.taskId === "string"
+        && Number.isFinite(Number(value.createdAt))
+        && Date.now() - Number(value.createdAt) < 2 * 60 * 1000
+      ) return value;
+    } catch {}
+    return null;
+  }
+
+  function writeTemporaryChatCheckpoint(taskId) {
+    try {
+      sessionStorage.setItem(TEMPORARY_CHAT_CHECKPOINT_KEY, JSON.stringify({
+        taskId: String(taskId || ""),
+        createdAt: Date.now(),
+        sourceUrl: location.href,
+      }));
+    } catch {}
+  }
+
+  function clearTemporaryChatCheckpoint(taskId = "") {
+    try {
+      const current = readTemporaryChatCheckpoint();
+      if (!taskId || !current || current.taskId === String(taskId)) {
+        sessionStorage.removeItem(TEMPORARY_CHAT_CHECKPOINT_KEY);
+      }
+    } catch {}
+  }
+
+  async function ensureTemporaryChat(task) {
+    const taskId = String(task?.id || "");
+    const navigationCheckpoint = readTemporaryChatCheckpoint();
+    if (navigationCheckpoint?.taskId === taskId) {
+      // Clicking Gemini's temporary-chat control performs a full document
+      // navigation in the current UI. The old JavaScript context disappears
+      // before it can observe aria-pressed. The gateway returns the same claim
+      // after reload, so this checkpoint is the verifiable continuation point.
+      clearTemporaryChatCheckpoint(taskId);
+      return true;
+    }
     let button = findByCandidates(SELECTORS.temporaryChat);
     if (!button) throw Object.assign(new Error("未识别到 Gemini 临时对话入口"), { code: "selector_pack_outdated" });
     const isActive = element => {
@@ -508,13 +554,18 @@
       return !!stateNode || /\b(active|selected|checked)\b/i.test(String(element.className || ""));
     };
     if (!isActive(button)) {
+      writeTemporaryChatCheckpoint(taskId);
       button.click();
       const deadline = Date.now() + 6000;
       while (Date.now() < deadline) {
         await sleep(250);
         button = findByCandidates(SELECTORS.temporaryChat);
-        if (isActive(button)) return true;
+        if (isActive(button)) {
+          clearTemporaryChatCheckpoint(taskId);
+          return true;
+        }
       }
+      clearTemporaryChatCheckpoint(taskId);
       throw Object.assign(
         new Error("已点击临时对话，但页面没有返回可验证的启用状态；任务未提交，以避免写入普通历史"),
         { code: "temporary_chat_unverified" },
@@ -594,8 +645,8 @@
     return null;
   }
 
-  async function waitForGeneratedImage(previous, timeoutMs = 12 * 60 * 1000, heartbeat = null) {
-    const deadline = Date.now() + timeoutMs;
+  async function waitForGeneratedImage(previous, timeoutMs = 0, heartbeat = null) {
+    const deadline = timeoutMs > 0 ? Date.now() + timeoutMs : Number.POSITIVE_INFINITY;
     let lastHeartbeat = 0;
     while (Date.now() < deadline) {
       if (heartbeat && Date.now() - lastHeartbeat >= 10000) {
@@ -692,7 +743,7 @@
     const previous = imageSnapshot();
     try {
       await event(task, "preparing_temporary_chat");
-      await ensureTemporaryChat();
+      await ensureTemporaryChat(task);
       await event(task, "uploading_references");
       await uploadReferences(request.references || []);
       await event(task, "submitting");
@@ -707,7 +758,7 @@
       await event(task, "generating");
       const image = await waitForGeneratedImage(
         previous,
-        12 * 60 * 1000,
+        0,
         () => event(task, "generating"),
       );
       await event(task, "locating_full_size");

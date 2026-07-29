@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:ai_image_generator/gemini_image_task.dart';
 import 'package:ai_image_generator/gemini_size_capabilities.dart';
+import 'package:ai_image_generator/gemini_web_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -73,5 +74,40 @@ void main() {
         'local_4k_upscale',
       ]),
     );
+  });
+
+  test('Gemini companion resumes the oldest live claim after navigation', () {
+    final now = DateTime.utc(2026, 7, 29, 12);
+    GeminiImageTask task(
+      String id, {
+      String accountId = 'account-a',
+      String claimId = 'claim',
+      Duration expiresIn = const Duration(minutes: 1),
+      Duration updatedAgo = Duration.zero,
+    }) =>
+        GeminiImageTask(
+          id: id,
+          clientRequestId: id,
+          request: const <String, Object?>{},
+          status: 'preparing_temporary_chat',
+          accountId: accountId,
+          claimId: claimId,
+          claimedAccountId: accountId,
+          claimExpiresAt: now.add(expiresIn),
+          updatedAt: now.subtract(updatedAgo),
+        );
+
+    final selected = findResumableGeminiCompanionTask(
+      <GeminiImageTask>[
+        task('newer', updatedAgo: const Duration(seconds: 5)),
+        task('expired', expiresIn: const Duration(seconds: -1)),
+        task('wrong-account', accountId: 'account-b'),
+        task('older', updatedAgo: const Duration(seconds: 20)),
+      ],
+      accountId: 'account-a',
+      now: now,
+    );
+
+    expect(selected?.id, 'older');
   });
 }

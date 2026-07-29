@@ -5947,6 +5947,7 @@ async function testGeminiWebImageIntegration(cdp) {
         profile,
         submitted,
         bodies: window.__geminiBodies,
+        globalSize: getSelectedSize(),
         fileCalls: window.__geminiCalls.filter(call => String(call.url || "").includes("/files/0")),
         item,
         meta: data?._openCodex || null,
@@ -5987,9 +5988,12 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.bodies[0].body.provider === "geminiWeb"
         && result.bodies[0].body.n === 1
         && result.bodies[0].body.temporary_chat_required === true
+        && `${result.bodies[0].body.requested_size.width}x${result.bodies[0].body.requested_size.height}` === result.globalSize
+        && result.bodies[0].body.size_mode === "exact_output"
+        && result.bodies[0].body.crop_mode === "smart_cover"
         && result.bodies[0].proxyMode === "direct"
         && result.submitted[0]?.id === "gemini_task_qa",
-      "Gemini generation must submit one checkpointable temporary-chat task over the direct loopback route.",
+      "Gemini generation must submit one checkpointable temporary-chat task using the app-wide resolution over the direct loopback route.",
       result,
     );
     assertQa(

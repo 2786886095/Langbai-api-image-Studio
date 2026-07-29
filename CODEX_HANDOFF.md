@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.2
+# Codex / Claude Handoff: AI 图片生成器 v1.6.3
 
 更新时间：2026-07-29
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.2+79`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.3+80`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.3 Gemini 任务续接与全局分辨率
+
+- 真实任务记录确认旧版故障发生在 `preparing_temporary_chat`：Gemini 点击临时对话后整页导航，旧 JavaScript 上下文被销毁；新页面又领取其他任务，导致任务永远没有进入提示词提交阶段。
+- `gemini-embedded-worker.js` 现在仅允许顶层页面执行任务，并以 `sessionStorage` 保存临时对话导航检查点。
+- `GeminiWebGatewayManager` 会在页面重载后返回同账号尚未过期的原 claim，并释放旧版本遗留的重复 claim；单账号任务执行保持串行。
+- 客户端和隐藏页面均取消 12 分钟硬超时，持续跟踪同一任务到成功、明确失败或用户取消，禁止因等待时间长而重新提交。
+- Gemini 供应商不再显示独立尺寸模式、构图比例、裁切策略和质量意图；全局分辨率是唯一目标尺寸，内部固定 `exact_output + smart_cover + standard`。
 
 ## v1.6.2 ChatGPT 会话恢复与 Gemini 登录修复
 

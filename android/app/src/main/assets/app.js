@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.2";
+const APP_VERSION = "1.6.3";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -1416,10 +1416,6 @@ const dom = {
   geminiAccountIdentity: $("#geminiAccountIdentity"),
   geminiAccountStatus: $("#geminiAccountStatus"),
   geminiAccountList: $("#geminiAccountList"),
-  geminiSizeMode: $("#geminiSizeMode"),
-  geminiRatio: $("#geminiRatio"),
-  geminiCropMode: $("#geminiCropMode"),
-  geminiQualityIntent: $("#geminiQualityIntent"),
   geminiClientQueue: $("#geminiClientQueue"),
   openInpaintFromFile: $("#openInpaintFromFile"),
   inpaintSourceInput: $("#inpaintSourceInput"),
@@ -1805,9 +1801,6 @@ const customSelects = {
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
   captionAutoFillTemplate: initCustomSelect(dom.captionAutoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
-  geminiRatio: initCustomSelect(dom.geminiRatio),
-  geminiCropMode: initCustomSelect(dom.geminiCropMode),
-  geminiQualityIntent: initCustomSelect(dom.geminiQualityIntent),
   modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
 
@@ -2024,7 +2017,6 @@ const GEMINI_WEB_PROVIDER = geminiWebImage.PROVIDER_ID;
 const GEMINI_WEB_MODEL = geminiWebImage.MODEL;
 const GEMINI_WEB_BASE_URL = geminiWebImage.DEFAULT_BASE_URL;
 const GEMINI_WEB_HEALTH_CACHE_MS = 10000;
-const GEMINI_WEB_TASK_WAIT_TIMEOUT_MS = 12 * 60 * 1000;
 const codexGatewayRuntime = imageTaskStability.createOpenCodexRuntime({
   initialConcurrency: 100,
   circuitFailureThreshold: 3,
@@ -2528,50 +2520,45 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     accountTitle: "软件内 Gemini 账号", accountEmpty: "尚未登录 Gemini", accountHint: "账号只保存在当前设备的本地会话中；登录成功后页面自动收起，额度不足时可自动切换账号。",
     login: "添加 / 登录账号", relogin: "重新登录", test: "检测内置浏览器", autoSwitch: "额度不足时自动切换账号",
     idle: "未连接", checking: "正在检测…", ready: "内置浏览器已就绪", failed: "内置浏览器不可用：{reason}",
-    sizeMode: "尺寸模式", sizeHint: "原生模式保存网页实际像素；精确输出会无拉伸裁切缩放；本地 4K 是网页 2K 后处理。",
-    ratio: "网页构图比例", crop: "精确输出策略", quality: "网页质量意图", queue: "本地队列上限",
-    facts: "临时对话 · 网页原生 2K · 完整尺寸下载 · 精确尺寸审计",
-    capability: "已实测 2048×2048 与 2528×1696；其他比例以生成后实际尺寸为准。",
+    queue: "本地队列上限",
+    facts: "临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计",
+    capability: "构图比例由全局分辨率自动推导；网页原图下载后会无拉伸裁切缩放到所选全局尺寸。",
   }),
   "zh-Hant": Object.freeze({
     title: "Gemini 網頁生圖", hint: "在軟體內完成 Gemini 登入；登入成功後視窗會自動收起，後續任務由隱藏瀏覽器執行。",
     accountTitle: "軟體內 Gemini 帳號", accountEmpty: "尚未登入 Gemini", accountHint: "帳號只保存在目前裝置的本機工作階段；登入成功後頁面自動收起，額度不足時可自動切換帳號。",
     login: "新增 / 登入帳號", relogin: "重新登入", test: "偵測內建瀏覽器", autoSwitch: "額度不足時自動切換帳號",
     idle: "未連線", checking: "正在偵測…", ready: "內建瀏覽器已就緒", failed: "內建瀏覽器無法使用：{reason}",
-    sizeMode: "尺寸模式", sizeHint: "原生模式保留網頁實際像素；精確輸出會等比裁切縮放；本機 4K 是網頁 2K 後處理。",
-    ratio: "網頁構圖比例", crop: "精確輸出策略", quality: "網頁品質意圖", queue: "本機佇列上限",
-    facts: "臨時對話 · 網頁原生 2K · 完整尺寸下載 · 精確尺寸稽核",
-    capability: "已實測 2048×2048 與 2528×1696；其他比例以生成後實際尺寸為準。",
+    queue: "本機佇列上限",
+    facts: "臨時對話 · 使用全域解析度 · 完整尺寸下載 · 精確尺寸稽核",
+    capability: "構圖比例由全域解析度自動推導；網頁原圖下載後會以不拉伸裁切縮放至所選全域尺寸。",
   }),
   en: Object.freeze({
     title: "Gemini Web Images", hint: "Sign in to Gemini inside the app. The login view closes automatically, while a hidden browser runs later tasks.",
     accountTitle: "In-app Gemini account", accountEmpty: "Not signed in to Gemini", accountHint: "Sessions remain local to this device. The app can switch accounts automatically when the active account has no quota.",
     login: "Add / sign in", relogin: "Sign in again", test: "Test embedded browser", autoSwitch: "Switch accounts when quota is unavailable",
     idle: "Disconnected", checking: "Checking…", ready: "Embedded browser ready", failed: "Embedded browser unavailable: {reason}",
-    sizeMode: "Dimension mode", sizeHint: "Native keeps web pixels; Exact Output crops and scales without stretching; Local 4K post-processes the web 2K result.",
-    ratio: "Web composition ratio", crop: "Exact-output strategy", quality: "Web quality intent", queue: "Local queue limit",
-    facts: "Temporary Chat · web-native 2K · full-size download · dimension audit",
-    capability: "2048×2048 and 2528×1696 are verified locally; decoded output is authoritative for other ratios.",
+    queue: "Local queue limit",
+    facts: "Temporary Chat · global resolution · full-size download · dimension audit",
+    capability: "Composition is derived from the global resolution; the downloaded original is cropped and resized without stretching.",
   }),
   ja: Object.freeze({
     title: "Gemini ウェブ画像", hint: "アプリ内で Gemini にログインします。成功後は画面を自動で閉じ、非表示ブラウザがタスクを実行します。",
     accountTitle: "アプリ内 Gemini アカウント", accountEmpty: "Gemini に未ログイン", accountHint: "セッションはこの端末だけに保存されます。上限到達時は別アカウントへ自動切替できます。",
     login: "追加 / ログイン", relogin: "再ログイン", test: "内蔵ブラウザを確認", autoSwitch: "上限到達時に自動切替",
     idle: "未接続", checking: "確認中…", ready: "内蔵ブラウザ準備完了", failed: "内蔵ブラウザを利用できません：{reason}",
-    sizeMode: "サイズモード", sizeHint: "ネイティブは実画素を保持し、正確出力は非伸縮で切り抜きます。ローカル 4K は 2K の後処理です。",
-    ratio: "ウェブ構図比率", crop: "正確出力方式", quality: "ウェブ品質意図", queue: "ローカルキュー上限",
-    facts: "一時チャット · ウェブ原生 2K · フルサイズ取得 · サイズ監査",
-    capability: "2048×2048 と 2528×1696 は検証済みです。他の比率は実画像を基準にします。",
+    queue: "ローカルキュー上限",
+    facts: "一時チャット · グローバル解像度 · フルサイズ取得 · サイズ監査",
+    capability: "構図比率はグローバル解像度から自動算出し、元画像を伸ばさずに切り抜き・リサイズします。",
   }),
   ko: Object.freeze({
     title: "Gemini 웹 이미지", hint: "앱 안에서 Gemini에 로그인합니다. 성공하면 화면이 자동으로 닫히고 숨겨진 브라우저가 작업을 실행합니다.",
     accountTitle: "앱 내 Gemini 계정", accountEmpty: "Gemini에 로그인하지 않음", accountHint: "세션은 현재 기기에만 저장됩니다. 할당량이 없으면 다른 계정으로 자동 전환할 수 있습니다.",
     login: "계정 추가 / 로그인", relogin: "다시 로그인", test: "내장 브라우저 확인", autoSwitch: "할당량 부족 시 계정 자동 전환",
     idle: "연결 안 됨", checking: "확인 중…", ready: "내장 브라우저 준비됨", failed: "내장 브라우저 사용 불가: {reason}",
-    sizeMode: "크기 모드", sizeHint: "네이티브는 웹 픽셀을 유지하고 정확 출력은 늘리지 않고 자릅니다. 로컬 4K는 웹 2K 후처리입니다.",
-    ratio: "웹 구성 비율", crop: "정확 출력 방식", quality: "웹 품질 의도", queue: "로컬 대기열 상한",
-    facts: "임시 채팅 · 웹 네이티브 2K · 전체 크기 다운로드 · 크기 감사",
-    capability: "2048×2048 및 2528×1696은 검증되었습니다. 다른 비율은 실제 반환 크기를 기준으로 합니다.",
+    queue: "로컬 대기열 상한",
+    facts: "임시 채팅 · 전역 해상도 · 전체 크기 다운로드 · 크기 감사",
+    capability: "구도 비율은 전역 해상도에서 자동 계산하며 원본을 늘리지 않고 자른 뒤 선택한 크기로 조정합니다.",
   }),
 });
 
@@ -2581,21 +2568,19 @@ function geminiText(key) {
 
 function getGeminiWebOptions() {
   return geminiImageSizes.normalizeOptions({
-    sizeMode: dom.geminiSizeMode?.value,
-    ratio: dom.geminiRatio?.value,
+    // Gemini has no second size selector. The app-wide resolution is the
+    // authoritative target and the nearest Gemini ratio is derived from it.
+    sizeMode: "exact_output",
+    ratio: "auto",
     targetSize: getSelectedSize(),
-    cropMode: dom.geminiCropMode?.value,
-    qualityIntent: dom.geminiQualityIntent?.value,
+    cropMode: "smart_cover",
+    qualityIntent: "standard",
     clientQueue: dom.geminiClientQueue?.value,
   });
 }
 
 function applyGeminiWebOptions(value = {}) {
   const options = geminiImageSizes.normalizeOptions(value);
-  setProviderSegmentValue("geminiSizeMode", options.sizeMode);
-  if (dom.geminiRatio) dom.geminiRatio.value = options.ratio;
-  if (dom.geminiCropMode) dom.geminiCropMode.value = options.cropMode;
-  if (dom.geminiQualityIntent) dom.geminiQualityIntent.value = options.qualityIntent;
   if (dom.geminiClientQueue) dom.geminiClientQueue.value = String(options.clientQueue);
 }
 
@@ -2799,11 +2784,6 @@ function updateGeminiLanguage() {
     geminiProviderHint: "hint",
     geminiAccountTitle: "accountTitle",
     geminiAccountHint: "accountHint",
-    geminiSizeModeLabel: "sizeMode",
-    geminiSizeModeHint: "sizeHint",
-    geminiRatioLabel: "ratio",
-    geminiCropModeLabel: "crop",
-    geminiQualityLabel: "quality",
     geminiQueueLabel: "queue",
     geminiFacts: "facts",
     geminiCapabilityNote: "capability",
@@ -2815,53 +2795,6 @@ function updateGeminiLanguage() {
   if (dom.openGeminiLogin) dom.openGeminiLogin.textContent = geminiText("login");
   if (dom.testGeminiHealth) dom.testGeminiHealth.textContent = geminiText("test");
   if (dom.geminiAutoSwitchLabel) dom.geminiAutoSwitchLabel.textContent = geminiText("autoSwitch");
-  const labels = {
-    "zh-CN": {
-      modes: ["原生完整", "严格原生", "精确输出", "本地 4K"],
-      auto: "自动",
-      crops: ["安全区覆盖裁切", "居中裁切", "包含适配"],
-      quality: ["快速", "标准", "细节优先"],
-    },
-    "zh-Hant": {
-      modes: ["原生完整", "嚴格原生", "精確輸出", "本機 4K"],
-      auto: "自動",
-      crops: ["安全區覆蓋裁切", "置中裁切", "包含適配"],
-      quality: ["快速", "標準", "細節優先"],
-    },
-    en: {
-      modes: ["Native full size", "Strict native", "Exact output", "Local 4K"],
-      auto: "Auto",
-      crops: ["Safe-zone cover", "Center crop", "Contain"],
-      quality: ["Fast", "Standard", "Detail"],
-    },
-    ja: {
-      modes: ["原生フルサイズ", "厳格な原生", "正確出力", "ローカル 4K"],
-      auto: "自動",
-      crops: ["安全領域カバー", "中央切り抜き", "全体を収める"],
-      quality: ["高速", "標準", "細部優先"],
-    },
-    ko: {
-      modes: ["원본 전체 크기", "엄격한 원본", "정확 출력", "로컬 4K"],
-      auto: "자동",
-      crops: ["안전 영역 채우기", "가운데 자르기", "전체 맞춤"],
-      quality: ["빠름", "표준", "세부 우선"],
-    },
-  }[currentLanguage] || null;
-  if (labels) {
-    document.querySelectorAll('[data-provider-control="geminiSizeMode"] button[data-value]')
-      .forEach((button, index) => { if (labels.modes[index]) button.textContent = labels.modes[index]; });
-    if (dom.geminiRatio?.options?.[0]) dom.geminiRatio.options[0].textContent = labels.auto;
-    [...(dom.geminiCropMode?.options || [])].forEach((option, index) => {
-      if (labels.crops[index]) option.textContent = labels.crops[index];
-    });
-    [...(dom.geminiQualityIntent?.options || [])].forEach((option, index) => {
-      if (labels.quality[index]) option.textContent = labels.quality[index];
-    });
-    for (const key of ["geminiRatio", "geminiCropMode", "geminiQualityIntent"]) {
-      customSelects[key]?.renderOptions?.();
-      customSelects[key]?.syncLabel?.();
-    }
-  }
   renderGeminiAccounts(geminiAccountsState);
   setGeminiHealthState(geminiHealthState, geminiHealthDetail);
 }
@@ -3842,7 +3775,7 @@ dom.geminiAutoSwitch?.addEventListener("change", async () => {
     showStatus(`${geminiText("failed")} ${error?.message || error}`, "error");
   }
 });
-[dom.geminiRatio, dom.geminiCropMode, dom.geminiQualityIntent, dom.geminiClientQueue].forEach(control => {
+[dom.geminiClientQueue].forEach(control => {
   control?.addEventListener("change", () => {
     applyGeminiWebOptions(getGeminiWebOptions());
     persistCurrentProviderOptions();
@@ -6809,7 +6742,6 @@ async function normalizeCodexGatewayResult(result, { task = null, requested, req
 
 async function pollCodexGatewayTask(taskId, { signal = null, requested, requestAudit, startedAt, operation = "generation" } = {}) {
   const deadline = Date.now() + CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS;
-  let lastNetworkError = null;
   try {
     while (Date.now() < deadline) {
       throwIfAborted(signal);
@@ -7193,10 +7125,12 @@ async function pollGeminiGatewayTask(taskId, {
   };
   signal?.addEventListener("abort", cancelRemoteTask, { once: true });
   if (signal?.aborted) cancelRemoteTask();
-  const deadline = Date.now() + GEMINI_WEB_TASK_WAIT_TIMEOUT_MS;
   let lastNetworkError = null;
   try {
-    while (Date.now() < deadline) {
+    // Gemini page generation can exceed twelve minutes. Continue following the
+    // same resumable task until it succeeds, reports a terminal error, or the
+    // user cancels. This loop never resubmits paid work.
+    while (true) {
       throwIfAborted(signal);
       try {
         const raw = await geminiGatewayJsonRequest(`image-tasks/${encodeURIComponent(taskId)}`, {
@@ -7222,7 +7156,6 @@ async function pollGeminiGatewayTask(taskId, {
           error.gatewayTaskTerminal = true;
           throw makeImageApiError(error);
         }
-        lastNetworkError = null;
       } catch (error) {
         const status = Number(error?.imageError?.status || error?.status || 0);
         if (
@@ -7233,13 +7166,9 @@ async function pollGeminiGatewayTask(taskId, {
         // The task may still be running in the browser. Keep polling the same
         // task ID after transient 5xx/timeout/connection failures and never
         // resubmit paid work from this loop.
-        lastNetworkError = error;
       }
       await sleep(1500, signal);
     }
-    const timeout = lastNetworkError || new Error("HTTP 504: Gemini browser task exceeded the 12-minute client wait limit; its task ID is preserved for resume");
-    timeout.status = 504;
-    throw makeImageApiError(timeout);
   } finally {
     signal?.removeEventListener("abort", cancelRemoteTask);
   }

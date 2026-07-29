@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260729-1-6-2">
+  <link rel="stylesheet" href="style.css?v=20260729-1-6-3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -330,51 +330,7 @@
                 <div class="gemini-account-list" id="geminiAccountList" role="list" aria-live="polite"></div>
               </section>
 
-              <div class="provider-option provider-option-wide">
-                <div class="provider-option-copy">
-                  <strong id="geminiSizeModeLabel">尺寸模式</strong>
-                  <small id="geminiSizeModeHint">原生模式保存网页实际像素；精确输出会无拉伸裁切缩放；本地 4K 是网页 2K 后处理。</small>
-                </div>
-                <div class="provider-segments provider-segments-four" data-provider-control="geminiSizeMode" role="group" aria-labelledby="geminiSizeModeLabel">
-                  <button type="button" data-value="native_fullsize">原生完整</button>
-                  <button type="button" data-value="strict_native">严格原生</button>
-                  <button type="button" data-value="exact_output">精确输出</button>
-                  <button type="button" data-value="local_4k_upscale">本地 4K</button>
-                </div>
-                <input type="hidden" id="geminiSizeMode" value="exact_output">
-              </div>
-
               <div class="provider-options-grid">
-                <label class="provider-option field">
-                  <span id="geminiRatioLabel">网页构图比例</span>
-                  <select id="geminiRatio">
-                    <option value="auto">自动</option>
-                    <option value="1:1">1:1</option>
-                    <option value="3:2">3:2</option>
-                    <option value="2:3">2:3</option>
-                    <option value="4:3">4:3</option>
-                    <option value="3:4">3:4</option>
-                    <option value="16:9">16:9</option>
-                    <option value="9:16">9:16</option>
-                  </select>
-                </label>
-                <label class="provider-option field">
-                  <span id="geminiCropModeLabel">精确输出策略</span>
-                  <select id="geminiCropMode">
-                    <option value="smart_cover">安全区覆盖裁切</option>
-                    <option value="center_cover">居中裁切</option>
-                    <option value="contain">包含适配</option>
-                  </select>
-                </label>
-                <label class="provider-option field">
-                  <span id="geminiQualityLabel">网页质量意图</span>
-                  <select id="geminiQualityIntent">
-                    <option value="fast">快速</option>
-                    <option value="standard" selected>标准</option>
-                    <option value="detail">细节优先</option>
-                  </select>
-                  <small>这是提示词意图，不等同于 OpenAI API 的质量参数。</small>
-                </label>
                 <label class="provider-option field">
                   <span id="geminiQueueLabel">本地队列上限</span>
                   <input type="number" id="geminiClientQueue" min="1" max="100" step="1" value="10">
@@ -383,9 +339,9 @@
               </div>
 
               <div class="provider-facts">
-                <span id="geminiFacts">临时对话 · 网页原生 2K · 完整尺寸下载 · 精确尺寸审计</span>
+                <span id="geminiFacts">临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计</span>
               </div>
-              <p class="provider-capability-note" id="geminiCapabilityNote">已实测 2048×2048 与 2528×1696；其他比例以生成后实际尺寸为准。</p>
+              <p class="provider-capability-note" id="geminiCapabilityNote">构图比例由全局分辨率自动推导；网页原图下载后会无拉伸裁切缩放到所选全局尺寸。</p>
             </section>
 
             <section class="provider-panel provider-panel-grsai" id="grsaiProviderPanel" aria-labelledby="grsaiProviderTitle">
@@ -834,7 +790,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.2</strong>
+            <strong id="currentVersionLabel">v1.6.3</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -1028,12 +984,12 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260729-1-6-2"></script>
-  <script src="image-task-stability.js?v=20260729-1-6-2"></script>
-  <script src="codex-image-gateway.js?v=20260729-1-6-2"></script>
-  <script src="gemini-image-size-registry.js?v=20260729-1-6-2"></script>
-  <script src="gemini-web-image-adapter.js?v=20260729-1-6-2"></script>
-  <script src="gemini-selector-pack.js?v=20260729-1-6-2"></script>
-  <script src="app.js?v=20260729-1-6-2"></script>
+  <script src="bootstrap-guard.js?v=20260729-1-6-3"></script>
+  <script src="image-task-stability.js?v=20260729-1-6-3"></script>
+  <script src="codex-image-gateway.js?v=20260729-1-6-3"></script>
+  <script src="gemini-image-size-registry.js?v=20260729-1-6-3"></script>
+  <script src="gemini-web-image-adapter.js?v=20260729-1-6-3"></script>
+  <script src="gemini-selector-pack.js?v=20260729-1-6-3"></script>
+  <script src="app.js?v=20260729-1-6-3"></script>
 </body>
 </html>

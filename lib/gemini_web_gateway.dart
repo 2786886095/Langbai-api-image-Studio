@@ -17,7 +17,7 @@ const int _geminiPortStart = 18160;
 const int _geminiPortEnd = 18199;
 const int _maxJsonBytes = 80 * 1024 * 1024;
 const int _maxImageBytes = 60 * 1024 * 1024;
-const Duration _companionLeaseDuration = Duration(seconds: 45);
+const Duration _companionLeaseDuration = Duration(minutes: 2);
 const Duration _geminiRateLimitCooldown = Duration(minutes: 15);
 const String _geminiSelectorPackVersion = '2026.07.29.1';
 final RegExp _geminiUuidPattern = RegExp(
@@ -54,6 +54,24 @@ const Map<String, Set<String>> _geminiStatusTransitions = <String, Set<String>>{
   'generating': <String>{'generating', 'locating_full_size'},
   'locating_full_size': <String>{'locating_full_size'},
 };
+
+GeminiImageTask? findResumableGeminiCompanionTask(
+  Iterable<GeminiImageTask> tasks, {
+  required String accountId,
+  required DateTime now,
+}) {
+  final matches = tasks
+      .where((task) =>
+          !task.terminal &&
+          task.accountId == accountId &&
+          task.claimId.isNotEmpty &&
+          task.claimedAccountId == accountId &&
+          task.claimExpiresAt != null &&
+          task.claimExpiresAt!.isAfter(now))
+      .toList()
+    ..sort((left, right) => left.updatedAt.compareTo(right.updatedAt));
+  return matches.firstOrNull;
+}
 
 class GeminiWebGatewayManager {
   GeminiWebGatewayManager(this.secureStorage)
@@ -911,6 +929,39 @@ class GeminiWebGatewayManager {
           reclaimed = true;
         }
         if (reclaimed) await _persistTasks();
+        final activeClaims = _tasks.values
+            .where((item) =>
+                !item.terminal &&
+                item.accountId == accountId &&
+                item.claimId.isNotEmpty &&
+                item.claimedAccountId == accountId &&
+                !_claimExpired(item, now))
+            .toList()
+          ..sort((left, right) => left.updatedAt.compareTo(right.updatedAt));
+        final resumableTask = findResumableGeminiCompanionTask(
+          activeClaims,
+          accountId: accountId,
+          now: now,
+        );
+        if (resumableTask != null) {
+          final task = resumableTask;
+          // A single embedded account profile must never execute two Gemini
+          // page automations at once. Return the same claim after navigation
+          // and release any duplicate claims created by older builds.
+          for (final duplicate in activeClaims.skip(1)) {
+            duplicate.status = 'waiting_for_browser';
+            duplicate.updatedAt = now;
+            _clearClaim(duplicate);
+          }
+          _renewClaim(task);
+          await _persistTasks();
+          await _json(response, 200, <String, Object?>{
+            ...task.toJson(includeRequest: true),
+            'request': task.request,
+            'resumed_claim': true,
+          });
+          return;
+        }
         final task = _tasks.values
             .where((item) =>
                 !item.terminal &&
