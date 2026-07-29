@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.5.4+76
+version: 1.6.0+77
 
 environment:
   sdk: ^3.5.0
@@ -69,11 +69,16 @@ flutter:
     - bootstrap-guard.js
     - image-task-stability.js
     - codex-image-gateway.js
+    - gemini-image-size-registry.js
+    - gemini-web-image-adapter.js
+    - gemini-selector-pack.js
     - app.js
     - style.css
     - manifest.webmanifest
     - sw.js
     - assets/icons/
+    - gemini_companion/
+    - gemini_companion/chromium/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

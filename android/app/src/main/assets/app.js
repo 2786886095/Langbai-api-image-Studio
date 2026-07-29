@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.5.4";
+const APP_VERSION = "1.6.0";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -243,7 +243,7 @@ const CLEAN_LOCALES = {
     appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜 · 气泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
-    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
+    apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", geminiWebApi: "Gemini 网页生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
     opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
     opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 初始并发 2（断连后降为 1）", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。", inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
@@ -321,7 +321,7 @@ const CLEAN_LOCALES = {
     appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡 · 氣泡嵌字",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
     create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
-    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機生圖", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
+    apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機生圖", geminiWebApi: "Gemini 網頁生圖", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
     opencodexHint: "使用本機 OpenCodex 的 ChatGPT 登入轉發生圖；本機佔位密鑰不會傳送給 OpenAI，實際額度類型由 ChatGPT 上游決定。",
     opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "重用本機 ChatGPT/Codex 或 Google Antigravity 登入；僅連線 127.0.0.1，不使用電腦端代理。", openCodexModel: "本機生圖模型", openCodexModelHint: "GPT Image 2 適合通用生成；Nano Banana 2 擅長多參考圖、文字與語意編輯。", opencodexQuality: "品質偏好", opencodexQualityHint: "私有額度上游實測固定為中等品質，其他檔位不會生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", openCodexAspectRatio: "畫面比例", openCodexAspectRatioHint: "只能選擇 Nano Banana 2 官方支援的畫面比例。", openCodexImageSize: "解析度檔位", openCodexImageSizeHint: "512/1K 最多並行 5，2K 最多 3，4K 固定單任務。", opencodexFacts: "JSON 圖片協議 · GPT Image 2 · 中等品質 · 約 157 萬像素 · 初始並行 2（斷線後降為 1）", opencodexCapability: "實測輸出約 157 萬像素、最長邊 2172、品質固定為中等；軟體會將尺寸比例寫入提示詞，並以實際回傳尺寸為準。", openCodexNanoFacts: "JSON 圖片協議 · Nano Banana 2 · 目前最多並行 {concurrency} · 單次逾時 620 秒", openCodexNanoCapability: "支援最多 8 張客戶端參考圖、文字渲染與語意編輯；比例與檔位是請求目標，以實際圖片為準。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}", openInpaint: "局部重繪", inpaintRequiresNano: "局部重繪需要選擇 Nano Banana 2", inpaintTitle: "局部重繪", inpaintDisclosure: "Nano Banana 2 產生語意補丁，軟體只在蒙版內本機合成；這不是上游原生 mask 重繪。", inpaintChooseSource: "選擇原圖", inpaintNoSource: "尚未選擇圖片", inpaintPromptLabel: "修改內容", inpaintGenerate: "產生候選補丁", inpaintApply: "套用並加入結果", inpaintInitial: "先選擇原圖，再塗抹要修改的區域。", inpaintNeedSource: "請先選擇原圖", inpaintNeedMask: "請先塗抹要修改的區域", inpaintNeedPrompt: "請輸入修改內容", inpaintGenerating: "正在產生候選補丁 {done}/{total}…", inpaintApplied: "局部重繪結果已加入結果清單", inpaintCandidateFailed: "候選 {index} 失敗：{reason}", inpaintRequestedActual: "請求：{requested} · 實際：{actual}",
     savedApis: "已儲存的 API", manualApi: "手動填寫", setDefaultApi: "預設", defaultApi: "預設 API",
@@ -399,7 +399,7 @@ const CLEAN_LOCALES = {
     appTitle: "AI Image Generator", subtitle: "Single images · Comic panels · Speech bubbles",
     web: "Web/PWA", desktop: "Desktop", android: "Android",
     create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
-    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "OpenCodex Local Images", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
+    apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "OpenCodex Local Images", geminiWebApi: "Gemini Web Images", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
     opencodexHint: "Routes images through the local OpenCodex ChatGPT login. The placeholder key is never sent to OpenAI; ChatGPT determines the actual quota category.",
     opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Reuses the local ChatGPT/Codex or Google Antigravity login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", openCodexModel: "Local image model", openCodexModelHint: "GPT Image 2 is general purpose; Nano Banana 2 excels at multi-reference, text, and semantic editing.", opencodexQuality: "Quality preference", opencodexQualityHint: "The private quota upstream was measured at fixed Medium quality; the other tiers have no effect.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", openCodexAspectRatio: "Aspect ratio", openCodexAspectRatioHint: "Only official Nano Banana 2 aspect ratios are available.", openCodexImageSize: "Resolution tier", openCodexImageSizeHint: "512/1K: up to 5 concurrent; 2K: 3; 4K: one task.", opencodexFacts: "JSON image protocol · GPT Image 2 · Medium · about 1.57 MP · starts at 2 concurrent (drops to 1 after disconnects)", opencodexCapability: "Measured output is about 1.57 MP with a 2172 px longest edge and fixed Medium quality. The requested ratio is added to the prompt; decoded dimensions are authoritative.", openCodexNanoFacts: "JSON image protocol · Nano Banana 2 · up to {concurrency} concurrent · 620-second timeout", openCodexNanoCapability: "Supports up to 8 client-side references, text rendering, and semantic edits. Ratio and tier are request targets; the decoded image is authoritative.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}", openInpaint: "Local inpaint", inpaintRequiresNano: "Local inpaint requires Nano Banana 2", inpaintTitle: "Local inpaint", inpaintDisclosure: "Nano Banana 2 generates a semantic patch and the app composites it only inside the local mask. This is not native upstream mask inpainting.", inpaintChooseSource: "Choose source image", inpaintNoSource: "No image selected", inpaintPromptLabel: "Requested change", inpaintGenerate: "Generate candidates", inpaintApply: "Apply and add to results", inpaintInitial: "Choose a source image, then paint the area to change.", inpaintNeedSource: "Choose a source image first", inpaintNeedMask: "Paint the area to change first", inpaintNeedPrompt: "Enter the requested change", inpaintGenerating: "Generating candidate patch {done}/{total}…", inpaintApplied: "The local inpaint result was added to results", inpaintCandidateFailed: "Candidate {index} failed: {reason}", inpaintRequestedActual: "Requested: {requested} · actual: {actual}",
     savedApis: "Saved APIs", manualApi: "Manual entry", setDefaultApi: "Default", defaultApi: "Default API",
@@ -477,7 +477,7 @@ const CLEAN_LOCALES = {
     appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画コマ · 吹き出し文字",
     web: "Web/PWA", desktop: "デスクトップ", android: "Android",
     create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
-    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "OpenCodex ローカル画像", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
+    apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "OpenCodex ローカル画像", geminiWebApi: "Gemini ウェブ画像", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
     opencodexHint: "ローカル OpenCodex の ChatGPT ログイン経由で画像を生成します。プレースホルダーキーは OpenAI に送信されず、実際の利用枠は ChatGPT 側で決まります。",
     opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex または Google Antigravity ログインを再利用します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", openCodexModel: "ローカル画像モデル", openCodexModelHint: "GPT Image 2 は汎用生成、Nano Banana 2 は複数参照・文字・意味編集に向いています。", opencodexQuality: "品質の希望", opencodexQualityHint: "非公開クォータ上流は実測で中品質固定です。他の品質段階は反映されません。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", openCodexAspectRatio: "画面比率", openCodexAspectRatioHint: "Nano Banana 2 が公式対応する画面比率のみ選択できます。", openCodexImageSize: "解像度段階", openCodexImageSizeHint: "512/1K は最大 5、2K は 3、4K は 1 タスクです。", opencodexFacts: "JSON 画像プロトコル · GPT Image 2 · 中品質 · 約 157 万画素 · 初期同時 2 件（切断後は 1 件）", opencodexCapability: "実測出力は約 157 万画素、最長辺 2172 px、品質は中固定です。サイズ比率をプロンプトへ追加し、実際の画像寸法を正とします。", openCodexNanoFacts: "JSON 画像プロトコル · Nano Banana 2 · 最大同時 {concurrency} 件 · 620 秒タイムアウト", openCodexNanoCapability: "クライアント側参照画像は最大 8 枚。文字描画と意味編集に対応します。比率と段階は要求値で、実画像を正とします。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}", openInpaint: "部分再描画", inpaintRequiresNano: "部分再描画には Nano Banana 2 が必要です", inpaintTitle: "部分再描画", inpaintDisclosure: "Nano Banana 2 が意味的なパッチを生成し、アプリがローカルマスク内だけに合成します。上流ネイティブの mask 再描画ではありません。", inpaintChooseSource: "元画像を選択", inpaintNoSource: "画像未選択", inpaintPromptLabel: "変更内容", inpaintGenerate: "候補を生成", inpaintApply: "適用して結果へ追加", inpaintInitial: "元画像を選び、変更する領域を塗ってください。", inpaintNeedSource: "先に元画像を選択してください", inpaintNeedMask: "先に変更する領域を塗ってください", inpaintNeedPrompt: "変更内容を入力してください", inpaintGenerating: "候補パッチを生成中 {done}/{total}…", inpaintApplied: "部分再描画結果を結果一覧へ追加しました", inpaintCandidateFailed: "候補 {index} 失敗：{reason}", inpaintRequestedActual: "要求：{requested} · 実際：{actual}",
     savedApis: "保存済み API", manualApi: "手動入力", setDefaultApi: "既定", defaultApi: "既定 API",
@@ -555,7 +555,7 @@ const CLEAN_LOCALES = {
     appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 컷 · 말풍선 문구",
     web: "Web/PWA", desktop: "데스크톱", android: "Android",
     create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
-    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "OpenCodex 로컬 이미지", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
+    apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "OpenCodex 로컬 이미지", geminiWebApi: "Gemini 웹 이미지", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
     opencodexHint: "로컬 OpenCodex의 ChatGPT 로그인으로 이미지를 생성합니다. 자리표시자 키는 OpenAI로 전송되지 않으며 실제 사용 한도는 ChatGPT에서 결정합니다.",
     opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 또는 Google Antigravity 로그인을 재사용합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", openCodexModel: "로컬 이미지 모델", openCodexModelHint: "GPT Image 2는 범용 생성, Nano Banana 2는 다중 참고·문자·의미 편집에 적합합니다.", opencodexQuality: "품질 선호", opencodexQualityHint: "비공개 할당량 업스트림은 실측상 중간 품질로 고정되며 다른 품질 단계는 적용되지 않습니다.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", openCodexAspectRatio: "화면 비율", openCodexAspectRatioHint: "Nano Banana 2가 공식 지원하는 화면 비율만 선택할 수 있습니다.", openCodexImageSize: "해상도 단계", openCodexImageSizeHint: "512/1K는 최대 5개, 2K는 3개, 4K는 1개 작업입니다.", opencodexFacts: "JSON 이미지 프로토콜 · GPT Image 2 · 중간 품질 · 초기 동시 2개(연결 끊김 후 1개)", opencodexCapability: "실측 출력은 약 157만 화소, 최장변 2172 px, 품질은 중간으로 고정됩니다. 크기 비율을 프롬프트에 추가하며 실제 이미지 크기를 기준으로 합니다.", openCodexNanoFacts: "JSON 이미지 프로토콜 · Nano Banana 2 · 최대 동시 {concurrency}개 · 620초 제한", openCodexNanoCapability: "클라이언트 참고 이미지는 최대 8장입니다. 문자 렌더링과 의미 편집을 지원하며 비율과 단계는 요청 목표이고 실제 이미지를 기준으로 합니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}", openInpaint: "부분 다시 그리기", inpaintRequiresNano: "부분 다시 그리기에는 Nano Banana 2가 필요합니다", inpaintTitle: "부분 다시 그리기", inpaintDisclosure: "Nano Banana 2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다. 업스트림 네이티브 mask 인페인팅이 아닙니다.", inpaintChooseSource: "원본 이미지 선택", inpaintNoSource: "선택된 이미지 없음", inpaintPromptLabel: "변경 내용", inpaintGenerate: "후보 생성", inpaintApply: "적용하고 결과에 추가", inpaintInitial: "원본 이미지를 선택한 뒤 변경할 영역을 칠하세요.", inpaintNeedSource: "먼저 원본 이미지를 선택하세요", inpaintNeedMask: "먼저 변경할 영역을 칠하세요", inpaintNeedPrompt: "변경 내용을 입력하세요", inpaintGenerating: "후보 패치 생성 중 {done}/{total}…", inpaintApplied: "부분 다시 그리기 결과를 결과 목록에 추가했습니다", inpaintCandidateFailed: "후보 {index} 실패: {reason}", inpaintRequestedActual: "요청: {requested} · 실제: {actual}",
     savedApis: "저장된 API", manualApi: "직접 입력", setDefaultApi: "기본", defaultApi: "기본 API",
@@ -1081,6 +1081,7 @@ function applyCleanLanguage() {
   const providerLabels = {
     official: "officialApi",
     codexImageGateway: "codexGatewayApi",
+    geminiWeb: "geminiWebApi",
     grsai: "grsaiImageApi",
     custom: "customApi",
   };
@@ -1386,6 +1387,7 @@ const dom = {
   quickDetectModels: $("#quickDetectModels"),
   officialProviderPanel: $("#officialProviderPanel"),
   codexGatewayProviderPanel: $("#codexGatewayProviderPanel"),
+  geminiProviderPanel: $("#geminiProviderPanel"),
   grsaiProviderPanel: $("#grsaiProviderPanel"),
   customProviderPanel: $("#customProviderPanel"),
   codexGatewayQuality: $("#codexGatewayQuality"),
@@ -1407,6 +1409,18 @@ const dom = {
   importChatGptSession: $("#importChatGptSession"),
   chatGptAutoSwitch: $("#chatGptAutoSwitch"),
   chatGptAccountList: $("#chatGptAccountList"),
+  geminiPairingKey: $("#geminiPairingKey"),
+  copyGeminiPairingKey: $("#copyGeminiPairingKey"),
+  openGeminiLogin: $("#openGeminiLogin"),
+  testGeminiHealth: $("#testGeminiHealth"),
+  geminiAccountIdentity: $("#geminiAccountIdentity"),
+  geminiAccountStatus: $("#geminiAccountStatus"),
+  geminiAccountList: $("#geminiAccountList"),
+  geminiSizeMode: $("#geminiSizeMode"),
+  geminiRatio: $("#geminiRatio"),
+  geminiCropMode: $("#geminiCropMode"),
+  geminiQualityIntent: $("#geminiQualityIntent"),
+  geminiClientQueue: $("#geminiClientQueue"),
   openInpaintFromFile: $("#openInpaintFromFile"),
   inpaintSourceInput: $("#inpaintSourceInput"),
   officialQuality: $("#officialQuality"),
@@ -1791,6 +1805,9 @@ const customSelects = {
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
   captionAutoFillTemplate: initCustomSelect(dom.captionAutoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
+  geminiRatio: initCustomSelect(dom.geminiRatio),
+  geminiCropMode: initCustomSelect(dom.geminiCropMode),
+  geminiQualityIntent: initCustomSelect(dom.geminiQualityIntent),
   modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
 
@@ -1970,6 +1987,31 @@ const imageTaskStability = window.ImageTaskStability;
 if (!imageTaskStability) throw new Error("image-task-stability.js 未加载，生图稳定层无法启动");
 const codexImageGateway = window.CodexImageGateway;
 if (!codexImageGateway) throw new Error("codex-image-gateway.js 未加载，ChatGPT 网页生图适配层无法启动");
+const GEMINI_WEB_MODULES_AVAILABLE = Boolean(
+  window.GeminiImageSizeRegistry && window.GeminiWebImageAdapter,
+);
+const GEMINI_WEB_FALLBACK_DEFAULTS = Object.freeze({
+  sizeMode: "exact_output",
+  ratio: "auto",
+  targetSize: "832x1216",
+  cropMode: "smart_cover",
+  qualityIntent: "standard",
+  clientQueue: 10,
+});
+const geminiImageSizes = window.GeminiImageSizeRegistry || Object.freeze({
+  DEFAULTS: GEMINI_WEB_FALLBACK_DEFAULTS,
+  normalizeOptions(value = {}) {
+    return { ...GEMINI_WEB_FALLBACK_DEFAULTS, ...value };
+  },
+});
+const geminiWebImage = window.GeminiWebImageAdapter || Object.freeze({
+  PROVIDER_ID: "geminiWeb",
+  MODEL: "gemini-web-image",
+  DEFAULT_BASE_URL: "http://127.0.0.1:18160/v1",
+});
+if (!GEMINI_WEB_MODULES_AVAILABLE) {
+  console.warn("Gemini optional modules did not load; only the Gemini provider is disabled.");
+}
 const CODEX_IMAGE_GATEWAY_PROVIDER = codexImageGateway.PROVIDER_ID;
 const CODEX_IMAGE_GATEWAY_BASE_URL = codexImageGateway.BASE_URL;
 const CODEX_IMAGE_GATEWAY_HEALTH_URL = codexImageGateway.HEALTH_URL;
@@ -1978,6 +2020,11 @@ const CODEX_IMAGE_GATEWAY_MODEL = codexImageGateway.MODEL;
 const CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS = 300000;
 const CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS = 1200000;
 const CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS = 30000;
+const GEMINI_WEB_PROVIDER = geminiWebImage.PROVIDER_ID;
+const GEMINI_WEB_MODEL = geminiWebImage.MODEL;
+const GEMINI_WEB_BASE_URL = geminiWebImage.DEFAULT_BASE_URL;
+const GEMINI_WEB_HEALTH_CACHE_MS = 10000;
+const GEMINI_WEB_TASK_WAIT_TIMEOUT_MS = 12 * 60 * 1000;
 const codexGatewayRuntime = imageTaskStability.createOpenCodexRuntime({
   initialConcurrency: 100,
   circuitFailureThreshold: 3,
@@ -2080,6 +2127,7 @@ const GRSAI_API_ENDPOINT = "https://grsai.dakka.com.cn/v1/api/generate";
 const API_PROVIDER_PRESETS = {
   official: { endpoint: OFFICIAL_API_ENDPOINT, labelKey: "officialApi" },
   [CODEX_IMAGE_GATEWAY_PROVIDER]: { endpoint: CODEX_IMAGE_GATEWAY_BASE_URL, labelKey: "codexGatewayApi" },
+  [GEMINI_WEB_PROVIDER]: { endpoint: GEMINI_WEB_BASE_URL, labelKey: "geminiWebApi" },
   grsai: { endpoint: GRSAI_API_ENDPOINT, labelKey: "grsaiImageApi" },
   custom: { endpoint: "", labelKey: "customApi" },
 };
@@ -2474,34 +2522,116 @@ function updateCodexGatewayOptionAvailability() {
   if (dom.apiQuickMeta && isCodexGatewaySelected()) updateApiQuickState();
 }
 
+const GEMINI_WEB_LOCALES = Object.freeze({
+  "zh-CN": Object.freeze({
+    title: "Gemini 网页生图", hint: "使用系统浏览器中的 Gemini 登录；Google Cookie 不进入软件。任务强制使用临时对话并下载完整尺寸图片。",
+    accountTitle: "系统浏览器账号", accountEmpty: "尚未配对浏览器伴侣", accountHint: "首次使用需加载随软件发布的浏览器扩展，并粘贴下方本机配对密钥。",
+    copyKey: "复制密钥", copied: "配对密钥已复制", login: "系统浏览器登录", test: "检测浏览器伴侣",
+    idle: "未连接", checking: "正在检测…", ready: "浏览器伴侣已连接", failed: "伴侣不可用：{reason}",
+    sizeMode: "尺寸模式", sizeHint: "原生模式保存网页实际像素；精确输出会无拉伸裁切缩放；本地 4K 是网页 2K 后处理。",
+    ratio: "网页构图比例", crop: "精确输出策略", quality: "网页质量意图", queue: "本地队列上限",
+    facts: "临时对话 · 网页原生 2K · 完整尺寸下载 · 精确尺寸审计",
+    capability: "已实测 2048×2048 与 2528×1696；其他比例以生成后实际尺寸为准。",
+  }),
+  "zh-Hant": Object.freeze({
+    title: "Gemini 網頁生圖", hint: "使用系統瀏覽器中的 Gemini 登入；Google Cookie 不進入軟體。任務強制使用臨時對話並下載完整尺寸圖片。",
+    accountTitle: "系統瀏覽器帳號", accountEmpty: "尚未配對瀏覽器伴侶", accountHint: "首次使用需載入隨軟體發佈的瀏覽器擴充功能，並貼上下方本機配對密鑰。",
+    copyKey: "複製密鑰", copied: "配對密鑰已複製", login: "系統瀏覽器登入", test: "偵測瀏覽器伴侶",
+    idle: "未連線", checking: "正在偵測…", ready: "瀏覽器伴侶已連線", failed: "伴侶無法使用：{reason}",
+    sizeMode: "尺寸模式", sizeHint: "原生模式保留網頁實際像素；精確輸出會等比裁切縮放；本機 4K 是網頁 2K 後處理。",
+    ratio: "網頁構圖比例", crop: "精確輸出策略", quality: "網頁品質意圖", queue: "本機佇列上限",
+    facts: "臨時對話 · 網頁原生 2K · 完整尺寸下載 · 精確尺寸稽核",
+    capability: "已實測 2048×2048 與 2528×1696；其他比例以生成後實際尺寸為準。",
+  }),
+  en: Object.freeze({
+    title: "Gemini Web Images", hint: "Uses the Gemini account in your system browser. Google cookies never enter the app. Tasks require Temporary Chat and full-size downloads.",
+    accountTitle: "System browser account", accountEmpty: "Browser companion not paired", accountHint: "Load the bundled browser extension once, then paste the local pairing key below.",
+    copyKey: "Copy key", copied: "Pairing key copied", login: "Sign in in browser", test: "Test companion",
+    idle: "Disconnected", checking: "Checking…", ready: "Browser companion connected", failed: "Companion unavailable: {reason}",
+    sizeMode: "Dimension mode", sizeHint: "Native keeps web pixels; Exact Output crops and scales without stretching; Local 4K post-processes the web 2K result.",
+    ratio: "Web composition ratio", crop: "Exact-output strategy", quality: "Web quality intent", queue: "Local queue limit",
+    facts: "Temporary Chat · web-native 2K · full-size download · dimension audit",
+    capability: "2048×2048 and 2528×1696 are verified locally; decoded output is authoritative for other ratios.",
+  }),
+  ja: Object.freeze({
+    title: "Gemini ウェブ画像", hint: "システムブラウザの Gemini ログインを使用します。Google Cookie はアプリに入りません。一時チャットとフルサイズ取得を必須にします。",
+    accountTitle: "システムブラウザのアカウント", accountEmpty: "ブラウザ伴侶は未接続です", accountHint: "同梱ブラウザ拡張を読み込み、下のローカル接続キーを貼り付けてください。",
+    copyKey: "キーをコピー", copied: "接続キーをコピーしました", login: "ブラウザでログイン", test: "伴侶を確認",
+    idle: "未接続", checking: "確認中…", ready: "ブラウザ伴侶に接続済み", failed: "伴侶を利用できません：{reason}",
+    sizeMode: "サイズモード", sizeHint: "ネイティブは実画素を保持し、正確出力は非伸縮で切り抜きます。ローカル 4K は 2K の後処理です。",
+    ratio: "ウェブ構図比率", crop: "正確出力方式", quality: "ウェブ品質意図", queue: "ローカルキュー上限",
+    facts: "一時チャット · ウェブ原生 2K · フルサイズ取得 · サイズ監査",
+    capability: "2048×2048 と 2528×1696 は検証済みです。他の比率は実画像を基準にします。",
+  }),
+  ko: Object.freeze({
+    title: "Gemini 웹 이미지", hint: "시스템 브라우저의 Gemini 로그인을 사용합니다. Google 쿠키는 앱으로 들어오지 않습니다. 임시 채팅과 전체 크기 다운로드를 필수로 사용합니다.",
+    accountTitle: "시스템 브라우저 계정", accountEmpty: "브라우저 도우미가 연결되지 않음", accountHint: "동봉된 브라우저 확장을 로드한 뒤 아래 로컬 페어링 키를 붙여 넣으세요.",
+    copyKey: "키 복사", copied: "페어링 키를 복사함", login: "브라우저에서 로그인", test: "도우미 확인",
+    idle: "연결 안 됨", checking: "확인 중…", ready: "브라우저 도우미 연결됨", failed: "도우미 사용 불가: {reason}",
+    sizeMode: "크기 모드", sizeHint: "네이티브는 웹 픽셀을 유지하고 정확 출력은 늘리지 않고 자릅니다. 로컬 4K는 웹 2K 후처리입니다.",
+    ratio: "웹 구성 비율", crop: "정확 출력 방식", quality: "웹 품질 의도", queue: "로컬 대기열 상한",
+    facts: "임시 채팅 · 웹 네이티브 2K · 전체 크기 다운로드 · 크기 감사",
+    capability: "2048×2048 및 2528×1696은 검증되었습니다. 다른 비율은 실제 반환 크기를 기준으로 합니다.",
+  }),
+});
+
+function geminiText(key) {
+  return GEMINI_WEB_LOCALES[currentLanguage]?.[key] || GEMINI_WEB_LOCALES["zh-CN"][key] || key;
+}
+
+function getGeminiWebOptions() {
+  return geminiImageSizes.normalizeOptions({
+    sizeMode: dom.geminiSizeMode?.value,
+    ratio: dom.geminiRatio?.value,
+    targetSize: getSelectedSize(),
+    cropMode: dom.geminiCropMode?.value,
+    qualityIntent: dom.geminiQualityIntent?.value,
+    clientQueue: dom.geminiClientQueue?.value,
+  });
+}
+
+function applyGeminiWebOptions(value = {}) {
+  const options = geminiImageSizes.normalizeOptions(value);
+  setProviderSegmentValue("geminiSizeMode", options.sizeMode);
+  if (dom.geminiRatio) dom.geminiRatio.value = options.ratio;
+  if (dom.geminiCropMode) dom.geminiCropMode.value = options.cropMode;
+  if (dom.geminiQualityIntent) dom.geminiQualityIntent.value = options.qualityIntent;
+  if (dom.geminiClientQueue) dom.geminiClientQueue.value = String(options.clientQueue);
+}
+
 const SIZE_POLICY_TEXT = Object.freeze({
   "zh-CN": Object.freeze({
     official: "gpt-image-2 支持满足约束的任意尺寸；带“官方”的七项是 OpenAI 常用预设。",
     opencodex: "ChatGPT 网页生图会请求所选方向与尺寸；原生模式保留实际像素，精确输出会在本地无拉伸裁切缩放。",
+    gemini: "Gemini 网页会按最接近比例请求原生 2K；原生模式保留完整尺寸，精确输出和本地 4K 会记录后处理审计。",
     nano: "Nano Banana 2 只使用上方的官方“比例 × 分辨率档位”；这里的像素尺寸不会发送。",
     generic: "预设尺寸会作为像素尺寸发送；自定义接口是否支持由服务端决定。",
   }),
   "zh-Hant": Object.freeze({
     official: "gpt-image-2 支援符合限制的任意尺寸；標示「官方」的七項是 OpenAI 常用預設。",
     opencodex: "Codex 私有額度路徑實測固定約 157 萬像素；所選尺寸用於提示方向與比例，請以生成後的實際尺寸為準。",
+    gemini: "Gemini 網頁會按最接近比例請求原生 2K；原生模式保留完整尺寸，精確輸出與本機 4K 會記錄後處理稽核。",
     nano: "Nano Banana 2 只使用上方官方的「比例 × 解析度檔位」；此處像素尺寸不會傳送。",
     generic: "預設尺寸會作為像素尺寸傳送；自訂介面是否支援由伺服器決定。",
   }),
   en: Object.freeze({
     official: "gpt-image-2 accepts any compliant size. The seven Official choices are OpenAI's popular presets.",
     opencodex: "The Codex private quota route was measured at about 1.57 MP. The selected size guides orientation and ratio; check the decoded size.",
+    gemini: "Gemini Web requests the nearest ratio at native 2K. Native preserves full size; Exact Output and Local 4K retain a post-processing audit.",
     nano: "Nano Banana 2 uses only the official ratio and resolution tier above. Pixel presets here are not sent.",
     generic: "Pixel dimensions are sent as requested. Custom-server support depends on that server.",
   }),
   ja: Object.freeze({
     official: "gpt-image-2 は制約を満たす任意サイズに対応します。「公式」の7項目は OpenAI の代表的なプリセットです。",
     opencodex: "Codex の非公開クォータ経路は実測で約 157 万画素固定です。選択サイズは向きと比率の指示に使われ、生成後の実寸を正とします。",
+    gemini: "Gemini ウェブは最も近い比率で原生 2K を要求します。ネイティブは実寸を保持し、正確出力とローカル 4K は後処理を記録します。",
     nano: "Nano Banana 2 は上の公式「比率 × 解像度段階」のみを使用し、ここのピクセル値は送信しません。",
     generic: "ピクセル寸法を要求値として送信します。対応可否は接続先サーバーによります。",
   }),
   ko: Object.freeze({
     official: "gpt-image-2는 제약을 만족하는 임의 크기를 지원합니다. '공식' 7개 항목은 OpenAI 권장 프리셋입니다.",
     opencodex: "Codex 비공개 할당량 경로는 실측상 약 157만 화소로 고정됩니다. 선택 크기는 방향과 비율 안내에 사용되며 실제 크기를 확인해야 합니다.",
+    gemini: "Gemini 웹은 가장 가까운 비율로 네이티브 2K를 요청합니다. 네이티브는 전체 크기를 유지하고 정확 출력과 로컬 4K는 후처리를 기록합니다.",
     nano: "Nano Banana 2는 위의 공식 '비율 × 해상도 단계'만 사용하며 이 픽셀 크기는 전송하지 않습니다.",
     generic: "픽셀 크기를 요청값으로 전송합니다. 지원 여부는 연결한 서버에 따라 다릅니다.",
   }),
@@ -2517,6 +2647,8 @@ function updateSizePolicyUi() {
     ? "official"
     : provider === CODEX_IMAGE_GATEWAY_PROVIDER
       ? "opencodex"
+      : provider === GEMINI_WEB_PROVIDER
+        ? "gemini"
       : "generic";
   dom.sizePolicyHint.textContent = language[key];
 }
@@ -2594,6 +2726,7 @@ function updateOfficialOptionAvailability() {
 function updateProviderPanelVisibility(provider = dom.apiProvider?.value || "custom") {
   dom.officialProviderPanel?.classList.toggle("hidden", provider !== "official");
   dom.codexGatewayProviderPanel?.classList.toggle("hidden", provider !== CODEX_IMAGE_GATEWAY_PROVIDER);
+  dom.geminiProviderPanel?.classList.toggle("hidden", provider !== GEMINI_WEB_PROVIDER);
   dom.grsaiProviderPanel?.classList.toggle("hidden", provider !== "grsai");
   dom.customProviderPanel?.classList.toggle("hidden", provider !== "custom");
   dom.grsaiRetrySettings?.classList.toggle("hidden", provider !== "grsai");
@@ -2653,11 +2786,86 @@ function updateProviderOptionsLanguage() {
   const chatGptAutoSwitchLabel = dom.chatGptAutoSwitch?.closest("label")?.querySelector("span");
   if (chatGptAutoSwitchLabel) chatGptAutoSwitchLabel.textContent = cleanText("chatGptAutoSwitch");
   renderChatGptAccounts(chatGptAccountsState);
+  updateGeminiLanguage();
   updateOfficialOptionAvailability();
   updateCodexGatewayOptionAvailability();
   setCodexGatewayHealthState(codexGatewayHealthState, codexGatewayHealthDetail);
   updateInpaintLanguage();
 }
+
+function updateGeminiLanguage() {
+  const textMap = {
+    geminiProviderTitle: "title",
+    geminiProviderHint: "hint",
+    geminiAccountTitle: "accountTitle",
+    geminiAccountHint: "accountHint",
+    geminiSizeModeLabel: "sizeMode",
+    geminiSizeModeHint: "sizeHint",
+    geminiRatioLabel: "ratio",
+    geminiCropModeLabel: "crop",
+    geminiQualityLabel: "quality",
+    geminiQueueLabel: "queue",
+    geminiFacts: "facts",
+    geminiCapabilityNote: "capability",
+  };
+  for (const [id, key] of Object.entries(textMap)) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = geminiText(key);
+  }
+  if (dom.copyGeminiPairingKey) dom.copyGeminiPairingKey.textContent = geminiText("copyKey");
+  if (dom.openGeminiLogin) dom.openGeminiLogin.textContent = geminiText("login");
+  if (dom.testGeminiHealth) dom.testGeminiHealth.textContent = geminiText("test");
+  const labels = {
+    "zh-CN": {
+      modes: ["原生完整", "严格原生", "精确输出", "本地 4K"],
+      auto: "自动",
+      crops: ["安全区覆盖裁切", "居中裁切", "包含适配"],
+      quality: ["快速", "标准", "细节优先"],
+    },
+    "zh-Hant": {
+      modes: ["原生完整", "嚴格原生", "精確輸出", "本機 4K"],
+      auto: "自動",
+      crops: ["安全區覆蓋裁切", "置中裁切", "包含適配"],
+      quality: ["快速", "標準", "細節優先"],
+    },
+    en: {
+      modes: ["Native full size", "Strict native", "Exact output", "Local 4K"],
+      auto: "Auto",
+      crops: ["Safe-zone cover", "Center crop", "Contain"],
+      quality: ["Fast", "Standard", "Detail"],
+    },
+    ja: {
+      modes: ["原生フルサイズ", "厳格な原生", "正確出力", "ローカル 4K"],
+      auto: "自動",
+      crops: ["安全領域カバー", "中央切り抜き", "全体を収める"],
+      quality: ["高速", "標準", "細部優先"],
+    },
+    ko: {
+      modes: ["원본 전체 크기", "엄격한 원본", "정확 출력", "로컬 4K"],
+      auto: "자동",
+      crops: ["안전 영역 채우기", "가운데 자르기", "전체 맞춤"],
+      quality: ["빠름", "표준", "세부 우선"],
+    },
+  }[currentLanguage] || null;
+  if (labels) {
+    document.querySelectorAll('[data-provider-control="geminiSizeMode"] button[data-value]')
+      .forEach((button, index) => { if (labels.modes[index]) button.textContent = labels.modes[index]; });
+    if (dom.geminiRatio?.options?.[0]) dom.geminiRatio.options[0].textContent = labels.auto;
+    [...(dom.geminiCropMode?.options || [])].forEach((option, index) => {
+      if (labels.crops[index]) option.textContent = labels.crops[index];
+    });
+    [...(dom.geminiQualityIntent?.options || [])].forEach((option, index) => {
+      if (labels.quality[index]) option.textContent = labels.quality[index];
+    });
+    for (const key of ["geminiRatio", "geminiCropMode", "geminiQualityIntent"]) {
+      customSelects[key]?.renderOptions?.();
+      customSelects[key]?.syncLabel?.();
+    }
+  }
+  renderGeminiAccounts(geminiAccountsState);
+  setGeminiHealthState(geminiHealthState, geminiHealthDetail);
+}
+
 function updateInpaintLanguage() {
   setText("#inpaintTitle", "inpaintTitle");
   setText("#inpaintDisclosure", "inpaintDisclosure");
@@ -2726,12 +2934,15 @@ function setCodexGatewayHealthState(state, detail = "") {
 
 function syncCodexGatewayGenerateAvailability() {
   if (!dom.generateBtn || dom.generateBtn.classList.contains("is-cancel")) return;
-  dom.generateBtn.disabled = isCodexGatewaySelected() && codexGatewayHealthState !== "ready";
+  dom.generateBtn.disabled = (isCodexGatewaySelected() && codexGatewayHealthState !== "ready")
+    || (isGeminiWebSelected() && geminiHealthState !== "ready");
 }
 
 function syncCodexGatewayProviderVisibility() {
   const option = dom.apiProvider?.querySelector(`option[value="${CODEX_IMAGE_GATEWAY_PROVIDER}"]`);
   if (option) option.hidden = !isNativeChatGptGatewayWebview();
+  const geminiOption = dom.apiProvider?.querySelector(`option[value="${GEMINI_WEB_PROVIDER}"]`);
+  if (geminiOption) geminiOption.hidden = !isNativeGeminiWebview();
   customSelects.apiProvider?.renderOptions?.();
   customSelects.apiProvider?.syncLabel?.();
 }
@@ -2791,6 +3002,153 @@ async function checkCodexGatewayHealth({ announce = false, force = true } = {}) 
   })();
   return codexGatewayHealthPromise;
 }
+
+let geminiHealthState = "idle";
+let geminiHealthDetail = "";
+let geminiHealthCheckedAt = 0;
+let geminiHealthPromise = null;
+let geminiCredentials = null;
+let geminiCapabilities = null;
+let geminiAccountsState = { accounts: [], active_account_id: "", companion_connected: false };
+
+function isGeminiWebSelected() {
+  return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === GEMINI_WEB_PROVIDER;
+}
+
+function setGeminiHealthState(state, detail = "") {
+  geminiHealthState = state;
+  geminiHealthDetail = detail;
+  if (dom.geminiAccountStatus) {
+    dom.geminiAccountStatus.dataset.state = state;
+    dom.geminiAccountStatus.textContent = state === "checking"
+      ? geminiText("checking")
+      : state === "ready"
+        ? geminiText("ready")
+        : state === "error"
+          ? interpolate(geminiText("failed"), { reason: detail || "unknown" })
+          : geminiText("idle");
+  }
+  syncCodexGatewayGenerateAvailability();
+  updateApiQuickState();
+}
+
+function renderGeminiAccounts(state = {}) {
+  geminiAccountsState = {
+    accounts: Array.isArray(state.accounts) ? state.accounts : [],
+    active_account_id: String(state.active_account_id || state.activeAccountId || ""),
+    companion_connected: state.companion_connected === true || state.companionConnected === true,
+  };
+  if (dom.geminiAccountIdentity) {
+    const active = geminiAccountsState.accounts.find(account => account.local_account_id === geminiAccountsState.active_account_id)
+      || geminiAccountsState.accounts[0];
+    dom.geminiAccountIdentity.textContent = active
+      ? [active.display_name, active.masked_email].filter(Boolean).join(" · ")
+      : geminiText("accountEmpty");
+  }
+  if (!dom.geminiAccountList) return;
+  dom.geminiAccountList.replaceChildren();
+  for (const account of geminiAccountsState.accounts) {
+    if (!account?.local_account_id) continue;
+    const item = document.createElement("div");
+    item.className = "gemini-account-item";
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = account.display_name || geminiText("accountTitle");
+    const meta = document.createElement("span");
+    meta.textContent = [account.masked_email, account.status, account.effective_concurrency ? `×${account.effective_concurrency}` : ""].filter(Boolean).join(" · ");
+    copy.append(title, meta);
+    const actions = document.createElement("div");
+    if (account.local_account_id !== geminiAccountsState.active_account_id) {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "btn btn-xs";
+      use.textContent = currentLanguage === "en" ? "Use" : "使用";
+      use.addEventListener("click", async () => {
+        renderGeminiAccounts(await nativeDownload.selectGeminiAccount(account.local_account_id));
+        geminiHealthCheckedAt = 0;
+        await checkGeminiHealth({ announce: true, force: true });
+      });
+      actions.append(use);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn btn-danger btn-xs";
+    remove.textContent = currentLanguage === "en" ? "Delete" : "删除";
+    remove.addEventListener("click", async () => {
+      if (!(await askConfirm(currentLanguage === "en" ? "Remove this local Gemini account pairing?" : "删除该 Gemini 本机账号配对？"))) return;
+      renderGeminiAccounts(await nativeDownload.deleteGeminiAccount(account.local_account_id));
+      setGeminiHealthState("idle");
+    });
+    actions.append(remove);
+    item.append(copy, actions);
+    dom.geminiAccountList.append(item);
+  }
+}
+
+async function loadGeminiCredentials() {
+  if (!isNativeGeminiWebview()) throw new Error("Gemini 网页生图仅在打包软件中可用");
+  const loaded = await nativeDownload.loadGeminiWebGatewayConfig();
+  const baseUrl = geminiWebImage.normalizeBaseUrl(loaded?.baseUrl || GEMINI_WEB_BASE_URL);
+  const apiKey = String(loaded?.apiKey || "").trim();
+  if (!geminiWebImage.validatePairingKey(apiKey)) throw new Error("Gemini 浏览器伴侣配对密钥无效");
+  geminiCredentials = { baseUrl, apiKey };
+  if (dom.apiEndpoint && isGeminiWebSelected()) dom.apiEndpoint.value = baseUrl;
+  if (dom.geminiPairingKey) dom.geminiPairingKey.value = apiKey;
+  renderGeminiAccounts(loaded || {});
+  return geminiCredentials;
+}
+
+async function checkGeminiHealth({ announce = false, force = true } = {}) {
+  if (!isGeminiWebSelected()) return true;
+  if (!GEMINI_WEB_MODULES_AVAILABLE) {
+    setGeminiHealthState("error", "Gemini 可选组件未加载，请重新安装或更新软件");
+    return false;
+  }
+  if (!force && geminiHealthState === "ready" && Date.now() - geminiHealthCheckedAt < GEMINI_WEB_HEALTH_CACHE_MS) return true;
+  if (geminiHealthPromise) return geminiHealthPromise;
+  setGeminiHealthState("checking");
+  if (dom.testGeminiHealth) dom.testGeminiHealth.disabled = true;
+  geminiHealthPromise = (async () => {
+    try {
+      const credentials = await loadGeminiCredentials();
+      const headers = { Accept: "application/json", Authorization: `Bearer ${credentials.apiKey}` };
+      const healthResponse = await smartFetch(`${credentials.baseUrl.replace(/\/v1\/?$/i, "")}/healthz`, {
+        headers, nativeTimeoutMs: 5000, forceDirectProxy: true,
+      });
+      if (!healthResponse.ok) throw new Error(`健康检查 HTTP ${healthResponse.status}`);
+      const health = await healthResponse.json();
+      if (health.status !== "ok") throw new Error(health.message || "本机桥未就绪");
+      if (health.companion_connected !== true) throw new Error("浏览器扩展尚未配对或 Gemini 页面未打开");
+      if (health.session_available !== true) throw new Error("请在系统浏览器登录 Gemini，并保持 Gemini 页面打开");
+      const capsResponse = await smartFetch(`${credentials.baseUrl}/capabilities`, {
+        headers, nativeTimeoutMs: 5000, forceDirectProxy: true,
+      });
+      if (!capsResponse.ok) throw new Error(`能力检查 HTTP ${capsResponse.status}`);
+      const validated = geminiWebImage.validateCapabilities(await capsResponse.json());
+      if (!validated.ok) throw new Error(`缺少能力：${validated.missing.join(", ")}`);
+      geminiCapabilities = validated.capabilities;
+      const accountsResponse = await smartFetch(`${credentials.baseUrl}/accounts`, {
+        headers, nativeTimeoutMs: 5000, forceDirectProxy: true,
+      });
+      if (accountsResponse.ok) renderGeminiAccounts(await accountsResponse.json());
+      geminiHealthCheckedAt = Date.now();
+      setGeminiHealthState("ready", GEMINI_WEB_MODEL);
+      if (announce) showStatus(geminiText("ready"), "success");
+      return true;
+    } catch (error) {
+      geminiCapabilities = null;
+      geminiHealthCheckedAt = 0;
+      const reason = String(error?.message || error || "Gemini 浏览器伴侣");
+      setGeminiHealthState("error", reason);
+      if (announce) showStatus(interpolate(geminiText("failed"), { reason }), "error");
+      return false;
+    } finally {
+      if (dom.testGeminiHealth) dom.testGeminiHealth.disabled = false;
+      geminiHealthPromise = null;
+    }
+  })();
+  return geminiHealthPromise;
+}
 function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -2846,7 +3204,7 @@ function redactStoredApiKey(storageKey, id) {
 }
 
 function persistApiKeySecurely(config, storageKey) {
-  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey || config.apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER) return;
+  if (!secureStorageBridgeAvailable() || !config?.id || !config.apiKey || [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(config.apiProvider)) return;
   const id = config.id;
   const secretName = secureApiKeyName(id);
   const next = queueSecureStorageOperation(() => nativeDownload.saveSecret(secretName, config.apiKey))
@@ -2876,28 +3234,36 @@ function makeApiId() {
 
 function normalizeApiConfig(config = {}) {
   const endpoint = String(config.endpoint || "").trim();
-  const configuredProvider = config.apiProvider || config.provider || inferApiProvider(endpoint);
-  const legacyGateway = configuredProvider === "opencodex" || /^https?:\/\/(?:127\.0\.0\.1|localhost):10100(?:\/|$)/i.test(endpoint);
-  const inferredProvider = inferApiProvider(endpoint);
+  const explicitProvider = String(config.apiProvider || config.provider || "").trim();
+  const configuredProvider = explicitProvider || inferApiProvider(endpoint);
+  const legacyGateway = configuredProvider === "opencodex"
+    || (!explicitProvider && /^https?:\/\/(?:127\.0\.0\.1|localhost):10100(?:\/|$)/i.test(endpoint));
   const apiProvider = legacyGateway
     ? CODEX_IMAGE_GATEWAY_PROVIDER
-    : configuredProvider === "custom" && inferredProvider !== "custom"
-      ? inferredProvider
-      : configuredProvider;
+    : configuredProvider;
   const gatewayOptions = apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER
     ? normalizeCodexGatewayOptions(config.codexGatewayOptions || config.openCodexImageOptions || {})
     : undefined;
-  const normalizedEndpoint = apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? CODEX_IMAGE_GATEWAY_BASE_URL : endpoint;
+  const geminiOptions = apiProvider === GEMINI_WEB_PROVIDER
+    ? geminiImageSizes.normalizeOptions(config.geminiWebOptions || {})
+    : undefined;
+  const normalizedEndpoint = apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER
+    ? CODEX_IMAGE_GATEWAY_BASE_URL
+    : apiProvider === GEMINI_WEB_PROVIDER
+      ? GEMINI_WEB_BASE_URL
+      : endpoint;
+  const localGateway = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(apiProvider);
   return {
     id: config.id || makeApiId(),
     name: config.name || readableEndpoint(normalizedEndpoint) || cleanText("manualApi"),
     apiProvider,
     endpoint: normalizedEndpoint,
-    apiKey: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? "" : (config.apiKey || ""),
-    hasSecureKey: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? false : config.hasSecureKey === true,
-    model: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? CODEX_IMAGE_GATEWAY_MODEL : (config.model || ""),
+    apiKey: localGateway ? "" : (config.apiKey || ""),
+    hasSecureKey: localGateway ? false : config.hasSecureKey === true,
+    model: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? CODEX_IMAGE_GATEWAY_MODEL : apiProvider === GEMINI_WEB_PROVIDER ? GEMINI_WEB_MODEL : (config.model || ""),
     officialImageOptions: apiProvider === "official" ? normalizeOfficialImageOptions(config.officialImageOptions) : undefined,
     codexGatewayOptions: gatewayOptions,
+    geminiWebOptions: geminiOptions,
     proxyEndpoint: config.proxyEndpoint || "",
     platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(normalizedEndpoint) || cleanText("customApi"),
   };
@@ -2930,6 +3296,7 @@ function getDefaultApiConfig() {
 
 function inferApiProvider(endpoint = "") {
   const ep = String(endpoint).toLowerCase();
+  if (/^http:\/\/(?:127\.0\.0\.1|localhost):181(?:6\d|7\d|8\d|9\d)(?:\/|$)/.test(ep)) return GEMINI_WEB_PROVIDER;
   if (/^https?:\/\/(?:127\.0\.0\.1|localhost):(?:18080|18081|10100)(?:\/|$)/.test(ep)) return CODEX_IMAGE_GATEWAY_PROVIDER;
   if (/grsai|dakka\.com\.cn|grsaiapi/.test(ep)) return "grsai";
   if (/api\.openai\.com/.test(ep)) return "official";
@@ -2950,6 +3317,7 @@ function updateApiProviderHint(provider = dom.apiProvider?.value || "custom") {
   const hints = {
     official: `${cleanText("officialApi")} · ${OFFICIAL_API_ENDPOINT}`,
     [CODEX_IMAGE_GATEWAY_PROVIDER]: `${cleanText("codexGatewayApi")} · ${CODEX_IMAGE_GATEWAY_BASE_URL}`,
+    [GEMINI_WEB_PROVIDER]: `${cleanText("geminiWebApi")} · 系统浏览器伴侣`,
     grsai: cleanText("apiProviderHint"),
     custom: `${cleanText("customApi")} · ${cleanText("apiUrl")}`,
   };
@@ -2973,11 +3341,17 @@ function applyApiProvider(provider = "custom", options = {}) {
     dom.apiKey.placeholder = cleanText("codexGatewayKeyHint");
     dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
     setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
+  } else if (next === GEMINI_WEB_PROVIDER) {
+    dom.apiEndpoint.value = geminiCredentials?.baseUrl || GEMINI_WEB_BASE_URL;
+    dom.apiKey.value = "";
+    dom.apiKey.placeholder = currentLanguage === "en" ? "Managed by local companion" : "由本机浏览器伴侣管理";
+    dom.model.value = GEMINI_WEB_MODEL;
+    setModelChoices([GEMINI_WEB_MODEL]);
   } else if (dom.apiKey) {
     dom.apiKey.placeholder = "sk-...";
   }
-  if (dom.apiKey) dom.apiKey.readOnly = next === CODEX_IMAGE_GATEWAY_PROVIDER;
-  if (dom.model) dom.model.readOnly = next === CODEX_IMAGE_GATEWAY_PROVIDER;
+  if (dom.apiKey) dom.apiKey.readOnly = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(next);
+  if (dom.model) dom.model.readOnly = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(next);
   customSelects.apiProvider?.syncLabel();
   updateApiProviderHint(next);
   updateProviderPanelVisibility(next);
@@ -2993,8 +3367,9 @@ function applyConfig(cfg) {
   const provider = normalized.apiProvider || inferApiProvider(endpoint);
   applyApiProvider(provider, { forceEndpoint: false });
   dom.apiEndpoint.value = endpoint;
-  dom.apiKey.value = provider === CODEX_IMAGE_GATEWAY_PROVIDER ? "" : (normalized.apiKey || "");
-  if (provider !== CODEX_IMAGE_GATEWAY_PROVIDER && !normalized.apiKey && normalized.hasSecureKey && normalized.id) {
+  const localGateway = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(provider);
+  dom.apiKey.value = localGateway ? "" : (normalized.apiKey || "");
+  if (!localGateway && !normalized.apiKey && normalized.hasSecureKey && normalized.id) {
     const expectedId = normalized.id;
     setTimeout(() => {
       if (!secureStorageBridgeAvailable()) return;
@@ -3009,6 +3384,7 @@ function applyConfig(cfg) {
   dom.model.value = normalized.model || "";
   applyOfficialImageOptions(normalized.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
   applyCodexGatewayOptions(normalized.codexGatewayOptions || CODEX_GATEWAY_OPTION_DEFAULTS);
+  applyGeminiWebOptions(normalized.geminiWebOptions || geminiImageSizes.DEFAULTS);
   dom.proxyEndpoint.value = normalized.proxyEndpoint || "";
   if (!normalized.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
   if (!normalized.model && provider === "official") dom.model.value = "gpt-image-2";
@@ -3019,6 +3395,13 @@ function applyConfig(cfg) {
     setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
     setCodexGatewayHealthState("idle");
     setTimeout(() => void checkCodexGatewayHealth({ announce: false, force: true }), 0);
+  } else if (provider === GEMINI_WEB_PROVIDER) {
+    dom.apiEndpoint.value = normalized.endpoint || GEMINI_WEB_BASE_URL;
+    dom.apiKey.value = "";
+    dom.model.value = GEMINI_WEB_MODEL;
+    setModelChoices([GEMINI_WEB_MODEL]);
+    setGeminiHealthState("idle");
+    setTimeout(() => void checkGeminiHealth({ announce: false, force: true }), 0);
   }
   updateOfficialOptionAvailability();
   updateApiQuickState();
@@ -3028,6 +3411,9 @@ function apiConfigIdentityMatches(config, provider, endpoint) {
   if (!config) return false;
   const normalizeEndpoint = value => String(value || "").trim().replace(/\/+$/, "").toLowerCase();
   const configProvider = config.apiProvider || config.provider || inferApiProvider(config.endpoint || "");
+  if ([CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(provider)) {
+    return configProvider === provider;
+  }
   return configProvider === provider && normalizeEndpoint(config.endpoint) === normalizeEndpoint(endpoint);
 }
 
@@ -3047,17 +3433,20 @@ function currentApiConfig(name = "", options = {}) {
       ? active
       : null;
   const gateway = provider === CODEX_IMAGE_GATEWAY_PROVIDER;
-  const apiKey = gateway ? "" : dom.apiKey.value.trim();
+  const gemini = provider === GEMINI_WEB_PROVIDER;
+  const localGateway = gateway || gemini;
+  const apiKey = localGateway ? "" : dom.apiKey.value.trim();
   return {
     id: identitySource?.id || makeApiId(),
     name: name || identitySource?.name || readableEndpoint(endpoint) || apiProviderLabel(provider) || "未命名",
     apiProvider: provider,
-    endpoint: gateway ? CODEX_IMAGE_GATEWAY_BASE_URL : endpoint,
+    endpoint: gateway ? CODEX_IMAGE_GATEWAY_BASE_URL : gemini ? GEMINI_WEB_BASE_URL : endpoint,
     apiKey,
-    hasSecureKey: gateway ? false : (!apiKey && identitySource?.hasSecureKey === true),
-    model: gateway ? CODEX_IMAGE_GATEWAY_MODEL : dom.model.value.trim(),
+    hasSecureKey: localGateway ? false : (!apiKey && identitySource?.hasSecureKey === true),
+    model: gateway ? CODEX_IMAGE_GATEWAY_MODEL : gemini ? GEMINI_WEB_MODEL : dom.model.value.trim(),
     officialImageOptions: provider === "official" ? getOfficialImageOptions() : undefined,
     codexGatewayOptions: gateway ? getCodexGatewayOptions() : undefined,
+    geminiWebOptions: gemini ? getGeminiWebOptions() : undefined,
     proxyEndpoint: dom.proxyEndpoint.value.trim(),
     platform: (findAdapter(endpoint, provider) || {}).name || "未知",
   };
@@ -3084,15 +3473,25 @@ function updateApiQuickState() {
   const endpoint = dom.apiEndpoint?.value.trim() || "";
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   const gateway = provider === CODEX_IMAGE_GATEWAY_PROVIDER;
+  const gemini = provider === GEMINI_WEB_PROVIDER;
+  const localGateway = gateway || gemini;
   const apiKey = dom.apiKey?.value.trim() || "";
   const model = dom.model?.value.trim() || "gpt-image-2";
-  const connected = gateway ? codexGatewayHealthState === "ready" : Boolean(endpoint && apiKey);
+  const connected = gateway
+    ? codexGatewayHealthState === "ready"
+    : gemini
+      ? geminiHealthState === "ready"
+      : Boolean(endpoint && apiKey);
   dom.apiQuickCard.classList.toggle("is-connected", connected);
   if (dom.apiQuickTitle) dom.apiQuickTitle.textContent = cleanText(connected ? "apiConnected" : "apiDisconnected");
   if (dom.apiQuickMeta) {
     const platform = apiProviderLabel(provider) || readableEndpoint(endpoint);
-    if (connected) dom.apiQuickMeta.textContent = gateway ? `${platform} · ${model} · 本机凭据` : `${platform} · ${model} · ${maskApiKey(apiKey)}`;
-    else dom.apiQuickMeta.textContent = `${platform} · ${gateway ? cleanText("codexGatewayHealthIdle") : cleanText("apiConnectHint")}`;
+    if (connected) dom.apiQuickMeta.textContent = localGateway
+      ? `${platform} · ${model} · 本机配对`
+      : `${platform} · ${model} · ${maskApiKey(apiKey)}`;
+    else dom.apiQuickMeta.textContent = `${platform} · ${localGateway
+      ? (gemini ? geminiText("idle") : cleanText("codexGatewayHealthIdle"))
+      : cleanText("apiConnectHint")}`;
   }
 }
 
@@ -3331,6 +3730,7 @@ function detachSavedApiProfile({ clearKey = true } = {}) {
   if (dom.proxyEndpoint) dom.proxyEndpoint.value = "";
   applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
   applyCodexGatewayOptions(CODEX_GATEWAY_OPTION_DEFAULTS);
+  applyGeminiWebOptions(geminiImageSizes.DEFAULTS);
 }
 
 dom.apiProvider?.addEventListener("change", () => {
@@ -3348,6 +3748,11 @@ dom.apiProvider?.addEventListener("change", () => {
     updateCodexGatewayOptionAvailability();
     setCodexGatewayHealthState("idle");
     void checkCodexGatewayHealth({ announce: true, force: true });
+  } else if (provider === GEMINI_WEB_PROVIDER) {
+    setModelChoices([GEMINI_WEB_MODEL]);
+    dom.model.value = GEMINI_WEB_MODEL;
+    setGeminiHealthState("idle");
+    void checkGeminiHealth({ announce: true, force: true });
   } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
     dom.model.value = "";
   }
@@ -3398,6 +3803,40 @@ dom.codexGatewayAsyncTasks?.addEventListener("change", persistCurrentProviderOpt
 dom.codexGatewayClientQueue?.addEventListener("change", () => {
   applyCodexGatewayOptions(getCodexGatewayOptions());
   persistCurrentProviderOptions();
+});
+dom.testGeminiHealth?.addEventListener("click", () => {
+  void checkGeminiHealth({ announce: true, force: true });
+});
+dom.openGeminiLogin?.addEventListener("click", async () => {
+  try {
+    await nativeDownload.openGeminiWebLogin();
+    showStatus(currentLanguage === "en" ? "Gemini opened in the system browser." : "已在系统浏览器打开 Gemini；登录后保持页面开启并点击检测。", "info");
+  } catch (error) {
+    showStatus(`${geminiText("failed")} ${error?.message || error}`, "error");
+  }
+});
+dom.copyGeminiPairingKey?.addEventListener("click", async () => {
+  const key = String(dom.geminiPairingKey?.value || "");
+  if (!key) {
+    await loadGeminiCredentials().catch(() => null);
+  }
+  const value = String(dom.geminiPairingKey?.value || "");
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    dom.geminiPairingKey.type = "text";
+    dom.geminiPairingKey.select();
+    document.execCommand("copy");
+    dom.geminiPairingKey.type = "password";
+  }
+  showStatus(geminiText("copied"), "success");
+});
+[dom.geminiRatio, dom.geminiCropMode, dom.geminiQualityIntent, dom.geminiClientQueue].forEach(control => {
+  control?.addEventListener("change", () => {
+    applyGeminiWebOptions(getGeminiWebOptions());
+    persistCurrentProviderOptions();
+  });
 });
 dom.refreshOfficialRate?.addEventListener("click", () => {
   void refreshUsdCnyRate({ force: true, announce: true });
@@ -4711,6 +5150,12 @@ function isNativeWindowsWebview() {
 
 function isNativeChatGptGatewayWebview() {
   return nativeDownload.available() && ["windows", "android"].includes(getRuntimePlatform());
+}
+
+function isNativeGeminiWebview() {
+  return GEMINI_WEB_MODULES_AVAILABLE
+    && nativeDownload.available()
+    && ["windows", "android", "macos", "ios"].includes(getRuntimePlatform());
 }
 
 function isNativeDesktopWebview() {
@@ -6238,6 +6683,9 @@ function findAdapter(endpoint, provider = dom.apiProvider?.value || inferApiProv
   if (selectedProvider === CODEX_IMAGE_GATEWAY_PROVIDER) {
     return adapters.find(a => a.provider === CODEX_IMAGE_GATEWAY_PROVIDER) || null;
   }
+  if (selectedProvider === GEMINI_WEB_PROVIDER) {
+    return adapters.find(a => a.provider === GEMINI_WEB_PROVIDER) || null;
+  }
   if (selectedProvider === "grsai") {
     return adapters.find(a => a.provider === "grsai") || null;
   }
@@ -6506,6 +6954,353 @@ registerAdapter({
         throw normalized;
       }
     }
+  },
+});
+
+async function geminiGatewayResponseError(response) {
+  let payload = null;
+  let text = "";
+  try {
+    text = await response.text();
+    payload = text ? JSON.parse(text) : null;
+  } catch {}
+  const detail = payload?.error || payload || {};
+  const message = detail?.message || detail?.detail || text || `Gemini companion HTTP ${response.status}`;
+  const error = new Error(`HTTP ${response.status}: ${message}`);
+  error.status = response.status;
+  error.code = String(detail?.code || "");
+  error.requestId = String(detail?.request_id || response.headers.get("x-request-id") || "");
+  return makeImageApiError(error);
+}
+
+async function geminiGatewayJsonRequest(path, {
+  method = "GET",
+  body = null,
+  signal = null,
+  timeoutMs = 15000,
+} = {}) {
+  throwIfAborted(signal);
+  const credentials = geminiCredentials || await loadGeminiCredentials();
+  const base = credentials.baseUrl.replace(/\/+$/, "");
+  const url = `${base}/${String(path || "").replace(/^\/+/, "")}`;
+  const response = await smartFetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${credentials.apiKey}`,
+      ...(body == null ? {} : { "Content-Type": "application/json" }),
+    },
+    body: body == null ? undefined : JSON.stringify(body),
+    signal,
+    nativeTimeoutMs: timeoutMs,
+    forceDirectProxy: true,
+  });
+  if (!response.ok) throw await geminiGatewayResponseError(response);
+  if (response.status === 204) return {};
+  return response.json();
+}
+
+function geminiResultUrl(task) {
+  const item = task?.result?.data?.[0] || task?.data?.[0] || null;
+  return String(item?.url || "");
+}
+
+async function geminiGatewayDownloadBlob(value, signal = null) {
+  throwIfAborted(signal);
+  const credentials = geminiCredentials || await loadGeminiCredentials();
+  const raw = String(value || "").trim();
+  if (!raw) throw new Error("Gemini companion task returned no image URL");
+  const url = new URL(raw, `${credentials.baseUrl.replace(/\/+$/, "")}/`).toString();
+  const result = await nativeDownload.nativeFetchBlob(url, {
+    Authorization: `Bearer ${credentials.apiKey}`,
+    Accept: "image/*",
+  }, {
+    forceDirectProxy: true,
+    signal,
+    timeoutMs: 120000,
+  });
+  const status = Number(result?.status || 0);
+  if (status < 200 || status >= 300 || !(result?.blob instanceof Blob)) {
+    const error = new Error(`HTTP ${status || 502}: Gemini result download failed`);
+    error.status = status || 502;
+    throw makeImageApiError(error);
+  }
+  return normalizeImageBlob(result.blob);
+}
+
+function canvasToImageBlob(canvas, type = "image/png", quality = 0.96) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob instanceof Blob && blob.size > 0
+        ? resolve(blob)
+        : reject(new Error("Gemini image post-processing produced an empty file")),
+      type,
+      quality,
+    );
+  });
+}
+
+async function sha256BlobHex(blob) {
+  if (!(blob instanceof Blob) || !globalThis.crypto?.subtle) return "";
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
+
+async function transformGeminiResultBlob(blob, resolved) {
+  const source = await readImageBlobDimensions(blob);
+  if (!source?.width || !source?.height) throw new Error("Gemini full-size image could not be decoded");
+  const sourceSize = `${source.width}x${source.height}`;
+  if (resolved.sizeMode === "native_fullsize" || resolved.sizeMode === "strict_native") {
+    const strictMismatch = resolved.sizeMode === "strict_native"
+      && resolved.verifiedNative
+      && (source.width !== resolved.verifiedNative.width || source.height !== resolved.verifiedNative.height);
+    return {
+      blob,
+      source,
+      final: source,
+      transform: strictMismatch ? "strict_native_mismatch" : "none",
+      strictMismatch,
+      sourceSize,
+      transformPlan: null,
+    };
+  }
+
+  const target = resolved.target;
+  const plan = geminiImageSizes.planTransform(
+    source.width,
+    source.height,
+    target.width,
+    target.height,
+    resolved.cropMode,
+  );
+  const sourceUrl = URL.createObjectURL(blob);
+  try {
+    const image = await loadImageElement(sourceUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = target.width;
+    canvas.height = target.height;
+    const context = canvas.getContext("2d", { alpha: true });
+    if (!context) throw new Error("Canvas 2D is unavailable");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    const [tx, ty, tw, th] = plan.targetRect;
+    if (resolved.cropMode === "contain") context.clearRect(0, 0, target.width, target.height);
+    context.drawImage(image, ...plan.sourceRect, tx, ty, tw, th);
+    return {
+      blob: await canvasToImageBlob(canvas),
+      source,
+      final: { width: target.width, height: target.height },
+      // WebView2 does not expose the actual resampling kernel. Keep the audit
+      // factual rather than claiming Lanczos when the browser only guarantees
+      // high-quality interpolation.
+      transform: String(plan.action || "resize").replace("+lanczos", "+high_quality_resample"),
+      strictMismatch: false,
+      sourceSize,
+      transformPlan: plan,
+    };
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+async function normalizeGeminiTaskResult(task, {
+  signal = null,
+  resolved,
+  startedAt,
+  requestAudit = null,
+  operation = "generation",
+} = {}) {
+  const protectedUrl = geminiResultUrl(task);
+  const downloaded = await geminiGatewayDownloadBlob(protectedUrl, signal);
+  const processed = await transformGeminiResultBlob(downloaded, resolved);
+  const nativeSha256 = await sha256BlobHex(downloaded);
+  const finalSha256 = processed.blob === downloaded
+    ? nativeSha256
+    : await sha256BlobHex(processed.blob);
+  const safeAudit = geminiWebImage.buildSafeAudit(task);
+  const finalSize = `${processed.final.width}x${processed.final.height}`;
+  const nativeSize = `${processed.source.width}x${processed.source.height}`;
+  return {
+    data: [{
+      b64_json: await blobToBase64(processed.blob),
+      mime_type: processed.blob.type || "image/png",
+    }],
+    _openCodex: {
+      provider: GEMINI_WEB_PROVIDER,
+      operation,
+      requested: {
+        model: GEMINI_WEB_MODEL,
+        size: resolved.target.text,
+        ratio: resolved.ratio,
+        sizeMode: resolved.sizeMode,
+        quality: resolved.qualityIntent,
+        n: 1,
+      },
+      response: {
+        quality: resolved.qualityIntent,
+        size: finalSize,
+        requestedSize: resolved.target.text,
+        nativeSize,
+        finalSize,
+        dimensionAction: processed.transform,
+        mimeType: processed.blob.type || "image/png",
+      },
+      audit: {
+        ...(requestAudit || {}),
+        ...safeAudit,
+        requestedSize: resolved.target.text,
+        downloadedFullsize: nativeSize,
+        finalSize,
+        transform: processed.transform,
+        cropRect: processed.transformPlan?.sourceRect || null,
+        drawRect: processed.transformPlan?.targetRect || null,
+        strictNativeMismatch: processed.strictMismatch,
+        nativeSha256,
+        finalSha256,
+        startedAt: new Date(startedAt).toISOString(),
+        elapsedSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+      },
+    },
+  };
+}
+
+async function pollGeminiGatewayTask(taskId, {
+  signal = null,
+  resolved,
+  startedAt,
+  requestAudit = null,
+  operation = "generation",
+} = {}) {
+  const cancelRemoteTask = () => {
+    void geminiGatewayJsonRequest(`image-tasks/${encodeURIComponent(taskId)}/cancel`, {
+      method: "POST",
+      body: {},
+      timeoutMs: 5000,
+    }).catch(() => {});
+  };
+  signal?.addEventListener("abort", cancelRemoteTask, { once: true });
+  if (signal?.aborted) cancelRemoteTask();
+  const deadline = Date.now() + GEMINI_WEB_TASK_WAIT_TIMEOUT_MS;
+  let lastNetworkError = null;
+  try {
+    while (Date.now() < deadline) {
+      throwIfAborted(signal);
+      try {
+        const raw = await geminiGatewayJsonRequest(`image-tasks/${encodeURIComponent(taskId)}`, {
+          signal,
+          timeoutMs: 15000,
+        });
+        const task = geminiWebImage.normalizeTask(raw);
+        if (task.status === "succeeded") {
+          return normalizeGeminiTaskResult(raw, {
+            signal,
+            resolved,
+            startedAt,
+            requestAudit,
+            operation,
+          });
+        }
+        if (task.status === "cancelled") throw createAbortError();
+        if (task.status === "failed" || task.status === "needs_login" || task.status === "protocol_changed") {
+          const detail = task.error?.message || task.error?.detail || task.error?.code || `Gemini task ${task.status}`;
+          const error = new Error(`HTTP ${task.status === "needs_login" ? 401 : 502}: ${detail}`);
+          error.status = task.status === "needs_login" ? 401 : 502;
+          error.code = String(task.error?.code || task.status);
+          error.gatewayTaskTerminal = true;
+          throw makeImageApiError(error);
+        }
+        lastNetworkError = null;
+      } catch (error) {
+        const status = Number(error?.imageError?.status || error?.status || 0);
+        if (
+          error?.name === "AbortError"
+          || error?.gatewayTaskTerminal === true
+          || [400, 401, 403, 413, 422].includes(status)
+        ) throw error;
+        // The task may still be running in the browser. Keep polling the same
+        // task ID after transient 5xx/timeout/connection failures and never
+        // resubmit paid work from this loop.
+        lastNetworkError = error;
+      }
+      await sleep(1500, signal);
+    }
+    const timeout = lastNetworkError || new Error("HTTP 504: Gemini browser task exceeded the 12-minute client wait limit; its task ID is preserved for resume");
+    timeout.status = 504;
+    throw makeImageApiError(timeout);
+  } finally {
+    signal?.removeEventListener("abort", cancelRemoteTask);
+  }
+}
+
+registerAdapter({
+  name: "Gemini Web Images",
+  provider: GEMINI_WEB_PROVIDER,
+  sizeFormat: "pixel",
+  supportsReference: true,
+  concurrency: 1,
+  getConcurrency() {
+    const requested = getGeminiWebOptions().clientQueue;
+    const effective = Number(geminiCapabilities?.effective_concurrency || 1);
+    return Math.max(1, Math.min(requested, effective, 10));
+  },
+
+  async fetchModels() {
+    if (!(await checkGeminiHealth({ announce: false, force: true }))) {
+      throw new Error(geminiHealthDetail || "Gemini browser companion is unavailable");
+    }
+    setModelChoices([GEMINI_WEB_MODEL]);
+    dom.model.value = GEMINI_WEB_MODEL;
+    showStatus(`${cleanText("geminiWebApi")} · ${GEMINI_WEB_MODEL}`, "success");
+  },
+
+  async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
+    const signal = options.signal;
+    throwIfAborted(signal);
+    if (Number(n) !== 1) throw new Error("Gemini web tasks require n=1; batch generation queues separate tasks");
+    if (!(await checkGeminiHealth({ announce: false, force: false }))) {
+      throw new Error(geminiHealthDetail || "Gemini browser companion is unavailable");
+    }
+    const geminiOptions = geminiImageSizes.normalizeOptions(
+      options.geminiWebOptions || getGeminiWebOptions(),
+    );
+    const resolved = geminiImageSizes.resolveRequest({ ...geminiOptions, targetSize: size });
+    const built = geminiWebImage.buildTaskRequest({
+      prompt,
+      size,
+      refs: hasRef ? refs : [],
+      options: geminiOptions,
+    });
+    const startedAt = Date.now();
+    const requestAudit = await imageTaskStability.buildRequestAudit({
+      provider: GEMINI_WEB_PROVIDER,
+      model: GEMINI_WEB_MODEL,
+      prompt: built.prompt,
+      size: resolved.target.text,
+      quality: resolved.qualityIntent,
+      references: hasRef ? refs : [],
+    });
+    const submitted = await geminiGatewayJsonRequest("image-tasks", {
+      method: "POST",
+      body: built,
+      signal,
+      timeoutMs: 30000,
+    });
+    const taskId = geminiWebImage.extractTaskId(submitted);
+    if (!taskId) throw new Error("Gemini companion did not return a task ID");
+    await options.onTaskSubmitted?.({
+      id: taskId,
+      status: String(submitted.status || "queued"),
+      accountId: String(submitted.account_id || ""),
+      submittedAt: new Date().toISOString(),
+      provider: GEMINI_WEB_PROVIDER,
+    });
+    return pollGeminiGatewayTask(taskId, {
+      signal,
+      resolved,
+      startedAt,
+      requestAudit,
+      operation: hasRef && refs.length ? "edit" : "generation",
+    });
   },
 });
 
@@ -7071,13 +7866,15 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
   throwIfAborted(signal);
   const endpoint = dom.apiEndpoint.value.trim();
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
-  const apiKey   = provider === CODEX_IMAGE_GATEWAY_PROVIDER
+  const apiKey = provider === CODEX_IMAGE_GATEWAY_PROVIDER
     ? (codexGatewayCredentials?.apiKey || "")
-    : dom.apiKey.value.trim();
+    : provider === GEMINI_WEB_PROVIDER
+      ? (geminiCredentials?.apiKey || "")
+      : dom.apiKey.value.trim();
   const model    = dom.model.value.trim() || "gpt-image-2";
   const refs     = Array.isArray(options.references) ? dedupeReferences(options.references) : referenceImages;
   const hasRef   = refs.length > 0;
-  const maxRetries = provider === CODEX_IMAGE_GATEWAY_PROVIDER ? 0 : requestedMaxRetries;
+  const maxRetries = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(provider) ? 0 : requestedMaxRetries;
   const adapter  = findAdapter(endpoint, provider);
 
   console.log(`callImageAPI: provider=${provider} adapter=${adapter?.name || "无(直连)"} model=${model} hasRef=${hasRef} refs=${refs.length} size=${size}`);
@@ -7098,6 +7895,7 @@ async function callImageAPI(prompt, size, n = 1, contextLabel = "图片", option
     return adapter.generate(endpoint, apiKey, model, prompt, finalSize, n, hasRef, refs, {
       signal,
       codexGatewayOptions: options.codexGatewayOptions,
+      geminiWebOptions: options.geminiWebOptions,
       onTaskSubmitted: options.onTaskSubmitted,
       officialMask: options.officialMask,
       onSubmit504Retry: ({ retryIndex, maxRetries, intervalSeconds, remainingSeconds }) => {
@@ -7156,13 +7954,13 @@ async function retryTransient(fn, options = {}) {
 async function detectModelsForAdapter() {
   const endpoint = dom.apiEndpoint.value.trim();
   const apiKey   = dom.apiKey.value.trim();
-  if (!endpoint || !apiKey) {
+  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
+  if (!endpoint || (!apiKey && ![CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(provider))) {
     showStatus("请先填写 API 地址和 Key", "error");
     keepApiConfigVisible();
     return;
   }
 
-  const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   const adapter = findAdapter(endpoint, provider);
   if (!adapter) {
     loadFallbackModels();
@@ -7488,7 +8286,7 @@ function validateCommon() {
   const apiKey   = dom.apiKey.value.trim();
   const provider = dom.apiProvider?.value || inferApiProvider(endpoint);
   if (!endpoint) { showStatus("请先配置 API 地址", "error"); keepApiConfigVisible(); return false; }
-  if (provider !== CODEX_IMAGE_GATEWAY_PROVIDER && !apiKey) {
+  if (![CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(provider) && !apiKey) {
     showStatus("请先配置 API Key", "error");
     keepApiConfigVisible();
     return false;
@@ -7497,8 +8295,9 @@ function validateCommon() {
 }
 
 async function validateProviderReady() {
-  if (!isCodexGatewaySelected()) return true;
-  return checkCodexGatewayHealth({ announce: true, force: false });
+  if (isCodexGatewaySelected()) return checkCodexGatewayHealth({ announce: true, force: false });
+  if (isGeminiWebSelected()) return checkGeminiHealth({ announce: true, force: false });
+  return true;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -7659,6 +8458,7 @@ async function generateComic() {
     endpoint: dom.apiEndpoint.value.trim(),
     apiProvider: dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint.value.trim()),
     codexGatewayOptions: isCodexGatewaySelected() ? getCodexGatewayOptions() : undefined,
+    geminiWebOptions: isGeminiWebSelected() ? getGeminiWebOptions() : undefined,
     size: globalSize,
     retryCount: globalRetryCount,
     totalPanels: total,
@@ -7830,6 +8630,7 @@ async function generateCaptions() {
     endpoint: dom.apiEndpoint.value.trim(),
     apiProvider: dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint.value.trim()),
     codexGatewayOptions: isCodexGatewaySelected() ? getCodexGatewayOptions() : undefined,
+    geminiWebOptions: isGeminiWebSelected() ? getGeminiWebOptions() : undefined,
     size: globalSize,
     retryCount: globalRetryCount,
     totalPanels: total,
@@ -9178,14 +9979,18 @@ function releaseHistoryPreviewUrls(root = dom.historyList) {
 
 async function setHistoryImageSource(img, imageUrl, fallbackUrl = "") {
   if (!img || !imageUrl) return;
-  if (!/^(?:idb|cache):\/\//.test(String(imageUrl))) {
+  const protectedGatewayUrl = isCodexGatewayProtectedImageUrl(imageUrl)
+    || isGeminiGatewayProtectedImageUrl(imageUrl);
+  if (!/^(?:idb|cache):\/\//.test(String(imageUrl)) && !protectedGatewayUrl) {
     img.src = imageUrl;
     return;
   }
   try {
-    const blob = String(imageUrl).startsWith("cache://")
-      ? await getGeneratedCacheBlob(String(imageUrl).slice(8))
-      : await getHistoryBlob(String(imageUrl).slice(6));
+    const blob = protectedGatewayUrl
+      ? await imageUrlToBlobWithFallback(imageUrl, fallbackUrl)
+      : String(imageUrl).startsWith("cache://")
+        ? await getGeneratedCacheBlob(String(imageUrl).slice(8))
+        : await getHistoryBlob(String(imageUrl).slice(6));
     if (!blob) {
       if (fallbackUrl && img.isConnected) img.src = fallbackUrl;
       return;
@@ -9241,7 +10046,7 @@ function sanitizeHistoryOriginalUrl(value) {
     return url.length <= 128 * 1024 ? url : "";
   }
   if (!/^https?:\/\//i.test(url)) return "";
-  if (isCodexGatewayProtectedImageUrl(url)) return "";
+  if (isCodexGatewayProtectedImageUrl(url) || isGeminiGatewayProtectedImageUrl(url)) return "";
   return url;
 }
 
@@ -9386,6 +10191,17 @@ function updateProjectCheckpoint(projectId, panelId, update = {}) {
         panel.gatewayTaskId = String(update.gatewayTask.id);
         panel.gatewayTaskStatus = String(update.gatewayTask.status || panel.status || "queued");
         panel.gatewayTaskSubmittedAt = String(update.gatewayTask.submittedAt || panel.gatewayTaskSubmittedAt || new Date().toISOString());
+        panel.gatewayTaskProvider = String(
+          update.gatewayTask.provider
+          || panel.gatewayTaskProvider
+          || project.apiProvider
+          || CODEX_IMAGE_GATEWAY_PROVIDER,
+        );
+        panel.gatewayTaskAccountId = String(
+          update.gatewayTask.accountId
+          || panel.gatewayTaskAccountId
+          || "",
+        );
       }
       if (update.status) panel.gatewayTaskStatus = String(update.status);
       panel.updatedAt = new Date().toISOString();
@@ -9429,50 +10245,93 @@ function finalizeProjectCheckpoint(projectId, completed, failed) {
   });
 }
 
-const resumedCodexGatewayTaskIds = new Set();
+const resumedGatewayTaskIds = new Set();
 
-async function resumeCodexGatewayCheckpointTasks() {
-  if (!isNativeWindowsWebview()) return;
+async function resumeGatewayCheckpointTasks() {
+  if (!nativeDownload.available()) return;
   const pending = [];
   loadHistory().forEach(project => {
     if (!isHistoryProject(project)) return;
     (Array.isArray(project.panels) ? project.panels : []).forEach(panel => {
       const taskId = String(panel.gatewayTaskId || "");
       const status = String(panel.gatewayTaskStatus || panel.status || "").toLowerCase();
-      if (!taskId || !["queued", "running", "pending"].includes(status) || resumedCodexGatewayTaskIds.has(taskId)) return;
-      pending.push({ project, panel, taskId });
+      const provider = String(panel.gatewayTaskProvider || project.apiProvider || CODEX_IMAGE_GATEWAY_PROVIDER);
+      const resumable = provider === GEMINI_WEB_PROVIDER
+        ? ["queued", "running", "pending", "waiting_for_browser", "preparing_temporary_chat", "uploading_references", "submitting", "generating", "locating_full_size"]
+        : ["queued", "running", "pending"];
+      if (!taskId || !resumable.includes(status) || resumedGatewayTaskIds.has(taskId)) return;
+      pending.push({ project, panel, taskId, provider });
     });
   });
   if (!pending.length) return;
 
-  try {
-    await loadCodexGatewayCredentials();
-  } catch (err) {
-    console.warn("Codex gateway checkpoint resume skipped:", err);
-    return;
+  const providers = new Set(pending.map(item => item.provider));
+  if (providers.has(CODEX_IMAGE_GATEWAY_PROVIDER)) {
+    await loadCodexGatewayCredentials().catch(err => {
+      console.warn("ChatGPT gateway checkpoint credentials unavailable:", err);
+    });
+  }
+  if (providers.has(GEMINI_WEB_PROVIDER)) {
+    await loadGeminiCredentials().catch(err => {
+      console.warn("Gemini checkpoint credentials unavailable:", err);
+    });
   }
 
-  await concurrentLimitSettled(pending.map(({ project, panel, taskId }) => async () => {
-    resumedCodexGatewayTaskIds.add(taskId);
+  await concurrentLimitSettled(pending.map(({ project, panel, taskId, provider }) => async () => {
+    resumedGatewayTaskIds.add(taskId);
     const panelId = String(panel.panelId || "");
     try {
       await updateProjectCheckpoint(project.id, panelId, {
         status: "running",
-        gatewayTask: { id: taskId, status: "running", submittedAt: panel.gatewayTaskSubmittedAt },
+        gatewayTask: {
+          id: taskId,
+          status: "running",
+          provider,
+          accountId: panel.gatewayTaskAccountId,
+          submittedAt: panel.gatewayTaskSubmittedAt,
+        },
       });
-      const requested = {
-        model: CODEX_IMAGE_GATEWAY_MODEL,
-        size: panel.size || project.size || "1024x1024",
-        quality: project.codexGatewayOptions?.quality || CODEX_GATEWAY_OPTION_DEFAULTS.quality,
-        dimensionMode: project.codexGatewayOptions?.dimensionMode || CODEX_GATEWAY_OPTION_DEFAULTS.dimensionMode,
-        n: 1,
-      };
-      const data = await pollCodexGatewayTask(taskId, {
-        requested,
-        requestAudit: null,
-        startedAt: Date.parse(panel.gatewayTaskSubmittedAt || project.createdAt || "") || Date.now(),
-        operation: panel.hadReferences ? "edit" : "generation",
-      });
+      const size = panel.size || project.size || "1024x1024";
+      const startedAt = Date.parse(panel.gatewayTaskSubmittedAt || project.createdAt || "") || Date.now();
+      let requested;
+      let data;
+      if (provider === GEMINI_WEB_PROVIDER) {
+        if (!geminiCredentials) throw new Error("Gemini companion credentials are unavailable");
+        const options = geminiImageSizes.normalizeOptions({
+          ...(project.geminiWebOptions || {}),
+          targetSize: size,
+        });
+        const resolved = geminiImageSizes.resolveRequest(options);
+        requested = {
+          model: GEMINI_WEB_MODEL,
+          size: resolved.target.text,
+          ratio: resolved.ratio,
+          sizeMode: resolved.sizeMode,
+          quality: resolved.qualityIntent,
+          n: 1,
+        };
+        data = await pollGeminiGatewayTask(taskId, {
+          resolved,
+          requestAudit: null,
+          startedAt,
+          operation: panel.hadReferences ? "edit" : "generation",
+        });
+      } else {
+        if (!codexGatewayCredentials) throw new Error("ChatGPT image gateway credentials are unavailable");
+        requested = {
+          model: CODEX_IMAGE_GATEWAY_MODEL,
+          size,
+          quality: project.codexGatewayOptions?.quality || CODEX_GATEWAY_OPTION_DEFAULTS.quality,
+          dimensionMode: project.codexGatewayOptions?.dimensionMode || CODEX_GATEWAY_OPTION_DEFAULTS.dimensionMode,
+          n: 1,
+        };
+        data = await pollCodexGatewayTask(taskId, {
+          requested,
+          requestAudit: null,
+          startedAt,
+          operation: panel.hadReferences ? "edit" : "generation",
+        });
+      }
       const item = data?.data?.[0];
       if (!item?.b64_json) throw new Error("Resumed gateway task returned no image bytes");
       const mimeType = item.mime_type || inferImageMimeFromBase64(item.b64_json);
@@ -9491,8 +10350,8 @@ async function resumeCodexGatewayCheckpointTasks() {
         imageUrl,
         originalUrl: "",
         size: requested.size,
-        model: CODEX_IMAGE_GATEWAY_MODEL,
-        provider: "codex-image-gateway",
+        model: requested.model,
+        provider,
         operation: meta.operation || (panel.hadReferences ? "edit" : "generation"),
         requested: meta.requested || requested,
         actual: {
@@ -9511,7 +10370,8 @@ async function resumeCodexGatewayCheckpointTasks() {
       await updateProjectCheckpoint(project.id, panelId, { status: "success", record });
     } catch (err) {
       const detail = classifyImageApiError(err);
-      const terminal = detail.retryPolicy === "edit_required"
+      const terminal = err?.gatewayTaskTerminal === true
+        || detail.retryPolicy === "edit_required"
         || ["authentication_failed", "payload_too_large"].includes(detail.category)
         || Number(detail.status || 0) === 422;
       await updateProjectCheckpoint(project.id, panelId, {
@@ -9520,11 +10380,13 @@ async function resumeCodexGatewayCheckpointTasks() {
         gatewayTask: {
           id: taskId,
           status: terminal ? "failed" : "pending",
+          provider,
+          accountId: panel.gatewayTaskAccountId,
           submittedAt: panel.gatewayTaskSubmittedAt,
         },
       });
     } finally {
-      resumedCodexGatewayTaskIds.delete(taskId);
+      resumedGatewayTaskIds.delete(taskId);
     }
   }), 2);
 }
@@ -10259,6 +11121,11 @@ const nativeDownload = (() => {
     openChatGptLogin() { return request("openChatGptLogin", {}, 10000); },
     reloginChatGpt() { return request("reloginChatGpt", {}, 10000); },
     logoutChatGpt() { return request("logoutChatGpt", {}, 10000); },
+    loadGeminiWebGatewayConfig() { return request("loadGeminiWebGatewayConfig", {}, 10000); },
+    getGeminiAccounts() { return request("getGeminiAccounts", {}, 10000); },
+    selectGeminiAccount(accountId) { return request("selectGeminiAccount", { accountId }, 10000); },
+    deleteGeminiAccount(accountId) { return request("deleteGeminiAccount", { accountId }, 10000); },
+    openGeminiWebLogin() { return request("openGeminiWebLogin", {}, 10000); },
   };
 })();
 
@@ -10503,6 +11370,7 @@ window.addEventListener("aigen-native-ready", () => {
   migrateApiKeysToSecureStorage();
   // The native marker can arrive after the first paint (notably on iOS/iPadOS).
   // Refresh platform-specific update labels once the reliable platform is known.
+  syncCodexGatewayProviderVisibility();
   applyLanguage(currentLanguage);
 });
 migrateApiKeysToSecureStorage();
@@ -10732,6 +11600,26 @@ function isCodexGatewayProtectedImageUrl(value) {
   return !!codexGatewayProtectedImagePath(value);
 }
 
+function geminiGatewayProtectedImagePath(value) {
+  try {
+    const parsed = new URL(String(value || ""));
+    const hostname = parsed.hostname.toLowerCase();
+    const port = Number(parsed.port || 0);
+    const isLoopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+    const isGatewayPort = port >= 18160 && port <= 18199;
+    if (!isLoopback || !isGatewayPort) return "";
+    return /^\/v1\/image-tasks\/[^/]+\/files\/\d+$/.test(parsed.pathname)
+      ? `${parsed.pathname}${parsed.search}`
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function isGeminiGatewayProtectedImageUrl(value) {
+  return !!geminiGatewayProtectedImagePath(value);
+}
+
 async function imageUrlToBlob(url, onProgress) {
   if (String(url).startsWith("cache://")) {
     const cached = await getGeneratedCacheBlob(String(url).slice(8));
@@ -10772,6 +11660,18 @@ async function imageUrlToBlob(url, onProgress) {
       options = {
         forceDirectProxy: true,
         timeoutMs: CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS,
+      };
+    } else if (isGeminiGatewayProtectedImageUrl(url)) {
+      const credentials = geminiCredentials || await loadGeminiCredentials();
+      const protectedPath = geminiGatewayProtectedImagePath(url);
+      requestUrl = new URL(protectedPath, `${credentials.baseUrl.replace(/\/+$/, "")}/`).toString();
+      headers = {
+        Authorization: `Bearer ${credentials.apiKey}`,
+        Accept: "image/*",
+      };
+      options = {
+        forceDirectProxy: true,
+        timeoutMs: 120000,
       };
     }
     const result = await nativeDownload.nativeFetchBlob(requestUrl, headers, options);
@@ -11283,11 +12183,15 @@ async function openLightbox(imageUrl, fallbackUrl = "") {
   overlay.tabIndex = -1;
   const img = document.createElement("img");
   let objectUrl = "";
-  if (/^(?:idb|cache):\/\//.test(String(imageUrl || ""))) {
+  const protectedGatewayUrl = isCodexGatewayProtectedImageUrl(imageUrl)
+    || isGeminiGatewayProtectedImageUrl(imageUrl);
+  if (/^(?:idb|cache):\/\//.test(String(imageUrl || "")) || protectedGatewayUrl) {
     try {
-      const blob = String(imageUrl).startsWith("cache://")
-        ? await getGeneratedCacheBlob(String(imageUrl).slice(8))
-        : await getHistoryBlob(String(imageUrl).slice(6));
+      const blob = protectedGatewayUrl
+        ? await imageUrlToBlobWithFallback(imageUrl, fallbackUrl)
+        : String(imageUrl).startsWith("cache://")
+          ? await getGeneratedCacheBlob(String(imageUrl).slice(8))
+          : await getHistoryBlob(String(imageUrl).slice(6));
       if (blob) {
         objectUrl = URL.createObjectURL(blob);
         img.src = objectUrl;
@@ -11439,7 +12343,7 @@ function initializeApplication() {
     setTimeout(() => { void refreshUsdCnyRate({ force: false, announce: false }); }, 500);
   }
   setTimeout(() => { void checkForUpdatesOnLaunch(); }, 1200);
-  setTimeout(() => { void resumeCodexGatewayCheckpointTasks(); }, 1800);
+  setTimeout(() => { void resumeGatewayCheckpointTasks(); }, 1800);
   window.__AI_GEN_APP_READY = true;
   window.dispatchEvent(new CustomEvent("ai-generator-ready"));
 

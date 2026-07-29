@@ -22,6 +22,7 @@ import 'chatgpt_account_store.dart';
 import 'chatgpt_multi_account.dart';
 import 'embedded_chatgpt_gateway.dart';
 import 'android_chatgpt_gateway.dart';
+import 'gemini_web_gateway.dart';
 
 const _appTitle = 'AI 图片生成器';
 const _appBackground = Color(0xFF121417);
@@ -36,6 +37,8 @@ final EmbeddedChatGptGatewayManager _embeddedChatGptGateway =
     EmbeddedChatGptGatewayManager();
 final AndroidChatGptGatewayManager _androidChatGptGateway =
     AndroidChatGptGatewayManager();
+final GeminiWebGatewayManager _geminiWebGateway =
+    GeminiWebGatewayManager(_secureStorage);
 
 Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
   if (Platform.isWindows) {
@@ -155,6 +158,22 @@ Future<Map<String, Object?>> _rotateChatGptAccount(
   };
 }
 
+Future<Map<String, Object?>> _loadGeminiWebGatewayConfig() =>
+    _geminiWebGateway.configuration();
+
+Future<Map<String, Object?>> _selectGeminiAccount(
+  Map<String, dynamic> payload,
+) =>
+    _geminiWebGateway.selectAccount(payload['accountId']?.toString() ?? '');
+
+Future<Map<String, Object?>> _deleteGeminiAccount(
+  Map<String, dynamic> payload,
+) =>
+    _geminiWebGateway.deleteAccount(payload['accountId']?.toString() ?? '');
+
+Future<bool> _openGeminiWebLogin() =>
+    _openSystemExternalUrl('https://gemini.google.com/app');
+
 String _validateSecretKey(Object? value) {
   final key = value?.toString().trim() ?? '';
   if (!RegExp(r'^api_key:[A-Za-z0-9_-]{1,160}$').hasMatch(key)) {
@@ -209,7 +228,7 @@ Future<Object?> _handleSecretAction(
   return completer.future;
 }
 
-void main(List<String> arguments) {
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
   final authAccountArgument = arguments
       .where((value) => value.startsWith('--chatgpt-account-id='))
@@ -228,6 +247,11 @@ void main(List<String> arguments) {
   _windowsWebViewSelfTest = arguments.contains('--windows-webview-self-test');
   _windowsWebViewInputSelfTest =
       arguments.contains('--windows-webview-input-self-test');
+  try {
+    await _geminiWebGateway.start();
+  } catch (error) {
+    debugPrint('Gemini browser companion gateway unavailable: $error');
+  }
   runApp(const AiImageGeneratorApp());
 }
 
@@ -1029,6 +1053,21 @@ class _MobileWebShellState extends State<MobileWebShell>
         case 'loadCodexImageGatewayConfig':
           result = await _loadChatGptImageGatewayConfig();
           break;
+        case 'loadGeminiWebGatewayConfig':
+          result = await _loadGeminiWebGatewayConfig();
+          break;
+        case 'getGeminiAccounts':
+          result = await _geminiWebGateway.accountsSnapshot();
+          break;
+        case 'selectGeminiAccount':
+          result = await _selectGeminiAccount(payload);
+          break;
+        case 'deleteGeminiAccount':
+          result = await _deleteGeminiAccount(payload);
+          break;
+        case 'openGeminiWebLogin':
+          result = await _openGeminiWebLogin();
+          break;
         case 'cancelNativeFetch':
           _cancelNetworkRequest(payload['targetId']?.toString() ?? '');
           result = true;
@@ -1698,6 +1737,21 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           break;
         case 'loadCodexImageGatewayConfig':
           result = await _loadChatGptImageGatewayConfig();
+          break;
+        case 'loadGeminiWebGatewayConfig':
+          result = await _loadGeminiWebGatewayConfig();
+          break;
+        case 'getGeminiAccounts':
+          result = await _geminiWebGateway.accountsSnapshot();
+          break;
+        case 'selectGeminiAccount':
+          result = await _selectGeminiAccount(payload);
+          break;
+        case 'deleteGeminiAccount':
+          result = await _deleteGeminiAccount(payload);
+          break;
+        case 'openGeminiWebLogin':
+          result = await _openGeminiWebLogin();
           break;
         case 'getChatGptAuthState':
           result = await _currentChatGptAuthState();

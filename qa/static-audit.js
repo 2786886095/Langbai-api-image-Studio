@@ -12,6 +12,10 @@ const hash = relative => crypto.createHash("sha256").update(fs.readFileSync(path
 const app = read("app.js");
 const imageTaskStability = read("image-task-stability.js");
 const codexImageGateway = read("codex-image-gateway.js");
+const geminiSizeRegistry = read("gemini-image-size-registry.js");
+const geminiWebAdapter = read("gemini-web-image-adapter.js");
+const geminiSelectorPack = read("gemini-selector-pack.js");
+const geminiCompanionSelectorPack = read("gemini_companion/chromium/selector-pack.js");
 const bootstrapGuard = read("bootstrap-guard.js");
 const pubspec = read("pubspec.yaml");
 const html = read("index.html");
@@ -26,6 +30,7 @@ const chatGptAccountStore = read("lib/chatgpt_account_store.dart");
 const chatGptMultiAccount = read("lib/chatgpt_multi_account.dart");
 const embeddedChatGptGateway = read("lib/embedded_chatgpt_gateway.dart");
 const androidChatGptGateway = read("lib/android_chatgpt_gateway.dart");
+const geminiWebGateway = read("lib/gemini_web_gateway.dart");
 const androidBuild = read("android/app/build.gradle");
 const androidSettings = read("android/settings.gradle");
 const androidMainActivity = read("android/app/src/main/kotlin/com/aigen/ai_image_generator/MainActivity.kt");
@@ -47,23 +52,30 @@ const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
-assert.equal(version, "1.5.4", "APP_VERSION must be the release source of truth");
-assert.match(pubspec, /^version:\s*1\.5\.4\+76$/m);
+assert.equal(version, "1.6.0", "APP_VERSION must be the release source of truth");
+assert.match(pubspec, /^version:\s*1\.6\.0\+77$/m);
 assert.match(pubspec, /^\s*- bootstrap-guard\.js$/m);
 assert.match(pubspec, /^\s*- image-task-stability\.js$/m);
 assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
+assert.match(pubspec, /^\s*- gemini-image-size-registry\.js$/m);
+assert.match(pubspec, /^\s*- gemini-web-image-adapter\.js$/m);
+assert.match(pubspec, /^\s*- gemini-selector-pack\.js$/m);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.5\.4/);
-assert.match(html, /20260729-1-5-4/g);
-assert.match(sw, /ai-image-generator-1-5-4-20260729/);
+assert.match(html, /v1\.6\.0/);
+assert.match(html, /20260729-1-6-0/g);
+assert.match(sw, /ai-image-generator-1-6-0-20260729/);
 assert.match(sw, /codex-image-gateway\.js/);
+assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,5,4,76/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.5\.4"/);
-assert.match(workflow, /const APP_VERSION = "1\.5\.4";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-5-4/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,0,77/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.0"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.0";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260729-1-6-0/);
 assert.match(workflow, /codex-image-gateway\.js/);
+assert.match(workflow, /Langbai-Gemini-Chromium-Companion-v1\.6\.0\.zip/);
+assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
+assert.match(workflow, /gemini_companion\/chromium\/manifest\.json/);
 assert.match(app, /function isNativeChatGptGatewayWebview\(\)/);
 assert.match(app, /\["windows", "android"\]\.includes\(getRuntimePlatform\(\)\)/);
 assert.match(app, /session_available === false/);
@@ -132,12 +144,40 @@ for (const id of [
   "openInpaintFromFile", "inpaintModal", "inpaintMaskCanvas", "inpaintBrush", "inpaintEraser",
   "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint",
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
+  "geminiProviderPanel", "geminiPairingKey", "openGeminiLogin",
+  "testGeminiHealth", "geminiAccountList", "geminiSizeMode",
+  "geminiRatio", "geminiCropMode", "geminiQualityIntent", "geminiClientQueue",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing provider-specific control: ${id}`);
 }
 assert.match(app, /provider:\s*"official"/);
 assert.match(app, /provider:\s*"grsai"/);
 assert.match(app, /provider:\s*CODEX_IMAGE_GATEWAY_PROVIDER/);
+assert.match(app, /provider:\s*GEMINI_WEB_PROVIDER/);
+assert.match(geminiSizeRegistry, /safe_zone_center_crop/);
+assert.match(geminiSizeRegistry, /high_quality_resample/);
+assert.match(geminiWebAdapter, /temporary_chat_required:\s*true/);
+assert.match(geminiWebAdapter, /client_request_id/);
+assert.match(geminiSelectorPack, /temporaryChat/);
+assert.equal(
+  geminiSelectorPack,
+  geminiCompanionSelectorPack,
+  "The app and Chromium companion must ship one identical Gemini selector pack",
+);
+assert.match(geminiWebGateway, /HttpServer\.bind/);
+assert.match(geminiWebGateway, /_geminiActiveAccountStorage/);
+assert.match(geminiWebGateway, /\/v1\/companion\/tasks\/next/);
+assert.match(geminiWebGateway, /invalid_pairing_key/);
+assert.match(geminiWebGateway, /_persistenceChain/);
+assert.match(geminiWebGateway, /_companionLeaseDuration/);
+assert.match(geminiWebGateway, /stale_or_wrong_task_claim/);
+assert.match(geminiWebGateway, /invalid_status_transition/);
+assert.match(geminiWebGateway, /image-tasks\/\(\[\^\/\]\+\)\/cancel/);
+assert.match(app, /signal\?\.addEventListener\("abort", cancelRemoteTask/);
+assert.match(macReleaseEntitlements, /com\.apple\.security\.network\.server/);
+assert.match(app, /geminiGatewayDownloadBlob/);
+assert.match(app, /function geminiGatewayProtectedImagePath/);
+assert.match(app, /port >= 18160 && port <= 18199/);
 assert.match(codexImageGateway, /http:\/\/127\.0\.0\.1:18081\/v1/);
 assert.match(codexImageGateway, /MAX_REFERENCE_IMAGES\s*=\s*20/);
 assert.match(codexImageGateway, /asyncTasks:\s*true/);
@@ -246,7 +286,12 @@ assert.match(html, /id="grsaiSubmit504RetryInterval"/);
 assert.match(app, /getGrsaiSubmit504RetryPolicy/);
 assert.match(app, /onSubmit504Retry/);
 
-for (const file of ["app.js", "bootstrap-guard.js", "image-task-stability.js", "codex-image-gateway.js", "index.html", "style.css", "sw.js", "manifest.webmanifest"]) {
+for (const file of [
+  "app.js", "bootstrap-guard.js", "image-task-stability.js",
+  "codex-image-gateway.js", "gemini-image-size-registry.js",
+  "gemini-web-image-adapter.js", "gemini-selector-pack.js",
+  "index.html", "style.css", "sw.js", "manifest.webmanifest",
+]) {
   assert.equal(
     hash(file),
     hash(`android/app/src/main/assets/${file}`),

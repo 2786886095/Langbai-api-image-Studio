@@ -675,6 +675,87 @@ details[open] .config-toggle::before { content: '▼ '; }
 
 .provider-panel-grsai .btn { align-self: flex-start; }
 
+.provider-panel-gemini {
+  border-color: color-mix(in srgb, #4285f4 34%, var(--border));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, #4285f4 8%, transparent), transparent 52%),
+    var(--surface-soft);
+}
+
+.provider-badge-gemini {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #4285f4, #8b5cf6 58%, #ea4335);
+}
+
+.gemini-account-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #4285f4 30%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #4285f4 5%, var(--surface));
+}
+
+.gemini-account-main,
+.gemini-account-actions,
+.gemini-pairing-row,
+.gemini-account-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gemini-account-main {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.gemini-account-main > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.gemini-account-main small {
+  color: var(--text-muted);
+}
+
+.gemini-pairing-row input {
+  min-width: 0;
+  flex: 1;
+}
+
+.gemini-account-actions {
+  flex-wrap: wrap;
+}
+
+.gemini-account-list {
+  display: grid;
+  gap: 6px;
+}
+
+.gemini-account-item {
+  justify-content: space-between;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.gemini-account-item > div:first-child {
+  display: grid;
+  min-width: 0;
+}
+
+.gemini-account-item span,
+.gemini-account-item small {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .opencodex-health-row {
   display: flex;
   align-items: center;

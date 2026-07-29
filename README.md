@@ -2,7 +2,18 @@
 
 > 单图生成 · 漫画分镜 · 气泡嵌字 —— 一套 Web 内核，多端可用（浏览器 / PWA / Windows / macOS / iOS / 安卓 App）。
 
-「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、GrsAI、OpenAI 兼容接口；Windows 与 Android v1.5.4 还可直接启动软件自带的 ChatGPT 网页生图网关。
+「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的中文图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、ChatGPT 网页生图、Gemini 网页生图、GrsAI 与 OpenAI 兼容接口。
+
+## v1.6.0：Gemini 网页生图（浏览器伴侣）
+
+- 新增独立的 `Gemini 网页生图` 供应商，不复用或覆盖 ChatGPT、官方 OpenAI、GrsAI、自定义 API 的配置与账号。
+- 软件只保存本机随机配对密钥、脱敏账号元数据和任务检查点；Google Cookie、Token 和完整邮箱留在系统浏览器中，不进入软件、历史项目或导出文件。
+- 每张图片固定创建独立的 Gemini 临时对话任务，生成前后检查普通历史列表是否发生变化，并通过带鉴权的本机回环服务下载完整尺寸图片。
+- 支持原生完整尺寸、严格原生、精确输出和本地 4K 四种尺寸模式；软件读取图片真实像素，等比裁切或包含缩放，不做非等比拉伸，并保存尺寸审计。
+- 本地可排队 1–100 张；界面会按浏览器伴侣实际报告的能力限制有效并发。任务提交后保存任务 ID，软件重启后继续轮询原任务，不重复提交。
+- Chromium 浏览器伴侣源码位于 `gemini_companion/chromium/`，正式 Release 同时提供可加载的 ZIP。首次使用需在支持扩展的系统浏览器中手动加载并粘贴软件显示的配对密钥。
+
+> **平台边界：** Windows 的 Edge/Chrome 扩展链路已进入本版代码与自动回归。Android 只有使用支持 Chromium 扩展的浏览器时才具备同类能力；系统 Chrome 通常不支持桌面扩展。macOS/iOS 的 Safari Web Extension 尚未随本仓库实现，因此这些平台会保留入口诊断，但本版不宣称 Safari 端到端已验证。Gemini 网页结构变化后可能需要更新浏览器伴侣选择器。
 
 ## v1.5.4：Windows 与 Android 内置 ChatGPT 网页生图
 

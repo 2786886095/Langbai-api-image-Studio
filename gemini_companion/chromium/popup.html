@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Langbai Gemini 图片伴侣</title>
+  <style>
+    :root { color-scheme: light dark; font: 13px/1.45 system-ui, sans-serif; }
+    body { width: 340px; margin: 0; padding: 16px; background: Canvas; color: CanvasText; }
+    h1 { font-size: 16px; margin: 0 0 8px; }
+    p { margin: 6px 0 12px; color: GrayText; }
+    label { display: grid; gap: 5px; font-weight: 650; }
+    input { box-sizing: border-box; width: 100%; padding: 9px 10px; border: 1px solid color-mix(in srgb, CanvasText 22%, transparent); border-radius: 8px; background: Canvas; color: CanvasText; }
+    .row { display: flex; gap: 8px; margin-top: 10px; }
+    button { flex: 1; padding: 9px 10px; border: 0; border-radius: 8px; cursor: pointer; font-weight: 700; }
+    #save { background: #6d7cff; color: white; }
+    #open { background: color-mix(in srgb, CanvasText 10%, transparent); color: CanvasText; }
+    #status { margin-top: 10px; min-height: 20px; }
+    #status[data-state="ok"] { color: #1aa56b; }
+    #status[data-state="error"] { color: #e05267; }
+  </style>
+</head>
+<body>
+  <h1>Gemini 图片伴侣</h1>
+  <p>先在软件 Gemini 卡片中复制配对密钥，再粘贴到这里。Google Cookie 始终留在浏览器。</p>
+  <label>配对密钥
+    <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="64 位本机配对密钥">
+  </label>
+  <div class="row">
+    <button id="save" type="button">保存并检测</button>
+    <button id="open" type="button">打开 Gemini</button>
+  </div>
+  <div id="status" role="status">尚未检测</div>
+  <script src="popup.js"></script>
+</body>
+</html>

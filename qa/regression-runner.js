@@ -5756,6 +5756,257 @@ async function testCodexImageGatewayIntegration(cdp) {
   }
 }
 
+async function testGeminiWebImageIntegration(cdp) {
+  logStep("Gemini web image provider keeps credentials memory-only and completes resumable authenticated tasks");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      localStorage.clear();
+      window.__AI_GEN_NATIVE_PLATFORM = "windows";
+      window.__geminiCalls = [];
+      window.__geminiBodies = [];
+      window.__geminiPolls = 0;
+      window.__geminiKey = "${"d".repeat(64)}";
+      window.__geminiPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          window.__geminiCalls.push(payload);
+          let result = {};
+          if (payload.action === "loadGeminiWebGatewayConfig") {
+            result = {
+              baseUrl: "http://127.0.0.1:18160/v1",
+              apiKey: window.__geminiKey,
+              accounts: [{
+                local_account_id: "gemini-account-qa",
+                display_name: "QA Gemini",
+                masked_email: "g***@example.com",
+                status: "ready",
+                effective_concurrency: 1,
+              }],
+              activeAccountId: "gemini-account-qa",
+              companionConnected: true,
+            };
+          } else if (payload.action === "getGeminiAccounts") {
+            result = {
+              accounts: [{
+                local_account_id: "gemini-account-qa",
+                display_name: "QA Gemini",
+                masked_email: "g***@example.com",
+                status: "ready",
+                effective_concurrency: 1,
+              }],
+              active_account_id: "gemini-account-qa",
+              companion_connected: true,
+            };
+          } else if (payload.action === "loadSecret") {
+            result = "";
+          } else if (payload.action === "nativeFetch") {
+            const method = String(payload.method || "GET").toUpperCase();
+            const url = String(payload.url || "");
+            if (url.endsWith("/healthz")) {
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+                status: "ok", provider: "gemini_web", companion_connected: true,
+                session_available: true, temporary_chat_available: true,
+                fullsize_download_available: true,
+              }) };
+            } else if (url.endsWith("/v1/capabilities")) {
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+                provider: "gemini_web", temporary_chat_required: true, fullsize_download: true,
+                effective_concurrency: 1, dimension_modes: ["native_fullsize", "strict_native", "exact_output", "local_4k_upscale"],
+              }) };
+            } else if (url.endsWith("/v1/accounts")) {
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+                accounts: [{ local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready", effective_concurrency: 1 }],
+                active_account_id: "gemini-account-qa", companion_connected: true,
+              }) };
+            } else if (method === "POST" && url.endsWith("/v1/image-tasks")) {
+              window.__geminiBodies.push({
+                body: JSON.parse(payload.body || "{}"),
+                headers: payload.headers,
+                proxyMode: payload.proxyMode,
+                proxyUrl: payload.proxyUrl,
+              });
+              result = { status: 202, headers: { "content-type": "application/json" }, body: JSON.stringify({
+                id: "gemini_task_qa", status: "queued", account_id: "gemini-account-qa",
+              }) };
+            } else if (method === "POST" && url.endsWith("/v1/image-tasks/gemini_cancel_qa/cancel")) {
+              result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+                id: "gemini_cancel_qa", status: "cancelled", account_id: "gemini-account-qa",
+              }) };
+            } else if (method === "GET" && url.endsWith("/v1/image-tasks/gemini_task_qa/files/0")) {
+              const source = Uint8Array.from(atob(window.__geminiPng), c => c.charCodeAt(0));
+              result = {
+                status: 200,
+                headers: { "content-type": "image/png" },
+                transferId: "gemini-image",
+                byteLength: source.length,
+                chunkSize: 17,
+              };
+            } else if (method === "GET" && url.endsWith("/v1/image-tasks/gemini_task_qa")) {
+              window.__geminiPolls += 1;
+              result = window.__geminiPolls === 1
+                ? { status: 503, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: { code: "bridge_restarting", message: "temporary bridge restart" } }) }
+                : { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+                    id: "gemini_task_qa", client_request_id: "client_qa", status: "succeeded",
+                    account_id: "gemini-account-qa",
+                    audit: {
+                      temporary_chat_verified: true, history_guard: "passed",
+                      selector_pack_version: "2026.07.29.1",
+                    },
+                    result: { data: [{ url: "/v1/image-tasks/gemini_task_qa/files/0" }] },
+                  }) };
+            } else {
+              result = { status: 404, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: { code: "not_mocked" } }) };
+            }
+          } else if (payload.action === "nativeFetchBlobChunk") {
+            const source = Uint8Array.from(atob(window.__geminiPng), c => c.charCodeAt(0));
+            const end = Math.min(source.length, payload.offset + payload.length);
+            let binary = "";
+            for (const byte of source.slice(payload.offset, end)) binary += String.fromCharCode(byte);
+            result = { base64: btoa(binary), nextOffset: end, done: end >= source.length };
+          } else if (payload.action === "nativeFetchBlobRelease") {
+            result = true;
+          } else if (payload.action === "openGeminiWebLogin") {
+            result = true;
+          }
+          setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
+        }
+      };
+    `,
+  });
+  await cdp.send("Emulation.setUserAgentOverride", {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+  });
+  try {
+    await loadFresh(cdp, "gemini-web-integration");
+    const result = await cdp.eval(`(async () => {
+      applyApiProvider("geminiWeb", { forceEndpoint: true });
+      applyGeminiWebOptions({
+        sizeMode: "native_fullsize",
+        ratio: "1:1",
+        targetSize: "1024x1024",
+        cropMode: "center_cover",
+        qualityIntent: "standard",
+        clientQueue: 10,
+      });
+      const ready = await checkGeminiHealth({ announce: false, force: true });
+      const submitted = [];
+      const data = ready ? await callImageAPI("QA Gemini image", "1024x1024", 1, "QA", {
+        geminiWebOptions: getGeminiWebOptions(),
+        onTaskSubmitted: task => submitted.push(task),
+      }) : null;
+      const profile = currentApiConfig("Gemini QA");
+      const explicitCustom = normalizeApiConfig({
+        id: "custom-local",
+        apiProvider: "custom",
+        endpoint: "http://127.0.0.1:18160/v1",
+        apiKey: "custom-key-must-survive",
+        model: "custom-image-model",
+      });
+      const cancelController = new AbortController();
+      const cancelPoll = pollGeminiGatewayTask("gemini_cancel_qa", {
+        signal: cancelController.signal,
+        resolved: geminiImageSizes.resolveRequest({
+          ...getGeminiWebOptions(),
+          targetSize: "1024x1024",
+        }),
+        startedAt: Date.now(),
+      }).catch(error => error?.name || "error");
+      cancelController.abort();
+      const cancelResult = await cancelPoll;
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const item = data?.data?.[0] || null;
+      return {
+        ready,
+        provider: dom.apiProvider.value,
+        providerPanelVisible: !dom.geminiProviderPanel.classList.contains("hidden"),
+        optionHidden: [...dom.apiProvider.options].find(option => option.value === "geminiWeb")?.hidden,
+        model: dom.model.value,
+        endpoint: dom.apiEndpoint.value,
+        pairingVisible: dom.geminiPairingKey.value.length,
+        apiKeyValue: dom.apiKey.value,
+        profile,
+        submitted,
+        bodies: window.__geminiBodies,
+        fileCalls: window.__geminiCalls.filter(call => String(call.url || "").includes("/files/0")),
+        item,
+        meta: data?._openCodex || null,
+        concurrency: getProviderConcurrency(),
+        pollCount: window.__geminiPolls,
+        explicitCustom,
+        cancelResult,
+        cancelCalls: window.__geminiCalls.filter(call => String(call.url || "").endsWith("/v1/image-tasks/gemini_cancel_qa/cancel")),
+        leakedKey: JSON.stringify(localStorage).includes(window.__geminiKey),
+      };
+    })()`, true);
+    assertQa(
+      result.ready
+        && result.provider === "geminiWeb"
+        && result.providerPanelVisible
+        && !result.optionHidden
+        && result.model === "gemini-web-image"
+        && result.endpoint === "http://127.0.0.1:18160/v1",
+      "The native Gemini provider must become ready without interfering with other provider routes.",
+      result,
+    );
+    assertQa(
+      result.pairingVisible === 64
+        && result.apiKeyValue === ""
+        && result.profile.apiKey === ""
+        && !result.leakedKey,
+      "Gemini pairing credentials must stay in native memory and never enter API profiles or Local Storage.",
+      result,
+    );
+    assertQa(
+      result.bodies.length === 1
+        && result.bodies[0].body.provider === "geminiWeb"
+        && result.bodies[0].body.n === 1
+        && result.bodies[0].body.temporary_chat_required === true
+        && result.bodies[0].proxyMode === "direct"
+        && result.submitted[0]?.id === "gemini_task_qa",
+      "Gemini generation must submit one checkpointable temporary-chat task over the direct loopback route.",
+      result,
+    );
+    assertQa(
+      result.item?.b64_json
+        && !result.item?.url
+        && result.fileCalls.length === 1
+        && result.fileCalls[0].headers?.Authorization === `Bearer ${"d".repeat(64)}`
+        && result.fileCalls[0].proxyMode === "direct",
+      "Gemini protected result URLs must be authenticated and converted to local image bytes before preview.",
+      result,
+    );
+    assertQa(
+      result.meta?.audit?.temporaryChatVerified
+        && result.meta?.audit?.historyGuard === "passed"
+        && result.meta?.response?.nativeSize === "1x1"
+        && result.concurrency === 1
+        && result.pollCount === 2,
+      "Gemini audit metadata must preserve temporary-chat verification and decoded dimensions, while transient poll failures keep the original task alive.",
+      result,
+    );
+    assertQa(
+      result.explicitCustom.apiProvider === "custom"
+        && result.explicitCustom.apiKey === "custom-key-must-survive"
+        && result.explicitCustom.model === "custom-image-model",
+      "An explicitly saved custom API on a Gemini-like loopback port must not be reclassified or lose its key.",
+      result.explicitCustom,
+    );
+    assertQa(
+      result.cancelResult === "AbortError"
+        && result.cancelCalls.length === 1
+        && String(result.cancelCalls[0].method || "").toUpperCase() === "POST",
+      "Cancelling a Gemini task must stop local polling and cancel the same claimed gateway task instead of leaving browser automation running.",
+      result,
+    );
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", {
+      identifier: script.identifier,
+    });
+    await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });
+  }
+}
+
 async function main() {
   const server = createStaticServer();
   await new Promise(resolve => server.listen(appPort, host, resolve));
@@ -5806,6 +6057,7 @@ async function main() {
     await testProviderPanelsResponsiveAfterGateway(cdp);
     await testAndroidChatGptGatewayEntry(cdp);
     await testCodexImageGatewayIntegration(cdp);
+    await testGeminiWebImageIntegration(cdp);
     await testGrsaiOfficialAdapter(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
     await testSavePathsTextMenuAndWindowsZipChunks(cdp);
