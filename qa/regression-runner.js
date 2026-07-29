@@ -5476,7 +5476,10 @@ async function testCodexImageGatewayIntegration(cdp) {
     const result = await cdp.eval(`(async () => {
       window.__AI_GEN_NATIVE_PLATFORM = "windows";
       applyApiProvider("codexImageGateway", { forceEndpoint: true });
-      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: true, clientQueue: 10 });
+      // Reproduce the v1.5.0 failure: a legacy saved profile can explicitly
+      // disable async mode. The bundled gateway must still use /image-tasks.
+      applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", asyncTasks: false, clientQueue: 10 });
+      const legacyAsyncPreference = getCodexGatewayOptions().asyncTasks;
       const ready = await checkCodexGatewayHealth({ announce: false, force: true });
       if (!ready) return {
         ready,
@@ -5518,6 +5521,7 @@ async function testCodexImageGatewayIntegration(cdp) {
       const webCredentials = await loadCodexGatewayCredentials();
       const webRoute = {
         options: getCodexGatewayOptions(),
+        legacyAsyncPreference,
         baseUrl: webCredentials.baseUrl,
         concurrency: getCodexGatewayConcurrency(),
         credentialCalls: window.__gatewayCalls.filter(call => call.action === "loadCodexImageGatewayConfig").length,
@@ -5623,6 +5627,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     );
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
     assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(result.webRoute.legacyAsyncPreference === true && result.requestBodies.length === 3, "Legacy asyncTasks=false profiles must be normalized to resumable /image-tasks submissions instead of the missing synchronous route.", result);
     assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 100 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and accept concurrency up to 100.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 3 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission, including an account failover retry, must expose a checkpointable async task id.", result);

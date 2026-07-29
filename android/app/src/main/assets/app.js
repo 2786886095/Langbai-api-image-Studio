@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2459,7 +2459,10 @@ function applyCodexGatewayOptions(value = {}) {
   const options = normalizeCodexGatewayOptions(value);
   setProviderSegmentValue("codexGatewayQuality", options.quality);
   setProviderSegmentValue("codexGatewayDimensionMode", options.dimensionMode);
-  if (dom.codexGatewayAsyncTasks) dom.codexGatewayAsyncTasks.checked = options.asyncTasks;
+  if (dom.codexGatewayAsyncTasks) {
+    dom.codexGatewayAsyncTasks.checked = true;
+    dom.codexGatewayAsyncTasks.disabled = true;
+  }
   if (dom.codexGatewayClientQueue) dom.codexGatewayClientQueue.value = String(options.clientQueue);
   updateCodexGatewayOptionAvailability();
 }
@@ -6453,28 +6456,22 @@ registerAdapter({
       const account = await activateCurrentChatGptAccount(attemptedAccounts);
       const accountBoundBody = { ...built.body, account_id: account.local_account_id };
       try {
-        let data;
-        if (gatewayOptions.asyncTasks) {
-          const submitted = await codexGatewayJsonRequest("image-tasks", { method: "POST", body: accountBoundBody, signal });
-          const taskId = codexImageGateway.extractTaskId(submitted);
-          if (!taskId) throw new Error("Gateway did not return a task id");
-          await options.onTaskSubmitted?.({
-            id: taskId,
-            status: String(submitted.status || "queued"),
-            accountId: account.local_account_id,
-            submittedAt: new Date().toISOString(),
-          });
-          data = await pollCodexGatewayTask(taskId, {
-            signal, requested, requestAudit, startedAt,
-            operation: hasRef && refs.length ? "edit" : "generation",
-          });
-        } else {
-          const result = await codexGatewayJsonRequest(built.route, { method: "POST", body: accountBoundBody, signal });
-          data = await normalizeCodexGatewayResult(result, {
-            requested, requestAudit, startedAt, signal,
-            operation: hasRef && refs.length ? "edit" : "generation",
-          });
-        }
+        // The embedded ChatGPT gateway intentionally exposes only resumable
+        // image-task submission. Always using this route also prevents duplicate
+        // paid work after a client restart or transient connection loss.
+        const submitted = await codexGatewayJsonRequest("image-tasks", { method: "POST", body: accountBoundBody, signal });
+        const taskId = codexImageGateway.extractTaskId(submitted);
+        if (!taskId) throw new Error("Gateway did not return a task id");
+        await options.onTaskSubmitted?.({
+          id: taskId,
+          status: String(submitted.status || "queued"),
+          accountId: account.local_account_id,
+          submittedAt: new Date().toISOString(),
+        });
+        const data = await pollCodexGatewayTask(taskId, {
+          signal, requested, requestAudit, startedAt,
+          operation: hasRef && refs.length ? "edit" : "generation",
+        });
         codexGatewayRuntime.recordSuccess({ hasReference: hasRef && refs.length > 0 });
         return data;
       } catch (err) {

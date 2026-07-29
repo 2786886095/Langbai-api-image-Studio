@@ -25,6 +25,11 @@ test("accepts only a 64-character lowercase hexadecimal local key", () => {
   assert.equal(gateway.validateLocalKey("a".repeat(63)), false);
 });
 
+test("forces resumable tasks for legacy profiles that disabled async mode", () => {
+  assert.equal(gateway.normalizeOptions({ asyncTasks: false }).asyncTasks, true);
+  assert.equal(gateway.normalizeOptions({ asyncTasks: true }).asyncTasks, true);
+});
+
 test("requires the gateway image-only, async, reference, model and exact-output capabilities", () => {
   const valid = gateway.validateCapabilities({
     image_only: true,

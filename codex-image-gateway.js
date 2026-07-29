@@ -56,7 +56,11 @@
     return Object.freeze({
       quality,
       dimensionMode,
-      asyncTasks: value.asyncTasks !== false,
+      // The bundled ChatGPT gateway exposes resumable image-task routes only.
+      // Older saved profiles may contain asyncTasks=false from the standalone
+      // gateway UI; accepting that value makes the client call an unimplemented
+      // synchronous /images/* route and surface HTTP 404.
+      asyncTasks: true,
       clientQueue,
     });
   }
