@@ -38,7 +38,7 @@ test("requires the gateway image-only, async, reference, model and exact-output 
     async_tasks: true,
     models: ["gpt-image-2"],
     max_reference_images: 20,
-    max_concurrency: 100,
+    max_concurrency: 2,
     dimension_modes: ["native", "exact_output"],
   });
   assert.equal(valid.ok, true);
@@ -46,6 +46,16 @@ test("requires the gateway image-only, async, reference, model and exact-output 
   assert.equal(invalid.ok, false);
   assert(invalid.missing.includes("image_only"));
   assert(invalid.missing.includes("max_reference_images>=20"));
+  assert.equal(gateway.validateCapabilities({
+    image_only: true,
+    generations: true,
+    edits: true,
+    async_tasks: true,
+    models: ["gpt-image-2"],
+    max_reference_images: 20,
+    max_concurrency: 0,
+    dimension_modes: ["native", "exact_output"],
+  }).missing.includes("max_concurrency>=1"), true);
 });
 
 test("builds exact-output generation and edit requests without leaking unsupported fields", () => {

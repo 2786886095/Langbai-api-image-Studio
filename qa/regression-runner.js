@@ -401,7 +401,8 @@ async function testApiConfig(cdp) {
     };
     document.getElementById("openApiConfig").click();
     await new Promise(r => setTimeout(r, 50));
-    document.getElementById("savedApis").value = "0";
+    const activeId = JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}").id || "";
+    document.getElementById("savedApis").value = activeId;
     document.getElementById("deleteSavedApi").click();
     await answerAskDialog(true);
     await new Promise(r => setTimeout(r, 50));
@@ -433,9 +434,9 @@ async function testApiConfig(cdp) {
     const defaultApi = getDefaultApiConfig();
     const migratedDefaultId = localStorage.getItem("ai_image_gen_default_api_id");
     localStorage.setItem("ai_image_gen_config", JSON.stringify(migrated[0]));
-    applyConfig(migrated[0]);
+    await applyConfig(migrated[0]);
     renderSavedApis();
-    document.getElementById("savedApis").value = "1";
+    document.getElementById("savedApis").value = migrated[1].id;
     document.getElementById("deleteSavedApi").click();
     const start = Date.now();
     let overlay = null;
@@ -579,7 +580,7 @@ async function testApiConfig(cdp) {
     const grsaiIndex = apis.findIndex(api => api.apiProvider === "grsai");
     const officialIndex = apis.findIndex(api => api.apiProvider === "official");
     const selectProfile = async index => {
-      document.getElementById("savedApis").value = String(index);
+      document.getElementById("savedApis").value = apis[index]?.id || "";
       document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise(r => setTimeout(r, 80));
       return {
@@ -1316,17 +1317,33 @@ async function testGeneratedImagePersistentCache(cdp) {
     const now = Date.now();
     await putGeneratedCacheBlob("qa-expired", generatedBlob, now - 8 * 86400000);
     await putGeneratedCacheBlob("qa-fresh", generatedBlob, now - 6 * 86400000);
+    await putGeneratedCacheBlob(record._cacheKey, generatedBlob, now - 30 * 86400000);
+    await putGeneratedCacheBlob("qa-checkpoint-live", generatedBlob, now - 30 * 86400000);
+    saveHistory([{
+      id: "checkpoint-live",
+      type: "project",
+      mode: "comic",
+      createdAt: new Date().toISOString(),
+      images: [{ imageUrl: "cache://qa-checkpoint-live" }],
+      panels: [{ id: "1", status: "running", cachedImageUrl: "cache://qa-checkpoint-live" }],
+    }]);
     const removed = await cleanupGeneratedImageCache({ now, force: true });
     const expired = await getGeneratedCacheBlob("qa-expired");
     const fresh = await getGeneratedCacheBlob("qa-fresh");
+    const currentLive = await getGeneratedCacheBlob(record._cacheKey);
+    const checkpointLive = await getGeneratedCacheBlob("qa-checkpoint-live");
 
     saveSettings({ historyEnabled: true });
     const historyCard = addResultPlaceholder("cache-2", "history cache test", { mode: "single", prompt: "history cache test" });
     const historyRecord = replacePlaceholder(historyCard, "cache-2", { data: [{ b64_json: png }] }, "history cache test", { mode: "single" });
     await historyRecord._cachePromise;
     const waitStart = Date.now();
-    while (!loadHistory().length && Date.now() - waitStart < 2000) await new Promise(r => setTimeout(r, 20));
-    const historyUrl = loadHistory()[0]?.imageUrl || "";
+    let savedHistoryRecord = null;
+    while (!savedHistoryRecord && Date.now() - waitStart < 2000) {
+      savedHistoryRecord = loadHistory().find(item => item.id === historyRecord.id) || null;
+      if (!savedHistoryRecord) await new Promise(r => setTimeout(r, 20));
+    }
+    const historyUrl = savedHistoryRecord?.imageUrl || "";
 
     document.getElementById("cacheRetentionDays").value = "14";
     document.getElementById("cacheRetentionDays").dispatchEvent(new Event("change", { bubbles: true }));
@@ -1340,6 +1357,8 @@ async function testGeneratedImagePersistentCache(cdp) {
       removed,
       expiredExists: !!expired,
       freshExists: !!fresh,
+      currentLiveExists: !!currentLive,
+      checkpointLiveExists: !!checkpointLive,
       historyUrl,
       savedRetention,
       cleared,
@@ -1353,6 +1372,7 @@ async function testGeneratedImagePersistentCache(cdp) {
   assertQa(result.generatedSize > 0 && result.persistedSize === result.generatedSize, "A successful generated image must be written to persistent app cache immediately.", result);
   assertQa(result.historyWhileDisabled === 0, "The image cache must remain independent from the optional history feature.", result);
   assertQa(result.removed >= 1 && !result.expiredExists && result.freshExists, "Retention cleanup must delete expired cache entries while retaining newer images.", result);
+  assertQa(result.currentLiveExists && result.checkpointLiveExists, "Retention cleanup must protect cache keys referenced by current cards, history and resumable checkpoints even when they are old.", result);
   assertQa(result.historyUrl.startsWith("cache://"), "New history records should reuse the generated cache instead of duplicating image bytes in the legacy history store.", result);
   assertQa(result.savedRetention === 14 && Object.values(result.controls).every(Boolean), "Cache retention controls must save their value and remain present in Settings.", result);
 }
@@ -1536,6 +1556,8 @@ async function testColdStartupProfilesAndCoreControls(cdp) {
       const provider = match[1];
       if (provider === "corrupt") {
         localStorage.setItem("ai_image_gen_config", "{broken-json");
+        localStorage.setItem("ai_image_gen_history_v1", "{broken-history");
+        localStorage.setItem("ai_image_gen_settings", "{broken-settings");
         localStorage.setItem("ai_image_gen_apis", JSON.stringify([{
           id: "preserved-profile", name: "Preserved profile", apiProvider: "custom",
           endpoint: "https://example.invalid/v1/images/generations", model: "custom-image-model"
@@ -1590,6 +1612,7 @@ async function testColdStartupProfilesAndCoreControls(cdp) {
         click("exportBtn");
         await new Promise(resolve => setTimeout(resolve, 30));
         const exportResponded = document.getElementById("status").textContent.trim().length > 0;
+        showStorageRecoveryIssues();
 
         return {
           ready: window.__AI_GEN_APP_READY === true,
@@ -1597,6 +1620,11 @@ async function testColdStartupProfilesAndCoreControls(cdp) {
           settingsOpened, comicOpened, languageOpened, languageChanged,
           themeChanged, historyOpened, exportResponded,
           savedApisRaw: localStorage.getItem("ai_image_gen_apis"),
+          activeConfigRaw: localStorage.getItem("ai_image_gen_config"),
+          historyRaw: localStorage.getItem("ai_image_gen_history_v1"),
+          settingsRaw: localStorage.getItem("ai_image_gen_settings"),
+          recoveryKeys: Object.keys(localStorage).filter(key => key.startsWith("ai_image_gen_recovery:")),
+          recoveryState: window.__AI_GEN_STORAGE_RECOVERY || null,
           startupErrors: window.__AI_GEN_STARTUP_ERRORS || [],
         };
       })()`, true);
@@ -1611,8 +1639,13 @@ async function testColdStartupProfilesAndCoreControls(cdp) {
       }
       if (provider === "corrupt") {
         assertQa(
-          result.savedApisRaw?.includes("preserved-profile"),
-          "A corrupt active config must not delete or overwrite the saved API profile list.",
+          result.savedApisRaw?.includes("preserved-profile")
+            && result.activeConfigRaw === "{broken-json"
+            && result.historyRaw === "{broken-history"
+            && result.settingsRaw === "{broken-settings"
+            && result.recoveryKeys.length >= 3
+            && result.recoveryState?.readOnlyKeys?.length >= 3,
+          "Corrupt API, history and settings JSON must be backed up, preserved at the source key, and held read-only instead of silently becoming empty data.",
           result,
         );
       }
@@ -1737,21 +1770,19 @@ async function testSaveComicFolder(cdp) {
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
-  logStep("HTTP-400-only retry, clear while generating, reload failed image, and i18n layout");
+  logStep("Structured retry policy, clear while generating, reload failed image, and i18n layout");
   await loadFresh(cdp, "misc");
   const retry = await cdp.eval(`(async () => {
     let attempts400 = 0;
     const retryRounds = [];
-    const ok400 = await retryTransient(async () => {
-      attempts400++;
-      if (attempts400 < 3) throw new Error("HTTP 400: busy");
-      return "ok";
-    }, {
-      maxRetries: 3,
-      baseDelay: 1,
-      onRetry: info => retryRounds.push({ retryIndex: info.retryIndex, maxRetries: info.maxRetries })
-    });
-    const non400Probe = async message => {
+    let threw400 = false;
+    try {
+      await retryTransient(async () => {
+        attempts400++;
+        throw new Error("HTTP 400: invalid_parameters");
+      }, { maxRetries: 3, baseDelay: 1 });
+    } catch { threw400 = true; }
+    const terminalProbe = async message => {
       let attempts = 0;
       let threw = false;
       try {
@@ -1762,13 +1793,27 @@ async function testRetryClearReloadAndI18n(cdp) {
       } catch { threw = true; }
       return { attempts, threw };
     };
-    const probe504 = await non400Probe("HTTP 504: Gateway Time-out");
-    const probe502 = await non400Probe("HTTP 502: Bad Gateway");
-    const probe503 = await non400Probe("HTTP 503: Service Unavailable");
-    const probeConnClosed = await non400Probe("HttpException: Connection closed before full header was received");
-    let attempts400SuccessImmediately = 0;
+    const transientProbe = async message => {
+      let attempts = 0;
+      const value = await retryTransient(async () => {
+        attempts++;
+        if (attempts < 3) throw new Error(message);
+        return "ok";
+      }, {
+        maxRetries: 3,
+        baseDelay: 1,
+        onRetry: info => retryRounds.push({ status: message.match(/HTTP (\\d+)/)?.[1] || "connection", retryIndex: info.retryIndex })
+      });
+      return { attempts, value };
+    };
+    const probe504 = await terminalProbe("HTTP 504: Gateway Time-out");
+    const probe502 = await transientProbe("HTTP 502: Bad Gateway");
+    const probe503 = await transientProbe("HTTP 503: Service Unavailable");
+    const probe429 = await transientProbe("HTTP 429: Too Many Requests");
+    const probeConnClosed = await transientProbe("HttpException: Connection closed before full header was received");
+    let attemptsSuccessImmediately = 0;
     const okImmediate = await retryTransient(async () => {
-      attempts400SuccessImmediately++;
+      attemptsSuccessImmediately++;
       return "image";
     }, {
       maxRetries: 3,
@@ -1803,7 +1848,7 @@ async function testRetryClearReloadAndI18n(cdp) {
         callAttempts++;
         if (callAttempts < 3) {
           return new Response(JSON.stringify({ error: "busy" }), {
-            status: 400,
+            status: 502,
             headers: { "Content-Type": "application/json" }
           });
         }
@@ -1818,17 +1863,19 @@ async function testRetryClearReloadAndI18n(cdp) {
     window.fetch = originalFetch;
     return {
       attempts400,
-      ok400,
+      threw400,
       attempts504: probe504.attempts,
       threw504: probe504.threw,
       attempts502: probe502.attempts,
-      threw502: probe502.threw,
+      ok502: probe502.value,
       attempts503: probe503.attempts,
-      threw503: probe503.threw,
+      ok503: probe503.value,
+      attempts429: probe429.attempts,
+      ok429: probe429.value,
       attemptsConnClosed: probeConnClosed.attempts,
-      threwConnClosed: probeConnClosed.threw,
+      okConnClosed: probeConnClosed.value,
       retryRounds,
-      attempts400SuccessImmediately,
+      attemptsSuccessImmediately,
       okImmediate,
       attempts500,
       threw500,
@@ -1837,14 +1884,15 @@ async function testRetryClearReloadAndI18n(cdp) {
       statusText: document.getElementById("status")?.textContent || "",
     };
   })()`, true);
-  assertQa(retry.attempts400 === 3 && retry.ok400 === "ok", "HTTP 400 should retry until success.", retry);
-  assertQa(retry.attempts504 === 1 && retry.threw504, "HTTP 504 must fail immediately; only HTTP 400 is retryable.", retry);
-  assertQa(retry.attempts502 === 1 && retry.threw502, "HTTP 502 must fail immediately; only HTTP 400 is retryable.", retry);
-  assertQa(retry.attempts503 === 1 && retry.threw503, "HTTP 503 must fail immediately; only HTTP 400 is retryable.", retry);
-  assertQa(retry.attemptsConnClosed === 1 && retry.threwConnClosed, "Connection errors must fail immediately rather than entering the HTTP 400 retry loop.", retry);
-  assertQa(JSON.stringify(retry.retryRounds) === JSON.stringify([{ retryIndex: 1, maxRetries: 3 }, { retryIndex: 2, maxRetries: 3 }]), "HTTP 400 retry status should report the current retry round and total rounds.", retry);
-  assertQa(retry.attempts400SuccessImmediately === 1 && retry.okImmediate === "image", "Successful image responses should stop retry immediately.", retry);
-  assertQa(retry.attempts500 === 1 && retry.threw500, "HTTP 500 must not retry; the retryable set is exactly HTTP 400.", retry);
+  assertQa(retry.attempts400 === 1 && retry.threw400, "Parameter-class HTTP 400 errors must not be submitted again unchanged.", retry);
+  assertQa(retry.attempts504 === 1 && retry.threw504, "HTTP 504 with an unknown submission outcome must not duplicate the POST.", retry);
+  assertQa(retry.attempts502 === 3 && retry.ok502 === "ok", "HTTP 502 should use a bounded backoff and stop on success.", retry);
+  assertQa(retry.attempts503 === 3 && retry.ok503 === "ok", "HTTP 503 should use a bounded backoff and stop on success.", retry);
+  assertQa(retry.attempts429 === 3 && retry.ok429 === "ok", "HTTP 429 should use a bounded backoff and stop on success.", retry);
+  assertQa(retry.attemptsConnClosed === 3 && retry.okConnClosed === "ok", "Transient upstream disconnects should use a bounded retry.", retry);
+  assertQa(retry.retryRounds.length === 8 && retry.retryRounds.every(item => item.retryIndex === 1 || item.retryIndex === 2), "Retry status should report two rounds for every transient family.", retry);
+  assertQa(retry.attemptsSuccessImmediately === 1 && retry.okImmediate === "image", "Successful image responses should stop retry immediately.", retry);
+  assertQa(retry.attempts500 === 1 && retry.threw500, "Unclassified HTTP 500 must not be retried blindly.", retry);
   assertQa(retry.callAttempts === 3 && retry.callImageReturned, "Image API should stop retrying as soon as a successful image payload returns.", retry);
   assertQa(/1\/3|2\/3/.test(retry.statusText), "Retry status should show the current retry round and total retry rounds.", retry);
 
@@ -1971,6 +2019,7 @@ async function testRetryClearReloadAndI18n(cdp) {
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     const source = Uint8Array.from(atob(png), c => c.charCodeAt(0));
     const calls = [];
+    let abortChunk = false;
     window.FlutterDownload = {
       postMessage(raw) {
         const payload = JSON.parse(raw);
@@ -1987,6 +2036,7 @@ async function testRetryClearReloadAndI18n(cdp) {
             return;
           }
           if (payload.action === "nativeFetchBlobChunk") {
+            if (abortChunk) return;
             const end = Math.min(source.length, payload.offset + payload.length);
             let binary = "";
             for (const byte of source.slice(payload.offset, end)) binary += String.fromCharCode(byte);
@@ -2007,6 +2057,16 @@ async function testRetryClearReloadAndI18n(cdp) {
       const result = await nativeDownload.nativeFetchBlob("https://img.test/large-preview.png");
       const bytes = new Uint8Array(await result.blob.arrayBuffer());
       await new Promise(resolve => setTimeout(resolve, 0));
+      abortChunk = true;
+      const controller = new AbortController();
+      const abortedRead = nativeDownload.nativeFetchBlob(
+        "https://img.test/abort-preview.png",
+        {},
+        { signal: controller.signal, timeoutMs: 5000 },
+      ).then(() => false, error => error?.name === "AbortError");
+      setTimeout(() => controller.abort(), 20);
+      const chunkAbortObserved = await abortedRead;
+      await new Promise(resolve => setTimeout(resolve, 0));
       return {
         byteLength: bytes.length,
         matches: bytes.length === source.length && bytes.every((value, index) => value === source[index]),
@@ -2014,6 +2074,8 @@ async function testRetryClearReloadAndI18n(cdp) {
         actions: calls.map(call => call.action),
         responseType: calls.find(call => call.action === "nativeFetch")?.responseType || "",
         maxRequestedChunk: Math.max(0, ...calls.filter(call => call.action === "nativeFetchBlobChunk").map(call => call.length || 0)),
+        chunkAbortObserved,
+        abortReleased: calls.filter(call => call.action === "nativeFetchBlobRelease").length >= 2,
       };
     } finally {
       if (previousBridge === undefined) delete window.FlutterDownload;
@@ -2023,6 +2085,7 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(nativePreviewChunks.matches && nativePreviewChunks.type === "image/png", "Native preview reload should reconstruct the exact image bytes from bounded bridge chunks.", nativePreviewChunks);
   assertQa(nativePreviewChunks.responseType === "chunkedBase64" && nativePreviewChunks.actions.filter(action => action === "nativeFetchBlobChunk").length > 1, "Native preview reload must request multiple bounded chunks instead of one oversized Base64 bridge message.", nativePreviewChunks);
   assertQa(nativePreviewChunks.actions.at(-1) === "nativeFetchBlobRelease" && nativePreviewChunks.maxRequestedChunk <= 192 * 1024, "Native preview chunks must be released and remain within the bridge-safe size.", nativePreviewChunks);
+  assertQa(nativePreviewChunks.chunkAbortObserved && nativePreviewChunks.abortReleased, "AbortSignal must interrupt a pending native blob chunk and still release its transfer.", nativePreviewChunks);
 
   const resultGrid = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -2057,7 +2120,7 @@ async function testRetryClearReloadAndI18n(cdp) {
       });
       cards.push(card);
       if (i <= 4) {
-        markPlaceholderFailed(card, i, "HTTP 400: mocked failure reason for panel " + i, {
+        markPlaceholderFailed(card, i, "HTTP 502: mocked failure reason for panel " + i, {
           mode: "comic",
           globalPrompt: "GLOBAL",
           panelPrompt,
@@ -2147,7 +2210,7 @@ async function testRetryClearReloadAndI18n(cdp) {
     }
     const progressVisibleDuringRetry = progressSamples.some(s => !s.hidden);
     const progressReachedTotal = progressSamples.some(s => s.text.includes("4/4"));
-    await new Promise(r => setTimeout(r, 3300)); // outlast the 3s post-completion hide delay
+    await new Promise(r => setTimeout(r, 4000)); // outlast the 300ms stable window plus 3s hide delay
     const progressHiddenAfterDelay = progressWrap.classList.contains("hidden");
     const after = {
       failedCount: document.querySelectorAll(".result-item.is-failed").length,
@@ -2186,6 +2249,17 @@ async function testRetryClearReloadAndI18n(cdp) {
         select.value = lang;
         select.dispatchEvent(new Event("change", { bubbles: true }));
         await new Promise(r => setTimeout(r, 80));
+        const sizeDetails = document.querySelector(".size-presets-more");
+        if (sizeDetails) sizeDetails.open = true;
+        const sourceSizeLabels = [
+          "更多常用尺寸", "官方 2K 方图", "官方 2K 横图", "官方 4K 横图", "官方 4K 竖图",
+          "横屏 16:9", "竖屏 9:16", "2K 竖屏", "QHD 横屏", "QHD 竖屏",
+          "横版 4:3", "竖版 3:4", "横版 5:4", "竖版 4:5", "桌面 16:10", "竖版 10:16",
+        ];
+        const renderedSizeLabels = [
+          sizeDetails?.querySelector("summary")?.textContent?.trim() || "",
+          ...[...document.querySelectorAll(".size-presets-more small")].map(node => node.textContent.trim()),
+        ];
         const text = document.body.innerText;
         const nodes = [...document.querySelectorAll("button,.btn,.btn-sm,.btn-xs,.mode-tab,.language-select")]
           .filter(el => {
@@ -2217,6 +2291,9 @@ async function testRetryClearReloadAndI18n(cdp) {
           header: document.querySelector(".header h1")?.innerText,
           badWords: ["undefined", "null", "NaN", "????"].filter(word => text.includes(word)),
           hasJaChinesePanel: lang === "ja" && text.includes("分镜"),
+          untranslatedSizeLabels: ["en", "ja", "ko"].includes(lang)
+            ? renderedSizeLabels.filter(label => sourceSizeLabels.includes(label))
+            : [],
           overflows,
           languageCenter: langStyle.textAlign === "center" && langStyle.textAlignLast === "center",
           exportVisible: exportStyle.display !== "none" && exportStyle.visibility !== "hidden" && exportRect.width > 0 && exportRect.height > 0,
@@ -2240,7 +2317,7 @@ async function testRetryClearReloadAndI18n(cdp) {
     i18n.push({ viewport: viewport.name, item: item.results, menu: item.menu, theme: item.theme });
   }
   const flat = i18n.flatMap(group => group.item.map(item => ({ viewport: group.viewport, ...item })));
-  const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.overflows.length || !item.languageCenter || !item.exportVisible || !item.statusOk);
+  const bad = flat.filter(item => item.badWords.length || item.hasJaChinesePanel || item.untranslatedSizeLabels.length || item.overflows.length || !item.languageCenter || !item.exportVisible || !item.statusOk);
   assertQa(bad.length === 0, "All supported languages should render without bad tokens, Japanese Chinese residue, or control overflow.", bad);
   const menuBad = i18n.filter(group => !group.menu.opened || !group.menu.changed);
   assertQa(menuBad.length === 0, "Language menu button should open and apply a selected language.", menuBad);
@@ -2305,13 +2382,13 @@ async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
         });
       }
       return new Response(JSON.stringify({ error: { message: "still failed" } }), {
-        status: 500, headers: { "Content-Type": "application/json" },
+        status: 502, headers: { "Content-Type": "application/json" },
       });
     };
 
     document.getElementById("retryFailedAll").click();
     const start = Date.now();
-    while (Date.now() - start < 5000 && retryAllFailedRun) await sleep(20);
+    while (Date.now() - start < 15000 && retryAllFailedRun) await sleep(20);
     const final = {
       calls,
       rounds,
@@ -2432,7 +2509,7 @@ async function testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp) {
       const card = addResultPlaceholder(i, prompt, {
         mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
       });
-      markPlaceholderFailed(card, i, "HTTP 504: failure " + i, {
+      markPlaceholderFailed(card, i, "HTTP 502: failure " + i, {
         mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
       });
     }
@@ -2479,7 +2556,7 @@ async function testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp) {
 
   assertQa(result.during.calls === 10 && result.during.loading === 10 && result.during.queued === 2, "Retry-all must start only the provider concurrency limit and visibly mark every remaining card as queued.", result);
   assertQa(result.during.positions.join(",") === "1,2" && result.during.labels.every((label, index) => label.includes(String(index + 1))), "Queued retry cards must show stable, sequential queue positions.", result);
-  assertQa(result.during.unsentHintCount === 2 && result.during.failedReasons.every(reason => /HTTP 504/.test(reason)), "Queued cards must say that no request has been sent yet while preserving the original failure reason.", result);
+  assertQa(result.during.unsentHintCount === 2 && result.during.failedReasons.every(reason => /HTTP 502/.test(reason)), "Queued cards must say that no request has been sent yet while preserving the original failure reason.", result);
   assertQa(result.afterCancel.failed === 12 && result.afterCancel.queued === 0 && /failure 11/.test(result.afterCancel.failure11) && /failure 12/.test(result.afterCancel.failure12), "Cancelling retry-all must restore queued cards and their original failure reasons.", result);
 }
 
@@ -2513,7 +2590,7 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
         size: "1024x1024",
         retryCount: 0,
       });
-      markPlaceholderFailed(card, i, "HTTP 400: initial failure", {
+      markPlaceholderFailed(card, i, "HTTP 502: initial failure", {
         mode: "comic",
         panelPrompt: prompt,
         prompt,
@@ -2543,7 +2620,7 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     const lateCard = addResultPlaceholder(3, latePrompt, {
       mode: "comic", panelPrompt: latePrompt, prompt: latePrompt, size: "1024x1024", retryCount: 0,
     });
-    markPlaceholderFailed(lateCard, 3, "HTTP 400: late failure", {
+    markPlaceholderFailed(lateCard, 3, "HTTP 502: late failure", {
       mode: "comic", panelPrompt: latePrompt, prompt: latePrompt, size: "1024x1024", retryCount: 0,
     });
     const lateStart = Date.now();
@@ -2596,7 +2673,7 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     };
 
     const cardToHangThenClear = document.querySelector(".result-item");
-    markPlaceholderFailed(cardToHangThenClear, 1, "HTTP 400: fail before clear", cardToHangThenClear._retryContext);
+    markPlaceholderFailed(cardToHangThenClear, 1, "HTTP 502: fail before clear", cardToHangThenClear._retryContext);
     let clearAbortObserved = false;
     window.fetch = async (url, opts = {}) => {
       if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
@@ -2617,7 +2694,7 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     const freshCard = addResultPlaceholder(3, "fresh prompt", {
       mode: "comic", panelPrompt: "fresh prompt", prompt: "fresh prompt", size: "1024x1024", retryCount: 0,
     });
-    markPlaceholderFailed(freshCard, 3, "HTTP 400: fresh failure", {
+    markPlaceholderFailed(freshCard, 3, "HTTP 502: fresh failure", {
       mode: "comic", panelPrompt: "fresh prompt", prompt: "fresh prompt", size: "1024x1024", retryCount: 0,
     });
     const afterClear = {
@@ -2656,7 +2733,7 @@ async function testCardRetryAttemptDisplayAndStop(cdp) {
         panelACalls++;
         if (panelACalls === 1) {
           return Promise.resolve(new Response(JSON.stringify({ error: "gateway" }), {
-            status: 400,
+            status: 502,
             headers: { "Content-Type": "application/json" },
           }));
         }
@@ -2754,7 +2831,7 @@ async function testCardRetryAttemptDisplayAndStop(cdp) {
   assertQa(result.stopBtnVisibleDuringRetry, "The cancel button must still be visible once the card is auto-retrying (it's visible from the moment the card starts loading, see testCancelDuringFirstAttempt -- this just confirms auto-retry doesn't hide it).", result);
   assertQa(result.cardAFailed && /已手动取消/.test(result.cardAFailedMessage), "Clicking the per-card cancel button should cancel that card's in-flight request and mark it as manually cancelled.", result);
   assertQa(result.panelACallsBeforeStop === 2, "Panel A's second (retry) request must actually be dispatched before we stop it -- otherwise this only proves stopping during the backoff wait, not cancelling a genuinely in-flight request.", result);
-  assertQa(result.panelACalls === 2, "Stopping the card must not trigger yet another request -- exactly the initial attempt (HTTP 400) plus the one retry that got cancelled, nothing more.", result);
+  assertQa(result.panelACalls === 2, "Stopping the card must not trigger yet another request -- exactly the initial transient failure plus the one retry that got cancelled, nothing more.", result);
   assertQa(result.cardBHasImage && result.panelBCalls === 1, "Stopping panel A's retry must not affect panel B, which should complete normally on its own single request.", result);
 }
 
@@ -4070,644 +4147,232 @@ async function testDesktopProxyControls(cdp) {
 }
 
 async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
-  logStep("OpenAI official provider has dedicated saved options, detects only official image models, sends the current Image API fields, and never leaks them into GrsAI");
-  await loadFresh(cdp, "openai-official-provider");
+  logStep("OpenAI official provider sends only its supported gpt-image-2 fields and remains isolated from GrsAI");
+  await loadFresh(cdp, "official-provider-current");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
     const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
     const originalFetch = window.fetch.bind(window);
     const requests = [];
-    let modelMode = "success";
-    let rateMode = "success";
-    let openCodexHealthMode = "success";
-    let openCodexRequestMode = "success";
-    window.fetch = async (url, opts = {}) => {
+    window.fetch = async (url, options = {}) => {
       const target = String(url);
-      if (target.includes("api.frankfurter.dev/v2/rate/USD/CNY")) {
-        if (rateMode === "failure") throw new Error("rate service offline");
-        return new Response(JSON.stringify({ date: "2026-07-24", base: "USD", quote: "CNY", rate: 6.7722 }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (target === "https://api.openai.com/v1/models") {
-        if (modelMode === "auth") {
-          return new Response(JSON.stringify({ error: { message: "invalid project key" } }), {
-            status: 401, headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify({ data: [
-          { id: "gpt-4.1" }, { id: "gpt-image-1-mini" }, { id: "gpt-image-2-2026-04-21" }, { id: "gpt-image-2-vip" }
-        ] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (target.includes("api.openai.com/v1/models")) {
+        return new Response(JSON.stringify({ data: [{ id: "gpt-image-2" }, { id: "gpt-5" }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (target.includes("api.openai.com/v1/images/generations")) {
-        requests.push({ kind: "official-generation", body: JSON.parse(opts.body || "{}") });
-        return new Response(JSON.stringify({
-          data: [{ b64_json: tinyPng }],
-          usage: { input_tokens: 150, input_tokens_details: { text_tokens: 150, image_tokens: 0 }, output_tokens: 1056, total_tokens: 1206 },
-        }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
+        requests.push({ route: "generation", body: JSON.parse(options.body || "{}"), auth: options.headers?.Authorization || "" });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (target.includes("api.openai.com/v1/images/edits")) {
         const fields = {};
-        for (const [name, value] of opts.body.entries()) {
-          fields[name] = value instanceof Blob ? { type: value.type, size: value.size } : String(value);
-        }
-        requests.push({ kind: "official-edit", body: fields });
-        return new Response(JSON.stringify({
-          data: [{ b64_json: tinyPng }],
-          usage: { input_tokens: 150, input_tokens_details: { text_tokens: 100, image_tokens: 50 }, output_tokens: 1056, total_tokens: 1206 },
-        }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
+        for (const [key, value] of options.body.entries()) fields[key] = value instanceof Blob ? { type: value.type, size: value.size } : String(value);
+        requests.push({ route: "edit", fields, auth: options.headers?.Authorization || "" });
+        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
-      if (target.includes("grsai.dakka.com.cn/v1/api/generate")) {
-        requests.push({ kind: "grsai", body: JSON.parse(opts.body || "{}") });
-        return new Response(JSON.stringify({ status: "succeeded", results: [{ url: "https://images.example.test/result.png" }] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (target === "http://127.0.0.1:10100/healthz") {
-        requests.push({ kind: "opencodex-health" });
-        if (openCodexHealthMode === "failure") throw new Error("Failed to fetch");
-        return new Response(JSON.stringify({ status: "ok", service: "opencodex", version: "2.7.36" }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (target.includes("127.0.0.1:10100/v1/images/")) {
-        requests.push({
-          kind: target.endsWith("/edits") ? "opencodex-edit" : "opencodex-generation",
-          body: JSON.parse(opts.body || "{}"),
-          auth: opts.headers?.Authorization || "",
-        });
-        if (openCodexRequestMode === "400") {
-          return new Response(JSON.stringify({ error: { message: "invalid local image request" } }), {
-            status: 400, headers: { "Content-Type": "application/json" },
-          });
-        }
-        if (openCodexRequestMode === "moderation") {
-          return new Response(JSON.stringify({ error: {
-            code: "moderation_blocked",
-            message: "Your request was rejected by the safety system.",
-            request_id: "830ccca8-cd98-4812-a1b8-5260b3bca40d",
-            safety_violations: ["sexual"],
-          } }), {
-            status: 400,
-            headers: { "Content-Type": "application/json", "x-request-id": "830ccca8-cd98-4812-a1b8-5260b3bca40d" },
-          });
-        }
-        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng }] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      return originalFetch(url, opts);
+      return originalFetch(url, options);
     };
-
     applyApiProvider("official", { forceEndpoint: true });
-    dom.apiProvider.value = "official";
-    dom.apiKey.value = "sk-official-test";
-    dom.model.value = "gpt-image-1.5";
+    dom.apiKey.value = "sk-official-isolated";
+    dom.model.value = "gpt-image-2";
     setProviderSegmentValue("officialQuality", "high");
-    setProviderSegmentValue("officialBackground", "opaque");
     setProviderSegmentValue("officialOutputFormat", "webp");
-    dom.officialOutputCompression.value = "72";
-    setProviderSegmentValue("officialModeration", "low");
-    setProviderSegmentValue("officialInputFidelity", "high");
-    updateOfficialOptionAvailability();
-
-    const profile = currentApiConfig("official-profile");
-    saveConfig(profile);
-    applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
-    applyConfig(loadConfig());
-    const restored = getOfficialImageOptions();
-    const visibility = {
-      official: !dom.officialProviderPanel.classList.contains("hidden"),
-      grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
-      custom: !dom.customProviderPanel.classList.contains("hidden"),
-      grsaiRetry: !dom.grsaiRetrySettings.classList.contains("hidden"),
-    };
-
-    const generation = await callImageAPI("official generation", "1024x1024", 1, "official", { references: [], maxRetries: 0 });
-    const reference = { dataUrl: "data:image/png;base64," + tinyPng, fileName: "reference.png", width: 1024, height: 1024 };
-    const edit = await callImageAPI("official edit", "1024x1024", 1, "official edit", { references: [reference], maxRetries: 0 });
-
-    await detectModelsForAdapter();
-    const detectedModels = Array.from(dom.modelChoices.options).map(option => option.value).filter(Boolean);
-    const detectedStatus = dom.status.textContent;
-    modelMode = "auth";
-    await detectModelsForAdapter();
-    const fallbackModels = Array.from(dom.modelChoices.options).map(option => option.value).filter(Boolean);
-    const fallbackStatus = dom.status.textContent;
-
-    dom.model.value = "gpt-image-2-2026-04-21";
-    updateOfficialOptionAvailability();
-    const gpt2Capabilities = {
-      transparentDisabled: document.querySelector('[data-provider-control="officialBackground"] button[data-value="transparent"]').disabled,
-      fidelityDisabled: Array.from(document.querySelectorAll('[data-provider-control="officialInputFidelity"] button')).every(button => button.disabled),
-      note: dom.officialCapabilityNote.textContent,
-    };
-    dom.model.value = "gpt-image-1.5";
-    updateOfficialOptionAvailability();
-    const legacyCapabilities = {
-      transparentEnabled: !document.querySelector('[data-provider-control="officialBackground"] button[data-value="transparent"]').disabled,
-      fidelityEnabled: Array.from(document.querySelectorAll('[data-provider-control="officialInputFidelity"] button')).every(button => !button.disabled),
-    };
-    let invalidSizeError = "";
-    dom.model.value = "gpt-image-2";
-    try {
-      await callImageAPI("invalid size", "not-a-size", 1, "official invalid size", { references: [], maxRetries: 0 });
-    } catch (err) {
-      invalidSizeError = err.message || String(err);
-    }
-
-    localStorage.setItem(USD_CNY_RATE_KEY, JSON.stringify({ rate: 6.77, rateDate: "2026-07-23", fetchedAt: Date.now(), source: "ECB/Frankfurter" }));
-    switchMode("single");
-    document.querySelector('input[name="size"][value="1024x1024"]').checked = true;
-    dom.nImages.value = "2";
-    setProviderSegmentValue("officialQuality", "high");
-    updateOfficialCostSummary();
-    const estimate = {
-      hidden: dom.officialCostSummary.classList.contains("hidden"),
-      value: dom.officialEstimatedCost.textContent,
-      detail: dom.officialCostBreakdown.textContent,
-      rate: dom.officialRateStatus.textContent,
-    };
-    setProviderSegmentValue("officialQuality", "auto");
-    updateOfficialCostSummary();
-    const autoEstimate = dom.officialEstimatedCost.textContent;
-    document.querySelector('input[name="size"][value="custom"]').checked = true;
-    dom.customWidth.value = "2048";
-    dom.customHeight.value = "1152";
-    updateOfficialCostSummary();
-    const customEstimate = { value: dom.officialEstimatedCost.textContent, detail: dom.officialCostBreakdown.textContent };
-    document.querySelector('input[name="size"][value="1024x1024"]').checked = true;
-    setProviderSegmentValue("officialQuality", "high");
-    const gpt2Generation = await callImageAPI("gpt-image-2 billing", "1024x1024", 1, "official billing", { references: [], maxRetries: 0 });
-    const billingCard = document.createElement("div");
-    billingCard.className = "result-item";
-    dom.resultGrid.appendChild(billingCard);
-    const billingRecord = replacePlaceholder(billingCard, "billing", gpt2Generation, "gpt-image-2 billing", { skipHistory: true, size: "1024x1024" });
-    const billing = billingRecord.billing;
-    const cardCostText = billingCard.querySelector(".result-cost-meta")?.textContent || "";
-    await saveGenerationRecord(billingRecord);
-    const storedBilling = loadHistory().find(item => item.id === billingRecord.id)?.billing || null;
-
-    localStorage.removeItem(USD_CNY_RATE_KEY);
-    const refreshedRate = await refreshUsdCnyRate({ force: true, announce: false });
-    rateMode = "failure";
-    const cachedAfterFailure = await refreshUsdCnyRate({ force: true, announce: false });
-    const storedRate = JSON.parse(localStorage.getItem(USD_CNY_RATE_KEY) || "{}");
-
-    applyApiProvider("grsai", { forceEndpoint: true });
+    const snapshot = captureApiRequestSnapshot();
+    dom.apiEndpoint.value = "https://changed.invalid/v1/images/generations";
+    dom.apiKey.value = "sk-mutated-after-batch-start";
+    dom.model.value = "changed-model";
+    await callImageAPI("official generation", "1024x1024", 1, "official", { apiSnapshot: snapshot, references: [], maxRetries: 0 });
+    const reference = { dataUrl: "data:image/png;base64," + tinyPng, fileName: "ref.png", width: 1, height: 1 };
+    await callImageAPI("official edit", "1024x1024", 1, "official edit", { apiSnapshot: snapshot, references: [reference], maxRetries: 0 });
+    const officialPanelVisible = !dom.officialProviderPanel.classList.contains("hidden");
     dom.apiProvider.value = "grsai";
-    dom.apiKey.value = "sk-grsai-test";
-    dom.model.value = "gpt-image-2";
-    await callImageAPI("grsai generation", "1024x1024", 1, "grsai", { references: [], maxRetries: 0 });
-    const grsaiVisibility = {
-      official: !dom.officialProviderPanel.classList.contains("hidden"),
-      grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
-      grsaiRetry: !dom.grsaiRetrySettings.classList.contains("hidden"),
-      costHidden: dom.officialCostSummary.classList.contains("hidden"),
-    };
-
-    applyApiProvider("opencodex", { forceEndpoint: true });
-    dom.apiProvider.value = "opencodex";
-    setProviderSegmentValue("openCodexQuality", "high");
-    setProviderSegmentValue("openCodexBackground", "opaque");
-    const openCodexProfile = currentApiConfig("local-opencodex");
-    applyOpenCodexImageOptions(OPENCODEX_IMAGE_OPTION_DEFAULTS);
-    applyConfig(openCodexProfile);
-    const restoredOpenCodexOptions = getOpenCodexImageOptions();
-    const healthReady = await checkOpenCodexHealth({ announce: false, force: true });
-    const opencodexGeneration = await callImageAPI("opencodex generation", "1024x1024", 1, "opencodex", { references: [], maxRetries: 3 });
-    const opencodexEdit = await callImageAPI("opencodex edit", "1024x1024", 1, "opencodex edit", { references: [reference], maxRetries: 3 });
-    openCodexRequestMode = "400";
-    const beforeOpenCodex400 = requests.filter(item => item.kind === "opencodex-generation").length;
-    let openCodex400Error = "";
-    try {
-      await callImageAPI("opencodex invalid", "1024x1024", 1, "opencodex invalid", { references: [], maxRetries: 3 });
-    } catch (err) {
-      openCodex400Error = err.message || String(err);
-    }
-    const openCodex400RequestCount = requests.filter(item => item.kind === "opencodex-generation").length - beforeOpenCodex400;
-    openCodexRequestMode = "moderation";
-    let moderationError = null;
-    try {
-      await callImageAPI("moderation probe", "1024x1024", 1, "opencodex moderation", { references: [], maxRetries: 3 });
-    } catch (err) {
-      moderationError = { message: err.message || String(err), detail: err.imageError || null };
-    }
-    openCodexRequestMode = "success";
-    const dimensionCard = document.createElement("div");
-    dimensionCard.className = "result-item";
-    dom.resultGrid.appendChild(dimensionCard);
-    const dimensionRecord = replacePlaceholder(dimensionCard, "dimension", {
-      data: [{ b64_json: tinyPng }],
-      _openCodex: {
-        provider: "opencodex-local-image",
-        operation: "generation",
-        requested: { model: "gpt-image-2", size: "1024x1536", quality: "medium" },
-        response: { mimeType: "image/png" },
-        audit: { requestId: "req-dimension", promptSha256: "a".repeat(64), referenceSha256: [], requestFingerprint: "b".repeat(64) },
-      },
-    }, "dimension probe", { skipHistory: true, size: "1024x1536" });
-    await dimensionRecord._actualMetaPromise;
-    const dimensionAudit = {
-      status: dimensionRecord.actual.dimensionStatus,
-      cardStatus: dimensionCard.dataset.dimensionStatus,
-      outputSha256: dimensionRecord.audit.outputSha256,
-      review: dimensionRecord.review,
-      concurrency: getProviderConcurrency(),
-    };
-    const opencodexVisibility = {
+    dom.apiProvider.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const isolated = {
       provider: dom.apiProvider.value,
       endpoint: dom.apiEndpoint.value,
       key: dom.apiKey.value,
-      model: dom.model.value,
-      official: !dom.officialProviderPanel.classList.contains("hidden"),
-      opencodex: !dom.openCodexProviderPanel.classList.contains("hidden"),
-      grsai: !dom.grsaiProviderPanel.classList.contains("hidden"),
-      custom: !dom.customProviderPanel.classList.contains("hidden"),
-      keyReadOnly: dom.apiKey.readOnly,
-      modelReadOnly: dom.model.readOnly,
+      officialHidden: dom.officialProviderPanel.classList.contains("hidden"),
+      grsaiVisible: !dom.grsaiProviderPanel.classList.contains("hidden"),
     };
-    openCodexHealthMode = "failure";
-    const healthFailed = !(await checkOpenCodexHealth({ announce: false, force: true }));
-    const generateDisabledAfterHealthFailure = dom.generateBtn.disabled;
-    openCodexHealthMode = "success";
-    await checkOpenCodexHealth({ announce: false, force: true });
-    const openCodexMimeSniff = {
-      png: inferImageMimeFromBase64("iVBORw0KGgo="),
-      jpeg: inferImageMimeFromBase64("/9j/4AAQSkY="),
-      webp: inferImageMimeFromBase64("UklGRgAAAABXRUJQ"),
-    };
-
     window.fetch = originalFetch;
-    return { profile, restored, visibility, requests, generation, edit, detectedModels, detectedStatus, fallbackModels, fallbackStatus, gpt2Capabilities, legacyCapabilities, invalidSizeError, estimate, autoEstimate, customEstimate, gpt2Generation, billing, cardCostText, storedBilling, refreshedRate, cachedAfterFailure, storedRate, grsaiVisibility, openCodexProfile, restoredOpenCodexOptions, healthReady, healthFailed, generateDisabledAfterHealthFailure, openCodex400Error, openCodex400RequestCount, moderationError, dimensionAudit, openCodexMimeSniff, opencodexGeneration, opencodexEdit, opencodexVisibility };
+    return { requests, snapshot, officialPanelVisible, isolated };
   })()`, true);
-
-  const generated = result.requests.find(item => item.kind === "official-generation")?.body || {};
-  const edited = result.requests.find(item => item.kind === "official-edit")?.body || {};
-  const grsai = result.requests.find(item => item.kind === "grsai")?.body || {};
-  const opencodexGeneration = result.requests.find(item => item.kind === "opencodex-generation") || {};
-  const opencodexEdit = result.requests.find(item => item.kind === "opencodex-edit") || {};
-  assertQa(result.visibility.official && !result.visibility.grsai && !result.visibility.custom && !result.visibility.grsaiRetry, "Official provider must show only the official option panel and hide GrsAI-specific UI, including its 504 settings.", result);
-  assertQa(result.restored.quality === "high" && result.restored.background === "opaque" && result.restored.outputFormat === "webp" && result.restored.outputCompression === 72 && result.restored.moderation === "low" && result.restored.inputFidelity === "high", "Official output options must persist with the active official API profile.", result);
-  assertQa(generated.quality === "high" && generated.background === "opaque" && generated.output_format === "webp" && generated.output_compression === 72 && generated.moderation === "low" && !("input_fidelity" in generated) && !("response_format" in generated), "Official generations must send supported Image API fields and omit edit-only or legacy response_format fields.", result);
-  assertQa(edited.quality === "high" && edited.background === "opaque" && edited.output_format === "webp" && edited.output_compression === "72" && edited.moderation === "low" && edited.input_fidelity === "high" && edited["image[]"]?.size > 0, "Official edits must send the dedicated options and reference image as multipart fields.", result);
-  assertQa(result.generation.data[0].mime_type === "image/webp" && result.edit.data[0].mime_type === "image/webp", "Official base64 responses must retain the requested MIME type instead of always being mislabeled PNG.", result);
-  assertQa(result.gpt2Generation._officialModel === "gpt-image-2" && result.gpt2Generation._officialHasReference === false, "Official responses must retain model/reference metadata for precise post-generation billing.", result);
-  assertQa(!result.estimate.hidden && /2\.85|2\.86/.test(result.estimate.value) && /2/.test(result.estimate.detail) && /6\.7700/.test(result.estimate.rate), "gpt-image-2 should show a two-image high-quality RMB estimate from the cached rate before generation.", result);
-  assertQa(/[–-]/.test(result.autoEstimate) && /生成后|actual|生成後|生成後|생성 후/i.test(result.customEstimate.value + result.customEstimate.detail), "Auto quality should show a price range while custom sizes should defer to actual token usage instead of inventing a fixed estimate.", result);
-  assertQa(Math.abs(result.billing.usd - 0.03243) < 0.0000001 && Math.abs(result.billing.cny - 0.2195511) < 0.0000001 && /实际费用|Actual cost|實際費用|実際|실제/.test(result.cardCostText), "Actual gpt-image-2 usage must be converted from official token prices into USD and RMB on the result card.", result);
-  assertQa(Math.abs(result.storedBilling.cny - result.billing.cny) < 0.0000001, "Actual usage billing must persist in image history instead of disappearing after reload.", result);
-  assertQa(result.refreshedRate.rate === 6.7722 && result.refreshedRate.rateDate === "2026-07-24" && result.cachedAfterFailure.rate === 6.7722 && result.storedRate.rate === 6.7722, "The ECB/Frankfurter refresh must cache the latest daily USD/CNY rate and retain it when the next refresh fails.", result);
-  assertQa(result.detectedModels.join(",") === "gpt-image-1-mini,gpt-image-2-2026-04-21" && /2/.test(result.detectedStatus), "Official model detection must retain official dated snapshots while filtering non-image models and GrsAI-only aliases.", result);
-  assertQa(result.fallbackModels.includes("gpt-image-2") && result.fallbackModels.includes("gpt-image-1.5") && result.fallbackModels.includes("gpt-image-1-mini") && /invalid project key|无效|invalid|権限|권한/i.test(result.fallbackStatus), "Official model detection failures must keep the built-in official list and display the real authorization reason.", result);
-  assertQa(result.gpt2Capabilities.transparentDisabled && result.gpt2Capabilities.fidelityDisabled && /gpt-image-2/.test(result.gpt2Capabilities.note) && result.legacyCapabilities.transparentEnabled && result.legacyCapabilities.fidelityEnabled, "Official controls must react to model capabilities, especially gpt-image-2 transparency/fidelity restrictions.", result);
-  assertQa(/尺寸|size|2048x1152/i.test(result.invalidSizeError), "Official custom sizes must be validated before a request instead of silently falling back to 1024x1024.", result);
-  assertQa(result.grsaiVisibility.grsai && result.grsaiVisibility.grsaiRetry && !result.grsaiVisibility.official && result.grsaiVisibility.costHidden, "Switching to GrsAI must hide official controls and the OpenAI-only cost summary.", result);
-  assertQa(grsai.model === "gpt-image-2" && grsai.aspectRatio === "1024x1024" && grsai.replyType === "json" && !("quality" in grsai) && !("background" in grsai) && !("output_format" in grsai) && !("moderation" in grsai) && !("input_fidelity" in grsai), "GrsAI requests must never receive OpenAI-official output fields.", result);
-  assertQa(result.opencodexVisibility.provider === "opencodex" && result.opencodexVisibility.endpoint === "http://127.0.0.1:10100/v1/images/generations" && result.opencodexVisibility.key === "opencodex-local-only" && result.opencodexVisibility.model === "gpt-image-2" && !result.opencodexVisibility.official && result.opencodexVisibility.opencodex && !result.opencodexVisibility.grsai && !result.opencodexVisibility.custom && result.opencodexVisibility.keyReadOnly && result.opencodexVisibility.modelReadOnly, "OpenCodex must auto-fill and lock its loopback endpoint, placeholder key, model, and show only its dedicated provider panel.", result);
-  assertQa(result.openCodexProfile.openCodexImageOptions.quality === "medium" && result.openCodexProfile.openCodexImageOptions.background === "opaque" && result.restoredOpenCodexOptions.quality === "medium" && result.restoredOpenCodexOptions.background === "opaque", "OpenCodex GPT must normalize saved profiles to the private upstream's measured fixed Medium quality while preserving its background.", result);
-  assertQa(result.healthReady && result.healthFailed && result.generateDisabledAfterHealthFailure && result.requests.filter(item => item.kind === "opencodex-health").length >= 2, "OpenCodex health checks must gate generation and expose a retryable failed state.", result);
-  assertQa(result.openCodex400RequestCount === 1 && /参数|parameter|request|invalid/i.test(result.openCodex400Error), "OpenCodex HTTP 400 errors must be explained and must not enter the app's automatic retry loop.", result);
-  assertQa(result.moderationError?.detail?.category === "moderation_blocked" && result.moderationError.detail.retryPolicy === "edit_required" && result.moderationError.message.includes("sexual") && result.moderationError.message.includes("830ccca8-cd98-4812-a1b8-5260b3bca40d") && !result.moderationError.message.includes("请求参数不受支持"), "OpenCodex moderation blocks must preserve the safety category and request id, require editing, and never masquerade as unsupported parameters.", result);
-  assertQa(result.dimensionAudit.status === "mismatch" && result.dimensionAudit.cardStatus === "mismatch" && /^[a-f0-9]{64}$/.test(result.dimensionAudit.outputSha256) && result.dimensionAudit.review === "pending" && result.dimensionAudit.concurrency === 2, "OpenCodex results must decode real dimensions, flag mismatches, hash output bytes, start in pending review, and default to concurrency two.", result);
-  assertQa(result.openCodexMimeSniff.png === "image/png" && result.openCodexMimeSniff.jpeg === "image/jpeg" && result.openCodexMimeSniff.webp === "image/webp", "OpenCodex base64 outputs must be labeled from their file signature instead of assuming every image is PNG.", result);
-  assertQa(opencodexGeneration.auth === "Bearer opencodex-local-only" && opencodexGeneration.body.model === "gpt-image-2" && opencodexGeneration.body.n === 1 && opencodexGeneration.body.quality === "medium" && /square 1:1 aspect ratio/i.test(opencodexGeneration.body.prompt) && opencodexGeneration.body.background === "opaque" && !("images" in opencodexGeneration.body) && !("response_format" in opencodexGeneration.body) && !("output_format" in opencodexGeneration.body) && !("moderation" in opencodexGeneration.body) && !("input_fidelity" in opencodexGeneration.body), "OpenCodex GPT generation must force the measured Medium quality, add the selected aspect ratio to the prompt, keep n=1, and omit unsupported public-API fields.", result);
-  assertQa(opencodexEdit.auth === "Bearer opencodex-local-only" && opencodexEdit.body.images?.[0]?.image_url?.startsWith("data:image/png;base64,") && opencodexEdit.body.model === "gpt-image-2" && opencodexEdit.body.n === 1 && opencodexEdit.body.quality === "medium" && /square 1:1 aspect ratio/i.test(opencodexEdit.body.prompt) && !("input_fidelity" in opencodexEdit.body), "OpenCodex GPT reference edits must use Medium, carry ratio guidance, and send JSON Data URLs with automatic high fidelity instead of multipart or input_fidelity.", result);
+  const generation = result.requests.find(item => item.route === "generation");
+  const edit = result.requests.find(item => item.route === "edit");
+  assertQa(generation?.auth === "Bearer sk-official-isolated" && generation.body.model === "gpt-image-2" && generation.body.quality === "high" && generation.body.output_format === "webp" && !("response_format" in generation.body), "A batch must use its frozen official endpoint/key/model/options snapshot and omit response_format even if live fields change mid-run.", result);
+  assertQa(edit?.auth === "Bearer sk-official-isolated" && edit.fields.model === "gpt-image-2" && edit.fields.quality === "high" && edit.fields.output_format === "webp" && !("response_format" in edit.fields) && edit.fields["image[]"]?.size > 0, "Official gpt-image-2 edits must preserve the reference and omit response_format.", result);
+  assertQa(result.officialPanelVisible && result.isolated.provider === "grsai" && result.isolated.endpoint.includes("grsai") && result.isolated.key === "" && result.isolated.officialHidden && result.isolated.grsaiVisible, "Switching to GrsAI must not carry the official key or panel options into its provider state.", result);
 }
 
 async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
-  logStep("OpenAI official provider controls remain readable and scrollable in the narrow desktop panel and on mobile");
-  const viewports = [
-    { name: "desktop", width: 1365, height: 768, mobile: false },
-    { name: "mobile", width: 390, height: 844, mobile: true },
-  ];
-  for (const viewport of viewports) {
-    await loadFresh(cdp, `official-layout-${viewport.name}`, viewport);
-    const result = await cdp.eval(`(() => {
+  logStep("Official provider controls remain inside the input panel on desktop and mobile");
+  for (const viewport of [{ width: 1365, height: 768, mobile: false }, { width: 430, height: 760, mobile: true }]) {
+    await loadFresh(cdp, `official-layout-${viewport.width}`, viewport);
+    const layout = await cdp.eval(`(() => {
       applyApiProvider("official", { forceEndpoint: true });
-      dom.model.value = "gpt-image-2";
-      updateOfficialCostSummary();
-      applyLanguage("en");
-      dom.configSection.open = true;
-      const panel = dom.officialProviderPanel;
-      const grid = panel.querySelector(".provider-options-grid");
-      const buttons = Array.from(panel.querySelectorAll(".provider-segments button"));
-      const panelRect = panel.getBoundingClientRect();
-      const costRect = dom.officialCostSummary.getBoundingClientRect();
-      const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        panel: { left: panelRect.left, right: panelRect.right, width: panelRect.width, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
-        cost: { left: costRect.left, right: costRect.right, width: costRect.width, scrollWidth: dom.officialCostSummary.scrollWidth, clientWidth: dom.officialCostSummary.clientWidth },
-        input: { left: inputRect.left, right: inputRect.right, width: inputRect.width, scrollHeight: document.querySelector(".input-panel").scrollHeight, clientHeight: document.querySelector(".input-panel").clientHeight },
-        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length,
-        buttonOverflow: buttons.map(button => ({ text: button.textContent.trim(), scrollWidth: button.scrollWidth, clientWidth: button.clientWidth })).filter(item => item.scrollWidth > item.clientWidth + 1),
-        bodyHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      };
-    })()`);
-    assertQa(result.columns === 1, "Official options should use a readable single-column layout inside the narrow settings panel.", { viewport, result });
-    assertQa(result.panel.scrollWidth <= result.panel.clientWidth + 1 && result.buttonOverflow.length === 0, "Official option labels and segmented buttons must not overflow their controls.", { viewport, result });
-    assertQa(result.panel.left >= result.input.left - 1 && result.panel.right <= result.input.right + 1 && !result.bodyHorizontalOverflow, "The official provider panel must remain inside the app viewport without horizontal page overflow.", { viewport, result });
-    assertQa(result.cost.left >= result.input.left - 1 && result.cost.right <= result.input.right + 1 && result.cost.scrollWidth <= result.cost.clientWidth + 1, "The OpenAI cost summary must remain readable without overflowing desktop or mobile layouts.", { viewport, result });
-    const openCodexLayout = await cdp.eval(`(() => {
-      applyApiProvider("opencodex", { forceEndpoint: true });
-      applyLanguage("en");
-      dom.configSection.open = true;
-      const panel = dom.openCodexProviderPanel;
-      const panelRect = panel.getBoundingClientRect();
-      const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
-      const buttons = Array.from(panel.querySelectorAll(".provider-segments button"));
-      applyOpenCodexImageOptions({ model: OPENCODEX_NANO_BANANA_2, aspectRatio: "9:16", imageSize: "1K" });
-      const nanoPanelRect = panel.getBoundingClientRect();
-      const nanoButtons = Array.from(panel.querySelectorAll(".provider-segments button:not(.hidden)"));
-      return {
-        panel: { left: panelRect.left, right: panelRect.right, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
-        nanoPanel: { left: nanoPanelRect.left, right: nanoPanelRect.right, scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
-        input: { left: inputRect.left, right: inputRect.right },
-        buttonOverflow: buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent.trim()),
-        nanoButtonOverflow: nanoButtons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent.trim()),
-        nanoGlobalSizeHidden: dom.globalSizeField.classList.contains("hidden"),
-        bodyHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      };
-    })()`);
-    assertQa(openCodexLayout.panel.left >= openCodexLayout.input.left - 1 && openCodexLayout.panel.right <= openCodexLayout.input.right + 1 && openCodexLayout.panel.scrollWidth <= openCodexLayout.panel.clientWidth + 1 && openCodexLayout.buttonOverflow.length === 0 && !openCodexLayout.bodyHorizontalOverflow, "The dedicated OpenCodex panel and quality controls must fit desktop and mobile layouts without horizontal overflow.", { viewport, openCodexLayout });
-    assertQa(openCodexLayout.nanoPanel.left >= openCodexLayout.input.left - 1 && openCodexLayout.nanoPanel.right <= openCodexLayout.input.right + 1 && openCodexLayout.nanoPanel.scrollWidth <= openCodexLayout.nanoPanel.clientWidth + 1 && openCodexLayout.nanoButtonOverflow.length === 0 && openCodexLayout.nanoGlobalSizeHidden && !openCodexLayout.bodyHorizontalOverflow, "Nano Banana ratio/tier controls must fit desktop and mobile layouts and replace the pixel-size panel without horizontal overflow.", { viewport, openCodexLayout });
+      const panel = dom.officialProviderPanel.getBoundingClientRect();
+      const input = document.querySelector(".input-panel").getBoundingClientRect();
+      const overflow = [...dom.officialProviderPanel.querySelectorAll("button,input,select")].filter(element => element.scrollWidth > element.clientWidth + 2).length;
+      return { panel: { left: panel.left, right: panel.right }, input: { left: input.left, right: input.right }, overflow, bodyOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 };
+    })()`, true);
+    assertQa(layout.panel.left >= layout.input.left - 1 && layout.panel.right <= layout.input.right + 1 && layout.overflow === 0 && !layout.bodyOverflow, "Official provider controls must fit without horizontal overflow.", { viewport, layout });
   }
 }
 
 async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
-  logStep("OpenCodex exposes GPT Image 2 and Nano Banana 2 separately, sends only each model's supported size fields, and keeps local-inpaint pixels outside the mask unchanged");
-  await loadFresh(cdp, "opencodex-dual-model-inpaint");
-  const result = await cdp.eval(`(async () => {
-    localStorage.clear();
-    const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
-    const originalFetch = window.fetch.bind(window);
-    const requests = [];
-    window.fetch = async (url, options = {}) => {
-      const target = String(url);
-      if (target === "http://127.0.0.1:10100/healthz") {
-        return new Response(JSON.stringify({ status: "ok", service: "opencodex", version: "2.7.36" }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (target.includes("127.0.0.1:10100/v1/images/")) {
-        requests.push({ url: target, body: JSON.parse(options.body || "{}") });
-        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng, mime_type: "image/png" }] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      return originalFetch(url, options);
-    };
-
-    applyApiProvider("opencodex", { forceEndpoint: true });
-    dom.apiProvider.value = "opencodex";
-    applyOpenCodexImageOptions({
-      model: OPENCODEX_NANO_BANANA_2,
-      aspectRatio: "9:16",
-      imageSize: "1K",
+  logStep("Dedicated Codex gateway keeps gpt-image-2 options bounded and local inpaint preserves unmasked pixels");
+  await loadFresh(cdp, "codex-gateway-current-options");
+  const result = await cdp.eval(`(() => {
+    applyApiProvider(CODEX_IMAGE_GATEWAY_PROVIDER, { forceEndpoint: true });
+    applyCodexGatewayOptions({ quality: "high", dimensionMode: "exact_output", clientQueue: 100 });
+    const options = getCodexGatewayOptions();
+    const request = codexImageGateway.buildImageRequest({
+      prompt: "gateway edit",
+      size: "832x1216",
+      refs: [{ dataUrl: "data:image/png;base64,AA==" }],
+      options,
     });
-    const nanoUi = {
-      model: dom.model.value,
-      globalSizeHidden: dom.globalSizeField.classList.contains("hidden"),
-      gptOptionsHidden: Array.from(document.querySelectorAll(".opencodex-gpt-option")).every(element => element.classList.contains("hidden")),
-      nanoOptionsVisible: Array.from(document.querySelectorAll(".opencodex-nano-option")).every(element => !element.classList.contains("hidden")),
-      ratios: Array.from(dom.openCodexAspectRatio.options).map(option => option.value),
-      tiers: Array.from(document.querySelectorAll('[data-provider-control="openCodexImageSize"] button')).map(button => button.dataset.value),
-      concurrency: [getOpenCodexConcurrency({ model: OPENCODEX_NANO_BANANA_2, imageSize: "1K" }), getOpenCodexConcurrency({ model: OPENCODEX_NANO_BANANA_2, imageSize: "2K" }), getOpenCodexConcurrency({ model: OPENCODEX_NANO_BANANA_2, imageSize: "4K" })],
-    };
-    const reference = { dataUrl: "data:image/png;base64," + tinyPng, width: 1, height: 1 };
-    const nanoGeneration = await callImageAPI("nano generation", "832x1216", 1, "nano", { references: [], maxRetries: 4 });
-    const nanoEdit = await callImageAPI("nano edit", "832x1216", 1, "nano edit", { references: [reference], maxRetries: 4 });
-    let invalidN = "";
-    try {
-      await callImageAPI("invalid n", "832x1216", 5, "nano invalid", { references: [], maxRetries: 4 });
-    } catch (error) {
-      invalidN = error.message || String(error);
-    }
-
-    applyOpenCodexImageOptions({
-      model: OPENCODEX_GPT_IMAGE_2,
-      quality: "high",
-      background: "opaque",
-    });
-    const gptUi = {
-      model: dom.model.value,
-      quality: dom.openCodexQuality.value,
-      disabledQualities: Array.from(document.querySelectorAll('[data-provider-control="openCodexQuality"] button:disabled')).map(button => button.dataset.value),
-      globalSizeVisible: !dom.globalSizeField.classList.contains("hidden"),
-      policy: dom.sizePolicyHint.textContent,
-      officialPresets: Array.from(document.querySelectorAll('.size-option[data-size-kind="official"] input')).map(input => input.value),
-      allPresetCount: document.querySelectorAll('.size-option input[name="size"]:not([value="custom"])').length,
-    };
-    const gptGeneration = await callImageAPI("gpt generation", "832x1216", 1, "gpt", { references: [], maxRetries: 0 });
-
     const original = new ImageData(new Uint8ClampedArray(4 * 4 * 4), 4, 4);
-    for (let i = 0; i < 16; i++) {
-      original.data.set([10, 20, 220, 255], i * 4);
-    }
     const patch = new ImageData(new Uint8ClampedArray(2 * 2 * 4), 2, 2);
+    for (let i = 0; i < 16; i++) original.data.set([10, 20, 220, 255], i * 4);
     for (let i = 0; i < 4; i++) patch.data.set([240, 30, 20, 255], i * 4);
-    const alpha = new Uint8ClampedArray(16);
-    [5, 6, 9, 10].forEach(index => { alpha[index] = 255; });
-    const composited = compositeInpaintPixels(original, patch, alpha, { x: 1, y: 1, width: 2, height: 2 });
-    const outsideUnchanged = Array.from({ length: 16 }, (_, index) => {
-      if ([5, 6, 9, 10].includes(index)) return true;
-      return [0, 1, 2, 3].every(channel => composited.data[index * 4 + channel] === original.data[index * 4 + channel]);
-    }).every(Boolean);
-    const insideChanged = [5, 6, 9, 10].every(index => composited.data[index * 4] === 240 && composited.data[index * 4 + 2] === 20);
-
-    const maskCanvas = document.createElement("canvas");
-    maskCanvas.width = 4;
-    maskCanvas.height = 4;
-    const maskContext = maskCanvas.getContext("2d");
-    maskContext.fillStyle = "#fff";
-    maskContext.fillRect(1, 1, 2, 2);
-    const maskData = maskContext.getImageData(0, 0, 4, 4);
-    const feather = buildInwardFeatherAlpha(maskData, 4, 4, 2);
-    const featherOutsideZero = [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15].every(index => feather[index] === 0);
-    const crop = planInpaintCrop({ minX: 300, minY: 200, maxX: 499, maxY: 599, width: 200, height: 400 }, 1200, 896, 15);
-
-    const card = document.createElement("div");
-    card.className = "result-item";
-    dom.resultGrid.appendChild(card);
-    const record = replacePlaceholder(card, "nano-meta", {
-      data: [{ b64_json: tinyPng, mime_type: "image/png" }],
-      _openCodex: {
-        provider: "opencodex-local-image",
-        operation: "generation",
-        requested: { model: OPENCODEX_NANO_BANANA_2, aspectRatio: "9:16", imageSize: "1K" },
-        response: { mimeType: "image/png" },
-      },
-    }, "metadata", { skipHistory: true });
-    await record._actualMetaPromise;
-    const resultMeta = {
-      actionCount: card.querySelectorAll(".result-actions .card-action").length,
-      text: card.querySelector(".result-provider-meta")?.textContent || "",
-      actual: record.actual,
-    };
-
-    window.fetch = originalFetch;
-    return {
-      requests,
-      nanoUi,
-      gptUi,
-      invalidN,
-      nanoGeneration,
-      nanoEdit,
-      gptGeneration,
-      outsideUnchanged,
-      insideChanged,
-      featherOutsideZero,
-      crop,
-      controlsPresent: ["inpaintModal", "inpaintMaskCanvas", "inpaintBrush", "inpaintEraser", "inpaintUndo", "inpaintRedo", "generateInpaint", "applyInpaint"].every(id => !!document.getElementById(id)),
-      resultMeta,
-    };
+    const alpha = new Uint8ClampedArray(16); [5, 6, 9, 10].forEach(index => { alpha[index] = 255; });
+    const output = compositeInpaintPixels(original, patch, alpha, { x: 1, y: 1, width: 2, height: 2 });
+    const outside = Array.from({ length: 16 }, (_, index) => [5, 6, 9, 10].includes(index) || [0, 1, 2, 3].every(channel => output.data[index * 4 + channel] === original.data[index * 4 + channel])).every(Boolean);
+    const inside = [5, 6, 9, 10].every(index => output.data[index * 4] === 240 && output.data[index * 4 + 2] === 20);
+    return { provider: dom.apiProvider.value, endpoint: dom.apiEndpoint.value, model: dom.model.value, options, concurrency: getCodexGatewayConcurrency(options), request, outside, inside };
   })()`, true);
-
-  const nanoGeneration = result.requests.find(item => item.body.model === "gemini-3.1-flash-image" && !item.body.images)?.body || {};
-  const nanoEdit = result.requests.find(item => item.body.model === "gemini-3.1-flash-image" && item.body.images)?.body || {};
-  const gptGeneration = result.requests.find(item => item.body.model === "gpt-image-2")?.body || {};
-  const expectedRatios = ["1:1","1:4","1:8","2:3","3:2","3:4","4:1","4:3","4:5","5:4","8:1","9:16","16:9","21:9"];
-  assertQa(result.nanoUi.model === "gemini-3.1-flash-image" && result.nanoUi.globalSizeHidden && result.nanoUi.gptOptionsHidden && result.nanoUi.nanoOptionsVisible, "Nano Banana 2 must show only its ratio/tier controls and hide the unrelated pixel-size panel.", result);
-  assertQa(JSON.stringify(result.nanoUi.ratios) === JSON.stringify(expectedRatios) && result.nanoUi.tiers.join(",") === "512,1K,2K,4K", "Nano Banana 2 must expose exactly Google's official ratios and resolution tiers.", result);
-  assertQa(result.nanoUi.concurrency.join(",") === "5,3,1", "Nano Banana 2 concurrency must fall from 5 to 3 to 1 as the resolution tier grows.", result);
-  assertQa(nanoGeneration.n === 1 && nanoGeneration.aspect_ratio === "9:16" && nanoGeneration.image_size === "1K" && !("size" in nanoGeneration) && !("quality" in nanoGeneration) && !("background" in nanoGeneration), "Nano Banana generation must send only model/prompt/n plus aspect_ratio and image_size.", result);
-  assertQa(nanoEdit.images?.[0]?.image_url?.startsWith("data:image/png;base64,") && nanoEdit.aspect_ratio === "9:16" && !("input_fidelity" in nanoEdit), "Nano Banana reference editing must use JSON data URLs without GPT-only fields.", result);
-  assertQa(/n=1|单次|single/i.test(result.invalidN) && result.requests.filter(item => item.body.model === "gemini-3.1-flash-image").length === 2, "OpenCodex must reject n > 1 before sending; batching is implemented as separate concurrent n=1 requests.", result);
-  assertQa(result.gptUi.model === "gpt-image-2" && result.gptUi.globalSizeVisible && result.gptUi.officialPresets.join(",") === "1024x1024,1536x1024,1024x1536,2048x2048,2048x1152,3840x2160,2160x3840" && result.gptUi.allPresetCount >= 16, "GPT Image 2 must expose all seven official popular sizes plus additional compliant common presets.", result);
-  assertQa(/157|1\.57/.test(result.gptUi.policy) && result.gptUi.quality === "medium" && result.gptUi.disabledQualities.join(",") === "auto,low,high" && gptGeneration.size === "832x1216" && gptGeneration.quality === "medium" && /vertical 13:19 aspect ratio/i.test(gptGeneration.prompt) && gptGeneration.background === "opaque" && !("aspect_ratio" in gptGeneration) && !("image_size" in gptGeneration), "OpenCodex GPT must force Medium, disable ineffective tiers, append direction/ratio guidance for compliant custom sizes, and disclose the measured private-route output cap.", result);
-  assertQa(result.outsideUnchanged && result.insideChanged && result.featherOutsideZero, "Local inpaint compositing must preserve every RGBA channel outside the mask and alter only masked pixels.", result);
-  assertQa(["1:1", "3:2", "2:3"].includes(result.crop.aspectRatio) && result.crop.x >= 0 && result.crop.y >= 0 && result.crop.x + result.crop.width <= 1200 && result.crop.y + result.crop.height <= 896, "The gpt-image-2 semantic-edit crop must stay inside the source image and map to a supported patch ratio.", result);
-  assertQa(result.controlsPresent && result.resultMeta.actionCount === 6 && /Nano Banana 2/.test(result.resultMeta.text) && result.resultMeta.actual.width === 1 && result.resultMeta.actual.height === 1 && result.resultMeta.actual.bytes > 0 && result.resultMeta.actual.dimensionStatus === "mismatch", "Inpaint, review, card actions, and requested-versus-actual OpenCodex metadata must be wired and persisted from decoded bytes.", result);
+  assertQa(result.provider === "codexImageGateway" && result.endpoint === "http://127.0.0.1:18081/v1" && result.model === "gpt-image-2", "The dedicated gateway must lock its current provider, endpoint and model.", result);
+  assertQa(result.concurrency >= 1 && result.concurrency <= 20 && result.request.route === "images/edits" && result.request.body.images.length === 1 && result.request.body.n === 1, "Gateway queue concurrency and edit request must stay within client capabilities.", result);
+  assertQa(result.outside && result.inside, "Local inpaint compositing must alter only masked pixels.", result);
 }
 
 async function testGptImage2InpaintRoutes(cdp) {
-  logStep("Local inpaint is clickable only for OpenCodex/official gpt-image-2 and sends the correct mask protocol");
-  await loadFresh(cdp, "gpt-image-2-inpaint-routes");
-  const result = await cdp.eval(`(async () => {
-    localStorage.clear();
-    const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
-    const originalFetch = window.fetch.bind(window);
-    const requests = [];
-    window.fetch = async (url, options = {}) => {
-      const target = String(url);
-      if (target === "http://127.0.0.1:10100/healthz") {
-        return new Response(JSON.stringify({ status: "ok", service: "opencodex", version: "2.7.36" }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (target.includes("127.0.0.1:10100/v1/images/")) {
-        requests.push({ route: "opencodex", url: target, body: JSON.parse(options.body || "{}") });
-        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng, mime_type: "image/png" }] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (target.includes("api.openai.com/v1/images/edits")) {
-        const form = options.body;
-        const fields = {};
-        for (const [key, value] of form.entries()) {
-          fields[key] = value instanceof Blob
-            ? { type: value.type, size: value.size, name: value.name || "" }
-            : String(value);
-        }
-        requests.push({ route: "official", url: target, fields });
-        return new Response(JSON.stringify({ data: [{ b64_json: tinyPng, mime_type: "image/png" }] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
-      return originalFetch(url, options);
+  logStep("Local inpaint is enabled only for the two retained gpt-image-2 providers");
+  await loadFresh(cdp, "gpt-image-2-inpaint-current-routes");
+  const result = await cdp.eval(`(() => {
+    const inspect = provider => {
+      applyApiProvider(provider, { forceEndpoint: true });
+      if (provider === "official") dom.model.value = "gpt-image-2";
+      updateInpaintAvailability();
+      return { provider: dom.apiProvider.value, disabled: dom.openInpaintFromFile.disabled, capability: getInpaintProviderMode() };
     };
-
-    dom.inpaintSourceInput.click = () => {};
-    applyApiProvider("opencodex", { forceEndpoint: true });
-    applyOpenCodexImageOptions({ model: OPENCODEX_GPT_IMAGE_2 });
-    updateInpaintAvailability();
-    const openCodexEnabled = !dom.openInpaintFromFile.disabled;
-    dom.openInpaintFromFile.click();
-    const openCodexClickOpened = !dom.inpaintModal.classList.contains("hidden");
-    closeModal(dom.inpaintModal);
-
-    applyOpenCodexImageOptions({ model: OPENCODEX_NANO_BANANA_2, aspectRatio: "1:1", imageSize: "1K" });
-    updateInpaintAvailability();
-    const nanoDisabled = dom.openInpaintFromFile.disabled;
-
-    applyApiProvider("official", { forceEndpoint: true });
-    dom.apiKey.value = "test-official-key";
-    dom.model.value = "gpt-image-2";
-    updateOfficialOptionAvailability();
-    const officialEnabled = !dom.openInpaintFromFile.disabled;
-    dom.openInpaintFromFile.click();
-    const officialClickOpened = !dom.inpaintModal.classList.contains("hidden");
-
-    const sourceCanvas = document.createElement("canvas");
-    sourceCanvas.width = 4;
-    sourceCanvas.height = 4;
-    const sourceContext = sourceCanvas.getContext("2d");
-    sourceContext.fillStyle = "rgb(10,20,220)";
-    sourceContext.fillRect(0, 0, 4, 4);
-    await loadInpaintSourceBlob(dataUrlToBlob(sourceCanvas.toDataURL("image/png")), "source.png");
-    const maskContext = inpaintState.maskDataCanvas.getContext("2d");
-    maskContext.clearRect(0, 0, 4, 4);
-    maskContext.fillStyle = "#fff";
-    maskContext.fillRect(1, 1, 2, 2);
-    dom.inpaintPrompt.value = "replace the center with a red square";
-    dom.inpaintCandidateCount.value = "1";
-
-    const nativeMaskUrl = buildOfficialInpaintMaskDataUrl();
-    const nativeMaskImage = await loadImageElement(nativeMaskUrl);
-    const nativeMaskCanvas = document.createElement("canvas");
-    nativeMaskCanvas.width = 4;
-    nativeMaskCanvas.height = 4;
-    nativeMaskCanvas.getContext("2d").drawImage(nativeMaskImage, 0, 0);
-    const nativeMaskPixels = nativeMaskCanvas.getContext("2d").getImageData(0, 0, 4, 4).data;
-    const maskAlphaAt = index => nativeMaskPixels[index * 4 + 3];
-    const transparentInside = [5, 6, 9, 10].every(index => maskAlphaAt(index) === 0);
-    const opaqueOutside = [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15].every(index => maskAlphaAt(index) === 255);
-
-    await generateInpaintCandidates();
-    const officialCandidateCount = inpaintState.candidates.length;
-    const officialResultMode = inpaintState.providerMode;
-
-    applyApiProvider("opencodex", { forceEndpoint: true });
-    applyOpenCodexImageOptions({ model: OPENCODEX_GPT_IMAGE_2 });
-    dom.inpaintPrompt.value = "replace the center with a green square";
-    await generateInpaintCandidates();
-    const openCodexCandidateCount = inpaintState.candidates.length;
-    const openCodexResultMode = inpaintState.providerMode;
-
-    applyApiProvider("grsai", { forceEndpoint: true });
-    updateInpaintAvailability();
-    const grsaiDisabled = dom.openInpaintFromFile.disabled;
-    window.fetch = originalFetch;
     return {
-      requests,
-      openCodexEnabled,
-      openCodexClickOpened,
-      nanoDisabled,
-      officialEnabled,
-      officialClickOpened,
-      grsaiDisabled,
-      transparentInside,
-      opaqueOutside,
-      officialCandidateCount,
-      officialResultMode,
-      openCodexCandidateCount,
-      openCodexResultMode,
+      gateway: inspect(CODEX_IMAGE_GATEWAY_PROVIDER),
+      official: inspect("official"),
+      grsai: inspect("grsai"),
+      custom: inspect("custom"),
     };
   })()`, true);
+  assertQa(!result.gateway.disabled && /codex-gateway/.test(result.gateway.capability), "Codex gateway gpt-image-2 must expose local inpaint.", result);
+  assertQa(!result.official.disabled && /official/.test(result.official.capability), "Official OpenAI gpt-image-2 must expose local inpaint.", result);
+  assertQa(result.grsai.disabled && result.custom.disabled, "GrsAI and generic custom routes must not claim the dedicated mask workflow.", result);
+}
 
-  const official = result.requests.find(item => item.route === "official");
-  const openCodex = result.requests.find(item => item.route === "opencodex");
-  assertQa(result.openCodexEnabled && result.openCodexClickOpened && result.officialEnabled && result.officialClickOpened, "Both supported gpt-image-2 inpaint entries must be enabled and open the modal when clicked.", result);
-  assertQa(result.nanoDisabled && result.grsaiDisabled, "Nano Banana 2, GrsAI, and other providers must not expose the gpt-image-2 inpaint entry.", result);
-  assertQa(result.transparentInside && result.opaqueOutside, "The official PNG mask must invert the painted alpha so transparent pixels are exactly the edit area.", result);
-  assertQa(official?.fields?.model === "gpt-image-2" && official.fields.mask?.type === "image/png" && official.fields["image[]"]?.type === "image/png", "Official gpt-image-2 inpaint must send one PNG source plus a native PNG mask as multipart form data.", result);
-  assertQa(openCodex?.body?.model === "gpt-image-2" && openCodex.body.images?.length === 1 && !openCodex.body.mask && ["1024x1024", "1536x1024", "1024x1536"].includes(openCodex.body.size), "OpenCodex inpaint must use its JSON image-edit contract with gpt-image-2 and no unsupported mask field.", result);
-  assertQa(result.officialCandidateCount === 1 && result.officialResultMode === "official-native-mask" && result.openCodexCandidateCount === 1 && result.openCodexResultMode === "opencodex-local-mask", "Both inpaint routes must produce selectable candidates and retain the correct result mode.", result);
+async function testStorageFaultIsolationAndHistoryDbRecovery(cdp) {
+  logStep("Storage write faults cannot stop startup, and a rejected history DB open can recover");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      if (!location.search.includes("storage-write-fault")) return;
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === "ai_image_gen_language" || key === "ai_image_gen_theme") {
+          throw new DOMException("injected storage fault", "QuotaExceededError");
+        }
+        return original.call(this, key, value);
+      };
+    })();`,
+  });
+  try {
+    await loadFresh(cdp, "storage-write-fault");
+    const result = await cdp.eval(`(async () => {
+      const themeBefore = document.documentElement.getAttribute("data-theme");
+      dom.themeToggle.click();
+      dom.languageMenuButton.click();
+      dom.languageMenu.querySelector('[data-lang="en"]').click();
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const originalOpen = indexedDB.open.bind(indexedDB);
+      let injected = true;
+      historyBlobDbPromise = null;
+      indexedDB.open = (...args) => {
+        if (injected) {
+          injected = false;
+          throw new DOMException("injected indexedDB open failure", "InvalidStateError");
+        }
+        return originalOpen(...args);
+      };
+      let firstRejected = false;
+      try { await openHistoryBlobDb(); } catch { firstRejected = true; }
+      const promiseReset = historyBlobDbPromise === null;
+      const recoveredDb = await openHistoryBlobDb();
+      indexedDB.open = originalOpen;
+      return {
+        ready: window.__AI_GEN_APP_READY === true,
+        themeChanged: document.documentElement.getAttribute("data-theme") !== themeBefore,
+        languageChanged: document.documentElement.lang === "en",
+        settingsClickable: !dom.settingsBtn.disabled,
+        firstRejected,
+        promiseReset,
+        recovered: !!recoveredDb,
+      };
+    })()`, true);
+    assertQa(result.ready && result.themeChanged && result.languageChanged && result.settingsClickable, "Theme/language storage exceptions must not interrupt startup or UI controls.", result);
+    assertQa(result.firstRejected && result.promiseReset && result.recovered, "openHistoryBlobDb must clear a rejected promise so a later open can recover.", result);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+    await loadFresh(cdp, "storage-write-fault-clean");
+  }
+}
+
+async function testInpaintModalInteractionSafety(cdp) {
+  logStep("Inpaint modal owns wheel, focus, Escape and focus restoration");
+  await loadFresh(cdp, "inpaint-modal-interaction-safety");
+  const result = await cdp.eval(`(async () => {
+    applyApiProvider(CODEX_IMAGE_GATEWAY_PROVIDER, { forceEndpoint: true });
+    updateInpaintAvailability();
+    dom.inpaintSourceInput.click = () => {};
+    dom.configSection.open = true;
+    const trigger = dom.openInpaintFromFile;
+    trigger.focus();
+    trigger.click();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const opened = !dom.inpaintModal.classList.contains("hidden");
+    const bodyLocked = document.body.style.overflow === "hidden";
+    dom.inputPanel.scrollTop = 140;
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const mainBefore = dom.inputPanel.scrollTop;
+    dom.inpaintModal.dispatchEvent(new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const mainAfterWheel = dom.inputPanel.scrollTop;
+    const focusable = getFocusableElements(dom.inpaintModal);
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    last?.focus();
+    last?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const trapped = document.activeElement === first;
+    const returnTargetCaptured = dom.inpaintModal._returnFocus === trigger;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return {
+      opened,
+      bodyLocked,
+      mainBefore,
+      mainAfterWheel,
+      trapped,
+      closed: dom.inpaintModal.classList.contains("hidden"),
+      bodyUnlocked: document.body.style.overflow === "",
+      focusReturned: document.activeElement === trigger,
+      returnTargetCaptured,
+      activeElementId: document.activeElement?.id || "",
+      triggerConnected: trigger.isConnected,
+      triggerDisabled: trigger.disabled,
+    };
+  })()`, true);
+  assertQa(result.opened && result.bodyLocked && result.mainAfterWheel === result.mainBefore, "Opening inpaint must lock the page and wheel events must not scroll the main input panel.", result);
+  assertQa(result.trapped, "Tab from the last inpaint control must wrap to the first control instead of escaping the modal.", result);
+  assertQa(result.closed && result.bodyUnlocked && result.focusReturned, "Escape must close inpaint, release body scroll, and restore focus to the opener.", result);
 }
 
 async function testGrsaiOfficialAdapter(cdp) {
@@ -4720,6 +4385,7 @@ async function testGrsaiOfficialAdapter(cdp) {
     const calls = [];
     const genericCalls = [];
     const resultCalls = [];
+    const submittedTasks = [];
     let asyncPolls = 0;
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     const headerValue = headers => headers?.Authorization || headers?.authorization || "";
@@ -4792,15 +4458,19 @@ async function testGrsaiOfficialAdapter(cdp) {
             });
           }
           asyncPolls++;
-          if (asyncPolls === 1) {
-            return new Response("<html><head><title>504 Gateway Time-out</title></head></html>", {
-              status: 504,
-              headers: { "Content-Type": "text/html" }
-            });
+          const transientStatus = [429, 502, 503, 504][asyncPolls - 1];
+          if (transientStatus) {
+            return new Response(
+              transientStatus === 504
+                ? "<html><head><title>504 Gateway Time-out</title></head></html>"
+                : JSON.stringify({ error: { message: "temporary poll failure" } }),
+              {
+                status: transientStatus,
+                headers: { "Content-Type": transientStatus === 504 ? "text/html" : "application/json" }
+              }
+            );
           }
-          const body = asyncPolls === 2
-            ? { id: "task-ok", status: "running", progress: 55 }
-            : { id: "task-ok", status: "succeeded", progress: 100, results: [{ url: "https://img.test/final.png" }] };
+          const body = { id: "task-ok", status: "succeeded", progress: 100, results: [{ url: "https://img.test/final.png" }] };
           return new Response(JSON.stringify(body), {
             status: 200,
             headers: { "Content-Type": "application/json" }
@@ -4817,16 +4487,16 @@ async function testGrsaiOfficialAdapter(cdp) {
       set("model", "gpt-image-2-vip");
       const gpt = await callImageAPI("gpt prompt", "2048x2048", 1, "GrsAI gpt", { maxRetries: 0 });
       set("model", "nano-banana-2");
-      const asyncResult = await callImageAPI("async prompt", "1536x1024", 1, "GrsAI async", { maxRetries: 0 });
-      const submit504RetryRounds = [];
-      const recovered504 = await callImageAPI("submit504 recover prompt", "1024x1024", 1, "GrsAI submit 504 recovery", {
+      const asyncResult = await callImageAPI("async prompt", "1536x1024", 1, "GrsAI async", {
         maxRetries: 0,
-        onRetryAttempt: info => submit504RetryRounds.push({
-          retryIndex: info.retryIndex,
-          maxRetries: info.maxRetries,
-          statusLabel: info.statusLabel,
-        }),
+        onTaskSubmitted: task => submittedTasks.push(task),
       });
+      let recovered504Error = "";
+      try {
+        await callImageAPI("submit504 recover prompt", "1024x1024", 1, "GrsAI submit 504 recovery", { maxRetries: 3 });
+      } catch (err) {
+        recovered504Error = err.message || String(err);
+      }
       let submit504Error = "";
       try {
         await callImageAPI("submit504 prompt", "1024x1024", 1, "GrsAI submit 504", { maxRetries: 3 });
@@ -4850,12 +4520,12 @@ async function testGrsaiOfficialAdapter(cdp) {
         calls,
         genericCalls,
         resultCalls,
+        submittedTasks,
         nanoUrl: nano?.data?.[0]?.url || "",
         gptUrl: gpt?.data?.[0]?.url || "",
         asyncUrl: asyncResult?.data?.[0]?.url || "",
         asyncPolls,
-        recovered504Url: recovered504?.data?.[0]?.url || "",
-        submit504RetryRounds,
+        recovered504Error,
         submit504Error,
         retrySettings: loadSettings(),
         poll400Error,
@@ -4871,6 +4541,7 @@ async function testGrsaiOfficialAdapter(cdp) {
   const nanoCall = result.calls.find(call => call.body.prompt === "nano prompt");
   const gptCall = result.calls.find(call => call.body.prompt === "gpt prompt");
   const asyncCall = result.calls.find(call => call.body.prompt === "async prompt");
+  const asyncResultCalls = result.resultCalls.filter(call => call.url.includes("id=task-ok"));
   assertQa(result.modelOptions.some(text => text.includes("nano-banana-2-2k-cl")) && result.modelOptions.some(text => text.includes("gpt-image-2-vip")), "GrsAI model picker should expose the official model set.", result);
   assertQa(nanoCall?.url === "https://grsai.dakka.com.cn/v1/api/generate", "GrsAI should normalize the configured endpoint to /v1/api/generate.", result);
   assertQa(nanoCall?.auth === "Bearer sk-grsai", "GrsAI requests should send Bearer authorization.", result);
@@ -4878,12 +4549,11 @@ async function testGrsaiOfficialAdapter(cdp) {
   assertQa(Array.isArray(nanoCall?.body.images) && nanoCall.body.images[0] && !/^data:/i.test(nanoCall.body.images[0]), "GrsAI reference images should be sent as base64/URL values, not data URLs.", result);
   assertQa(gptCall?.body.aspectRatio === "2048x2048" && !("imageSize" in gptCall.body), "GrsAI gpt-image payload should send pixel aspectRatio and omit nano imageSize.", result);
   assertQa(result.nanoUrl.includes("nano-banana-2-4k-cl") && result.gptUrl.includes("gpt-image-2-vip"), "GrsAI synchronous success responses should return image URLs.", result);
-  assertQa(asyncCall && result.asyncUrl === "https://img.test/final.png" && result.resultCalls.some(call => call.url.includes("/v1/api/result?id=task-ok")), "GrsAI running responses should poll /v1/api/result until succeeded.", result);
-  assertQa(result.asyncPolls === 3, "A GrsAI result-poll HTTP 504 should back off and continue querying the same task instead of failing or submitting a new task.", result);
-  assertQa(result.calls.filter(call => call.body.prompt === "submit504 recover prompt").length === 3 && result.recovered504Url, "GrsAI submit HTTP 504 should wait and retry up to the configured count, then stop immediately when a later submission succeeds.", result);
-  assertQa(JSON.stringify(result.submit504RetryRounds) === JSON.stringify([{ retryIndex: 1, maxRetries: 2, statusLabel: "HTTP 504" }, { retryIndex: 2, maxRetries: 2, statusLabel: "HTTP 504" }]), "Each GrsAI submit 504 retry should report its current round on the result card.", result);
-  assertQa(/HTTP 504/.test(result.submit504Error) && /2|two/i.test(result.submit504Error), "An exhausted GrsAI submit 504 sequence should explain that the configured retries were used and the task may already exist.", result);
-  assertQa(result.calls.filter(call => call.body.prompt === "submit504 prompt").length === 3, "Two configured GrsAI submit 504 retries must produce exactly three POST attempts including the original request.", result);
+  assertQa(asyncCall && result.asyncUrl === "https://img.test/final.png" && result.submittedTasks.some(task => task.id === "task-ok") && asyncResultCalls.length === 5 && asyncResultCalls.every(call => call.url.includes("/v1/api/result?id=task-ok")), "GrsAI must checkpoint the task id immediately and keep every poll on that same id.", result);
+  assertQa(result.asyncPolls === 5 && result.calls.filter(call => call.body.prompt === "async prompt").length === 1, "GrsAI poll 429/502/503/504 errors must back off on the same task without another submit POST.", result);
+  assertQa(result.calls.filter(call => call.body.prompt === "submit504 recover prompt").length === 1 && /HTTP 504/.test(result.recovered504Error), "A GrsAI submit HTTP 504 has an unknown outcome and must stop after the original POST even if a later duplicate might succeed.", result);
+  assertQa(/HTTP 504/.test(result.submit504Error), "A GrsAI submit 504 must preserve the timeout reason and leave a manual recovery path.", result);
+  assertQa(result.calls.filter(call => call.body.prompt === "submit504 prompt").length === 1, "A GrsAI submit 504 must never duplicate the original POST automatically.", result);
   assertQa(result.retrySettings.grsaiSubmit504RetryCount === 2 && result.retrySettings.grsaiSubmit504RetryInterval === 1, "GrsAI submit 504 retry count and interval must persist independently from the generic HTTP-400 retry count.", result);
   assertQa(/HTTP 400/.test(result.poll400Error) && /quota exhausted/.test(result.poll400Error), "GrsAI polling HTTP 400 should preserve the official error reason.", result);
   assertQa(result.customProvider === "custom" && result.customGenericOk, "Custom API selection should remain custom even on a GrsAI domain.", result);
@@ -5132,7 +4802,7 @@ async function testNativeSecureApiKeyMigration(cdp) {
       await new Promise(r => setTimeout(r, 120));
       const inputAfterReload = document.getElementById("apiKey").value;
       const officialIndex = saved.findIndex(item => item.id === "secure_official");
-      document.getElementById("savedApis").value = String(officialIndex);
+      document.getElementById("savedApis").value = saved[officialIndex]?.id || "";
       document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise(r => setTimeout(r, 120));
       const officialAfterSwitch = {
@@ -5143,7 +4813,7 @@ async function testNativeSecureApiKeyMigration(cdp) {
         outputFormat: getOfficialImageOptions().outputFormat,
       };
       const grsaiIndex = saved.findIndex(item => item.id === "secure_grsai");
-      document.getElementById("savedApis").value = String(grsaiIndex);
+      document.getElementById("savedApis").value = saved[grsaiIndex]?.id || "";
       document.getElementById("savedApis").dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise(r => setTimeout(r, 120));
       const saveCountBeforeReadyReplay = window.__secureCalls.filter(call => call.action === "saveSecret").length;
@@ -5734,7 +5404,7 @@ async function testCodexImageGatewayIntegration(cdp) {
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
     assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
     assertQa(result.webRoute.legacyAsyncPreference === true && result.requestBodies.length === 3, "Legacy asyncTasks=false profiles must be normalized to resumable /image-tasks submissions instead of the missing synchronous route.", result);
-    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 100 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and accept concurrency up to 100.", result);
+    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 20 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and clamp effective client concurrency to the audited limit.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 3 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission, including an account failover retry, must expose a checkpointable async task id.", result);
     assertQa(
@@ -6201,6 +5871,7 @@ async function main() {
   try {
     cdp = await setupBrowserPage();
     await testColdStartupProfilesAndCoreControls(cdp);
+    await testStorageFaultIsolationAndHistoryDbRecovery(cdp);
     await testCustomSelects(cdp);
     await testApiConfig(cdp);
     await testReferencesAndAutoFill(cdp);
@@ -6228,6 +5899,11 @@ async function main() {
     await testDesktopProxyControls(cdp);
     await testRetainedProviderProfilesAndGatewayMigration(cdp);
     await testProviderPanelsResponsiveAfterGateway(cdp);
+    await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
+    await testOpenAiOfficialProviderResponsiveLayout(cdp);
+    await testOpenCodexDualModelsSizesAndLocalInpaint(cdp);
+    await testGptImage2InpaintRoutes(cdp);
+    await testInpaintModalInteractionSafety(cdp);
     await testAndroidChatGptGatewayEntry(cdp);
     await testCodexImageGatewayIntegration(cdp);
     await testGeminiWebImageIntegration(cdp);

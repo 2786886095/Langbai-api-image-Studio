@@ -115,7 +115,9 @@
             <label class="field" id="modelField">
               <span>模型</span>
               <div class="model-input-row">
-                <input type="text" id="model" placeholder="gpt-image-2 / dall-e-3" autocomplete="off" aria-haspopup="listbox" aria-expanded="false">
+                <input type="text" id="model" placeholder="gpt-image-2 / dall-e-3" autocomplete="off"
+                  role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
+                  aria-controls="modelChoicesCustomList" aria-expanded="false">
                 <button type="button" id="detectModels" class="btn btn-xs" title="从 API 检测可用模型"><span class="ui-icon ui-icon-search"></span> 检测</button>
                 <div class="custom-select-list hidden" id="modelChoicesCustomList" role="listbox"></div>
               </div>
@@ -887,10 +889,10 @@
             <button type="button" id="inpaintRedo" class="icon-btn" title="重做" disabled><span class="ui-icon ui-icon-redo"></span></button>
             <button type="button" id="inpaintClearMask" class="icon-btn" title="清空蒙版"><span class="ui-icon ui-icon-trash"></span></button>
             <button type="button" id="inpaintToggleMask" class="icon-btn active" title="显示或隐藏蒙版" aria-pressed="true"><span class="ui-icon ui-icon-eye"></span></button>
-            <button type="button" id="inpaintCompare" class="icon-btn" title="按住查看原图"><span class="ui-icon ui-icon-compare"></span></button>
+            <button type="button" id="inpaintCompare" class="icon-btn" title="按住查看原图" aria-pressed="false"><span class="ui-icon ui-icon-compare"></span></button>
             <div class="inpaint-zoom-control">
-              <button type="button" id="inpaintZoomFit" class="btn btn-xs active">适应</button>
-              <button type="button" id="inpaintZoom100" class="btn btn-xs">100%</button>
+              <button type="button" id="inpaintZoomFit" class="btn btn-xs active" aria-pressed="true">适应</button>
+              <button type="button" id="inpaintZoom100" class="btn btn-xs" aria-pressed="false">100%</button>
             </div>
           </div>
 
@@ -898,7 +900,9 @@
             <div class="inpaint-canvas-stage is-fit" id="inpaintCanvasStage">
               <canvas id="inpaintBaseCanvas"></canvas>
               <canvas id="inpaintPreviewCanvas"></canvas>
-              <canvas id="inpaintMaskCanvas" aria-label="局部重绘蒙版画布"></canvas>
+              <canvas id="inpaintMaskCanvas" tabindex="0" role="application"
+                aria-label="局部重绘蒙版画布"
+                aria-describedby="inpaintCanvasKeyboardHint"></canvas>
             </div>
             <div class="inpaint-empty" id="inpaintEmpty">
               <span class="ui-icon ui-icon-image"></span>
@@ -907,6 +911,7 @@
           </div>
 
           <div class="inpaint-candidate-strip" id="inpaintCandidateStrip" aria-label="候选补丁"></div>
+          <p class="sr-only" id="inpaintCanvasKeyboardHint">聚焦画布后，使用方向键移动画笔，按空格绘制；按住 Shift 可擦除。</p>
         </section>
 
         <aside class="inpaint-controls">

@@ -12,6 +12,7 @@
   const MODEL = "gpt-image-2";
   const MAX_REFERENCE_IMAGES = 20;
   const DIRECT_REFERENCE_IMAGES = 20;
+  const CLIENT_MAX_CONCURRENCY = 20;
   const DEFAULTS = Object.freeze({
     quality: "medium",
     dimensionMode: "exact_output",
@@ -74,7 +75,7 @@
     if (caps.async_tasks !== true) missing.push("async_tasks");
     if (!Array.isArray(caps.models) || !caps.models.includes(MODEL)) missing.push(`model:${MODEL}`);
     if (Number(caps.max_reference_images || 0) < MAX_REFERENCE_IMAGES) missing.push(`max_reference_images>=${MAX_REFERENCE_IMAGES}`);
-    if (Number(caps.max_concurrency || 0) < 100) missing.push("max_concurrency>=100");
+    if (Number(caps.max_concurrency || 0) < 1) missing.push("max_concurrency>=1");
     if (!Array.isArray(caps.dimension_modes) || !caps.dimension_modes.includes("exact_output")) missing.push("dimension_mode:exact_output");
     return Object.freeze({ ok: missing.length === 0, missing: Object.freeze(missing), capabilities: caps });
   }
@@ -168,6 +169,7 @@
     MODEL,
     MAX_REFERENCE_IMAGES,
     DIRECT_REFERENCE_IMAGES,
+    CLIENT_MAX_CONCURRENCY,
     DEFAULTS,
     normalizeBaseUrl,
     validateLocalKey,

@@ -16,6 +16,7 @@
     disconnected: "upstream_disconnected",
     unavailable: "upstream_unavailable",
     timeout: "upstream_timeout",
+    taskNotFound: "task_not_found",
     decode: "decode_failed",
     canceled: "canceled",
     unknown: "unknown",
@@ -90,6 +91,9 @@
     if (/abort|cancel|client_closed_request/.test(lower) || status === 499) {
       category = ERROR_CATEGORIES.canceled;
       retryPolicy = "never";
+    } else if (status === 404 && /task[_\s-]*not[_\s-]*found|not found/.test(lower)) {
+      category = ERROR_CATEGORIES.taskNotFound;
+      retryPolicy = "never";
     } else if (/moderation_blocked|safety system|safety_violations|content[_\s-]*policy/.test(lower)) {
       category = ERROR_CATEGORIES.moderation;
       retryPolicy = "edit_required";
@@ -116,7 +120,7 @@
       category = ERROR_CATEGORIES.rateLimit;
       retryPolicy = "after_delay";
       pausesQueue = true;
-    } else if (status === 502 || /socket closed|socket hang up|econnreset|connection reset|broken pipe|fetch failed/.test(lower)) {
+    } else if (status === 502 || /socket closed|socket hang up|econnreset|connection (?:reset|closed)|closed before full header|broken pipe|fetch failed/.test(lower)) {
       category = ERROR_CATEGORIES.disconnected;
       retryPolicy = "manual_limited";
     } else if (status === 503 || /service unavailable|upstream unavailable/.test(lower)) {
@@ -149,6 +153,33 @@
       requiresEdit,
       pausesQueue,
       originalMessage: message,
+    });
+  }
+
+  function retryDirective(value, { attempt = 1, baseDelayMs = 1500, phase = "submit" } = {}) {
+    const detail = value?.retryPolicy ? value : classifyApiError(value);
+    const policy = String(detail.retryPolicy || "manual");
+    const status = Number(detail.status || 0);
+    const unknownSubmissionOutcome = phase === "submit" && (
+      policy === "manual_unknown_outcome" || status === 504
+    );
+    const providerUiFailure = detail.category === ERROR_CATEGORIES.providerUi;
+    const retryable = !unknownSubmissionOutcome && !providerUiFailure && (
+      policy === "after_delay"
+      || policy === "manual_limited"
+      || policy === "after_probe"
+    );
+    const multiplier = status === 429 ? 2 : status === 503 ? 1.5 : 1;
+    const delayMs = retryable
+      ? Math.min(60_000, Math.round(Math.max(0, Number(baseDelayMs) || 0) * multiplier * (2 ** Math.max(0, Number(attempt) - 1))))
+      : 0;
+    return Object.freeze({
+      retryable,
+      delayMs,
+      retryPolicy: policy,
+      unknownSubmissionOutcome,
+      providerUiFailure,
+      status,
     });
   }
 
@@ -342,6 +373,7 @@
   return Object.freeze({
     ERROR_CATEGORIES,
     classifyApiError,
+    retryDirective,
     parsePixelSize,
     evaluateDimensions,
     normalizePrompt,

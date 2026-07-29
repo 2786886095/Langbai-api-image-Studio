@@ -69,6 +69,17 @@ test("builds one resumable temporary-chat task without credentials", () => {
   assert.equal(JSON.stringify(task).includes("token"), false);
 });
 
+test("rejects more than twenty references before creating a Gemini task", () => {
+  const refs = Array.from({ length: 21 }, (_, index) => ({
+    dataUrl: "data:image/png;base64,AA==",
+    fileName: `ref-${index}.png`,
+  }));
+  assert.throws(
+    () => adapter.buildTaskRequest({ prompt: "too many refs", size: "1024x1024", refs }),
+    error => error?.status === 400 && error?.code === "too_many_reference_images",
+  );
+});
+
 test("plans exact output without non-uniform stretching", () => {
   const plan = sizes.planTransform(2528, 1696, 1920, 1080, "center_cover");
   assert.equal(plan.targetRect.join(","), "0,0,1920,1080");

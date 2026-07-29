@@ -17,11 +17,14 @@ const CORE_ASSETS = [
   "./assets/icons/mascot-upload.png",
   "./assets/icons/mascot-maskable.png"
 ];
+const CORE_PATHS = new Set(CORE_ASSETS.map(asset => new URL(asset, self.location.href).pathname));
 
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(CORE_ASSETS))
+      // A release cache is immutable. Reload every core response during install
+      // so one worker can never combine an old app.js with a new index.html.
+      .then(cache => cache.addAll(CORE_ASSETS.map(asset => new Request(asset, { cache: "reload" }))))
       .then(() => self.skipWaiting())
   );
 });
@@ -43,27 +46,22 @@ self.addEventListener("fetch", event => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy));
-          return response;
-        })
-        .catch(() => caches.match("./index.html"))
+      caches.open(CACHE_NAME)
+        .then(cache => cache.match("./index.html"))
+        .then(cached => cached || fetch(request))
     );
     return;
   }
 
-  const network = fetch(request).then(response => {
-    if (response && response.ok) {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-    }
-    return response;
-  }).catch(() => null);
-  event.waitUntil(network.then(() => undefined));
-  event.respondWith(
-    caches.match(request, { ignoreSearch: true })
-      .then(cached => cached || network.then(response => response || Response.error()))
-  );
+  if (CORE_PATHS.has(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE_NAME)
+        .then(cache => cache.match(request, { ignoreSearch: true }))
+        .then(cached => cached || fetch(request))
+    );
+    return;
+  }
+
+  // Non-core same-origin resources remain network-first and may be cached.
+  event.respondWith(fetch(request).catch(() => caches.match(request)));
 });

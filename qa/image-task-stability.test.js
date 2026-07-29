@@ -57,7 +57,38 @@ test("Gemini page capability failures are not mislabeled as ChatGPT disconnects"
     assert.equal(detail.category, "provider_ui_unavailable");
     assert.equal(detail.retryPolicy, "after_probe");
     assert.equal(detail.pausesQueue, true);
+    const directive = stability.retryDirective(detail, { attempt: 1, phase: "submit" });
+    assert.equal(directive.retryable, false);
+    assert.equal(directive.providerUiFailure, true);
   }
+});
+
+test("structured retry directives never repeat unknown or invalid submissions", () => {
+  assert.equal(stability.retryDirective("HTTP 400: unsupported parameter").retryable, false);
+  assert.equal(stability.retryDirective("HTTP 400: [moderation_blocked] safety system").retryable, false);
+  const timeout = stability.retryDirective("HTTP 504: Gateway Time-out", { phase: "submit" });
+  assert.equal(timeout.retryable, false);
+  assert.equal(timeout.unknownSubmissionOutcome, true);
+  for (const message of [
+    "HTTP 429: Too Many Requests",
+    "HTTP 502: socket closed",
+    "HTTP 503: Service Unavailable",
+  ]) {
+    const directive = stability.retryDirective(message, { attempt: 2, baseDelayMs: 100 });
+    assert.equal(directive.retryable, true, message);
+    assert.ok(directive.delayMs >= 100, message);
+  }
+});
+
+test("task_not_found polling is terminal", () => {
+  const detail = stability.classifyApiError({
+    status: 404,
+    code: "task_not_found",
+    message: "Task not found",
+  });
+  assert.equal(detail.category, "task_not_found");
+  assert.equal(detail.retryPolicy, "never");
+  assert.equal(stability.retryDirective(detail, { phase: "poll" }).retryable, false);
 });
 
 test("actual dimensions are authoritative", () => {

@@ -34,7 +34,14 @@
 
   function buildTaskRequest({ prompt, size, refs = [], options = {}, clientRequestId = "" }) {
     const resolved = sizes.resolveRequest({ ...options, targetSize: options.targetSize || size });
-    const references = (Array.isArray(refs) ? refs : []).slice(0, 20).map((reference, index) => ({
+    const sourceReferences = Array.isArray(refs) ? refs : [];
+    if (sourceReferences.length > 20) {
+      const error = new Error(`Gemini web image tasks accept at most 20 references; received ${sourceReferences.length}`);
+      error.status = 400;
+      error.code = "too_many_reference_images";
+      throw error;
+    }
+    const references = sourceReferences.map((reference, index) => ({
       index: index + 1,
       file_name: reference.fileName || `reference-${index + 1}.png`,
       data_url: reference.dataUrl,
