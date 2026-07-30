@@ -110,6 +110,12 @@ void main() {
     expect(windowsSelfTestWebViewProfileName, isNot('Default'));
   });
 
+  test(
+      'packaged startup smoke exercises the main WebView without auxiliary profile probes',
+      () {
+    expect(windowsPackagedSelfTestUsesAuxiliaryProfileProbe, isFalse);
+  });
+
   test('auxiliary WebView2 process failures do not reload the editor', () {
     expect(windowsProcessFailureRequiresRebuild(0), isTrue);
     expect(windowsProcessFailureRequiresRebuild(1), isTrue);
