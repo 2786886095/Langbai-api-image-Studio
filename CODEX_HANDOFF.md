@@ -16,6 +16,7 @@
 - 健康探测仅作遥测，不再触发破坏性恢复；真实主进程退出仍由 `onProcessFailed` 恢复。
 - `ai_image_gen_workspace_draft_v1` 每 5 秒及输入变化时保存元数据草稿，恢复模式、提示词、分镜/嵌字行、尺寸、重试次数和历史项目结果；不保存 API Key、Cookie、图片字节或参考图本体。
 - 回归包含完整文档导航重载，验证 `__AI_GEN_APP_READY`、未保存提示词、项目 ID 与结果卡均恢复。
+- Gemini `content-push.googleapis.com/upload` 当前返回的有效值可能是 `/contrib_service/ttl_1d/...` 相对文件标识，而非 `https://` URL；`normalizeUploadedFileIdentifier()` 已兼容纯文本/JSON 字符串形式，并限制为该路径或 Googleusercontent HTTPS 地址。
 
 ## v1.6.13 Gemini 真实生图与鉴权下载修复
 

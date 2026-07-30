@@ -225,6 +225,8 @@ assert.match(geminiEmbeddedWorker, /__LANGBAI_GEMINI_EMBEDDED_CONFIG/);
 assert.match(geminiEmbeddedWorker, /processTaskThroughDirectProtocol/);
 assert.match(geminiEmbeddedWorker, /submission_transport/);
 assert.match(geminiDirectProtocol, /StreamGenerate/);
+assert.match(geminiDirectProtocol, /function normalizeUploadedFileIdentifier\(/);
+assert.match(geminiDirectProtocol, /\^\\\/contrib_service\\\//);
 assert.match(geminiDirectProtocol, /inner\[45\] = 1/);
 assert.match(geminiDirectProtocol, /content-push\.googleapis\.com\/upload/);
 assert.ok(

@@ -117,6 +117,36 @@
     };
   }
 
+  function normalizeUploadedFileIdentifier(rawValue) {
+    let value = String(rawValue || "").trim();
+    // content-push currently returns a relative Gemini file identifier such as
+    // /contrib_service/ttl_1d/..., not necessarily an absolute URL. Some
+    // deployments wrap the same identifier in a JSON string.
+    if (value.startsWith('"') && value.endsWith('"')) {
+      try {
+        const decoded = JSON.parse(value);
+        if (typeof decoded === "string") value = decoded.trim();
+      } catch {}
+    }
+    if (value.length < 12 || value.length > 8192 || /[\s\u0000-\u001f]/.test(value)) {
+      return "";
+    }
+    if (/^\/contrib_service\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(value)) {
+      return value;
+    }
+    try {
+      const parsed = new URL(value);
+      const host = parsed.hostname.toLowerCase();
+      if (
+        parsed.protocol === "https:"
+        && (host === "googleusercontent.com" || host.endsWith(".googleusercontent.com"))
+      ) {
+        return parsed.href;
+      }
+    } catch {}
+    return "";
+  }
+
   async function uploadReferences(references, state, fetchImpl = fetch) {
     if (!Array.isArray(references) || references.length === 0) return null;
     if (!state.pushId) {
@@ -155,12 +185,8 @@
           "reference_upload_failed",
         );
       }
-      const uploadedUrl = (await response.text()).trim();
-      if (
-        uploadedUrl.length < 12
-        || uploadedUrl.length > 8192
-        || !/^https:\/\/[^\s]+$/i.test(uploadedUrl)
-      ) {
+      const uploadedUrl = normalizeUploadedFileIdentifier(await response.text());
+      if (!uploadedUrl) {
         throw error(
           "Gemini reference upload returned an invalid file URL; generation was not submitted.",
           "reference_upload_failed",
@@ -448,6 +474,7 @@
     _test: Object.freeze({
       generatedImages,
       modelHeaders,
+      normalizeUploadedFileIdentifier,
       responseFailure,
       streamPayloads,
     }),

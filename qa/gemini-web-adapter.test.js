@@ -195,6 +195,7 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   );
   const sandbox = {
     console,
+    URL,
     URLSearchParams,
     TextDecoder,
   };
@@ -228,6 +229,28 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.equal(images[0].rcid, "response-candidate");
   assert.equal(images[0].imageId, "generated-image-id");
   assert.match(images[0].url, /googleusercontent\.com/);
+  assert.equal(
+    protocol._test.normalizeUploadedFileIdentifier(
+      "/contrib_service/ttl_1d/1709764705i7wdlyx3mdzndme3a767pluckv4flj",
+    ),
+    "/contrib_service/ttl_1d/1709764705i7wdlyx3mdzndme3a767pluckv4flj",
+  );
+  assert.equal(
+    protocol._test.normalizeUploadedFileIdentifier(
+      '"/contrib_service/ttl_1d/quoted-reference-id"',
+    ),
+    "/contrib_service/ttl_1d/quoted-reference-id",
+  );
+  assert.equal(
+    protocol._test.normalizeUploadedFileIdentifier(
+      "https://lh3.googleusercontent.com/uploaded-reference",
+    ),
+    "https://lh3.googleusercontent.com/uploaded-reference",
+  );
+  assert.equal(
+    protocol._test.normalizeUploadedFileIdentifier("https://example.com/not-gemini"),
+    "",
+  );
   const expectedQuota = {
     code: "gemini_direct_quota_unavailable",
     accountStatus: "",
@@ -255,7 +278,7 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(source, /inner\[45\] = 1/);
   assert.match(source, /const rawError = await response\.text\(\)/);
   assert.match(source, /response\.headers\.get\("x-request-id"\)/);
-  assert.match(source, /uploadedUrl\.length > 8192/);
+  assert.match(source, /normalizeUploadedFileIdentifier\(await response\.text\(\)\)/);
   assert.match(source, /temporaryVerified: false/);
   assert.match(source, /StreamGenerate/);
   const worker = fs.readFileSync(
