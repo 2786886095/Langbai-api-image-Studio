@@ -167,11 +167,11 @@ jobs:
               throw "Missing or empty packaged frontend asset: $name"
             }
           }
-          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.6.9";' -Quiet)) {
-            throw "Packaged app.js is not v1.6.9."
+          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.6.10";' -Quiet)) {
+            throw "Packaged app.js is not v1.6.10."
           }
-          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260730-1-6-9' -Quiet)) {
-            throw "Packaged index.html does not reference the v1.6.9 bootstrap guard."
+          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260730-1-6-10' -Quiet)) {
+            throw "Packaged index.html does not reference the v1.6.10 bootstrap guard."
           }
       - name: Run hidden Windows WebView2 startup smoke test
         shell: pwsh

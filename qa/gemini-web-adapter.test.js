@@ -91,10 +91,22 @@ test("plans exact output without non-uniform stretching", () => {
 test("validates companion capabilities and produces a safe audit", () => {
   assert.equal(adapter.validateCapabilities({
     provider: "gemini_web",
-    temporary_chat_required: true,
+    temporary_chat_required: false,
+    temporary_chat_available: false,
+    direct_protocol_available: true,
     fullsize_download: true,
     dimension_modes: ["native_fullsize", "exact_output"],
   }).ok, true);
+  const unavailable = adapter.validateCapabilities({
+    provider: "gemini_web",
+    temporary_chat_required: false,
+    temporary_chat_available: false,
+    direct_protocol_available: false,
+    fullsize_download: true,
+    dimension_modes: ["native_fullsize", "exact_output"],
+  });
+  assert.equal(unavailable.ok, false);
+  assert.deepEqual(unavailable.missing, ["gemini_generation_transport"]);
   const audit = adapter.buildSafeAudit({
     id: "gemini-task-1",
     account_id: "account-secret-id",

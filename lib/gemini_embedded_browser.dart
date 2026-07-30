@@ -951,7 +951,8 @@ String geminiEmbeddedStatusText(Map<String, dynamic> message) {
     if (message['selector_pack_compatible'] == false) {
       return '已登录，但页面版本尚未兼容';
     }
-    if (message['temporary_chat_available'] != true) {
+    if (message['temporary_chat_available'] != true &&
+        message['direct_protocol_available'] != true) {
       return '已登录，但临时对话入口尚未识别或不可用';
     }
     if (message['fullsize_download_available'] != true) {

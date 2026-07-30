@@ -26,7 +26,13 @@
   function validateCapabilities(value = {}) {
     const missing = [];
     if (value.provider !== "gemini_web") missing.push("provider:gemini_web");
-    if (value.temporary_chat_required !== true) missing.push("temporary_chat_required");
+    const directProtocolAvailable = value.direct_protocol_available === true;
+    const temporaryChatAvailable =
+      value.temporary_chat_available === true ||
+      value.temporary_chat_required === true;
+    if (!directProtocolAvailable && !temporaryChatAvailable) {
+      missing.push("gemini_generation_transport");
+    }
     if (value.fullsize_download !== true) missing.push("fullsize_download");
     if (!Array.isArray(value.dimension_modes) || !value.dimension_modes.includes("exact_output")) missing.push("dimension_mode:exact_output");
     return { ok: missing.length === 0, missing, capabilities: value };

@@ -5494,12 +5494,15 @@ async function testGeminiWebImageIntegration(cdp) {
             if (url.endsWith("/healthz")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
                  status: "ok", provider: "gemini_web", embedded_browser_connected: true,
-                session_available: true, temporary_chat_available: true,
+                session_available: true, temporary_chat_available: false,
+                direct_protocol_available: true,
                 fullsize_download_available: true,
               }) };
             } else if (url.endsWith("/v1/capabilities")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
-                provider: "gemini_web", temporary_chat_required: true, fullsize_download: true,
+                provider: "gemini_web", temporary_chat_required: false,
+                temporary_chat_available: false, direct_protocol_available: true,
+                fullsize_download: true,
                 effective_concurrency: 1, dimension_modes: ["native_fullsize", "strict_native", "exact_output", "local_4k_upscale"],
               }) };
             } else if (url.endsWith("/v1/accounts")) {
@@ -5507,6 +5510,7 @@ async function testGeminiWebImageIntegration(cdp) {
                 accounts: [{
                   local_account_id: "gemini-account-qa", display_name: "QA Gemini", status: "ready",
                   login_ready: true, quota_state: "available", temporary_chat_available: false,
+                  direct_protocol_available: true,
                   fullsize_download_available: true, available: window.__geminiAccountAvailable,
                   effective_concurrency: 1,
                 }],

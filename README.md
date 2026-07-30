@@ -4,6 +4,13 @@
 
 「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的中文图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、ChatGPT 网页生图、Gemini 网页生图、GrsAI 与 OpenAI 兼容接口。
 
+## v1.6.10：Gemini 直接协议启动门禁修复
+
+- 修复 v1.6.9 已登录账号在软件打开后立即显示“缺少能力：temporary_chat_required”的问题。
+- Gemini 能力校验现在接受“直接协议可用”或“传统临时对话入口可用”任一路径，不再要求直接协议返回互相矛盾的临时对话必需标志。
+- 保留任务请求中的临时会话意图、账号登录会话、历史、缓存和全部既有供应商配置，不要求重新登录。
+- 新增直接协议能力启动回归：`temporary_chat_required=false`、`temporary_chat_available=false`、`direct_protocol_available=true` 必须正常进入就绪状态。
+
 ## v1.6.9：Gemini 网页直接调用与额度识别
 
 - Gemini 网页生图默认改为登录态内的 `StreamGenerate` 直接调用，不再依赖输入框写入或发送按钮；内置浏览器只负责登录和保留会话。
