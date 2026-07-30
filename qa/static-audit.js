@@ -205,7 +205,7 @@ for (const id of [
   "grsaiProviderPanel", "customProviderPanel", "grsaiRetrySettings",
   "geminiProviderPanel", "openGeminiLogin", "geminiAutoSwitch",
   "testGeminiHealth", "geminiAccountList", "geminiModelPreference",
-  "geminiQualityIntent", "geminiClientQueue",
+  "geminiQualityIntent", "geminiClientQueue", "savedSizeRow",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `Missing provider-specific control: ${id}`);
 }
@@ -215,6 +215,11 @@ assert.match(app, /provider:\s*CODEX_IMAGE_GATEWAY_PROVIDER/);
 assert.match(app, /provider:\s*GEMINI_WEB_PROVIDER/);
 assert.match(geminiSizeRegistry, /safe_zone_center_crop/);
 assert.match(geminiSizeRegistry, /high_quality_resample/);
+assert.match(geminiSizeRegistry, /"1264x848"/);
+assert.match(geminiSizeRegistry, /"3168x1344"/);
+assert.match(app, /GEMINI_OFFICIAL_SIZE_PRESETS/);
+assert.match(app, /workspaceSessionAllowsRestore/);
+assert.match(app, /WORKSPACE_SESSION_MARKER_KEY/);
 assert.match(geminiWebAdapter, /temporary_chat_required:\s*true/);
 assert.match(geminiWebAdapter, /directProtocolAvailable/);
 assert.match(geminiWebAdapter, /gemini_generation_transport/);

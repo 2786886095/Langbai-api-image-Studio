@@ -515,8 +515,33 @@
                 <input type="number" id="customHeight" class="custom-size-num" placeholder="高" min="64" max="4096">
               </span>
             </label>
+            <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="1024x1024"><span>1024×1024</span><small>1K · 1:1</small></label>
+            <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="1264x848"><span>1264×848</span><small>1K · 3:2</small></label>
+            <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="848x1264"><span>848×1264</span><small>1K · 2:3</small></label>
+            <details class="size-presets-more hidden" data-size-provider="gemini">
+              <summary>Gemini 官方 1K / 2K 尺寸</summary>
+              <div class="size-preset-grid">
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="896x1200"><span>896×1200</span><small>1K · 3:4</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1200x896"><span>1200×896</span><small>1K · 4:3</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="928x1152"><span>928×1152</span><small>1K · 4:5</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1152x928"><span>1152×928</span><small>1K · 5:4</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="768x1376"><span>768×1376</span><small>1K · 9:16</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1376x768"><span>1376×768</span><small>1K · 16:9</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1584x672"><span>1584×672</span><small>1K · 21:9</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2048x2048"><span>2048×2048</span><small>2K · 1:1</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1696x2528"><span>1696×2528</span><small>2K · 2:3</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2528x1696"><span>2528×1696</span><small>2K · 3:2</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1792x2400"><span>1792×2400</span><small>2K · 3:4</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2400x1792"><span>2400×1792</span><small>2K · 4:3</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1856x2304"><span>1856×2304</span><small>2K · 4:5</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2304x1856"><span>2304×1856</span><small>2K · 5:4</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1536x2752"><span>1536×2752</span><small>2K · 9:16</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="2752x1536"><span>2752×1536</span><small>2K · 16:9</small></label>
+                <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="3168x1344"><span>3168×1344</span><small>2K · 21:9</small></label>
+              </div>
+            </details>
           </div>
-          <div class="saved-size-row">
+          <div class="saved-size-row" id="savedSizeRow">
             <div class="custom-select custom-select-flex" id="savedSizesCustomSelect">
               <button type="button" class="custom-select-trigger" id="savedSizesTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
               <div class="custom-select-list hidden" id="savedSizesCustomList" role="listbox"></div>

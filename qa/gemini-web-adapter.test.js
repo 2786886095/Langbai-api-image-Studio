@@ -27,7 +27,8 @@ test("selects ratios symmetrically and supports requested presets", () => {
   assert.equal(sizes.nearestRatio(832, 1216), "2:3");
   assert.equal(sizes.nearestRatio(1216, 832), "3:2");
   assert.equal(sizes.nearestRatio(1920, 1080), "16:9");
-  assert.ok(sizes.TARGET_PRESETS.includes("3840x2160"));
+  assert.equal(sizes.nearestRatio(3168, 1344), "21:9");
+  assert.ok(sizes.TARGET_PRESETS.includes("3168x1344"));
 });
 
 test("damaged legacy Gemini options fall back without crashing startup", () => {

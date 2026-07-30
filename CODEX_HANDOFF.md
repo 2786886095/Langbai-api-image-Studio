@@ -10,6 +10,8 @@
 
 ## v1.6.15 Gemini 高清原图下载
 
+- 冷启动通过 `sessionStorage` 会话标记与文档重载区分：新软件会话清空活动结果区但不删除历史项目；同一 WebView 会话内的文档重载仍可恢复未保存文字。
+- Gemini 供应商启用独立官方 1K / 2K 尺寸组，其他供应商保留原尺寸、自定义尺寸和用户常用尺寸；切换供应商会分别记住本次会话中的选择。
 - 用户样图 `panel-1（1）.png` 虽为 `1536×1024`，本机任务 `gemini_1785399255491955_e36dd828` 的审计明确记录 `downloaded_fullsize=512x343`、`final_size=1536x1024`，旧版是在放大预览图。
 - `gemini-web-direct-protocol.js` 新增 `c8o8Fe` Batchexecute 原图 RPC，生成完成后以 `cid/rid/rcid/image_id` 获取 `fullSizeUrl`。
 - 真实临时会话中 `c8o8Fe` 可能返回 `BardErrorInfo 1003`；`gemini-embedded-worker.js` 会将生成预览 URL 仅作为原图定位器，经 `=d-I?alr=yes` 两级鉴权跳转取得原始 PNG。下载候选只允许该最终原图，禁止保存预览图或 `=s2048` 变体。

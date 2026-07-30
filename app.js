@@ -2109,7 +2109,7 @@ const GEMINI_WEB_MODULES_AVAILABLE = Boolean(
 const GEMINI_WEB_FALLBACK_DEFAULTS = Object.freeze({
   sizeMode: "native_fullsize",
   ratio: "auto",
-  targetSize: "832x1216",
+  targetSize: "848x1264",
   cropMode: "smart_cover",
   qualityIntent: "standard",
   modelPreference: "auto",
@@ -2699,7 +2699,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "快速", qualityStandard: "标准", qualityDetail: "精细",
     queue: "本地队列上限",
     facts: "临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计",
-    capability: "构图比例由全局分辨率自动推导；下载后保留网页原图的字节与像素尺寸，不裁切、不缩小、不放大。",
+    capability: "选择 Gemini 时使用官方 1K / 2K 比例尺寸；下载后保留网页原图的字节与像素尺寸，不裁切、不缩小、不放大。",
   }),
   "zh-Hant": Object.freeze({
     title: "Gemini 網頁生圖", hint: "在軟體內完成 Gemini 登入；登入成功後視窗會自動收起，後續任務由隱藏瀏覽器執行。",
@@ -2714,7 +2714,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "快速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "本機佇列上限",
     facts: "臨時對話 · 使用全域解析度 · 完整尺寸下載 · 精確尺寸稽核",
-    capability: "構圖比例由全域解析度自動推導；下載後保留網頁原圖的位元組與像素尺寸，不裁切、不縮小、不放大。",
+    capability: "選擇 Gemini 時使用官方 1K / 2K 比例尺寸；下載後保留網頁原圖的位元組與像素尺寸，不裁切、不縮小、不放大。",
   }),
   en: Object.freeze({
     title: "Gemini Web Images", hint: "Sign in to Gemini inside the app. The login view closes automatically, while a hidden browser runs later tasks.",
@@ -2729,7 +2729,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "Fast", qualityStandard: "Standard", qualityDetail: "Detail",
     queue: "Local queue limit",
     facts: "Temporary Chat · global resolution · full-size download · dimension audit",
-    capability: "Composition is derived from the global resolution; the downloaded original keeps its exact bytes and pixel dimensions with no crop, downscale, or upscale.",
+    capability: "Gemini uses official 1K/2K ratio presets; the downloaded original keeps its exact bytes and pixel dimensions with no crop, downscale, or upscale.",
   }),
   ja: Object.freeze({
     title: "Gemini ウェブ画像", hint: "アプリ内で Gemini にログインします。成功後は画面を自動で閉じ、非表示ブラウザがタスクを実行します。",
@@ -2744,7 +2744,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "高速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "ローカルキュー上限",
     facts: "一時チャット · グローバル解像度 · フルサイズ取得 · サイズ監査",
-    capability: "構図比率はグローバル解像度から算出し、取得した元画像は切り抜き・縮小・拡大をせず、そのまま保存します。",
+    capability: "Gemini 選択時は公式 1K / 2K 比率サイズを使用し、取得した元画像は切り抜き・縮小・拡大せず保存します。",
   }),
   ko: Object.freeze({
     title: "Gemini 웹 이미지", hint: "앱 안에서 Gemini에 로그인합니다. 성공하면 화면이 자동으로 닫히고 숨겨진 브라우저가 작업을 실행합니다.",
@@ -2759,7 +2759,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "빠름", qualityStandard: "표준", qualityDetail: "정밀",
     queue: "로컬 대기열 상한",
     facts: "임시 채팅 · 전역 해상도 · 전체 크기 다운로드 · 크기 감사",
-    capability: "구도 비율은 전역 해상도에서 계산하며, 다운로드한 원본은 자르기·축소·확대 없이 원래 바이트와 픽셀 크기로 저장합니다.",
+    capability: "Gemini 선택 시 공식 1K / 2K 비율 크기를 사용하며, 원본은 자르기·축소·확대 없이 저장합니다.",
   }),
 });
 
@@ -2786,41 +2786,44 @@ function applyGeminiWebOptions(value = {}) {
   setProviderSegmentValue("geminiModelPreference", options.modelPreference);
   setProviderSegmentValue("geminiQualityIntent", options.qualityIntent);
   if (dom.geminiClientQueue) dom.geminiClientQueue.value = String(options.clientQueue);
+  if ((dom.apiProvider?.value || "") === GEMINI_WEB_PROVIDER) {
+    syncProviderSizePresets(GEMINI_WEB_PROVIDER, { preferredSize: options.targetSize });
+  }
 }
 
 const SIZE_POLICY_TEXT = Object.freeze({
   "zh-CN": Object.freeze({
     official: "gpt-image-2 支持满足约束的任意尺寸；带“官方”的七项是 OpenAI 常用预设。",
     opencodex: "ChatGPT 网页生图会请求所选方向与尺寸；原生模式保留实际像素，精确输出会在本地无拉伸裁切缩放。",
-    gemini: "Gemini 网页会按最接近比例请求原生 2K；原生模式保留完整尺寸，精确输出和本地 4K 会记录后处理审计。",
+    gemini: "Gemini 专用区使用 Google 官方 1K / 2K 比例尺寸；尺寸用于构图请求，下载文件始终保留网页原图像素，不裁切、不缩小、不放大。",
     nano: "Nano Banana 2 只使用上方的官方“比例 × 分辨率档位”；这里的像素尺寸不会发送。",
     generic: "预设尺寸会作为像素尺寸发送；自定义接口是否支持由服务端决定。",
   }),
   "zh-Hant": Object.freeze({
     official: "gpt-image-2 支援符合限制的任意尺寸；標示「官方」的七項是 OpenAI 常用預設。",
     opencodex: "Codex 私有額度路徑實測固定約 157 萬像素；所選尺寸用於提示方向與比例，請以生成後的實際尺寸為準。",
-    gemini: "Gemini 網頁會按最接近比例請求原生 2K；原生模式保留完整尺寸，精確輸出與本機 4K 會記錄後處理稽核。",
+    gemini: "Gemini 專用區使用 Google 官方 1K / 2K 比例尺寸；尺寸用於構圖請求，下載檔案保留網頁原圖像素，不裁切、不縮小、不放大。",
     nano: "Nano Banana 2 只使用上方官方的「比例 × 解析度檔位」；此處像素尺寸不會傳送。",
     generic: "預設尺寸會作為像素尺寸傳送；自訂介面是否支援由伺服器決定。",
   }),
   en: Object.freeze({
     official: "gpt-image-2 accepts any compliant size. The seven Official choices are OpenAI's popular presets.",
     opencodex: "The Codex private quota route was measured at about 1.57 MP. The selected size guides orientation and ratio; check the decoded size.",
-    gemini: "Gemini Web requests the nearest ratio at native 2K. Native preserves full size; Exact Output and Local 4K retain a post-processing audit.",
+    gemini: "Gemini uses Google's official 1K/2K ratio presets. They guide composition; downloads preserve the web original with no crop, downscale, or upscale.",
     nano: "Nano Banana 2 uses only the official ratio and resolution tier above. Pixel presets here are not sent.",
     generic: "Pixel dimensions are sent as requested. Custom-server support depends on that server.",
   }),
   ja: Object.freeze({
     official: "gpt-image-2 は制約を満たす任意サイズに対応します。「公式」の7項目は OpenAI の代表的なプリセットです。",
     opencodex: "Codex の非公開クォータ経路は実測で約 157 万画素固定です。選択サイズは向きと比率の指示に使われ、生成後の実寸を正とします。",
-    gemini: "Gemini ウェブは最も近い比率で原生 2K を要求します。ネイティブは実寸を保持し、正確出力とローカル 4K は後処理を記録します。",
+    gemini: "Gemini は Google 公式の 1K / 2K 比率サイズを使用します。構図指定だけに使い、ダウンロードした元画像は切り抜き・縮小・拡大しません。",
     nano: "Nano Banana 2 は上の公式「比率 × 解像度段階」のみを使用し、ここのピクセル値は送信しません。",
     generic: "ピクセル寸法を要求値として送信します。対応可否は接続先サーバーによります。",
   }),
   ko: Object.freeze({
     official: "gpt-image-2는 제약을 만족하는 임의 크기를 지원합니다. '공식' 7개 항목은 OpenAI 권장 프리셋입니다.",
     opencodex: "Codex 비공개 할당량 경로는 실측상 약 157만 화소로 고정됩니다. 선택 크기는 방향과 비율 안내에 사용되며 실제 크기를 확인해야 합니다.",
-    gemini: "Gemini 웹은 가장 가까운 비율로 네이티브 2K를 요청합니다. 네이티브는 전체 크기를 유지하고 정확 출력과 로컬 4K는 후처리를 기록합니다.",
+    gemini: "Gemini는 Google 공식 1K / 2K 비율 크기를 사용합니다. 구성 요청에만 쓰며 다운로드 원본은 자르기·축소·확대하지 않습니다.",
     nano: "Nano Banana 2는 위의 공식 '비율 × 해상도 단계'만 사용하며 이 픽셀 크기는 전송하지 않습니다.",
     generic: "픽셀 크기를 요청값으로 전송합니다. 지원 여부는 연결한 서버에 따라 다릅니다.",
   }),
@@ -3641,6 +3644,7 @@ function applyApiProvider(provider = "custom", options = {}) {
   }
   if (dom.apiKey) dom.apiKey.readOnly = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(next);
   if (dom.model) dom.model.readOnly = [CODEX_IMAGE_GATEWAY_PROVIDER, GEMINI_WEB_PROVIDER].includes(next);
+  syncProviderSizePresets(next);
   customSelects.apiProvider?.syncLabel();
   updateApiProviderHint(next);
   updateProviderPanelVisibility(next);
@@ -6180,6 +6184,75 @@ dom.customHeight.addEventListener("focus", () => {
   const r = document.querySelector('input[name="size"][value="custom"]');
   if (r) r.checked = true;
 });
+
+const GEMINI_OFFICIAL_SIZE_PRESETS = Object.freeze([
+  "1024x1024", "1264x848", "848x1264", "896x1200", "1200x896",
+  "928x1152", "1152x928", "768x1376", "1376x768", "1584x672",
+  "2048x2048", "1696x2528", "2528x1696", "1792x2400", "2400x1792",
+  "1856x2304", "2304x1856", "1536x2752", "2752x1536", "3168x1344",
+]);
+const providerSizeSelections = { standard: "", gemini: "" };
+let activeSizePresetProvider = "standard";
+
+function sizePresetProvider(provider) {
+  return provider === GEMINI_WEB_PROVIDER ? "gemini" : "standard";
+}
+
+function nearestGeminiOfficialSize(value) {
+  const source = parseSizeValue(value) || { width: 1264, height: 848 };
+  const targetRatio = source.width / source.height;
+  const targetPixels = source.width * source.height;
+  return GEMINI_OFFICIAL_SIZE_PRESETS.reduce((best, candidate) => {
+    const parsed = parseSizeValue(candidate);
+    const ratioDistance = Math.abs(Math.log((parsed.width / parsed.height) / targetRatio));
+    const pixelDistance = Math.abs(Math.log((parsed.width * parsed.height) / targetPixels));
+    const score = ratioDistance * 8 + pixelDistance;
+    return !best || score < best.score ? { value: candidate, score } : best;
+  }, null)?.value || "1264x848";
+}
+
+function applyProviderSizeValue(size, providerMode) {
+  const target = providerMode === "gemini" ? nearestGeminiOfficialSize(size) : String(size || "");
+  const input = [...document.querySelectorAll(`input[name="size"][data-size-provider="${providerMode}"]`)]
+    .find(candidate => candidate.value === target);
+  if (input) {
+    input.checked = true;
+    return target;
+  }
+  if (providerMode === "standard" && applySizeValue(target)) return getSelectedSize();
+  return "";
+}
+
+function initializeProviderSizePresets() {
+  document.querySelectorAll("#sizePresets > *").forEach(element => {
+    if (!element.dataset.sizeProvider) element.dataset.sizeProvider = "standard";
+    element.querySelectorAll('input[name="size"]').forEach(input => {
+      input.dataset.sizeProvider = element.dataset.sizeProvider;
+    });
+  });
+  activeSizePresetProvider = "standard";
+  providerSizeSelections.standard = getSelectedSize();
+}
+
+function syncProviderSizePresets(provider, { preferredSize = "" } = {}) {
+  const nextMode = sizePresetProvider(provider);
+  const currentSize = getSelectedSize();
+  providerSizeSelections[activeSizePresetProvider] = currentSize;
+  document.querySelectorAll("#sizePresets > [data-size-provider]").forEach(element => {
+    element.classList.toggle("hidden", element.dataset.sizeProvider !== nextMode);
+  });
+  document.getElementById("savedSizeRow")?.classList.toggle("hidden", nextMode === "gemini");
+  const requested = preferredSize
+    || providerSizeSelections[nextMode]
+    || (nextMode === "gemini" ? nearestGeminiOfficialSize(currentSize) : currentSize);
+  activeSizePresetProvider = nextMode;
+  const applied = applyProviderSizeValue(requested, nextMode)
+    || applyProviderSizeValue(nextMode === "gemini" ? "1264x848" : "1536x1024", nextMode);
+  providerSizeSelections[nextMode] = applied;
+  updateSizePolicyUi();
+}
+
+initializeProviderSizePresets();
 
 function getSelectedSize() {
   const checked = document.querySelector('input[name="size"]:checked');
@@ -11507,12 +11580,31 @@ function restoreHistoryItem(item) {
 // or the currently displayed history-backed results. API keys and image bytes
 // are intentionally excluded; reference images must still be reselected.
 const WORKSPACE_DRAFT_KEY = "ai_image_gen_workspace_draft_v1";
+const WORKSPACE_SESSION_MARKER_KEY = "ai_image_gen_workspace_session_v1";
 const WORKSPACE_DRAFT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 let workspaceDraftTimer = null;
 let workspaceDraftRestoring = false;
 
 function workspaceDraftDisabledForTest() {
   return new URLSearchParams(location.search).get("qaDisableWorkspaceDraft") === "1";
+}
+
+function workspaceSessionAllowsRestore() {
+  try {
+    if (sessionStorage.getItem(WORKSPACE_SESSION_MARKER_KEY)) return true;
+    sessionStorage.setItem(
+      WORKSPACE_SESSION_MARKER_KEY,
+      globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+    );
+  } catch {
+    return false;
+  }
+  // A new app process gets a new sessionStorage. Results already live in
+  // History, so a cold start begins with an empty canvas instead of reopening
+  // the previous project. Same-document WebView reloads retain the marker and
+  // can still recover unsaved editor text.
+  safeStorageRemoveItem(WORKSPACE_DRAFT_KEY, { force: true });
+  return false;
 }
 
 function captureWorkspaceDraft() {
@@ -13138,7 +13230,7 @@ async function initializeApplication() {
   }
 
   initI18n();
-  restoreWorkspaceDraft();
+  if (workspaceSessionAllowsRestore()) restoreWorkspaceDraft();
   installWorkspaceDraftAutosave();
   showStorageRecoveryIssues();
   registerServiceWorker();

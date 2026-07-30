@@ -4281,7 +4281,7 @@ async function testGptImage2InpaintRoutes(cdp) {
 }
 
 async function testWorkspaceDraftSurvivesFullDocumentReload(cdp) {
-  logStep("A full WebView document reload restores unsaved prompts and the active history-backed project");
+  logStep("A same-session WebView reload restores the draft, while a cold app session starts with an empty canvas and keeps History");
   await loadFresh(
     cdp,
     "workspace-draft-before-reload",
@@ -4350,6 +4350,35 @@ async function testWorkspaceDraftSurvivesFullDocumentReload(cdp) {
       && result.activeProjectId === "qa_workspace_project",
     "Reload recovery must restore the editor draft and active project without reference-image bytes.",
     result,
+  );
+  await cdp.eval(`(() => {
+    persistWorkspaceDraft();
+    sessionStorage.removeItem(WORKSPACE_SESSION_MARKER_KEY);
+    return true;
+  })()`);
+  await loadFresh(
+    cdp,
+    "workspace-draft-cold-session",
+    { width: 1365, height: 768, mobile: false },
+    { preserveWorkspaceDraft: true },
+  );
+  const coldStart = await cdp.eval(`(() => ({
+    mode: currentMode,
+    prompt: dom.prompt.value,
+    resultCards: dom.resultGrid.querySelectorAll(".result-item").length,
+    activeProjectId: currentComicHistoryId,
+    historyProjectCount: loadHistory().filter(isHistoryProject).length,
+    draftProjectId: safeStorageReadJson(WORKSPACE_DRAFT_KEY, {}, () => true)?.activeProjectId || "",
+  }))()`);
+  assertQa(
+    coldStart.mode === "single"
+      && coldStart.prompt === ""
+      && coldStart.resultCards === 0
+      && !coldStart.activeProjectId
+      && coldStart.historyProjectCount === 1
+      && coldStart.draftProjectId === "",
+    "A new app session must not reopen previous project images, while the project remains available in History.",
+    coldStart,
   );
   await cdp.eval(`(() => {
     localStorage.removeItem(WORKSPACE_DRAFT_KEY);
@@ -5786,6 +5815,15 @@ async function testGeminiWebImageIntegration(cdp) {
       geminiHealthPromise = null;
       const submissionsAfterSharedHealthPreflight = window.__geminiBodies.length;
       const item = data?.data?.[0] || null;
+      const geminiSelectedBeforeSwitch = getSelectedSize();
+      const geminiVisibleSizes = [...document.querySelectorAll('#sizePresets > [data-size-provider="gemini"]:not(.hidden) input[name="size"]')]
+        .map(input => input.value);
+      const geminiSavedSizesHidden = document.getElementById("savedSizeRow")?.classList.contains("hidden") === true;
+      applyApiProvider("official", { forceEndpoint: true });
+      const standardSizeAfterSwitch = getSelectedSize();
+      const standardSavedSizesVisible = document.getElementById("savedSizeRow")?.classList.contains("hidden") === false;
+      applyApiProvider("geminiWeb", { forceEndpoint: true });
+      const geminiSizeAfterReturn = getSelectedSize();
       return {
         ready,
         provider: dom.apiProvider.value,
@@ -5824,6 +5862,12 @@ async function testGeminiWebImageIntegration(cdp) {
         submissionsAfterBlockedPreflight,
         submissionsAfterSharedHealthPreflight,
         leakedKey: JSON.stringify(localStorage).includes(window.__geminiKey),
+        geminiSelectedBeforeSwitch,
+        geminiVisibleSizes,
+        geminiSavedSizesHidden,
+        standardSizeAfterSwitch,
+        standardSavedSizesVisible,
+        geminiSizeAfterReturn,
       };
     })()`, true);
     assertQa(
@@ -5834,6 +5878,17 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.model === "gemini-web-image"
         && result.endpoint === "http://127.0.0.1:18160/v1",
       "The native Gemini provider must become ready without interfering with other provider routes.",
+      result,
+    );
+    assertQa(
+      result.geminiVisibleSizes.includes("1264x848")
+        && result.geminiVisibleSizes.includes("848x1264")
+        && result.geminiVisibleSizes.includes("3168x1344")
+        && result.geminiSavedSizesHidden
+        && result.standardSavedSizesVisible
+        && result.standardSizeAfterSwitch === "1536x1024"
+        && result.geminiSizeAfterReturn === result.geminiSelectedBeforeSwitch,
+      "Gemini must show only its official 1K/2K presets, while switching back restores the existing non-Gemini size set.",
       result,
     );
     assertQa(

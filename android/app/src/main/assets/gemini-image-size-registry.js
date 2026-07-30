@@ -6,13 +6,14 @@
   "use strict";
 
   const PROVIDER_ID = "geminiWeb";
-  const RATIOS = Object.freeze(["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16"]);
+  const RATIOS = Object.freeze(["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]);
   const SIZE_MODES = Object.freeze(["native_fullsize"]);
   const CROP_MODES = Object.freeze(["smart_cover", "center_cover", "contain"]);
   const TARGET_PRESETS = Object.freeze([
-    "832x1216", "1216x832", "1024x1024", "2048x2048",
-    "1536x1024", "1024x1536", "1920x1080", "1080x1920",
-    "2560x1440", "3840x2160", "2160x3840",
+    "1024x1024", "1264x848", "848x1264", "896x1200", "1200x896",
+    "928x1152", "1152x928", "768x1376", "1376x768", "1584x672",
+    "2048x2048", "1696x2528", "2528x1696", "1792x2400", "2400x1792",
+    "1856x2304", "2304x1856", "1536x2752", "2752x1536", "3168x1344",
   ]);
   const VERIFIED_NATIVE = Object.freeze({
     "1:1": Object.freeze({ width: 2048, height: 2048, resolution: "2k", status: "verified" }),
@@ -21,7 +22,7 @@
   const DEFAULTS = Object.freeze({
     sizeMode: "native_fullsize",
     ratio: "auto",
-    targetSize: "832x1216",
+    targetSize: "848x1264",
     cropMode: "smart_cover",
     qualityIntent: "standard",
     modelPreference: "auto",
