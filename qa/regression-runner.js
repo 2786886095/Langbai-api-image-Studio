@@ -4281,7 +4281,7 @@ async function testGptImage2InpaintRoutes(cdp) {
 }
 
 async function testWorkspaceDraftSurvivesFullDocumentReload(cdp) {
-  logStep("A same-session WebView reload restores the draft, while a cold app session starts with an empty canvas and keeps History");
+  logStep("Workspace reload restores editor text only; result images remain in History until explicitly restored");
   await loadFresh(
     cdp,
     "workspace-draft-before-reload",
@@ -4345,10 +4345,10 @@ async function testWorkspaceDraftSurvivesFullDocumentReload(cdp) {
       && result.mode === "comic"
       && result.prompt === "workspace global prompt"
       && result.panelPrompts.join("|") === "workspace panel one|workspace panel two"
-      && result.resultCards === 2
-      && result.failedCards === 1
-      && result.activeProjectId === "qa_workspace_project",
-    "Reload recovery must restore the editor draft and active project without reference-image bytes.",
+      && result.resultCards === 0
+      && result.failedCards === 0
+      && !result.activeProjectId,
+    "Reload recovery may restore editor text, but must not silently reopen project images or an active History project.",
     result,
   );
   await cdp.eval(`(() => {
@@ -5816,13 +5816,21 @@ async function testGeminiWebImageIntegration(cdp) {
       const submissionsAfterSharedHealthPreflight = window.__geminiBodies.length;
       const item = data?.data?.[0] || null;
       const geminiSelectedBeforeSwitch = getSelectedSize();
-      const geminiVisibleSizes = [...document.querySelectorAll('#sizePresets > [data-size-provider="gemini"]:not(.hidden) input[name="size"]')]
+      const geminiVisibleSizes = [...document.querySelectorAll('#sizePresets > [data-size-provider="gemini"]:not(.hidden):not([hidden]) input[name="size"]')]
         .map(input => input.value);
+      const standardVisibleWhileGemini = document.querySelectorAll('#sizePresets > [data-size-provider="standard"]:not(.hidden):not([hidden])').length;
+      const geminiGuideVisible = !document.getElementById("geminiSizeGuide")?.hidden
+        && !document.getElementById("geminiSizeGuide")?.classList.contains("hidden");
       const geminiSavedSizesHidden = document.getElementById("savedSizeRow")?.classList.contains("hidden") === true;
-      applyApiProvider("official", { forceEndpoint: true });
+      dom.apiProvider.value = "official";
+      dom.apiProvider.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 0));
       const standardSizeAfterSwitch = getSelectedSize();
       const standardSavedSizesVisible = document.getElementById("savedSizeRow")?.classList.contains("hidden") === false;
-      applyApiProvider("geminiWeb", { forceEndpoint: true });
+      const geminiVisibleWhileOfficial = document.querySelectorAll('#sizePresets > [data-size-provider="gemini"]:not(.hidden):not([hidden])').length;
+      dom.apiProvider.value = "geminiWeb";
+      dom.apiProvider.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 0));
       const geminiSizeAfterReturn = getSelectedSize();
       return {
         ready,
@@ -5864,9 +5872,12 @@ async function testGeminiWebImageIntegration(cdp) {
         leakedKey: JSON.stringify(localStorage).includes(window.__geminiKey),
         geminiSelectedBeforeSwitch,
         geminiVisibleSizes,
+        standardVisibleWhileGemini,
+        geminiGuideVisible,
         geminiSavedSizesHidden,
         standardSizeAfterSwitch,
         standardSavedSizesVisible,
+        geminiVisibleWhileOfficial,
         geminiSizeAfterReturn,
       };
     })()`, true);
@@ -5884,8 +5895,11 @@ async function testGeminiWebImageIntegration(cdp) {
       result.geminiVisibleSizes.includes("1264x848")
         && result.geminiVisibleSizes.includes("848x1264")
         && result.geminiVisibleSizes.includes("3168x1344")
+        && result.standardVisibleWhileGemini === 0
+        && result.geminiGuideVisible
         && result.geminiSavedSizesHidden
         && result.standardSavedSizesVisible
+        && result.geminiVisibleWhileOfficial === 0
         && result.standardSizeAfterSwitch === "1536x1024"
         && result.geminiSizeAfterReturn === result.geminiSelectedBeforeSwitch,
       "Gemini must show only its official 1K/2K presets, while switching back restores the existing non-Gemini size set.",

@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.15
+# Codex / Claude Handoff: AI 图片生成器 v1.6.16
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,11 +6,11 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.15+92`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.16+93`；线上发布状态以 GitHub Releases 实际页面为准。
 
-## v1.6.15 Gemini 高清原图下载
+## v1.6.16 工作区与 Gemini 专属尺寸实装修复
 
-- 冷启动通过 `sessionStorage` 会话标记与文档重载区分：新软件会话清空活动结果区但不删除历史项目；同一 WebView 会话内的文档重载仍可恢复未保存文字。
+- 活动结果图片与活动历史项目 ID 已从工作区草稿 schema 2 中彻底移除；任何自动重载或新启动都只可恢复未保存文字，图片必须由用户从“历史”中主动恢复。
 - Gemini 供应商启用独立官方 1K / 2K 尺寸组，其他供应商保留原尺寸、自定义尺寸和用户常用尺寸；切换供应商会分别记住本次会话中的选择。
 - 用户样图 `panel-1（1）.png` 虽为 `1536×1024`，本机任务 `gemini_1785399255491955_e36dd828` 的审计明确记录 `downloaded_fullsize=512x343`、`final_size=1536x1024`，旧版是在放大预览图。
 - `gemini-web-direct-protocol.js` 新增 `c8o8Fe` Batchexecute 原图 RPC，生成完成后以 `cid/rid/rcid/image_id` 获取 `fullSizeUrl`。
@@ -612,4 +612,3 @@ node qa\regression-runner.js
 - ChatGPT Web Image uses the dedicated local gateway route. Official OpenAI, GrsAI, and Custom API profiles remain separate and are preserved.
 - This release provides the account-isolation and sign-in-management foundation. The existing local image gateway remains responsible for image tasks and resume behavior.
 - Release version: `1.4.9+71`; Web/Android cache marker: `20260729-1-4-9`.
-

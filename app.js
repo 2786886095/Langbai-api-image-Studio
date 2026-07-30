@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.15";
+const APP_VERSION = "1.6.16";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -4017,20 +4017,25 @@ dom.deleteSavedApi.addEventListener("click", async () => {
   updateApiQuickState();
 });
 
-function detachSavedApiProfile({ clearKey = true } = {}) {
+function detachSavedApiProfile({ clearKey = true, resetProviderOptions = true } = {}) {
   apiConfigApplySequence++;
   if (dom.savedApis) dom.savedApis.value = "";
   customSelects.savedApis?.syncLabel();
   if (clearKey && dom.apiKey) dom.apiKey.value = "";
   if (dom.proxyEndpoint) dom.proxyEndpoint.value = "";
-  applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
-  applyCodexGatewayOptions(CODEX_GATEWAY_OPTION_DEFAULTS);
-  applyGeminiWebOptions(geminiImageSizes.DEFAULTS);
+  if (resetProviderOptions) {
+    applyOfficialImageOptions(OFFICIAL_IMAGE_OPTION_DEFAULTS);
+    applyCodexGatewayOptions(CODEX_GATEWAY_OPTION_DEFAULTS);
+    applyGeminiWebOptions(geminiImageSizes.DEFAULTS);
+  }
 }
 
 dom.apiProvider?.addEventListener("change", () => {
   const provider = dom.apiProvider.value;
-  detachSavedApiProfile();
+  // Provider switching is navigation, not a request to reset every provider's
+  // own options. In particular, keep the Gemini and non-Gemini size choices
+  // isolated so returning to either provider restores what the user selected.
+  detachSavedApiProfile({ resetProviderOptions: false });
   applyApiProvider(provider, { forceEndpoint: true });
   if (provider === "grsai") {
     loadGrsaiModels();
@@ -6239,8 +6244,12 @@ function syncProviderSizePresets(provider, { preferredSize = "" } = {}) {
   const currentSize = getSelectedSize();
   providerSizeSelections[activeSizePresetProvider] = currentSize;
   document.querySelectorAll("#sizePresets > [data-size-provider]").forEach(element => {
-    element.classList.toggle("hidden", element.dataset.sizeProvider !== nextMode);
+    const visible = element.dataset.sizeProvider === nextMode;
+    element.classList.toggle("hidden", !visible);
+    element.hidden = !visible;
+    element.setAttribute("aria-hidden", visible ? "false" : "true");
   });
+  if (dom.globalSizeField) dom.globalSizeField.dataset.activeSizeProvider = nextMode;
   document.getElementById("savedSizeRow")?.classList.toggle("hidden", nextMode === "gemini");
   const requested = preferredSize
     || providerSizeSelections[nextMode]
@@ -11618,11 +11627,8 @@ function captureWorkspaceDraft() {
     captionText: row.captionText || "",
     hadReference: Boolean(row.reference),
   }));
-  const singleHistoryIds = [...(dom.resultGrid?.children || [])]
-    .map(card => String(card._historyRecordId || ""))
-    .filter(Boolean);
   return {
-    schema: 1,
+    schema: 2,
     savedAt: Date.now(),
     mode: currentMode,
     prompt: dom.prompt?.value || "",
@@ -11633,8 +11639,6 @@ function captureWorkspaceDraft() {
     customHeight: dom.customHeight?.value || "",
     panels,
     captions,
-    activeProjectId: String(currentComicHistoryId || ""),
-    singleHistoryIds,
   };
 }
 
@@ -11679,11 +11683,17 @@ function restoreWorkspaceDraft() {
   const draft = safeStorageReadJson(
     WORKSPACE_DRAFT_KEY,
     null,
-    value => value && value.schema === 1 && Number.isFinite(Number(value.savedAt)),
+    value => value && value.schema === 2 && Number.isFinite(Number(value.savedAt)),
   );
   if (!draft || Date.now() - Number(draft.savedAt) > WORKSPACE_DRAFT_MAX_AGE_MS) return false;
   workspaceDraftRestoring = true;
   try {
+    // Generated results are durable History data, not workspace draft data.
+    // A reload or a new launch must never silently reopen project images in
+    // the active result grid. Users can explicitly restore a project from
+    // History when they want to continue it.
+    if (dom.resultGrid) dom.resultGrid.innerHTML = "";
+    currentComicHistoryId = null;
     switchMode(["single", "comic", "caption"].includes(draft.mode) ? draft.mode : "single");
     if (dom.prompt) dom.prompt.value = String(draft.prompt || "");
     if (dom.nImages) dom.nImages.value = String(draft.nImages || "1");
@@ -11713,21 +11723,6 @@ function restoreWorkspaceDraft() {
       });
     }
 
-    const history = loadHistory();
-    const project = draft.activeProjectId
-      ? history.find(item => item.id === draft.activeProjectId && isHistoryProject(item))
-      : null;
-    if (project) {
-      restoreHistoryItem(project);
-    } else if (Array.isArray(draft.singleHistoryIds) && draft.singleHistoryIds.length) {
-      const records = draft.singleHistoryIds
-        .map(id => history.find(item => item.id === id && !isHistoryProject(item)))
-        .filter(Boolean);
-      if (records.length) {
-        dom.resultGrid.innerHTML = "";
-        records.reverse().forEach(restoreHistoryItem);
-      }
-    }
     refreshLocalizedUiState();
     return true;
   } finally {

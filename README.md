@@ -4,7 +4,7 @@
 
 「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的中文图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、ChatGPT 网页生图、Gemini 网页生图、GrsAI 与 OpenAI 兼容接口。
 
-## v1.6.15：Gemini 高清原图下载修复
+## v1.6.16：工作区与 Gemini 专属尺寸实装修复
 
 - 冷启动不再把上次项目图片重新铺回结果区；项目与图片继续保留在“历史”中。仅同一软件会话内的 WebView 文档重载会恢复未保存文字，兼顾防闪白恢复和干净启动。
 - 选择 Gemini 网页生图时，分辨率区自动切换为 Google 官方 1K / 2K 比例尺寸；切回官方 OpenAI、ChatGPT 网页、GrsAI 或自定义 API 后恢复原有尺寸与自定义尺寸。尺寸表依据 [Google 官方图片生成文档](https://ai.google.dev/gemini-api/docs/image-generation)。

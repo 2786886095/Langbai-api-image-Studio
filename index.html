@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260730-1-6-15">
+  <link rel="stylesheet" href="style.css?v=20260730-1-6-16">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -369,7 +369,7 @@
               <div class="provider-facts">
                 <span id="geminiFacts">临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计</span>
               </div>
-              <p class="provider-capability-note" id="geminiCapabilityNote">构图比例由全局分辨率自动推导；网页原图下载后会无拉伸裁切缩放到所选全局尺寸。</p>
+              <p class="provider-capability-note" id="geminiCapabilityNote">选择 Gemini 后使用 Google 官方比例尺寸；下载文件保持网页原图，不裁切、不缩小、不放大。</p>
             </section>
 
             <section class="provider-panel provider-panel-grsai" id="grsaiProviderPanel" aria-labelledby="grsaiProviderTitle">
@@ -515,6 +515,10 @@
                 <input type="number" id="customHeight" class="custom-size-num" placeholder="高" min="64" max="4096">
               </span>
             </label>
+            <div class="gemini-size-header hidden" id="geminiSizeGuide" data-size-provider="gemini">
+              <strong>Gemini 官方尺寸</strong>
+              <span>按 Google 官方“比例 × 1K/2K”标准选择；保存时保留网页返回的原图像素。</span>
+            </div>
             <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="1024x1024"><span>1024×1024</span><small>1K · 1:1</small></label>
             <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="1264x848"><span>1264×848</span><small>1K · 3:2</small></label>
             <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="848x1264"><span>848×1264</span><small>1K · 2:3</small></label>
@@ -843,7 +847,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.15</strong>
+            <strong id="currentVersionLabel">v1.6.16</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -1040,12 +1044,12 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260730-1-6-15"></script>
-  <script src="image-task-stability.js?v=20260730-1-6-15"></script>
-  <script src="codex-image-gateway.js?v=20260730-1-6-15"></script>
-  <script src="gemini-image-size-registry.js?v=20260730-1-6-15"></script>
-  <script src="gemini-web-image-adapter.js?v=20260730-1-6-15"></script>
-  <script src="gemini-selector-pack.js?v=20260730-1-6-15"></script>
-  <script src="app.js?v=20260730-1-6-15"></script>
+  <script src="bootstrap-guard.js?v=20260730-1-6-16"></script>
+  <script src="image-task-stability.js?v=20260730-1-6-16"></script>
+  <script src="codex-image-gateway.js?v=20260730-1-6-16"></script>
+  <script src="gemini-image-size-registry.js?v=20260730-1-6-16"></script>
+  <script src="gemini-web-image-adapter.js?v=20260730-1-6-16"></script>
+  <script src="gemini-selector-pack.js?v=20260730-1-6-16"></script>
+  <script src="app.js?v=20260730-1-6-16"></script>
 </body>
 </html>

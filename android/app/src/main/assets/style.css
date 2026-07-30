@@ -1541,6 +1541,19 @@ select.custom-select-native {
   line-height: 1.45;
 }
 
+.gemini-size-header {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--primary-bg) 76%, var(--surface));
+}
+.gemini-size-header strong { color: var(--text); font-size: 0.82rem; }
+.gemini-size-header span { color: var(--text2); font-size: 0.7rem; line-height: 1.45; }
+
 .size-option[data-size-kind="official"] {
   position: relative;
 }
