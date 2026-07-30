@@ -253,9 +253,14 @@
       /\u989d\u5ea6\u9650\u5236\u5f71\u54cd\u56fe\u7247\u751f\u6210|\u989d\u5ea6\u91cd\u7f6e\u540e\u624d\u80fd\u751f\u6210\u56fe\u7247|\u56fe\u7247\u751f\u6210.*(?:\u989d\u5ea6|\u9650\u5236)|(?:\u989d\u5ea6|\u6b21\u6570).*(?:\u8017\u5c3d|\u7528\u5b8c|\u91cd\u7f6e)|image generation.*(?:limit|quota)|quota.*image generation/i.test(text)
     ) {
       return {
-        code: "quota_exhausted",
-        accountStatus: "quota_exhausted",
-        message: "\u5f53\u524d Gemini \u8d26\u53f7\u7684\u56fe\u7247\u751f\u6210\u989d\u5ea6\u5df2\u8017\u5c3d\uff0c\u8bf7\u7b49\u5f85\u989d\u5ea6\u91cd\u7f6e\u6216\u5207\u6362\u8d26\u53f7\u3002",
+        // StreamGenerate and the current Gemini page image tool do not always
+        // share the same quota route. A terminal quota response here proves
+        // that this direct request produced no image, but it does not prove
+        // that the signed-in account cannot still generate through the page.
+        code: "gemini_direct_quota_unavailable",
+        accountStatus: "",
+        safeToFallbackToUi: true,
+        message: "\u5f53\u524d Gemini \u76f4\u8fde\u751f\u56fe\u8def\u5f84\u989d\u5ea6\u4e0d\u53ef\u7528\uff0c\u6b63\u5728\u5207\u6362\u5230\u7f51\u9875\u751f\u56fe\u8def\u5f84\u3002",
       };
     }
     if (/too many requests|rate.?limit|\u7a0d\u540e\u518d\u8bd5|\u8bf7\u6c42\u8fc7\u4e8e\u9891\u7e41/i.test(text)) {
@@ -401,6 +406,7 @@
               : response.status === 401 || response.status === 403
                 ? "needs_login"
                 : ""),
+          safeToFallbackToUi: classified?.safeToFallbackToUi === true,
           ...(requestId ? { requestId } : {}),
           directSubmissionStarted: true,
         },
@@ -417,6 +423,7 @@
           failure.code,
           {
             accountStatus: failure.accountStatus,
+            safeToFallbackToUi: failure.safeToFallbackToUi === true,
             directSubmissionStarted: true,
           },
         );

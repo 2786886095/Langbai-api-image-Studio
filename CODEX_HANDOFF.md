@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.11
+# Codex / Claude Handoff: AI 图片生成器 v1.6.12
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.11+88`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.12+89`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.12 Gemini 直连额度误判与网页回退修复
+
+- 现场证据：同一账号、同一内置浏览器手动生成“芙宁娜图片”成功，但 `StreamGenerate` 直连响应为“额度重置后才能生成图片”。
+- 根因：Gemini 当前网页生图工具与旧直连协议并不总是共享同一条额度路由；软件把直连路由拒绝错误升级成账号全局额度耗尽。
+- `gemini-web-direct-protocol.js` 现在返回 `gemini_direct_quota_unavailable` 和 `safeToFallbackToUi=true`，不再直接污染账号状态。
+- `gemini-embedded-worker.js` 仅在直连明确终止且确认没有图片时回退网页流程；可能已提交或状态不明的错误仍禁止重复提交。
+- 若网页流程也明确返回额度耗尽，原有账号状态记录和自动切换逻辑继续生效。
 
 ## v1.6.11 Gemini 中文额度响应识别修复
 

@@ -229,9 +229,10 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.equal(images[0].imageId, "generated-image-id");
   assert.match(images[0].url, /googleusercontent\.com/);
   const expectedQuota = {
-    code: "quota_exhausted",
-    accountStatus: "quota_exhausted",
-    message: "当前 Gemini 账号的图片生成额度已耗尽，请等待额度重置或切换账号。",
+    code: "gemini_direct_quota_unavailable",
+    accountStatus: "",
+    safeToFallbackToUi: true,
+    message: "当前 Gemini 直连生图路径额度不可用，正在切换到网页生图路径。",
   };
   assert.deepEqual(
     JSON.parse(JSON.stringify(
@@ -257,6 +258,13 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(source, /uploadedUrl\.length > 8192/);
   assert.match(source, /temporaryVerified: false/);
   assert.match(source, /StreamGenerate/);
+  const worker = fs.readFileSync(
+    path.join(__dirname, "..", "gemini-embedded-worker.js"),
+    "utf8",
+  );
+  assert.match(worker, /gemini_direct_quota_unavailable/);
+  assert.match(worker, /safeAfterDirectSubmission/);
+  assert.match(worker, /direct_protocol_fallback/);
 });
 
 test("writes exact global dimensions into the cached Gemini task result", () => {

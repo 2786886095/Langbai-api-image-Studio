@@ -57,10 +57,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.11";
-const expectedBuild = 88;
-const expectedCacheToken = "20260730-1-6-11";
-const expectedSwCache = "ai-image-generator-1-6-11-20260730";
+const expectedVersion = "1.6.12";
+const expectedBuild = 89;
+const expectedCacheToken = "20260730-1-6-12";
+const expectedSwCache = "ai-image-generator-1-6-12-20260730";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -75,9 +75,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.11/);
-assert.match(html, /20260730-1-6-11/g);
-assert.match(sw, /ai-image-generator-1-6-11-20260730/);
+assert.match(html, /v1\.6\.12/);
+assert.match(html, /20260730-1-6-12/g);
+assert.match(sw, /ai-image-generator-1-6-12-20260730/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -91,10 +91,10 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,11,88/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.11"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.11";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-11/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,12,89/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.12"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.12";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-12/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -104,10 +104,10 @@ assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
 assert.match(workflow, /node qa\/gemini-temporary-chat-state\.test\.js/);
 assert.match(workflow, /node --test qa\/service-worker-consistency\.test\.js/);
 assert.match(workflow, /SHA256SUMS\.txt/);
-assert.match(embeddedGatewayLauncher, /version="1\.6\.11"/);
-assert.match(readme, /^## v1\.6\.11[：:]/m);
-assert.match(handoff, /^# .*v1\.6\.11$/m);
-assert.match(handoff, /源码版本 `1\.6\.11\+88`/);
+assert.match(embeddedGatewayLauncher, /version="1\.6\.12"/);
+assert.match(readme, /^## v1\.6\.12[：:]/m);
+assert.match(handoff, /^# .*v1\.6\.12$/m);
+assert.match(handoff, /源码版本 `1\.6\.12\+89`/);
 assert.match(windowsInstaller, /AppVersion=\{#MyAppVersion\}/);
 assert.match(windowsInstaller, /THIRD_PARTY_NOTICES\.md/);
 assert.match(windowsInstaller, /THIRD_PARTY_LICENSES/);
@@ -300,6 +300,16 @@ for (const removedId of [
 }
 assert.match(geminiEmbeddedWorker, /__LANGBAI_GEMINI_NATIVE_REQUEST/);
 assert.match(geminiEmbeddedWorker, /bodyBase64/);
+assert.match(
+  geminiDirectProtocol,
+  /gemini_direct_quota_unavailable[\s\S]*safeToFallbackToUi:\s*true/,
+  "A StreamGenerate-only quota rejection must fall back to the working Gemini page route",
+);
+assert.match(
+  geminiEmbeddedWorker,
+  /safeAfterDirectSubmission[\s\S]*gemini_direct_quota_unavailable[\s\S]*direct_protocol_fallback/,
+  "The embedded worker must safely continue through the page after a terminal direct-route quota rejection",
+);
 assert.match(geminiEmbeddedBrowser, /GeminiMobileEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /GeminiWindowsEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /gemini-embedded-worker\.js/);

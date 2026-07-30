@@ -2602,6 +2602,7 @@ if (typeof module !== "undefined" && module.exports) {
   async function processTask(task) {
     const request = task.request || {};
     const claimHeartbeat = startClaimHeartbeat(task);
+    let directFallbackReason = "";
     try {
       const resumeAction = LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.taskResumeAction({
         resumedClaim: task.resumed_claim === true,
@@ -2649,13 +2650,21 @@ if (typeof module !== "undefined" && module.exports) {
           "gemini_direct_bootstrap_unavailable",
           "gemini_direct_protocol_unavailable",
           "gemini_direct_upload_unavailable",
+          "gemini_direct_quota_unavailable",
         ]);
+        const safeAfterDirectSubmission =
+          directError?.safeToFallbackToUi === true
+          && directError?.code === "gemini_direct_quota_unavailable";
         if (
-          directError?.directSubmissionStarted === true
-          || !safeFallbackCodes.has(String(directError?.code || ""))
+          (directError?.directSubmissionStarted === true && !safeAfterDirectSubmission)
+          || (
+            !safeFallbackCodes.has(String(directError?.code || ""))
+            && !safeAfterDirectSubmission
+          )
         ) {
           throw directError;
         }
+        directFallbackReason = String(directError?.code || "direct_protocol_unavailable");
         notifyNative("direct_protocol_fallback", {
           status: "fallback",
           code: directError.code,
@@ -2766,6 +2775,9 @@ if (typeof module !== "undefined" && module.exports) {
         downloaded_fullsize: `${processed.source.width}x${processed.source.height}`,
         final_size: `${processed.final.width}x${processed.final.height}`,
         transform: processed.transform,
+        ...(directFallbackReason ? {
+          direct_protocol_fallback: directFallbackReason,
+        } : {}),
       };
       await persistTaskResult(task, blob, audit, claimHeartbeat);
     } catch (error) {

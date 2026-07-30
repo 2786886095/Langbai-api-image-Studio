@@ -789,7 +789,7 @@ class GeminiWebGatewayManager {
         await _json(response, 200, <String, Object?>{
           'status': 'ok',
           'provider': 'gemini_web',
-          'version': '1.6.11',
+          'version': '1.6.12',
           'protocol_version': '1',
           'companion_connected': companionConnected,
           'session_available': browserConnected && activeAccount.loginReady,
