@@ -3,6 +3,7 @@
 #include <functional>
 #include <atomic>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -60,6 +61,9 @@ public:
     HRESULT dispatchTrustedMouseClick(
         double x,
         double y,
+        std::function<void(HRESULT, std::string)> callback);
+    HRESULT dispatchTrustedTextInput(
+        PCWSTR text,
         std::function<void(HRESULT, std::string)> callback);
     HRESULT addScriptToExecuteOnDocumentCreated(
         PCWSTR javaScriptString,
@@ -746,6 +750,57 @@ HRESULT MyWebViewImpl::dispatchTrustedMouseClick(
     };
     (*runner)();
     return S_OK;
+}
+
+HRESULT MyWebViewImpl::dispatchTrustedTextInput(
+    PCWSTR text,
+    std::function<void(HRESULT, std::string)> callback)
+{
+    if (!m_pWebview || text == nullptr) {
+        return E_INVALIDARG;
+    }
+    const std::wstring value(text);
+    if (value.empty() || value.size() > 1024 * 1024) {
+        return E_INVALIDARG;
+    }
+    std::wostringstream escaped;
+    escaped << L"{\"text\":\"";
+    for (const wchar_t character : value) {
+        switch (character) {
+        case L'\"': escaped << L"\\\""; break;
+        case L'\\': escaped << L"\\\\"; break;
+        case L'\b': escaped << L"\\b"; break;
+        case L'\f': escaped << L"\\f"; break;
+        case L'\n': escaped << L"\\n"; break;
+        case L'\r': escaped << L"\\r"; break;
+        case L'\t': escaped << L"\\t"; break;
+        default:
+            if (character < 0x20) {
+                escaped << L"\\u"
+                        << std::hex << std::setw(4) << std::setfill(L'0')
+                        << static_cast<unsigned int>(character)
+                        << std::dec;
+            } else {
+                escaped << character;
+            }
+        }
+    }
+    escaped << L"\"}";
+    const std::wstring params = escaped.str();
+    return m_pWebview->CallDevToolsProtocolMethod(
+        L"Input.insertText",
+        params.c_str(),
+        Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
+            [callback](HRESULT error, LPCWSTR resultObjectAsJson) -> HRESULT {
+                if (callback) {
+                    callback(
+                        error,
+                        resultObjectAsJson == nullptr
+                            ? std::string()
+                            : utf8_encode(resultObjectAsJson));
+                }
+                return S_OK;
+            }).Get());
 }
 
 HRESULT MyWebViewImpl::addScriptChannelByName(LPCWSTR channelName)

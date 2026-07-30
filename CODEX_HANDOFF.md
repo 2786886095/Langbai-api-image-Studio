@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.8
+# Codex / Claude Handoff: AI 图片生成器 v1.6.9
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,17 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.8+85`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.9+86`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.9 Gemini 网页直接调用
+
+- `gemini-web-direct-protocol.js` 在已登录 Gemini WebView 内直接调用 `StreamGenerate`，Cookie 不离开页面进程，单图与漫画分镜均不再依赖可见输入框。
+- 请求使用临时协议标志，但不会把它伪报成“临时对话已验证”；参考图使用 Gemini 上传通道，生成图片 URL 先写入私有恢复检查点，再交给现有下载、缓存、尺寸校验和原子保存链。
+- 任务增加独立 claim 心跳；过期 claim 若可能已经提交会终止为“提交状态未知”，若已有图片检查点则只继续下载和保存，均不会自动重新生成。
+- `gemini-embedded-worker.js` 只有在直接协议尚未提交请求且模块/令牌不可用时才进入旧页面备用流程；提交开始后禁止跨路线重试，避免重复扣额度。
+- “额度限制影响图片生成”归类为 `quota_exhausted`，由现有网关把任务转交下一可用账号；没有其它账号时显示真实额度原因。
+- Windows WebView2 增加 CDP `Input.insertText` 备用桥，但直接调用为默认路线。发布前必须由 Windows CI 编译该 C++ 变更。
+- 协议互操作参考：`https://github.com/HanaokaYuzu/Gemini-API`。本仓没有引入该 Python 包，也没有保存或导出 Google Cookie。
 
 ## v1.6.8 全面稳定性与真实就绪门禁
 
@@ -441,9 +451,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.4.6"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.6.9"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 生成 `SHA256SUMS.txt`，再创建 `v1.4.6` Release；不要在 CI 未绿前创建 Release。
+5. 使用 CI 的 `release-checksums` 产物核对并发布 `SHA256SUMS.txt`，再创建 `v1.6.9` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -459,7 +469,7 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 保留旧版本的详细历史；本文件末尾的 v1.4.6 部分是当前状态的权威摘要。
+- `CLAUDE_HANDOFF.md` 与本文件后半部分保留旧版本历史；当前状态以本文顶部的 v1.6.9 章节为准。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
 
 ## v1.4.5：专用 Codex 生图网关接入
@@ -509,7 +519,7 @@ node qa\regression-runner.js
 - 本机缺少 Visual Studio C++ 工具链，Windows 构建必须以 GitHub Actions 为准。
 - 本机没有 `android/key.properties`，本地 APK 使用 debug fallback 签名；正式 Release 必须由 CI 恢复既有 keystore，并核对 SHA1 `C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
 
-## v1.4.6：Codex 网关预览鉴权修复（当前）
+## v1.4.6：Codex 网关预览鉴权修复（历史）
 
 - 修复异步任务成功后预览组件继续使用受保护 URL、导致无 Bearer 的 `<img>` 请求返回 401 的问题。
 - 网关文件 URL 会先由原生桥携带内存中的 Bearer Key 下载，结果只保留 `b64_json`，不再保留受保护的 `url` 或 `original_url`。

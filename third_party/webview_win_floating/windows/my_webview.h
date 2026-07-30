@@ -54,6 +54,9 @@ public:
 		double x,
 		double y,
 		std::function<void(HRESULT, std::string)> callback) = 0;
+	virtual HRESULT dispatchTrustedTextInput(
+		PCWSTR text,
+		std::function<void(HRESULT, std::string)> callback) = 0;
 	virtual HRESULT addScriptToExecuteOnDocumentCreated(
 		LPCWSTR javaScriptString,
 		std::function<void(HRESULT)> callback) = 0;

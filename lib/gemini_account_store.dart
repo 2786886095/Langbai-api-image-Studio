@@ -23,6 +23,7 @@ class GeminiAccountMetadata {
     this.lastQuotaAt = '',
     this.lastVerifiedAt = '',
     this.temporaryChatAvailable = false,
+    this.directProtocolAvailable = false,
     this.fullsizeDownloadAvailable = false,
     this.effectiveConcurrency = 1,
     this.lastError = '',
@@ -42,6 +43,7 @@ class GeminiAccountMetadata {
   final String lastQuotaAt;
   final String lastVerifiedAt;
   final bool temporaryChatAvailable;
+  final bool directProtocolAvailable;
   final bool fullsizeDownloadAvailable;
   final int effectiveConcurrency;
   final String lastError;
@@ -56,7 +58,7 @@ class GeminiAccountMetadata {
       status == 'ready' &&
       quotaState != 'exhausted' &&
       !coolingDown &&
-      temporaryChatAvailable &&
+      (temporaryChatAvailable || directProtocolAvailable) &&
       fullsizeDownloadAvailable;
 
   GeminiAccountMetadata copyWith({
@@ -74,6 +76,7 @@ class GeminiAccountMetadata {
     String? lastQuotaAt,
     String? lastVerifiedAt,
     bool? temporaryChatAvailable,
+    bool? directProtocolAvailable,
     bool? fullsizeDownloadAvailable,
     int? effectiveConcurrency,
     String? lastError,
@@ -94,6 +97,8 @@ class GeminiAccountMetadata {
         lastVerifiedAt: lastVerifiedAt ?? this.lastVerifiedAt,
         temporaryChatAvailable:
             temporaryChatAvailable ?? this.temporaryChatAvailable,
+        directProtocolAvailable:
+            directProtocolAvailable ?? this.directProtocolAvailable,
         fullsizeDownloadAvailable:
             fullsizeDownloadAvailable ?? this.fullsizeDownloadAvailable,
         effectiveConcurrency: effectiveConcurrency ?? this.effectiveConcurrency,
@@ -115,6 +120,7 @@ class GeminiAccountMetadata {
         if (lastQuotaAt.isNotEmpty) 'last_quota_at': lastQuotaAt,
         'last_verified_at': lastVerifiedAt,
         'temporary_chat_available': temporaryChatAvailable,
+        'direct_protocol_available': directProtocolAvailable,
         'fullsize_download_available': fullsizeDownloadAvailable,
         'effective_concurrency': effectiveConcurrency,
         'available': available,
@@ -141,6 +147,7 @@ class GeminiAccountMetadata {
       lastQuotaAt: json['last_quota_at']?.toString() ?? '',
       lastVerifiedAt: json['last_verified_at']?.toString() ?? '',
       temporaryChatAvailable: json['temporary_chat_available'] == true,
+      directProtocolAvailable: json['direct_protocol_available'] == true,
       fullsizeDownloadAvailable: json['fullsize_download_available'] == true,
       effectiveConcurrency:
           int.tryParse(json['effective_concurrency']?.toString() ?? '') ?? 1,

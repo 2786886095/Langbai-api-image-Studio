@@ -21,6 +21,12 @@ void main() {
       claimId: 'claim_test',
       claimedAccountId: 'account_test',
       claimExpiresAt: DateTime.utc(2026, 7, 29, 12),
+      recovery: const <String, Object?>{
+        'phase': 'direct_image_ready',
+        'image': <String, Object?>{
+          'url': 'https://lh3.googleusercontent.com/example'
+        },
+      },
     );
 
     final encoded = jsonEncode(<Object?>[task.toPersistenceJson()]);
@@ -33,7 +39,29 @@ void main() {
     expect(restored.claimedAccountId, 'account_test');
     expect(restored.claimExpiresAt, DateTime.utc(2026, 7, 29, 12));
     expect(restored.request['provider'], 'geminiWeb');
+    expect(restored.recovery['phase'], 'direct_image_ready');
+    expect(
+      task.toJson().containsKey('recovery'),
+      isFalse,
+      reason: 'Recovery URLs are private companion checkpoints.',
+    );
     expect(restored.terminal, isFalse);
+  });
+
+  test('direct protocol capability does not claim verified Temporary Chat', () {
+    final capabilities = geminiWebCapabilities(
+      companionConnected: true,
+      sessionAvailable: true,
+      generationReady: true,
+      temporaryChatAvailable: false,
+      directProtocolAvailable: true,
+      fullsizeDownloadAvailable: true,
+      selectorPackCompatible: true,
+    );
+    expect(capabilities['temporary_chat_available'], isFalse);
+    expect(capabilities['direct_protocol_available'], isTrue);
+    expect(capabilities['temporary_chat_required'], isFalse);
+    expect(capabilities['temporary_chat_requested_by_direct_protocol'], isTrue);
   });
 
   test('Gemini terminal states are explicit', () {
@@ -113,5 +141,40 @@ void main() {
     );
 
     expect(selected?.id, 'older');
+  });
+
+  test('expired post-submit claims never become a fresh paid submission', () {
+    GeminiImageTask task(String status, {bool recoverable = false}) =>
+        GeminiImageTask(
+          id: status,
+          clientRequestId: status,
+          request: const <String, Object?>{},
+          status: status,
+          recovery: recoverable
+              ? const <String, Object?>{'phase': 'direct_image_ready'}
+              : const <String, Object?>{},
+        );
+
+    expect(
+      expiredGeminiClaimAction(task('uploading_references')),
+      'requeue_before_submission',
+    );
+    for (final status in <String>[
+      'submitting',
+      'generating',
+      'locating_full_size',
+    ]) {
+      expect(
+        expiredGeminiClaimAction(task(status)),
+        'fail_unknown_submission',
+        reason: status,
+      );
+    }
+    expect(
+      expiredGeminiClaimAction(
+        task('locating_full_size', recoverable: true),
+      ),
+      'resume_generated_image',
+    );
   });
 }

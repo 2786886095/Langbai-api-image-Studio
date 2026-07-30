@@ -15,6 +15,12 @@ void main() {
     expect(source, contains(r'$_.ExecutablePath'));
     expect(source, contains('[IO.File]::Open'));
     expect(source, contains('[IO.FileShare]::None'));
+    expect(source, contains('THIRD_PARTY_NOTICES.md'));
+    expect(source, contains(r'THIRD_PARTY_LICENSES\*'));
+    expect(
+      await File('THIRD_PARTY_LICENSES/chatgpt2api-MIT.txt').readAsString(),
+      contains('MIT License'),
+    );
     expect(source, isNot(contains('/F /IM "{#MyGatewayExeName}"')));
   });
 }

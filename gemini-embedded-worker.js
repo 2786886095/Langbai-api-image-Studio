@@ -386,6 +386,9 @@ if (typeof module !== "undefined" && module.exports) {
       const listener = event => {
         const data = event?.data;
         if (
+          event.source !== window
+          || event.origin !== location.origin
+          ||
           data?.source !== "langbai-gemini-native"
           || data?.type !== "native-response"
           || data?.requestId !== requestId
@@ -408,7 +411,9 @@ if (typeof module !== "undefined" && module.exports) {
         requestId,
         ...(type === "native-request" ? { payload } : payload),
       };
-      if (
+      if (typeof __LANGBAI_GEMINI_NATIVE_SEND === "function") {
+        __LANGBAI_GEMINI_NATIVE_SEND(command);
+      } else if (
         type !== "native-request"
         && typeof globalThis.__LANGBAI_GEMINI_NATIVE_REPORT === "function"
       ) {
@@ -481,9 +486,15 @@ if (typeof module !== "undefined" && module.exports) {
     if (signature === lastNativeReportSignature) return;
     lastNativeReportSignature = signature;
     try { config.reportStatus?.(message); } catch {}
-    try { globalThis.__LANGBAI_GEMINI_NATIVE_REPORT?.(message); } catch {}
-    try { globalThis.chrome?.webview?.postMessage?.(message); } catch {}
-    try { globalThis.webkit?.messageHandlers?.langbaiGemini?.postMessage?.(message); } catch {}
+    try {
+      if (typeof __LANGBAI_GEMINI_NATIVE_SEND === "function") {
+        __LANGBAI_GEMINI_NATIVE_SEND(message);
+      } else {
+        globalThis.__LANGBAI_GEMINI_NATIVE_REPORT?.(message);
+        globalThis.chrome?.webview?.postMessage?.(message);
+        globalThis.webkit?.messageHandlers?.langbaiGemini?.postMessage?.(message);
+      }
+    } catch {}
     try {
       dispatchEvent(new CustomEvent("langbai-gemini-native-report", { detail: message }));
     } catch {}
@@ -852,7 +863,11 @@ if (typeof module !== "undefined" && module.exports) {
   }
 
   async function publishIdentity(config) {
-    const temporary = !!findTemporaryChatControl() || isTemporaryChatSurfaceActive();
+    const directProtocolAvailable =
+      typeof globalThis.LANGBAI_GEMINI_DIRECT_PROTOCOL?.generate === "function";
+    const temporary = directProtocolAvailable
+      || !!findTemporaryChatControl()
+      || isTemporaryChatSurfaceActive();
     const login = geminiLoginReadiness();
     const status = login.ready
       ? "ready"
@@ -866,6 +881,7 @@ if (typeof module !== "undefined" && module.exports) {
       masked_email: maskedEmail(),
       status,
       temporary_chat_available: temporary,
+      direct_protocol_available: directProtocolAvailable,
       fullsize_download_available: true,
       effective_concurrency: 1,
       platform: config.embedded ? `embedded:${navigator.platform || "webview"}` : (navigator.platform || "browser"),
@@ -918,6 +934,7 @@ if (typeof module !== "undefined" && module.exports) {
       account_uuid: bridge.accountUuid,
       masked_email: body.masked_email,
       temporary_chat_available: temporary,
+      direct_protocol_available: directProtocolAvailable,
       fullsize_download_available: true,
       selector_pack_compatible: snapshot.selector_pack_compatible !== false,
       login_reason: login.reason,
@@ -1463,13 +1480,14 @@ if (typeof module !== "undefined" && module.exports) {
     const inserted = document.execCommand?.("insertText", false, text) === true;
     selection?.removeAllRanges();
     if (!inserted || !composerText(composer)) {
-      composer.textContent = text;
-      composer.dispatchEvent(new InputEvent("beforeinput", {
+      const beforeInput = new InputEvent("beforeinput", {
         bubbles: true,
         cancelable: true,
         inputType: "insertText",
         data: text,
-      }));
+      });
+      composer.dispatchEvent(beforeInput);
+      composer.textContent = text;
       composer.dispatchEvent(new InputEvent("input", {
         bubbles: true,
         inputType: "insertText",
@@ -1480,6 +1498,22 @@ if (typeof module !== "undefined" && module.exports) {
     return "exec_command_insert_text";
   }
 
+  async function setComposerTextTrusted(composer, text) {
+    composer.focus();
+    const selection = globalThis.getSelection?.();
+    const range = document.createRange();
+    range.selectNodeContents(composer);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    await postMessageNativeCommand(
+      "trusted-text-request",
+      { text },
+      15000,
+    );
+    selection?.removeAllRanges();
+    return "trusted_cdp_insert_text";
+  }
+
   function composerText(composer) {
     if (!(composer instanceof Element)) return "";
     const value = composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement
@@ -1488,15 +1522,87 @@ if (typeof module !== "undefined" && module.exports) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
-  async function waitForComposerPrompt(composer, expectedPrompt, timeoutMs = 5000) {
+  async function waitForStableComposerPrompt(
+    expectedPrompt,
+    timeoutMs = 4000,
+    stableMs = 1000,
+  ) {
     const probe = String(expectedPrompt || "").replace(/\s+/g, " ").trim().slice(-160);
     const deadline = Date.now() + timeoutMs;
+    let stableComposer = null;
+    let stableSince = 0;
     while (Date.now() < deadline) {
+      const composer = findComposer();
       const current = composerText(composer);
-      if (current && (!probe || current.includes(probe))) return true;
+      const matches = composer?.isConnected
+        && current
+        && (!probe || current.includes(probe));
+      if (matches) {
+        if (composer !== stableComposer) {
+          stableComposer = composer;
+          stableSince = Date.now();
+        } else if (Date.now() - stableSince >= stableMs) {
+          return composer;
+        }
+      } else {
+        stableComposer = null;
+        stableSince = 0;
+      }
       await sleep(100);
     }
-    return false;
+    return null;
+  }
+
+  async function writeStableComposerPrompt(expectedPrompt, maxAttempts = 4) {
+    const methods = [];
+    let sawComposer = false;
+    const config = readEmbeddedConfig() || {};
+    const useTrustedText = config.embedded === true
+      && String(config.platform || "").toLowerCase() === "windows";
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const composer = findComposer();
+      if (!composer) {
+        await sleep(300);
+        continue;
+      }
+      sawComposer = true;
+      let method;
+      if (useTrustedText) {
+        try {
+          method = await setComposerTextTrusted(composer, expectedPrompt);
+        } catch (error) {
+          methods.push(`trusted_error:${String(error?.code || "unknown")}`);
+          method = setComposerText(composer, expectedPrompt);
+        }
+      } else {
+        method = setComposerText(composer, expectedPrompt);
+      }
+      methods.push(method);
+      const stableComposer = await waitForStableComposerPrompt(expectedPrompt);
+      if (stableComposer) {
+        return {
+          composer: stableComposer,
+          method,
+          attempt,
+          methods,
+        };
+      }
+      // Model/tool/temporary-chat changes can remount Gemini's Quill editor.
+      // Retry only before any send action, always against the latest editor.
+      await sleep(250);
+    }
+    throw Object.assign(
+      new Error(
+        sawComposer
+          ? `Gemini 输入框反复刷新，未能稳定保存本次提示词。methods=${methods.join(",")}`
+          : "未识别到 Gemini 输入框",
+      ),
+      {
+        code: sawComposer
+          ? "gemini_composer_input_unstable"
+          : "selector_pack_outdated",
+      },
+    );
   }
 
   function findSendControl() {
@@ -2143,7 +2249,13 @@ if (typeof module !== "undefined" && module.exports) {
     }
   }
 
-  async function event(task, status, error = null, audit = null) {
+  async function event(
+    task,
+    status,
+    error = null,
+    audit = null,
+    recovery = null,
+  ) {
     const response = await bridgeFetch(`companion/tasks/${encodeURIComponent(task.id)}/events`, {
       method: "POST",
       headers: {
@@ -2155,6 +2267,7 @@ if (typeof module !== "undefined" && module.exports) {
         status,
         error,
         audit,
+        ...(recovery ? { recovery } : {}),
         account_id: bridge.accountId || "",
         claim_id: task.claim_id || "",
       }),
@@ -2172,14 +2285,332 @@ if (typeof module !== "undefined" && module.exports) {
     return body;
   }
 
+  function startClaimHeartbeat(task) {
+    let stopped = false;
+    let inFlight = null;
+    let fatalError = null;
+    const pulse = async () => {
+      if (stopped) return;
+      if (fatalError) throw fatalError;
+      if (inFlight) return inFlight;
+      inFlight = (async () => {
+        const response = await bridgeFetch(
+          `companion/tasks/${encodeURIComponent(task.id)}/heartbeat`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Langbai-Account-Id": bridge.accountId || "",
+              "X-Langbai-Claim-Id": task.claim_id || "",
+            },
+            body: JSON.stringify({
+              account_id: bridge.accountId || "",
+              claim_id: task.claim_id || "",
+            }),
+          },
+        );
+        const body = await response.json().catch(() => ({}));
+        if (body?.status === "cancelled") {
+          throw Object.assign(
+            new Error("Gemini task was cancelled"),
+            { code: "task_cancelled" },
+          );
+        }
+        if (!response.ok) {
+          throw Object.assign(
+            new Error(
+              body?.error?.message
+              || `Gemini companion heartbeat failed: HTTP ${response.status}`,
+            ),
+            { code: body?.error?.code || "companion_heartbeat_failed" },
+          );
+        }
+      })()
+        .catch(error => {
+          fatalError = error;
+          throw error;
+        })
+        .finally(() => {
+          inFlight = null;
+        });
+      return inFlight;
+    };
+    const timer = setInterval(() => {
+      void pulse().catch(error => {
+        notifyNative("claim_heartbeat_error", {
+          status: "failed",
+          code: error?.code || "companion_heartbeat_failed",
+          message: String(error?.message || error),
+          task_id: task.id,
+        });
+      });
+    }, 30000);
+    return Object.freeze({
+      pulse,
+      stop() {
+        stopped = true;
+        clearInterval(timer);
+      },
+    });
+  }
+
+  async function downloadDirectGeneratedImage(image) {
+    const original = String(image?.url || "");
+    if (!/^https:\/\//i.test(original)) {
+      throw Object.assign(
+        new Error("Gemini 直接调用没有返回有效图片地址。"),
+        { code: "fullsize_download_missing", directSubmissionStarted: true },
+      );
+    }
+    const highResolution = original
+      .replace(/=s\d+(?:-[a-z]+)?(?:\?.*)?$/i, "")
+      + "=s2048-rj";
+    let best = null;
+    const failures = [];
+    for (const url of [...new Set([highResolution, original])]) {
+      try {
+        const response = await fetch(url, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          if (blob.size > 0 && (!best || blob.size > best.size)) best = blob;
+        } else {
+          failures.push(`page:${response.status}`);
+        }
+      } catch (error) {
+        failures.push(`page:${String(error?.name || error)}`);
+      }
+      if (
+        readEmbeddedConfig()?.embedded
+        && String(readEmbeddedConfig()?.platform || "").toLowerCase() === "windows"
+      ) {
+        try {
+          const downloaded = await postMessageNativeCommand(
+            "image-download-request",
+            { url },
+            90000,
+          );
+          const bytes = decodeBase64(
+            downloaded?.bodyBase64 || downloaded?.body_base64,
+          );
+          const blob = new Blob(
+            [bytes],
+            {
+              type:
+                downloaded?.contentType
+                || downloaded?.content_type
+                || "image/jpeg",
+            },
+          );
+          if (blob.size > 0 && (!best || blob.size > best.size)) best = blob;
+        } catch (error) {
+          failures.push(
+            `native:${String(error?.code || error?.name || error)}`,
+          );
+        }
+      }
+    }
+    if (!best) {
+      throw Object.assign(
+        new Error(`Gemini 已生成图片，但直接下载失败：${failures.join(",")}`),
+        { code: "fullsize_download_missing", directSubmissionStarted: true },
+      );
+    }
+    return best;
+  }
+
+  async function persistTaskResult(task, blob, audit, claimHeartbeat = null) {
+    await event(task, "locating_full_size", null, audit);
+    const auditHeader = btoa(
+      unescape(encodeURIComponent(JSON.stringify(audit))),
+    )
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await claimHeartbeat?.pulse?.();
+      const result = await bridgeFetch(
+        `companion/tasks/${encodeURIComponent(task.id)}/result`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": blob.type || "image/png",
+            "X-Langbai-Audit": auditHeader,
+            "X-Langbai-Account-Id": bridge.accountId || "",
+            "X-Langbai-Claim-Id": task.claim_id || "",
+          },
+          body: blob,
+        },
+      ).catch(error => {
+        lastError = error;
+        return null;
+      });
+      if (result?.ok) return;
+      const currentResponse = await bridgeFetch(
+        `image-tasks/${encodeURIComponent(task.id)}`,
+        { headers: { "X-Langbai-Account-Id": bridge.accountId || "" } },
+      ).catch(() => null);
+      const currentTask = await currentResponse?.json?.().catch(() => null);
+      if (currentResponse?.ok && currentTask?.status === "succeeded") return;
+      const resultBody = await result?.json?.().catch(() => ({}));
+      lastError = Object.assign(
+        new Error(
+          resultBody?.error?.message
+          || `Saving the generated Gemini image failed: HTTP ${result?.status || 0}`,
+        ),
+        { code: resultBody?.error?.code || "gemini_result_save_failed" },
+      );
+      if (attempt < 3) await sleep(2000 * attempt);
+    }
+    throw lastError || Object.assign(
+      new Error("Saving the generated Gemini image failed."),
+      { code: "gemini_result_save_failed" },
+    );
+  }
+
+  async function processRecoveredDirectResult(
+    task,
+    request,
+    claimHeartbeat,
+  ) {
+    const recovery = task.recovery;
+    if (
+      recovery?.phase !== "direct_image_ready"
+      || !/^https:\/\//i.test(String(recovery?.image?.url || ""))
+    ) {
+      throw Object.assign(
+        new Error("The generated Gemini image recovery checkpoint is invalid."),
+        { code: "gemini_generated_image_checkpoint_invalid" },
+      );
+    }
+    let downloaded = null;
+    let downloadError = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await claimHeartbeat?.pulse?.();
+      try {
+        downloaded = await downloadDirectGeneratedImage(recovery.image);
+        break;
+      } catch (error) {
+        downloadError = error;
+        if (attempt < 3) await sleep(3000 * attempt);
+      }
+    }
+    if (!downloaded) {
+      throw Object.assign(
+        new Error(
+          "Gemini generated the image, but all three download attempts failed. "
+          + "Submitting again may consume another generation; manual confirmation is required. "
+          + String(downloadError?.message || downloadError || ""),
+        ),
+        {
+          code: "gemini_generated_image_recovery_failed",
+          directSubmissionStarted: true,
+        },
+      );
+    }
+    let processed;
+    let transformWarning = "";
+    try {
+      processed = await transformForRequestedOutput(downloaded, request);
+    } catch (error) {
+      const decoded = await decodeImageBlob(downloaded);
+      const source = { width: decoded.width, height: decoded.height };
+      decoded.close();
+      processed = {
+        blob: downloaded,
+        source,
+        final: source,
+        transform: "requested_transform_failed_original_preserved",
+      };
+      transformWarning = String(error?.message || error).slice(0, 500);
+    }
+    const audit = {
+      selector_pack_version: SELECTORS.version,
+      submission_transport: recovery.transport || "gemini_web_direct_rpc",
+      direct_protocol: "StreamGenerate",
+      requested_model_mode: request.model_preference || "auto",
+      selected_model_mode: request.model_preference || "auto",
+      temporary_chat_requested: true,
+      temporary_chat_verified: false,
+      temporary_chat_verification: {
+        method: "protocol_request_flag",
+        history_persisted: "not_observable",
+      },
+      reference_count:
+        Array.isArray(request.references) ? request.references.length : 0,
+      returned_image_count: Number(recovery.image_count || 1),
+      requested_size:
+        `${request.requested_size?.width || 0}x${request.requested_size?.height || 0}`,
+      downloaded_fullsize:
+        `${processed.source.width}x${processed.source.height}`,
+      final_size: `${processed.final.width}x${processed.final.height}`,
+      transform: processed.transform,
+      ...(transformWarning ? { transform_warning: transformWarning } : {}),
+    };
+    await persistTaskResult(task, processed.blob, audit, claimHeartbeat);
+  }
+
+  async function processTaskThroughDirectProtocol(
+    task,
+    request,
+    claimHeartbeat,
+  ) {
+    const directProtocol = globalThis.LANGBAI_GEMINI_DIRECT_PROTOCOL;
+    if (!directProtocol?.generate) {
+      throw Object.assign(
+        new Error("The Gemini direct protocol module is unavailable."),
+        { code: "gemini_direct_protocol_unavailable" },
+      );
+    }
+    await event(task, "preparing_temporary_chat");
+    await event(task, "uploading_references");
+    const requestedPrompt = String(request.prompt || "").trim();
+    const prompt =
+      "Generate one image now. Return the image directly without explanatory text.\n\n"
+      + requestedPrompt;
+    const generated = await directProtocol.generate({
+      prompt,
+      references: request.references || [],
+      modelPreference: request.model_preference || "auto",
+      onBeforeSubmit: () => event(task, "submitting"),
+      heartbeat: async () => {
+        await claimHeartbeat?.pulse?.();
+        await event(task, "generating");
+      },
+    });
+    await event(task, "generating");
+    const recovery = {
+      phase: "direct_image_ready",
+      image: {
+        url: generated.image.url,
+        image_id: generated.image.imageId || "",
+        cid: generated.image.cid || "",
+        rid: generated.image.rid || "",
+        rcid: generated.image.rcid || "",
+      },
+      image_count: Number(generated.imageCount || 1),
+      transport: generated.transport,
+    };
+    await event(task, "locating_full_size", null, null, recovery);
+    task.recovery = recovery;
+    await processRecoveredDirectResult(task, request, claimHeartbeat);
+  }
+
   async function processTask(task) {
     const request = task.request || {};
+    const claimHeartbeat = startClaimHeartbeat(task);
     try {
       const resumeAction = LANGBAI_GEMINI_TEMPORARY_CHAT_STATE.taskResumeAction({
         resumedClaim: task.resumed_claim === true,
         status: task.status,
       });
-      if (resumeAction === "fail_unknown_submission") {
+      if (
+        resumeAction === "fail_unknown_submission"
+        && task.recovery?.phase !== "direct_image_ready"
+      ) {
         await event(task, "failed", {
           code: "gemini_submission_state_unknown",
           message:
@@ -2197,6 +2628,40 @@ if (typeof module !== "undefined" && module.exports) {
               : "gemini_login_state_unknown",
           },
         );
+      }
+      if (task.recovery?.phase === "direct_image_ready") {
+        await processRecoveredDirectResult(
+          task,
+          request,
+          claimHeartbeat,
+        );
+        return;
+      }
+      try {
+        await processTaskThroughDirectProtocol(
+          task,
+          request,
+          claimHeartbeat,
+        );
+        return;
+      } catch (directError) {
+        const safeFallbackCodes = new Set([
+          "gemini_direct_bootstrap_unavailable",
+          "gemini_direct_protocol_unavailable",
+          "gemini_direct_upload_unavailable",
+        ]);
+        if (
+          directError?.directSubmissionStarted === true
+          || !safeFallbackCodes.has(String(directError?.code || ""))
+        ) {
+          throw directError;
+        }
+        notifyNative("direct_protocol_fallback", {
+          status: "fallback",
+          code: directError.code,
+          message: String(directError.message || directError),
+          task_id: task.id,
+        });
       }
       await event(task, "preparing_temporary_chat");
       const temporaryChatVerification = await ensureTemporaryChat(task);
@@ -2229,8 +2694,6 @@ if (typeof module !== "undefined" && module.exports) {
           { code: "temporary_chat_unverified" },
         );
       }
-      const composer = findComposer();
-      if (!composer) throw Object.assign(new Error("未识别到 Gemini 输入框"), { code: "selector_pack_outdated" });
       const requestedPrompt = String(request.prompt || "").trim();
       const prompt = `请立即生成一张图片，不要只回复文字、解释或提示词；直接输出图片。\n\n${requestedPrompt}`;
       // Baselines must be captured on the verified Temporary Chat surface.
@@ -2242,13 +2705,9 @@ if (typeof module !== "undefined" && module.exports) {
         user: userMessageSnapshot(),
         response: baselineResponse,
       };
-      const composerWriteMethod = setComposerText(composer, prompt);
-      if (!(await waitForComposerPrompt(composer, prompt))) {
-        throw Object.assign(
-          new Error(`Gemini 输入框未接受本次提示词。writeMethod=${composerWriteMethod}`),
-          { code: "gemini_composer_input_failed" },
-        );
-      }
+      const composerWrite = await writeStableComposerPrompt(prompt);
+      const composer = composerWrite.composer;
+      const composerWriteMethod = composerWrite.method;
       const send = await waitForEnabledSendControl();
       if (!send || send.matches(":disabled,[aria-disabled=true]")) {
         throw Object.assign(
@@ -2270,7 +2729,10 @@ if (typeof module !== "undefined" && module.exports) {
         previous,
         {
           timeoutMs: 20 * 60 * 1000,
-          heartbeat: () => event(task, "generating"),
+          heartbeat: async () => {
+            await claimHeartbeat.pulse();
+            await event(task, "generating");
+          },
           baselineResponse,
           submission,
         },
@@ -2305,38 +2767,7 @@ if (typeof module !== "undefined" && module.exports) {
         final_size: `${processed.final.width}x${processed.final.height}`,
         transform: processed.transform,
       };
-      // Persist the complete audit through the JSON event channel before the
-      // binary upload. This keeps diagnostics available even when an older
-      // gateway cannot decode an unpadded base64url response header.
-      await event(task, "locating_full_size", null, audit);
-      const auditHeader = btoa(unescape(encodeURIComponent(JSON.stringify(audit)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      const result = await bridgeFetch(`companion/tasks/${encodeURIComponent(task.id)}/result`, {
-        method: "POST",
-        headers: {
-          "Content-Type": blob.type || "image/png",
-          "X-Langbai-Audit": auditHeader,
-          "X-Langbai-Account-Id": bridge.accountId || "",
-          "X-Langbai-Claim-Id": task.claim_id || "",
-        },
-        body: blob,
-      });
-      if (!result.ok) {
-        // The gateway writes and persists the image before sending its HTTP
-        // response. If the response stream or a non-essential account metadata
-        // refresh fails afterwards, confirm the task before reporting failure;
-        // otherwise a completed image can appear failed and be resubmitted.
-        const currentResponse = await bridgeFetch(
-          `image-tasks/${encodeURIComponent(task.id)}`,
-          { headers: { "X-Langbai-Account-Id": bridge.accountId || "" } },
-        ).catch(() => null);
-        const currentTask = await currentResponse?.json?.().catch(() => null);
-        if (currentResponse?.ok && currentTask?.status === "succeeded") return;
-        const body = await result.json().catch(() => ({}));
-        throw Object.assign(
-          new Error(body?.error?.message || `保存图片失败：HTTP ${result.status}`),
-          { code: body?.error?.code || "gemini_result_save_failed" },
-        );
-      }
+      await persistTaskResult(task, blob, audit, claimHeartbeat);
     } catch (error) {
       if (error?.code === "task_cancelled") return;
       if ([
@@ -2375,6 +2806,7 @@ if (typeof module !== "undefined" && module.exports) {
       const reportError = {
         code: error.code || "gemini_web_failed",
         message: String(error.message || error).slice(0, 1000),
+        ...(error?.requestId ? { request_id: String(error.requestId) } : {}),
       };
       await event(task, terminalStatus, reportError).catch(() => {});
       if (accountStatus) {
@@ -2386,6 +2818,8 @@ if (typeof module !== "undefined" && module.exports) {
           });
         });
       }
+    } finally {
+      claimHeartbeat.stop();
     }
   }
 

@@ -18,6 +18,7 @@ class GeminiImageTask {
     DateTime? updatedAt,
     this.error,
     this.audit = const <String, Object?>{},
+    this.recovery = const <String, Object?>{},
     this.accountId = '',
     this.claimId = '',
     this.claimedAccountId = '',
@@ -34,6 +35,7 @@ class GeminiImageTask {
   DateTime updatedAt;
   Map<String, Object?>? error;
   Map<String, Object?> audit;
+  Map<String, Object?> recovery;
   String accountId;
   String claimId;
   String claimedAccountId;
@@ -42,7 +44,10 @@ class GeminiImageTask {
 
   bool get terminal => geminiTerminalStates.contains(status);
 
-  Map<String, Object?> toJson({bool includeRequest = false}) =>
+  Map<String, Object?> toJson({
+    bool includeRequest = false,
+    bool includeRecovery = false,
+  }) =>
       <String, Object?>{
         'id': id,
         'client_request_id': clientRequestId,
@@ -55,6 +60,7 @@ class GeminiImageTask {
         if (claimExpiresAt != null)
           'claim_expires_at': claimExpiresAt!.toIso8601String(),
         if (includeRequest) 'request': request,
+        if (includeRecovery && recovery.isNotEmpty) 'recovery': recovery,
         if (error != null) 'error': error,
         'audit': audit,
         if (resultFile.isNotEmpty)
@@ -67,7 +73,7 @@ class GeminiImageTask {
       };
 
   Map<String, Object?> toPersistenceJson() => <String, Object?>{
-        ...toJson(includeRequest: true),
+        ...toJson(includeRequest: true, includeRecovery: true),
         'result_file': resultFile,
       };
 
@@ -83,6 +89,10 @@ class GeminiImageTask {
           (key, value) => MapEntry(key.toString(), value),
         ) ??
         <String, Object?>{};
+    final recovery = (json['recovery'] as Map?)?.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ) ??
+        <String, Object?>{};
     return GeminiImageTask(
       id: json['id']?.toString() ?? '',
       clientRequestId: json['client_request_id']?.toString() ?? '',
@@ -92,6 +102,7 @@ class GeminiImageTask {
       updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''),
       error: error,
       audit: audit,
+      recovery: recovery,
       accountId: json['account_id']?.toString() ?? '',
       claimId: json['claim_id']?.toString() ?? '',
       claimedAccountId: json['claimed_account_id']?.toString() ?? '',

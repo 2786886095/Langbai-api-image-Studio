@@ -261,6 +261,14 @@ class MethodChannelWebviewWinFloating extends WebviewWinFloatingPlatform {
   }
 
   @override
+  Future<void> dispatchTrustedTextInput(int webviewId, String text) async {
+    await methodChannel.invokeMethod<void>('dispatchTrustedTextInput', {
+      "webviewId": webviewId,
+      "text": text,
+    });
+  }
+
+  @override
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,

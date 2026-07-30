@@ -31,6 +31,7 @@ class GeminiEmbeddedBrowserConfig {
     required this.baseUrl,
     required this.apiKey,
     required this.profileId,
+    this.nativeBridgeCapability = '',
   });
 
   factory GeminiEmbeddedBrowserConfig.fromGateway({
@@ -59,12 +60,17 @@ class GeminiEmbeddedBrowserConfig {
       baseUrl: baseUrl.replaceAll(RegExp(r'/+$'), ''),
       apiKey: apiKey,
       profileId: profileId.toLowerCase(),
+      nativeBridgeCapability: List<int>.generate(
+        32,
+        (_) => Random.secure().nextInt(256),
+      ).map((value) => value.toRadixString(16).padLeft(2, '0')).join(),
     );
   }
 
   final String baseUrl;
   final String apiKey;
   final String profileId;
+  final String nativeBridgeCapability;
 
   Uri get gatewayUri => Uri.parse(baseUrl);
 
@@ -352,6 +358,7 @@ class _GeminiNativeTransport {
   Future<Map<String, Object?>> registerLoggedInProfile({
     required String platform,
     required bool temporaryChatAvailable,
+    required bool directProtocolAvailable,
     String maskedEmail = '',
   }) async {
     final response = await send(<String, dynamic>{
@@ -365,6 +372,7 @@ class _GeminiNativeTransport {
         'masked_email': maskedEmail,
         'status': 'ready',
         'temporary_chat_available': temporaryChatAvailable,
+        'direct_protocol_available': directProtocolAvailable,
         'fullsize_download_available': true,
         'effective_concurrency': 1,
         'platform': 'embedded:$platform',
@@ -426,58 +434,53 @@ Future<String> _loadInjectedWorker(
   final selectorSource = await rootBundle.loadString(
     'gemini-selector-pack.js',
   );
+  final directProtocolSource = await rootBundle.loadString(
+    'gemini-web-direct-protocol.js',
+  );
   final workerSource = await rootBundle.loadString(
     'gemini-embedded-worker.js',
   );
   final safeConfig = jsonEncode(config.toSafeJavaScriptConfig(platform));
+  final nativeBridgeCapability = jsonEncode(config.nativeBridgeCapability);
   return '''
 (() => {
   const config = Object.freeze($safeConfig);
+  const __LANGBAI_GEMINI_NATIVE_CAPABILITY = $nativeBridgeCapability;
   Object.defineProperty(globalThis, "__LANGBAI_GEMINI_EMBEDDED_CONFIG", {
     configurable: true,
     value: config,
   });
+  const androidNativePost =
+    globalThis.LangbaiGeminiHost?.postMessage?.bind(
+      globalThis.LangbaiGeminiHost,
+    );
+  const windowsNativePost =
+    globalThis.chrome?.webview?.postMessage?.bind(globalThis.chrome.webview);
+  const appleNativePost =
+    globalThis.webkit?.messageHandlers?.langbaiGemini?.postMessage?.bind(
+      globalThis.webkit.messageHandlers.langbaiGemini,
+    );
   const sendNative = message => {
-    const value = JSON.stringify(message);
-    if (globalThis.LangbaiGeminiHost?.postMessage) {
-      globalThis.LangbaiGeminiHost.postMessage(value);
+    const authorizedMessage = {
+      ...message,
+      capability: __LANGBAI_GEMINI_NATIVE_CAPABILITY,
+    };
+    const value = JSON.stringify(authorizedMessage);
+    if (androidNativePost) {
+      androidNativePost(value);
       return;
     }
-    if (globalThis.chrome?.webview?.postMessage) {
-      globalThis.chrome.webview.postMessage(message);
+    if (windowsNativePost) {
+      windowsNativePost(authorizedMessage);
       return;
     }
-    if (globalThis.webkit?.messageHandlers?.langbaiGemini?.postMessage) {
-      globalThis.webkit.messageHandlers.langbaiGemini.postMessage(message);
+    if (appleNativePost) {
+      appleNativePost(authorizedMessage);
       return;
     }
     throw new Error("gemini_native_message_channel_unavailable");
   };
-  globalThis.__LANGBAI_GEMINI_NATIVE_REPORT = message => sendNative(message);
-  addEventListener("message", event => {
-    const message = event?.data;
-    if (
-      message?.source === "langbai-gemini-executor" &&
-      (
-        message?.type === "native-request" ||
-        message?.type === "trusted-click-request" ||
-        message?.type === "image-download-request"
-      )
-    ) {
-      try { sendNative(message); }
-      catch (error) {
-        postMessage({
-          source: "langbai-gemini-native",
-          type: "native-response",
-          requestId: message.requestId,
-          error: {
-            code: "gemini_native_channel_unavailable",
-            message: String(error?.message || error),
-          },
-        }, "*");
-      }
-    }
-  });
+  const __LANGBAI_GEMINI_NATIVE_SEND = sendNative;
   let pageProbeTimer = 0;
   let lastPageProbeSignature = "";
   let lastPageProbeSentAt = 0;
@@ -518,6 +521,8 @@ Future<String> _loadInjectedWorker(
     ].some(element =>
       /temporary chat|临时对话|临时聊天|臨時對話|臨時聊天|一時的なチャット|一時チャット|임시 채팅/i.test(textOf(element))
     );
+    const directProtocolAvailable =
+      !!globalThis.LANGBAI_GEMINI_DIRECT_PROTOCOL?.generate;
     const temporaryChatAvailable = !!tempChatControl ||
       tempChatSurface ||
       interactive.some(element =>
@@ -535,6 +540,7 @@ Future<String> _loadInjectedWorker(
       account_uuid: config.accountUuid,
       login_ready: loginReady,
       temporary_chat_available: temporaryChatAvailable,
+      direct_protocol_available: directProtocolAvailable,
       fullsize_download_available: true,
     };
     const signature = JSON.stringify([
@@ -574,6 +580,7 @@ Future<String> _loadInjectedWorker(
     location.hostname.endsWith(".gemini.google.com")
   ) {
 $selectorSource
+$directProtocolSource
 $workerSource
   }
 })();
@@ -878,11 +885,13 @@ Future<Map<String, Object?>> _registerPageReadyMessage({
     );
   }
   final temporaryChatAvailable = message['temporary_chat_available'] == true;
+  final directProtocolAvailable = message['direct_protocol_available'] == true;
   final fullsizeDownloadAvailable =
       message['fullsize_download_available'] == true;
   final snapshot = await transport.registerLoggedInProfile(
     platform: platform,
     temporaryChatAvailable: temporaryChatAvailable,
+    directProtocolAvailable: directProtocolAvailable,
     maskedEmail: message['masked_email']?.toString() ?? '',
   );
   return geminiEmbeddedReadinessEvent(
@@ -892,6 +901,7 @@ Future<Map<String, Object?>> _registerPageReadyMessage({
     maskedEmail: message['masked_email']?.toString() ?? '',
     loginReady: true,
     temporaryChatAvailable: temporaryChatAvailable,
+    directProtocolAvailable: directProtocolAvailable,
     fullsizeDownloadAvailable: fullsizeDownloadAvailable,
     selectorPackCompatible: snapshot['selector_pack_compatible'] == true,
   );
@@ -903,11 +913,12 @@ Map<String, Object?> geminiEmbeddedReadinessEvent({
   required String maskedEmail,
   required bool loginReady,
   required bool temporaryChatAvailable,
+  bool directProtocolAvailable = false,
   required bool fullsizeDownloadAvailable,
   required bool selectorPackCompatible,
 }) {
   final generationReady = loginReady &&
-      temporaryChatAvailable &&
+      (temporaryChatAvailable || directProtocolAvailable) &&
       fullsizeDownloadAvailable &&
       selectorPackCompatible;
   return <String, Object?>{
@@ -920,6 +931,7 @@ Map<String, Object?> geminiEmbeddedReadinessEvent({
     'account_uuid': accountUuid,
     'masked_email': maskedEmail,
     'temporary_chat_available': temporaryChatAvailable,
+    'direct_protocol_available': directProtocolAvailable,
     'fullsize_download_available': fullsizeDownloadAvailable,
     'selector_pack_compatible': selectorPackCompatible,
   };
@@ -1127,7 +1139,12 @@ class _GeminiMobileEmbeddedBrowserState
         'LangbaiGeminiHost',
         onMessageReceived: (message) {
           unawaited(
-            _handleMessage(message.message, generation, config.profileId),
+            _handleMessage(
+              message.message,
+              generation,
+              config.profileId,
+              config.nativeBridgeCapability,
+            ),
           );
         },
       );
@@ -1207,11 +1224,13 @@ class _GeminiMobileEmbeddedBrowserState
     Object? raw,
     int generation,
     String profileId,
+    String nativeBridgeCapability,
   ) async {
     if (!_isCurrentController(generation, profileId)) return;
     final message = _decodeNativeMessage(raw);
     if (message == null) return;
     if (message['source'] != 'langbai-gemini-executor') return;
+    if (message['capability']?.toString() != nativeBridgeCapability) return;
     if (message['type'] == 'native-request') {
       await _handleNativeRequest(message);
       return;
@@ -1470,7 +1489,12 @@ class _GeminiWindowsEmbeddedBrowserState
       );
       await controller.setBackgroundColor(const Color(0xFFFFFFFF));
       controller.onWebMessageReceived = (message) {
-        unawaited(_handleMessage(message, generation, config.profileId));
+        unawaited(_handleMessage(
+          message,
+          generation,
+          config.profileId,
+          config.nativeBridgeCapability,
+        ));
       };
       await controller.addScriptToExecuteOnDocumentCreated(injectedWorker);
       await controller.setNavigationDelegate(
@@ -1574,14 +1598,20 @@ class _GeminiWindowsEmbeddedBrowserState
     Object? raw,
     int generation,
     String profileId,
+    String nativeBridgeCapability,
   ) async {
     if (!_isCurrentController(generation, profileId)) return;
     final message = _decodeNativeMessage(raw);
     if (message == null || message['source'] != 'langbai-gemini-executor') {
       return;
     }
+    if (message['capability']?.toString() != nativeBridgeCapability) return;
     if (message['type'] == 'trusted-click-request') {
       await _handleTrustedClickRequest(message);
+      return;
+    }
+    if (message['type'] == 'trusted-text-request') {
+      await _handleTrustedTextRequest(message);
       return;
     }
     if (message['type'] == 'image-download-request') {
@@ -1715,6 +1745,45 @@ class _GeminiWindowsEmbeddedBrowserState
           'code': error is PlatformException
               ? error.code
               : 'gemini_trusted_click_failed',
+          'message': error.toString(),
+        },
+      };
+    }
+    await controller.runJavaScript(
+      'window.postMessage(${jsonEncode(response)}, "*");',
+    );
+  }
+
+  Future<void> _handleTrustedTextRequest(
+    Map<String, dynamic> message,
+  ) async {
+    final requestId = message['requestId']?.toString() ?? '';
+    final controller = _controller;
+    if (requestId.isEmpty || controller == null) return;
+    Map<String, Object?> response;
+    try {
+      final text = message['text']?.toString() ?? '';
+      if (text.isEmpty || text.length > 1024 * 1024) {
+        throw const FormatException(
+          'Trusted text input is empty or exceeds the 1 MiB limit.',
+        );
+      }
+      await controller.dispatchTrustedTextInput(text);
+      response = <String, Object?>{
+        'source': 'langbai-gemini-native',
+        'type': 'native-response',
+        'requestId': requestId,
+        'response': <String, Object?>{'ok': true},
+      };
+    } catch (error) {
+      response = <String, Object?>{
+        'source': 'langbai-gemini-native',
+        'type': 'native-response',
+        'requestId': requestId,
+        'error': <String, Object?>{
+          'code': error is PlatformException
+              ? error.code
+              : 'gemini_trusted_text_failed',
           'message': error.toString(),
         },
       };

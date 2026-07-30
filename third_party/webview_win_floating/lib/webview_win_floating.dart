@@ -541,6 +541,16 @@ class WinWebViewController {
     );
   }
 
+  /// Inserts text into the currently focused element through Chromium's input
+  /// pipeline instead of dispatching a synthetic JavaScript InputEvent.
+  Future<void> dispatchTrustedTextInput(String text) async {
+    await _initFuture;
+    await WebviewWinFloatingPlatform.instance.dispatchTrustedTextInput(
+      _webviewId,
+      text,
+    );
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     String javaScriptString,
   ) async {

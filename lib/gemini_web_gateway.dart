@@ -57,6 +57,47 @@ const Map<String, Set<String>> _geminiStatusTransitions = <String, Set<String>>{
   'locating_full_size': <String>{'locating_full_size'},
 };
 
+Map<String, Object?>? _sanitizeGeminiTaskRecovery(Object? value) {
+  if (value is! Map || value['phase']?.toString() != 'direct_image_ready') {
+    return null;
+  }
+  final image = value['image'];
+  if (image is! Map) return null;
+  final rawUrl = image['url']?.toString().trim() ?? '';
+  final uri = Uri.tryParse(rawUrl);
+  if (uri == null || uri.scheme != 'https' || rawUrl.length > 8192) {
+    return null;
+  }
+  const allowedHosts = <String>{
+    'googleusercontent.com',
+    'ggpht.com',
+    'googleapis.com',
+  };
+  final host = uri.host.toLowerCase();
+  if (!allowedHosts.any(
+    (allowed) => host == allowed || host.endsWith('.$allowed'),
+  )) {
+    return null;
+  }
+  String bounded(Object? item, [int limit = 512]) =>
+      (item?.toString() ?? '').substring(
+        0,
+        min(item?.toString().length ?? 0, limit),
+      );
+  return <String, Object?>{
+    'phase': 'direct_image_ready',
+    'image': <String, Object?>{
+      'url': rawUrl,
+      'image_id': bounded(image['image_id']),
+      'cid': bounded(image['cid']),
+      'rid': bounded(image['rid']),
+      'rcid': bounded(image['rcid']),
+    },
+    'image_count': int.tryParse(value['image_count']?.toString() ?? '') ?? 1,
+    'transport': bounded(value['transport'], 128),
+  };
+}
+
 GeminiImageTask? findResumableGeminiCompanionTask(
   Iterable<GeminiImageTask> tasks, {
   required String accountId,
@@ -73,6 +114,20 @@ GeminiImageTask? findResumableGeminiCompanionTask(
       .toList()
     ..sort((left, right) => left.updatedAt.compareTo(right.updatedAt));
   return matches.firstOrNull;
+}
+
+String expiredGeminiClaimAction(GeminiImageTask task) {
+  if (task.recovery['phase'] == 'direct_image_ready') {
+    return 'resume_generated_image';
+  }
+  if (<String>{
+    'submitting',
+    'generating',
+    'locating_full_size',
+  }.contains(task.status)) {
+    return 'fail_unknown_submission';
+  }
+  return 'requeue_before_submission';
 }
 
 class GeminiWebGatewayManager {
@@ -734,12 +789,15 @@ class GeminiWebGatewayManager {
         await _json(response, 200, <String, Object?>{
           'status': 'ok',
           'provider': 'gemini_web',
-          'version': '1.6.0',
+          'version': '1.6.9',
+          'protocol_version': '1',
           'companion_connected': companionConnected,
           'session_available': browserConnected && activeAccount.loginReady,
           'generation_ready': browserConnected && activeAccount.available,
           'temporary_chat_available':
               activeAccount?.temporaryChatAvailable == true,
+          'direct_protocol_available':
+              activeAccount?.directProtocolAvailable == true,
           'fullsize_download_available':
               activeAccount?.fullsizeDownloadAvailable == true,
           'selector_pack_compatible': selectorCompatible,
@@ -759,6 +817,8 @@ class GeminiWebGatewayManager {
             generationReady: browserConnected && activeAccount.available,
             temporaryChatAvailable:
                 activeAccount?.temporaryChatAvailable == true,
+            directProtocolAvailable:
+                activeAccount?.directProtocolAvailable == true,
             fullsizeDownloadAvailable:
                 activeAccount?.fullsizeDownloadAvailable == true,
             selectorPackCompatible: activeAccount != null &&
@@ -988,6 +1048,9 @@ class GeminiWebGatewayManager {
           temporaryChatAvailable: selectorPackCompatible &&
               !uncertainIdentity &&
               body['temporary_chat_available'] == true,
+          directProtocolAvailable: selectorPackCompatible &&
+              !uncertainIdentity &&
+              body['direct_protocol_available'] == true,
           fullsizeDownloadAvailable: selectorPackCompatible &&
               (uncertainIdentity
                   ? (existing?.fullsizeDownloadAvailable ?? false)
@@ -1102,7 +1165,17 @@ class GeminiWebGatewayManager {
         for (final item in _tasks.values.where(
           (item) => !item.terminal && _claimExpired(item, now),
         )) {
-          item.status = 'waiting_for_browser';
+          final expirationAction = expiredGeminiClaimAction(item);
+          if (expirationAction == 'fail_unknown_submission') {
+            item.status = 'failed';
+            item.error = <String, Object?>{
+              'code': 'gemini_submission_state_unknown',
+              'message':
+                  'The Gemini task lease expired after submission may have started. It was not resubmitted.',
+            };
+          } else {
+            item.status = 'waiting_for_browser';
+          }
           item.updatedAt = now;
           _clearClaim(item);
           reclaimed = true;
@@ -1135,7 +1208,7 @@ class GeminiWebGatewayManager {
           _renewClaim(task);
           await _persistTasks();
           await _json(response, 200, <String, Object?>{
-            ...task.toJson(includeRequest: true),
+            ...task.toJson(includeRequest: true, includeRecovery: true),
             'request': task.request,
             'resumed_claim': true,
           });
@@ -1160,9 +1233,39 @@ class GeminiWebGatewayManager {
         _renewClaim(task);
         await _persistTasks();
         await _json(response, 200, <String, Object?>{
-          ...task.toJson(includeRequest: true),
+          ...task.toJson(includeRequest: true, includeRecovery: true),
           'request': task.request,
         });
+        return;
+      }
+      final heartbeatMatch =
+          RegExp(r'^/v1/companion/tasks/([^/]+)/heartbeat$').firstMatch(path);
+      if (heartbeatMatch != null && request.method == 'POST') {
+        _lastCompanionSeen = DateTime.now();
+        final task = _tasks[heartbeatMatch.group(1)];
+        if (task == null) {
+          await _json(response, 404, <String, Object?>{
+            'error': <String, Object?>{'code': 'task_not_found'}
+          });
+          return;
+        }
+        if (task.terminal) {
+          await _json(response, 200, task.toJson());
+          return;
+        }
+        final body = await _readJson(request);
+        if (!_claimMatches(task, request, body)) {
+          await _json(response, 409, <String, Object?>{
+            'error': <String, Object?>{
+              'code': 'stale_or_wrong_task_claim',
+              'message': 'The Gemini task heartbeat claim is invalid.',
+            }
+          });
+          return;
+        }
+        _renewClaim(task);
+        await _persistTasks();
+        await _json(response, 200, task.toJson());
         return;
       }
       final eventMatch =
@@ -1210,6 +1313,19 @@ class GeminiWebGatewayManager {
           });
           return;
         }
+        Map<String, Object?>? recovery;
+        if (body.containsKey('recovery')) {
+          recovery = _sanitizeGeminiTaskRecovery(body['recovery']);
+          if (recovery == null) {
+            await _json(response, 400, <String, Object?>{
+              'error': <String, Object?>{
+                'code': 'invalid_recovery_checkpoint',
+                'message': 'The Gemini recovery checkpoint is invalid.',
+              }
+            });
+            return;
+          }
+        }
         final error = body['error'];
         if (<String>{'failed', 'needs_login'}.contains(nextStatus) &&
             await _requeueAfterAccountFailure(task, error)) {
@@ -1233,6 +1349,7 @@ class GeminiWebGatewayManager {
             (key, value) => MapEntry(key.toString(), value),
           );
         }
+        if (recovery != null) task.recovery = recovery;
         if (task.terminal) _clearClaim(task);
         await _persistTasks();
         await _json(response, 200, task.toJson());
@@ -1288,6 +1405,7 @@ class GeminiWebGatewayManager {
         task.resultFile = target.path;
         task.status = 'succeeded';
         task.error = null;
+        task.recovery = const <String, Object?>{};
         task.updatedAt = DateTime.now().toUtc();
         _clearClaim(task);
         final auditHeader = request.headers.value('x-langbai-audit');

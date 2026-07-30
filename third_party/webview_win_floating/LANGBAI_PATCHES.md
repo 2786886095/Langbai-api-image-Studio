@@ -23,6 +23,9 @@ Local changes:
   and route activation focus to WebView2 instead of Flutter's backing HWND;
 - expose a top-level-host creation option so other package users retain the
   original embedded-widget behavior by default.
+- expose a trusted text-input bridge backed by WebView2 CDP
+  `Input.insertText`; this is retained as a compatibility fallback when a
+  provider page cannot use Langbai's direct request adapter.
 
 This package uses a windowed WebView2 controller. In Langbai's full-window
 mode, WebView2 is the only visible native content host and Windows input is

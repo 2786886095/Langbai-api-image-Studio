@@ -25,6 +25,22 @@ void main() {
     expect(ready.copyWith(loginReady: false).available, isFalse);
   });
 
+  test(
+      'direct protocol capability can replace a visible Temporary Chat control',
+      () {
+    const direct = GeminiAccountMetadata(
+      localAccountId: 'account-direct',
+      status: 'ready',
+      loginReady: true,
+      quotaState: 'available',
+      temporaryChatAvailable: false,
+      directProtocolAvailable: true,
+      fullsizeDownloadAvailable: true,
+    );
+    expect(direct.available, isTrue);
+    expect(direct.toJson()['direct_protocol_available'], isTrue);
+  });
+
   test('quota and cooldown state make an account unavailable', () {
     const ready = GeminiAccountMetadata(
       localAccountId: 'account-a',

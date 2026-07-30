@@ -25,6 +25,20 @@ void main() {
     expect(loginOnly['login_ready'], isTrue);
     expect(loginOnly['generation_ready'], isFalse);
 
+    final directReady = geminiEmbeddedReadinessEvent(
+      accountId: 'local-account',
+      accountUuid: _profileId,
+      maskedEmail: 'u***@example.com',
+      loginReady: true,
+      temporaryChatAvailable: false,
+      directProtocolAvailable: true,
+      fullsizeDownloadAvailable: true,
+      selectorPackCompatible: true,
+    );
+    expect(directReady['status'], 'ready');
+    expect(directReady['temporary_chat_available'], isFalse);
+    expect(directReady['direct_protocol_available'], isTrue);
+
     final ready = geminiEmbeddedReadinessEvent(
       accountId: 'local-account',
       accountUuid: _profileId,
@@ -55,6 +69,8 @@ void main() {
     expect(safe.values, isNot(contains(realKey)));
     expect(safe['profileId'], _profileId);
     expect(safe['nativeTransport'], 'postMessage');
+    expect(config.nativeBridgeCapability, hasLength(64));
+    expect(safe.values, isNot(contains(config.nativeBridgeCapability)));
   });
 
   test('embedded config rejects non-loopback gateways and invalid profiles',

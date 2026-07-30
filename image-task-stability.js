@@ -99,7 +99,7 @@
       retryPolicy = "edit_required";
       requiresEdit = true;
     } else if (
-      /selector_pack_outdated|gemini_temporary_chat_unavailable|temporary_chat_(unverified|guard_failed)|gemini_control_(missing|disabled|outside_viewport|occluded)/.test(lower)
+      /selector_pack_outdated|protocol_changed|gemini_temporary_chat_unavailable|temporary_chat_(unverified|guard_failed)|gemini_(composer_input_(failed|unstable)|trusted_text_failed|send_unavailable|submission_not_acknowledged|generated_image_recovery_failed|direct_(bootstrap|protocol|upload)_unavailable|no_image_returned|control_(missing|disabled|outside_viewport|occluded)|model_(unavailable|unverified))/.test(lower)
     ) {
       category = ERROR_CATEGORIES.providerUi;
       retryPolicy = "after_probe";

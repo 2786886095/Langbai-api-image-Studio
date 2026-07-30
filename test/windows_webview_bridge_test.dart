@@ -39,6 +39,7 @@ void main() {
       'window.__WINDOWED_TEST__ = true;',
     );
     expect(await controller.runJavaScriptReturningResult('1'), 1);
+    await controller.dispatchTrustedTextInput('分镜提示词');
 
     final create = calls.firstWhere((call) => call.method == 'create');
     expect((create.arguments as Map)['useTopLevelWindowHost'], isTrue);
@@ -73,6 +74,14 @@ void main() {
     expect(
       calls.any((call) => call.method == 'addScriptToExecuteOnDocumentCreated'),
       isTrue,
+    );
+    final trustedTextCall = calls.firstWhere(
+      (call) => call.method == 'dispatchTrustedTextInput',
+    );
+    expect((trustedTextCall.arguments as Map)['text'], '分镜提示词');
+    expect(
+      (trustedTextCall.arguments as Map)['webviewId'],
+      webviewId,
     );
 
     await controller.dispose();

@@ -554,6 +554,28 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
           "Invalid WebView or CSS viewport coordinates.");
     }
   } else if (method_call.method_name().compare(
+                 "dispatchTrustedTextInput") == 0) {
+    std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
+        shared_result = std::move(result);
+    const auto text =
+        std::get<std::string>(arguments[flutter::EncodableValue("text")]);
+    const auto hr = webview->dispatchTrustedTextInput(
+        utf8ToUtf16(text).c_str(),
+        [shared_result](HRESULT error, std::string response) {
+          if (FAILED(error)) {
+            shared_result->Error(
+                "dispatchTrustedTextInput() error",
+                "WebView2 rejected the CDP text input.");
+          } else {
+            shared_result->Success(flutter::EncodableValue(response));
+          }
+        });
+    if (FAILED(hr)) {
+      shared_result->Error(
+          "dispatchTrustedTextInput() error",
+          "Text input is empty, oversized, or the WebView is unavailable.");
+    }
+  } else if (method_call.method_name().compare(
                  "addScriptToExecuteOnDocumentCreated") == 0) {
     std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
         shared_result = std::move(result);

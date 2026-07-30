@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.8";
+const APP_VERSION = "1.6.9";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2196,6 +2196,16 @@ function geminiProviderUiReason(detail) {
   const zh = {
     selector_pack_outdated: "Gemini 网页结构已更新，当前选择器包已经过期，请更新软件后再试。",
     protocol_changed: "Gemini 网页协议已经变化，当前版本暂时无法继续该任务，请更新软件后再试。",
+    gemini_composer_input_failed: "Gemini 输入框没有接受提示词，软件已停止提交；请保持登录页面稳定后重试。",
+    gemini_composer_input_unstable: "Gemini 输入框反复刷新，软件已停止提交；请保持登录页面稳定后重试。",
+    gemini_trusted_text_failed: "Windows 原生文本输入调用失败，提示词尚未提交；请重启软件后重试。",
+    gemini_send_unavailable: "Gemini 发送按钮当前不可用，提示词尚未提交；请确认页面已完成加载。",
+    gemini_submission_not_acknowledged: "Gemini 页面没有确认收到本次任务，软件已停止，避免重复提交。",
+    gemini_direct_bootstrap_unavailable: "Gemini 登录令牌尚未就绪，请刷新账号状态后重试；任务没有提交。",
+    gemini_direct_protocol_unavailable: "Gemini 直接调用模块没有加载，请重启或更新软件后重试。",
+    gemini_direct_upload_unavailable: "Gemini 当前页面没有提供参考图直传能力，软件将改用浏览器备用流程。",
+    gemini_no_image_returned: "Gemini 已完成回复，但没有返回生成图片；请检查账号生图能力或调整提示词后重试。",
+    gemini_generated_image_recovery_failed: "Gemini ??????????????????????????????????????????",
     gemini_temporary_chat_unavailable: "Gemini 临时对话入口当前不可用，请确认账号页面已完整加载；该任务不会自动重复提交。",
     temporary_chat_unverified: "Gemini 临时对话状态未能验证，为避免污染历史记录，该任务已停止且不会自动重复提交。",
     temporary_chat_guard_failed: "Gemini 临时对话保护检查失败，该任务已停止且不会自动重复提交。",
@@ -2203,6 +2213,16 @@ function geminiProviderUiReason(detail) {
   const en = {
     selector_pack_outdated: "Gemini changed its web UI and this selector pack is outdated. Update the app before retrying.",
     protocol_changed: "Gemini changed its web protocol. Update the app before retrying this task.",
+    gemini_composer_input_failed: "Gemini did not accept the prompt. Nothing was submitted; keep the login page stable and retry.",
+    gemini_composer_input_unstable: "The Gemini composer kept refreshing. Nothing was submitted; keep the login page stable and retry.",
+    gemini_trusted_text_failed: "Windows native text input failed. The prompt was not submitted; restart the app and retry.",
+    gemini_send_unavailable: "Gemini's send control is unavailable. The prompt was not submitted; wait for the page to finish loading.",
+    gemini_submission_not_acknowledged: "Gemini did not acknowledge the task. The app stopped to avoid duplicate submission.",
+    gemini_direct_bootstrap_unavailable: "Gemini login tokens are not ready. Refresh the account and retry; no task was submitted.",
+    gemini_direct_protocol_unavailable: "The Gemini direct-call module is unavailable. Restart or update the app.",
+    gemini_direct_upload_unavailable: "This Gemini page cannot upload references through the direct route. The browser fallback will be used.",
+    gemini_no_image_returned: "Gemini completed the response without a generated image. Check image capability or revise the prompt.",
+    gemini_generated_image_recovery_failed: "Gemini generated the image, but downloading it for local storage failed repeatedly. The app will not regenerate automatically; a manual retry may consume more quota.",
     gemini_temporary_chat_unavailable: "Gemini Temporary Chat is unavailable. The task was stopped and will not be submitted again automatically.",
     temporary_chat_unverified: "Gemini Temporary Chat could not be verified. The task was stopped without automatic resubmission.",
     temporary_chat_guard_failed: "The Gemini Temporary Chat guard failed. The task was stopped without automatic resubmission.",
@@ -3194,7 +3214,10 @@ function geminiAccountAvailabilityText(account) {
   if (account?.login_ready === false || ["needs_login", "session_expired"].includes(String(account?.status || ""))) {
     return geminiText("accountLoginRequired");
   }
-  if (account?.temporary_chat_available === false) {
+  if (
+    account?.temporary_chat_available === false
+    && account?.direct_protocol_available !== true
+  ) {
     return currentLanguage === "en" ? "Temporary Chat unavailable" : "未检测到临时对话";
   }
   if (!isGeminiAccountReady(account)) return geminiText("accountPageNotReady");
@@ -3226,6 +3249,7 @@ function geminiAccountSnapshotFingerprint(state = {}) {
         taskReady: account?.task_ready === true,
         browserConnected: account?.browser_connected === true,
         fullsizeDownload: account?.fullsize_download_available === true,
+        directProtocol: account?.direct_protocol_available === true,
         lastErrorCode: String(account?.last_error_code || ""),
       }))
       .sort((left, right) => left.id.localeCompare(right.id)),
@@ -7502,9 +7526,12 @@ async function pollGeminiGatewayTask(taskId, {
         if (task.status === "cancelled") throw createAbortError();
         if (task.status === "failed" || task.status === "needs_login" || task.status === "protocol_changed") {
           const detail = task.error?.message || task.error?.detail || task.error?.code || `Gemini task ${task.status}`;
-          const error = new Error(`HTTP ${task.status === "needs_login" ? 401 : 502}: ${detail}`);
-          error.status = task.status === "needs_login" ? 401 : 502;
-          error.code = String(task.error?.code || task.status);
+          const errorCode = String(task.error?.code || task.status);
+          const isProviderUiFailure = /^(?:selector_pack_outdated|protocol_changed|gemini_(?:composer_input_(?:failed|unstable)|trusted_text_failed|send_unavailable|submission_not_acknowledged|direct_(?:bootstrap|protocol|upload)_unavailable|no_image_returned|control_.+|model_.+)|temporary_chat_.+)$/.test(errorCode);
+          const status = task.status === "needs_login" ? 401 : isProviderUiFailure ? 409 : 502;
+          const error = new Error(`HTTP ${status}: ${detail}`);
+          error.status = status;
+          error.code = errorCode;
           error.gatewayTaskTerminal = true;
           throw makeImageApiError(error);
         }

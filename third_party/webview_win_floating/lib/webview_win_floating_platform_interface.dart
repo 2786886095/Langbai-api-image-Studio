@@ -96,6 +96,10 @@ abstract class WebviewWinFloatingPlatform extends PlatformInterface {
     throw UnimplementedError();
   }
 
+  Future<void> dispatchTrustedTextInput(int webviewId, String text) {
+    throw UnimplementedError();
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,

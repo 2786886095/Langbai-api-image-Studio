@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const sizes = require("../gemini-image-size-registry.js");
 const adapter = require("../gemini-web-image-adapter.js");
 
@@ -118,6 +119,7 @@ test("uses the Windows native input bridge for Gemini controls", () => {
     "utf8",
   );
   assert.match(worker, /"trusted-click-request"/);
+  assert.match(worker, /"trusted-text-request"/);
   assert.match(worker, /"image-download-request"/);
   assert.match(worker, /await activateControl\(button\)/);
   assert.match(worker, /await activateControl\(action\)/);
@@ -143,7 +145,10 @@ test("forces image output and terminates no-image responses", () => {
   assert.match(worker, /"user-query \.query-content"/);
   assert.match(worker, /function generationIsActive\(\)/);
   assert.match(worker, /document\.execCommand\?\.\("insertText", false, text\)/);
-  assert.match(worker, /async function waitForComposerPrompt\(/);
+  assert.match(worker, /async function waitForStableComposerPrompt\(/);
+  assert.match(worker, /async function writeStableComposerPrompt\(/);
+  assert.match(worker, /const composer = findComposer\(\)/);
+  assert.match(worker, /code: sawComposer\s*\?\s*"gemini_composer_input_unstable"/);
   assert.match(worker, /async function waitForEnabledSendControl\(/);
   assert.match(worker, /function promptStillPending\(/);
   assert.match(worker, /function submissionDiagnostic\(/);
@@ -167,8 +172,66 @@ test("forces image output and terminates no-image responses", () => {
   assert.match(worker, /await event\(task, "locating_full_size", null, audit\)/);
   assert.match(worker, /nodes: new WeakSet\(images\)/);
   assert.match(worker, /currentTask\?\.status === "succeeded"/);
-  assert.match(worker, /code: body\?\.error\?\.code \|\| "gemini_result_save_failed"/);
+  assert.match(worker, /code: resultBody\?\.error\?\.code \|\| "gemini_result_save_failed"/);
   assert.doesNotMatch(worker, /waitForGeneratedImage\(\s*previous,\s*0,/);
+});
+
+test("direct Gemini protocol bypasses the composer and extracts generated images", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "..", "gemini-web-direct-protocol.js"),
+    "utf8",
+  );
+  const sandbox = {
+    console,
+    URLSearchParams,
+    TextDecoder,
+  };
+  vm.runInNewContext(source, sandbox, {
+    filename: "gemini-web-direct-protocol.js",
+  });
+  const protocol = sandbox.LANGBAI_GEMINI_DIRECT_PROTOCOL;
+  assert.ok(protocol);
+  const candidate = [];
+  candidate[0] = "response-candidate";
+  candidate[12] = [];
+  candidate[12][7] = [[[
+    [null, null, null, [
+      null,
+      null,
+      null,
+      "https://lh3.googleusercontent.com/generated=s1024-rj",
+    ]],
+    ["generated-image-id"],
+  ]]];
+  const payload = [];
+  payload[1] = ["conversation-id", "reply-id"];
+  payload[4] = [candidate];
+  const stream = JSON.stringify([
+    ["wrb.fr", "StreamGenerate", JSON.stringify(payload)],
+  ]);
+  const images = protocol._test.generatedImages(stream);
+  assert.equal(images.length, 1);
+  assert.equal(images[0].cid, "conversation-id");
+  assert.equal(images[0].rid, "reply-id");
+  assert.equal(images[0].rcid, "response-candidate");
+  assert.equal(images[0].imageId, "generated-image-id");
+  assert.match(images[0].url, /googleusercontent\.com/);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(
+      protocol._test.responseFailure('["额度限制影响图片生成"]'),
+    )),
+    {
+      code: "quota_exhausted",
+      accountStatus: "quota_exhausted",
+      message: "当前 Gemini 账号的图片生成额度已耗尽。",
+    },
+  );
+  assert.match(source, /inner\[45\] = 1/);
+  assert.match(source, /const rawError = await response\.text\(\)/);
+  assert.match(source, /response\.headers\.get\("x-request-id"\)/);
+  assert.match(source, /uploadedUrl\.length > 8192/);
+  assert.match(source, /temporaryVerified: false/);
+  assert.match(source, /StreamGenerate/);
 });
 
 test("writes exact global dimensions into the cached Gemini task result", () => {
@@ -182,6 +245,10 @@ test("writes exact global dimensions into the cached Gemini task result", () => 
   assert.match(worker, /const processed = await transformForRequestedOutput\(downloadedBlob, request\)/);
   assert.match(worker, /final_size: `\$\{processed\.final\.width\}x\$\{processed\.final\.height\}`/);
   assert.match(worker, /body: blob/);
+  assert.match(worker, /companion\/tasks\/\$\{encodeURIComponent\(task\.id\)\}\/heartbeat/);
+  assert.match(worker, /phase: "direct_image_ready"/);
+  assert.match(worker, /task\.recovery\?\.phase === "direct_image_ready"/);
+  assert.match(worker, /temporary_chat_verified: false/);
 });
 
 test("embedded hosts reject signed-out and stale-profile readiness events", () => {
@@ -196,7 +263,12 @@ test("embedded hosts reject signed-out and stale-profile readiness events", () =
     /message\['status'\] == 'page_ready' &&\s*message\['login_ready'\] == true/,
   );
   assert.match(host, /int _controllerGeneration = 0;/);
-  assert.match(host, /_handleMessage\(message, generation, config\.profileId\)/);
+  assert.match(host, /config\.nativeBridgeCapability/);
+  assert.match(host, /message\['capability'\]\?\.toString\(\) != nativeBridgeCapability/);
+  assert.doesNotMatch(
+    host,
+    /globalThis\.__LANGBAI_GEMINI_NATIVE_REPORT =/,
+  );
   assert.match(
     host,
     /generation == _controllerGeneration &&\s*profileId == _activeProfileId &&\s*profileId == widget\.requestController\.profileId/,

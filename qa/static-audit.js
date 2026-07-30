@@ -15,6 +15,7 @@ const codexImageGateway = read("codex-image-gateway.js");
 const geminiSizeRegistry = read("gemini-image-size-registry.js");
 const geminiWebAdapter = read("gemini-web-image-adapter.js");
 const geminiSelectorPack = read("gemini-selector-pack.js");
+const geminiDirectProtocol = read("gemini-web-direct-protocol.js");
 const geminiEmbeddedWorker = read("gemini-embedded-worker.js");
 const bootstrapGuard = read("bootstrap-guard.js");
 const pubspec = read("pubspec.yaml");
@@ -56,10 +57,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.8";
-const expectedBuild = 85;
-const expectedCacheToken = "20260730-1-6-8";
-const expectedSwCache = "ai-image-generator-1-6-8-20260730";
+const expectedVersion = "1.6.9";
+const expectedBuild = 86;
+const expectedCacheToken = "20260730-1-6-9";
+const expectedSwCache = "ai-image-generator-1-6-9-20260730";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -69,13 +70,14 @@ assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
 assert.match(pubspec, /^\s*- gemini-image-size-registry\.js$/m);
 assert.match(pubspec, /^\s*- gemini-web-image-adapter\.js$/m);
 assert.match(pubspec, /^\s*- gemini-selector-pack\.js$/m);
+assert.match(pubspec, /^\s*- gemini-web-direct-protocol\.js$/m);
 assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.8/);
-assert.match(html, /20260730-1-6-8/g);
-assert.match(sw, /ai-image-generator-1-6-8-20260730/);
+assert.match(html, /v1\.6\.9/);
+assert.match(html, /20260730-1-6-9/g);
+assert.match(sw, /ai-image-generator-1-6-9-20260730/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -89,19 +91,26 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,8,85/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.8"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.8";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-8/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,9,86/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.9"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.9";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-9/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
+assert.match(workflow, /node --check gemini-web-direct-protocol\.js/);
+assert.match(workflow, /"gemini-web-direct-protocol\.js"/);
 assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
-assert.match(embeddedGatewayLauncher, /version="1\.6\.8"/);
-assert.match(readme, /^## v1\.6\.8[：:]/m);
-assert.match(handoff, /^# .*v1\.6\.8$/m);
-assert.match(handoff, /源码版本 `1\.6\.8\+85`/);
+assert.match(workflow, /node qa\/gemini-temporary-chat-state\.test\.js/);
+assert.match(workflow, /node --test qa\/service-worker-consistency\.test\.js/);
+assert.match(workflow, /SHA256SUMS\.txt/);
+assert.match(embeddedGatewayLauncher, /version="1\.6\.9"/);
+assert.match(readme, /^## v1\.6\.9[：:]/m);
+assert.match(handoff, /^# .*v1\.6\.9$/m);
+assert.match(handoff, /源码版本 `1\.6\.9\+86`/);
 assert.match(windowsInstaller, /AppVersion=\{#MyAppVersion\}/);
+assert.match(windowsInstaller, /THIRD_PARTY_NOTICES\.md/);
+assert.match(windowsInstaller, /THIRD_PARTY_LICENSES/);
 assert.match(app, /function isNativeChatGptGatewayWebview\(\)/);
 assert.match(app, /\["windows", "android"\]\.includes\(getRuntimePlatform\(\)\)/);
 assert.match(app, /session_available === false/);
@@ -122,7 +131,11 @@ assert.doesNotMatch(pubspec, /^\s*webview_windows:/m);
 assert.match(vendoredWindowsWebview, /class WinWebViewWidget/);
 assert.match(vendoredWindowsWebview, /addScriptToExecuteOnDocumentCreated/);
 assert.match(vendoredWindowsWebview, /onProcessFailed/);
+assert.match(vendoredWindowsWebview, /dispatchTrustedTextInput/);
 assert.match(vendoredWindowsMethodChannel, /call\.method == "onProcessFailed"/);
+assert.match(vendoredWindowsMethodChannel, /dispatchTrustedTextInput/);
+assert.match(vendoredWindowsNativeWebview, /Input\.insertText/);
+assert.match(vendoredWindowsPlugin, /dispatchTrustedTextInput/);
 assert.match(vendoredWindowsMethodChannel, /notifyRawWebMessage_/);
 assert.match(vendoredWindowsNativeWebview, /CreateCoreWebView2Controller\(/);
 assert.match(vendoredWindowsNativeWebview, /add_ProcessFailed/);
@@ -195,6 +208,12 @@ assert.match(geminiSelectorPack, /temporaryChat/);
 assert.match(geminiSelectorPack, /data-test-id="temp-chat-button"/);
 assert.match(geminiSelectorPack, /临时聊天/);
 assert.match(geminiEmbeddedWorker, /__LANGBAI_GEMINI_EMBEDDED_CONFIG/);
+assert.match(geminiEmbeddedWorker, /processTaskThroughDirectProtocol/);
+assert.match(geminiEmbeddedWorker, /submission_transport/);
+assert.match(geminiDirectProtocol, /StreamGenerate/);
+assert.match(geminiDirectProtocol, /inner\[45\] = 1/);
+assert.match(geminiDirectProtocol, /content-push\.googleapis\.com\/upload/);
+assert.doesNotMatch(geminiDirectProtocol, /__Secure-1PSID/);
 assert.match(geminiEmbeddedWorker, /globalThis\.top !== globalThis/);
 assert.match(geminiEmbeddedWorker, /TEMPORARY_CHAT_CHECKPOINT_KEY/);
 assert.match(geminiEmbeddedWorker, /ensureTemporaryChat\(task\)/);
@@ -278,6 +297,17 @@ assert.match(geminiEmbeddedWorker, /bodyBase64/);
 assert.match(geminiEmbeddedBrowser, /GeminiMobileEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /GeminiWindowsEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /gemini-embedded-worker\.js/);
+assert.match(geminiEmbeddedBrowser, /nativeBridgeCapability/);
+assert.match(geminiEmbeddedBrowser, /__LANGBAI_GEMINI_NATIVE_CAPABILITY/);
+assert.doesNotMatch(
+  geminiEmbeddedBrowser,
+  /globalThis\.__LANGBAI_GEMINI_NATIVE_REPORT\s*=/,
+);
+assert.match(geminiEmbeddedWorker, /\/heartbeat/);
+assert.match(geminiEmbeddedWorker, /phase: "direct_image_ready"/);
+assert.match(geminiEmbeddedWorker, /temporary_chat_verified: false/);
+assert.match(geminiDirectProtocol, /const rawError = await response\.text\(\)/);
+assert.match(geminiDirectProtocol, /temporaryVerified: false/);
 assert.match(geminiEmbeddedBrowser, /gemini_sessions/);
 assert.match(geminiEmbeddedBrowser, /deleteGeminiEmbeddedProfileData/);
 assert.match(geminiEmbeddedBrowser, /registerLoggedInProfile/);
@@ -434,6 +464,7 @@ for (const file of [
   "app.js", "bootstrap-guard.js", "image-task-stability.js",
   "codex-image-gateway.js", "gemini-image-size-registry.js",
   "gemini-web-image-adapter.js", "gemini-selector-pack.js",
+  "gemini-web-direct-protocol.js",
   "gemini-embedded-worker.js",
   "index.html", "style.css", "sw.js", "manifest.webmanifest",
 ]) {
