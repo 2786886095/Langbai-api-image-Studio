@@ -274,6 +274,8 @@
         && (
           host === "googleusercontent.com"
           || host.endsWith(".googleusercontent.com")
+          || host === "usercontent.google.com"
+          || host.endsWith(".usercontent.google.com")
           || host === "ggpht.com"
           || host.endsWith(".ggpht.com")
         )

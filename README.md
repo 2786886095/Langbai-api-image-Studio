@@ -4,6 +4,13 @@
 
 「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的中文图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、ChatGPT 网页生图、Gemini 网页生图、GrsAI 与 OpenAI 兼容接口。
 
+## v1.6.18：Gemini 原图中转域名与持续恢复修复
+
+- 修复 Gemini 原图第一跳返回 `*.usercontent.google.com` 时被旧白名单误判为无效地址的问题；网页层与 Windows 原生下载层现在使用一致的受信任 Google 图片域名规则。
+- 原图定位结果兼容纯文本、JSON 字符串、转义 URL 与正文内 URL，不再要求响应必须恰好等于一个未转义地址。
+- 已生成图片的原图恢复改为在同一任务上最多等待 10 分钟并持续续租，期间不会重新提交提示词或重复消耗额度。
+- 已用真实 Gemini 账号完成端到端验证：任务成功、原图鉴权下载成功，输出 `1408×768` PNG、1,015,725 字节，`transform=none`，文件未缩放、未裁切。
+
 ## v1.6.17：Gemini 原图下载错误提示修复
 
 - 修复 `gemini_generated_image_recovery_failed` 中文文案被打包成连续问号的问题。

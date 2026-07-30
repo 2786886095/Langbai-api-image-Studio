@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.17
+# Codex / Claude Handoff: AI 图片生成器 v1.6.18
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,14 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.17+94`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.18+95`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.18 Gemini 原图中转域名与持续恢复修复
+
+- 根因：Google 原图解析第一跳实际返回 `work.fife.usercontent.google.com`，旧 JS 白名单只接受 `googleusercontent.com/ggpht.com`，因此合法地址被清空。
+- `gemini-embedded-worker.js`、`gemini-web-direct-protocol.js` 与 `lib/gemini_embedded_browser.dart` 已统一允许 HTTPS `usercontent.google.com` 子域。
+- 同任务原图恢复最长 60 轮、每轮间隔 10 秒；只处理现有 `direct_image_ready` 检查点，不重新提交生图。
+- 真实验收任务 `gemini_1785417252522907_9e9711a5` 成功；原图 `1408×768`、1,015,725 字节、SHA-256 `F77990164501C59B976987710AA6D0D0EF37C401AF567AD08314A45059710AE2`，审计为 `transform=none`。
 
 ## v1.6.17 Gemini 原图下载错误提示修复
 

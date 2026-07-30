@@ -6,6 +6,16 @@ import 'dart:io';
 const String _profileId = '123e4567-e89b-42d3-a456-426614174000';
 
 void main() {
+  test('allows the authenticated Google original-image relay host', () {
+    expect(
+      isAllowedGeminiImageUrlForTest(
+        Uri.parse(
+          'https://work.fife.usercontent.google.com/rd-gg-dl/original',
+        ),
+      ),
+      isTrue,
+    );
+  });
   test('embedded browser and gateway use the current selector protocol', () {
     expect(geminiEmbeddedSelectorPackVersion, '2026.07.30.6');
     expect(geminiSelectorPackVersion, geminiEmbeddedSelectorPackVersion);

@@ -2280,6 +2280,8 @@ if (typeof module !== "undefined" && module.exports) {
         && (
           host === "googleusercontent.com"
           || host.endsWith(".googleusercontent.com")
+          || host === "usercontent.google.com"
+          || host.endsWith(".usercontent.google.com")
           || host === "ggpht.com"
           || host.endsWith(".ggpht.com")
         )
@@ -2310,14 +2312,27 @@ if (typeof module !== "undefined" && module.exports) {
         downloaded?.bodyBase64 || downloaded?.body_base64,
       ));
     }
-    let normalized = String(body || "").trim();
+    let normalized = String(body || "")
+      .replace(/^\uFEFF/, "")
+      .replace(/&amp;/gi, "&")
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\u003d/gi, "=")
+      .replace(/\\\//g, "/")
+      .trim();
     if (normalized.startsWith('"') && normalized.endsWith('"')) {
       try {
         const decoded = JSON.parse(normalized);
         if (typeof decoded === "string") normalized = decoded.trim();
       } catch {}
     }
-    return trustedDirectGoogleImageUrl(normalized);
+    const direct = trustedDirectGoogleImageUrl(normalized);
+    if (direct) return direct;
+    const candidates = normalized.match(/https:\/\/[^\s"'<>\\]+/gi) || [];
+    for (const candidate of candidates) {
+      const trusted = trustedDirectGoogleImageUrl(candidate);
+      if (trusted) return trusted;
+    }
+    return "";
   }
 
   async function resolveDirectOriginalDownloadUrl(image) {
@@ -2506,20 +2521,30 @@ if (typeof module !== "undefined" && module.exports) {
     }
     let downloaded = null;
     let downloadError = null;
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
+    // Gemini exposes the preview before the original locator has necessarily
+    // propagated through every Google media host. Keep recovering this exact
+    // task for up to ten minutes; never submit the prompt again here.
+    const maxRecoveryAttempts = 60;
+    for (let attempt = 1; attempt <= maxRecoveryAttempts; attempt += 1) {
       await claimHeartbeat?.pulse?.();
+      notifyNative("original_download_recovery", {
+        status: "locating_full_size",
+        task_id: task.id,
+        attempt,
+        max_attempts: maxRecoveryAttempts,
+      });
       try {
         downloaded = await downloadDirectGeneratedImage(recovery.image);
         break;
       } catch (error) {
         downloadError = error;
-        if (attempt < 3) await sleep(3000 * attempt);
+        if (attempt < maxRecoveryAttempts) await sleep(10000);
       }
     }
     if (!downloaded) {
       throw Object.assign(
         new Error(
-          "Gemini generated the image, but all three download attempts failed. "
+          `Gemini generated the image, but all ${maxRecoveryAttempts} original-download attempts failed. `
           + "Submitting again may consume another generation; manual confirmation is required. "
           + String(downloadError?.message || downloadError || ""),
         ),

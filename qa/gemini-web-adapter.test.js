@@ -236,6 +236,12 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   const fullSizeRpc = `)]}'\n${JSON.stringify([["wrb.fr", "c8o8Fe", JSON.stringify([fullSizeUrl]), null, null, null, "generic"]])}`;
   assert.equal(protocol._test.extractFullSizeRpcUrl(fullSizeRpc), fullSizeUrl);
   assert.equal(
+    protocol._test.trustedGoogleImageUrl(
+      "https://work.fife.usercontent.google.com/rd-gg-dl/original=s0-d-I?alr=yes",
+    ),
+    "https://work.fife.usercontent.google.com/rd-gg-dl/original=s0-d-I?alr=yes",
+  );
+  assert.equal(
     protocol._test.normalizeUploadedFileIdentifier(
       "/contrib_service/ttl_1d/1709764705i7wdlyx3mdzndme3a767pluckv4flj",
     ),
@@ -311,6 +317,9 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(worker, /const candidates = \[resolvedOriginal\]/);
   assert.doesNotMatch(worker, /highResolution/);
   assert.match(worker, /=d-I\?alr=yes/);
+  assert.match(worker, /host\.endsWith\("\.usercontent\.google\.com"\)/);
+  assert.match(worker, /const maxRecoveryAttempts = 60/);
+  assert.match(worker, /await sleep\(10000\)/);
   assert.match(worker, /info\.pixels > bestInfo\.pixels/);
   assert.match(worker, /Preserve the authenticated Gemini original byte-for-byte/);
   assert.match(worker, /final: source/);

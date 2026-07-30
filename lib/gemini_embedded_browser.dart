@@ -238,6 +238,7 @@ const Set<String> _allowedNavigationHosts = <String>{
 
 const Set<String> _allowedGeminiImageHosts = <String>{
   'googleusercontent.com',
+  'usercontent.google.com',
   'ggpht.com',
   'gstatic.com',
   'googleapis.com',
@@ -251,6 +252,10 @@ bool _isAllowedGeminiImageUrl(Uri uri) {
     (allowed) => host == allowed || host.endsWith('.$allowed'),
   );
 }
+
+// Kept as a narrow test seam so host allow-list regressions are caught by the
+// packaged-app test suite without exposing the private downloader itself.
+bool isAllowedGeminiImageUrlForTest(Uri uri) => _isAllowedGeminiImageUrl(uri);
 
 class _GeminiNativeTransport {
   _GeminiNativeTransport(this.config);
