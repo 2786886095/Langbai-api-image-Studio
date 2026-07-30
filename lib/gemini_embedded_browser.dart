@@ -1615,8 +1615,12 @@ class _GeminiWindowsEmbeddedBrowserState
       await _handleTrustedTextRequest(message);
       return;
     }
-    if (message['type'] == 'image-download-request') {
-      await _handleImageDownloadRequest(message);
+    if (message['type'] == 'image-download-request' ||
+        message['type'] == 'resource-download-request') {
+      await _handleImageDownloadRequest(
+        message,
+        allowText: message['type'] == 'resource-download-request',
+      );
       return;
     }
     if (message['type'] == 'native-request') {
@@ -1795,8 +1799,9 @@ class _GeminiWindowsEmbeddedBrowserState
   }
 
   Future<void> _handleImageDownloadRequest(
-    Map<String, dynamic> message,
-  ) async {
+    Map<String, dynamic> message, {
+    bool allowText = false,
+  }) async {
     final requestId = message['requestId']?.toString() ?? '';
     final controller = _controller;
     if (requestId.isEmpty || controller == null) return;
@@ -1852,9 +1857,8 @@ class _GeminiWindowsEmbeddedBrowserState
               ),
             );
             final resource = loaded is Map ? loaded['resource'] : null;
-            final stream = resource is Map
-                ? resource['stream']?.toString() ?? ''
-                : '';
+            final stream =
+                resource is Map ? resource['stream']?.toString() ?? '' : '';
             final success = resource is Map && resource['success'] == true;
             if (success && stream.isNotEmpty) {
               final collected = <int>[];
@@ -1931,9 +1935,14 @@ class _GeminiWindowsEmbeddedBrowserState
         }
         final request =
             await client.getUrl(uri).timeout(const Duration(seconds: 30));
-        request.headers.set(HttpHeaders.acceptHeader, 'image/*');
-        request.headers.set(HttpHeaders.refererHeader, 'https://gemini.google.com/');
-        request.headers.set(HttpHeaders.userAgentHeader,
+        request.headers.set(
+          HttpHeaders.acceptHeader,
+          allowText ? 'text/plain,*/*;q=0.8' : 'image/*',
+        );
+        request.headers
+            .set(HttpHeaders.refererHeader, 'https://gemini.google.com/');
+        request.headers.set(
+            HttpHeaders.userAgentHeader,
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
             '(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36');
         if (cookiePairs.isNotEmpty) {
@@ -1960,7 +1969,9 @@ class _GeminiWindowsEmbeddedBrowserState
         final contentType =
             downloaded.headers.contentType?.mimeType.toLowerCase() ?? '';
         if (bytes.isEmpty ||
-            (contentType.isNotEmpty && !contentType.startsWith('image/'))) {
+            (!allowText &&
+                contentType.isNotEmpty &&
+                !contentType.startsWith('image/'))) {
           throw const FormatException(
             'Gemini image URL did not return image bytes.',
           );
@@ -1971,8 +1982,9 @@ class _GeminiWindowsEmbeddedBrowserState
           'requestId': requestId,
           'response': <String, Object?>{
             'bodyBase64': base64Encode(bytes),
-            'contentType':
-                contentType.isEmpty ? 'application/octet-stream' : contentType,
+            'contentType': contentType.isEmpty
+                ? (allowText ? 'text/plain' : 'application/octet-stream')
+                : contentType,
           },
         };
       } catch (error) {

@@ -2203,6 +2203,22 @@ if (typeof module !== "undefined" && module.exports) {
           transform: "none",
         };
       }
+      const upscaleRatio = Math.max(
+        target.width / source.width,
+        target.height / source.height,
+      );
+      if (sizeMode === "exact_output" && upscaleRatio > 1.5) {
+        throw Object.assign(
+          new Error(
+            `Gemini 原图下载只得到 ${source.width}×${source.height}，低于目标 ${target.width}×${target.height}；软件已停止伪高清放大，请重试原图下载。`,
+          ),
+          {
+            code: "fullsize_download_missing",
+            sourceSize: source,
+            targetSize: target,
+          },
+        );
+      }
 
       const cropMode = request.crop_mode === "contain" ? "contain" : "smart_cover";
       const canvas = document.createElement("canvas");
@@ -2361,6 +2377,80 @@ if (typeof module !== "undefined" && module.exports) {
     });
   }
 
+  function trustedDirectGoogleImageUrl(value) {
+    try {
+      const parsed = new URL(String(value || "").trim());
+      const host = parsed.hostname.toLowerCase();
+      return parsed.protocol === "https:"
+        && (
+          host === "googleusercontent.com"
+          || host.endsWith(".googleusercontent.com")
+          || host === "ggpht.com"
+          || host.endsWith(".ggpht.com")
+        )
+        ? parsed.href
+        : "";
+    } catch {
+      return "";
+    }
+  }
+
+  async function readDirectGoogleText(url) {
+    let body = "";
+    try {
+      const response = await fetch(url, { credentials: "include", cache: "no-store" });
+      if (response.ok) body = await response.text();
+    } catch {}
+    if (
+      !body
+      && readEmbeddedConfig()?.embedded
+      && String(readEmbeddedConfig()?.platform || "").toLowerCase() === "windows"
+    ) {
+      const downloaded = await postMessageNativeCommand(
+        "resource-download-request",
+        { url },
+        90000,
+      );
+      body = new TextDecoder().decode(decodeBase64(
+        downloaded?.bodyBase64 || downloaded?.body_base64,
+      ));
+    }
+    let normalized = String(body || "").trim();
+    if (normalized.startsWith('"') && normalized.endsWith('"')) {
+      try {
+        const decoded = JSON.parse(normalized);
+        if (typeof decoded === "string") normalized = decoded.trim();
+      } catch {}
+    }
+    return trustedDirectGoogleImageUrl(normalized);
+  }
+
+  async function resolveDirectOriginalDownloadUrl(image) {
+    const fullSize = trustedDirectGoogleImageUrl(image?.fullSizeUrl);
+    if (!fullSize) return "";
+    // Gemini's full-size RPC returns a protected indirection URL. The current
+    // web protocol resolves it through two short text responses before the
+    // final original image can be downloaded.
+    const first = await readDirectGoogleText(`${fullSize}=d-I?alr=yes`);
+    if (!first) return "";
+    return await readDirectGoogleText(first);
+  }
+
+  async function directBlobPixelInfo(blob) {
+    try {
+      const decoded = await decodeImageBlob(blob);
+      const info = {
+        pixels: decoded.width * decoded.height,
+        width: decoded.width,
+        height: decoded.height,
+      };
+      decoded.close();
+      return info;
+    } catch {
+      return { pixels: 0, width: 0, height: 0 };
+    }
+  }
+
   async function downloadDirectGeneratedImage(image) {
     const original = String(image?.url || "");
     if (!/^https:\/\//i.test(original)) {
@@ -2373,8 +2463,33 @@ if (typeof module !== "undefined" && module.exports) {
       .replace(/=s\d+(?:-[a-z]+)?(?:\?.*)?$/i, "")
       + "=s2048-rj";
     let best = null;
+    let bestInfo = { pixels: 0, width: 0, height: 0 };
     const failures = [];
-    for (const url of [...new Set([highResolution, original])]) {
+    const resolvedOriginal = await resolveDirectOriginalDownloadUrl(image)
+      .catch(error => {
+        failures.push(`fullsize-rpc:${String(error?.code || error?.name || error)}`);
+        return "";
+      });
+    const candidates = [
+      resolvedOriginal,
+      trustedDirectGoogleImageUrl(image?.fullSizeUrl)
+        ? `${trustedDirectGoogleImageUrl(image.fullSizeUrl)}=s2048-rj`
+        : "",
+      highResolution,
+      original,
+    ];
+    const consider = async blob => {
+      if (!blob?.size) return;
+      const info = await directBlobPixelInfo(blob);
+      if (
+        info.pixels > bestInfo.pixels
+        || (info.pixels === bestInfo.pixels && blob.size > (best?.size || 0))
+      ) {
+        best = blob;
+        bestInfo = info;
+      }
+    };
+    for (const url of [...new Set(candidates.filter(Boolean))]) {
       try {
         const response = await fetch(url, {
           credentials: "include",
@@ -2382,7 +2497,7 @@ if (typeof module !== "undefined" && module.exports) {
         });
         if (response.ok) {
           const blob = await response.blob();
-          if (blob.size > 0 && (!best || blob.size > best.size)) best = blob;
+          await consider(blob);
         } else {
           failures.push(`page:${response.status}`);
         }
@@ -2411,7 +2526,7 @@ if (typeof module !== "undefined" && module.exports) {
                 || "image/jpeg",
             },
           );
-          if (blob.size > 0 && (!best || blob.size > best.size)) best = blob;
+          await consider(blob);
         } catch (error) {
           failures.push(
             `native:${String(error?.code || error?.name || error)}`

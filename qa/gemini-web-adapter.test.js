@@ -229,6 +229,9 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.equal(images[0].rcid, "response-candidate");
   assert.equal(images[0].imageId, "generated-image-id");
   assert.match(images[0].url, /googleusercontent\.com/);
+  const fullSizeUrl = "https://lh3.googleusercontent.com/full-size-indirection";
+  const fullSizeRpc = `)]}'\n${JSON.stringify([["wrb.fr", "c8o8Fe", JSON.stringify([fullSizeUrl]), null, null, null, "generic"]])}`;
+  assert.equal(protocol._test.extractFullSizeRpcUrl(fullSizeRpc), fullSizeUrl);
   assert.equal(
     protocol._test.normalizeUploadedFileIdentifier(
       "/contrib_service/ttl_1d/1709764705i7wdlyx3mdzndme3a767pluckv4flj",
@@ -279,6 +282,9 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(source, /const rawError = await response\.text\(\)/);
   assert.match(source, /response\.headers\.get\("x-request-id"\)/);
   assert.match(source, /normalizeUploadedFileIdentifier\(await response\.text\(\)\)/);
+  assert.match(source, /const FULL_SIZE_RPC_ID = "c8o8Fe"/);
+  assert.match(source, /resolveFullSizeImageUrl\(image, state, fetchImpl\)/);
+  assert.match(source, /fullSizeUrl:/);
   assert.match(source, /temporaryVerified: false/);
   assert.match(source, /StreamGenerate/);
   const worker = fs.readFileSync(
@@ -292,6 +298,12 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(worker, /currentGeminiModelMode\(\) \|\| "fast"/);
   assert.match(worker, /direct_model_fallback/);
   assert.match(worker, /selectedDirectModel = "fast"/);
+  assert.match(worker, /resource-download-request/);
+  assert.match(worker, /resolveDirectOriginalDownloadUrl\(image\)/);
+  assert.match(worker, /=d-I\?alr=yes/);
+  assert.match(worker, /info\.pixels > bestInfo\.pixels/);
+  assert.match(worker, /sizeMode === "exact_output" && upscaleRatio > 1\.5/);
+  assert.match(worker, /软件已停止伪高清放大/);
   assert.match(worker, /generated = await generateDirect\(null\)/);
   assert.match(worker, /error\?\.message \|\| ""/);
   assert.match(

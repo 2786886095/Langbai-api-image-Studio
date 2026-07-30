@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.14
+# Codex / Claude Handoff: AI 图片生成器 v1.6.15
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.14+91`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.15+92`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.15 Gemini 高清原图下载
+
+- 用户样图 `panel-1（1）.png` 虽为 `1536×1024`，本机任务 `gemini_1785399255491955_e36dd828` 的审计明确记录 `downloaded_fullsize=512x343`、`final_size=1536x1024`，旧版是在放大预览图。
+- `gemini-web-direct-protocol.js` 新增 `c8o8Fe` Batchexecute 原图 RPC，生成完成后以 `cid/rid/rcid/image_id` 获取 `fullSizeUrl`。
+- `gemini-embedded-worker.js` 按网页协议执行 `=d-I?alr=yes` 两级文本跳转，再下载最终原图；Windows 增加受 Google 主机白名单约束的 `resource-download-request`，Cookie 仍只留在 WebView2/原生网络层。
+- 多个下载候选改为解码后按真实像素数选优，不再按 Blob 字节大小选优。
+- `exact_output` 的放大比例超过 1.5 时以 `fullsize_download_missing` 终止，避免再次输出像素尺寸正确但内容低清的假高清文件；`local_4k_upscale` 仍保留用户明确选择的本地放大语义。
 
 ## v1.6.14 Windows 主 WebView 防误重载与工作区恢复
 

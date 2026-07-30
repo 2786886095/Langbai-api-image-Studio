@@ -5,6 +5,8 @@
 
   const GENERATE_PATH =
     "/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate";
+  const BATCH_PATH = "/_/BardChatUi/data/batchexecute";
+  const FULL_SIZE_RPC_ID = "c8o8Fe";
   const UPLOAD_URL = "https://content-push.googleapis.com/upload";
   const MAX_RESPONSE_BYTES = 24 * 1024 * 1024;
   const MODEL_HEADERS = Object.freeze({
@@ -264,6 +266,123 @@
     return [...unique.values()];
   }
 
+  function trustedGoogleImageUrl(value) {
+    try {
+      const parsed = new URL(String(value || "").trim());
+      const host = parsed.hostname.toLowerCase();
+      return parsed.protocol === "https:"
+        && (
+          host === "googleusercontent.com"
+          || host.endsWith(".googleusercontent.com")
+          || host === "ggpht.com"
+          || host.endsWith(".ggpht.com")
+        )
+        ? parsed.href
+        : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function extractFullSizeRpcUrl(raw) {
+    let result = "";
+    const seen = new Set();
+    const firstTrustedUrl = (value, depth = 0) => {
+      if (depth > 14 || value == null) return "";
+      if (typeof value === "string") {
+        const direct = trustedGoogleImageUrl(value);
+        if (direct) return direct;
+        if (/^[\[{]/.test(value.trim())) {
+          try {
+            return firstTrustedUrl(JSON.parse(value), depth + 1);
+          } catch {}
+        }
+        return "";
+      }
+      if (typeof value !== "object" || seen.has(value)) return "";
+      seen.add(value);
+      for (const child of Array.isArray(value) ? value : Object.values(value)) {
+        const found = firstTrustedUrl(child, depth + 1);
+        if (found) return found;
+      }
+      return "";
+    };
+    const visit = (value, depth = 0) => {
+      if (result || depth > 14 || value == null || typeof value !== "object") return;
+      if (
+        Array.isArray(value)
+        && value.includes(FULL_SIZE_RPC_ID)
+        && typeof value[2] === "string"
+      ) {
+        try {
+          result = firstTrustedUrl(JSON.parse(value[2]), depth + 1);
+        } catch {}
+        if (result) return;
+      }
+      for (const child of Array.isArray(value) ? value : Object.values(value)) {
+        visit(child, depth + 1);
+        if (result) return;
+      }
+    };
+    const source = String(raw || "").replace(/^\)\]\}'\s*/, "");
+    for (const line of source.split(/\r?\n/)) {
+      const candidate = line.trim();
+      if (!candidate.startsWith("[")) continue;
+      try {
+        visit(JSON.parse(candidate));
+      } catch {}
+      if (result) break;
+    }
+    return result;
+  }
+
+  async function resolveFullSizeImageUrl(image, state, fetchImpl = fetch) {
+    if (!image?.imageId || !image?.cid || !image?.rid || !image?.rcid) return "";
+    const descriptor = [
+      [null, null, null, [null, null, null, null, null, ""]],
+      [image.imageId, 0],
+      null,
+      [19, ""],
+      null,
+      null,
+      null,
+      null,
+      null,
+      "",
+    ];
+    const payload = [
+      descriptor,
+      [image.rid, image.rcid, image.cid, null, ""],
+      1,
+      0,
+      1,
+    ];
+    const query = new URLSearchParams({
+      rpcids: FULL_SIZE_RPC_ID,
+      hl: state.language || "zh-CN",
+      _reqid: String(Math.floor(10000 + Math.random() * 90000)),
+      rt: "c",
+      "source-path": "/app",
+    });
+    if (state.buildLabel) query.set("bl", state.buildLabel);
+    if (state.sessionId) query.set("f.sid", state.sessionId);
+    const response = await fetchImpl(`${BATCH_PATH}?${query}`, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "X-Same-Domain": "1",
+      },
+      body: new URLSearchParams({
+        at: state.accessToken,
+        "f.req": JSON.stringify([[[FULL_SIZE_RPC_ID, JSON.stringify(payload), null, "generic"]]]),
+      }),
+    });
+    if (!response.ok) return "";
+    return extractFullSizeRpcUrl(await response.text());
+  }
+
   function responseFailure(raw) {
     const text = String(raw || "")
       .replace(/\\"/g, '"')
@@ -460,8 +579,13 @@
         { directSubmissionStarted: true },
       );
     }
+    const resolvedImages = await Promise.all(images.map(async image => ({
+      ...image,
+      previewUrl: image.url,
+      fullSizeUrl: await resolveFullSizeImageUrl(image, state, fetchImpl).catch(() => ""),
+    })));
     return {
-      image: images[0],
+      image: resolvedImages[0],
       imageCount: images.length,
       transport: "gemini_web_direct_rpc",
       temporaryRequested: true,
@@ -473,8 +597,11 @@
     generate,
     _test: Object.freeze({
       generatedImages,
+      extractFullSizeRpcUrl,
       modelHeaders,
       normalizeUploadedFileIdentifier,
+      resolveFullSizeImageUrl,
+      trustedGoogleImageUrl,
       responseFailure,
       streamPayloads,
     }),
