@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.10
+# Codex / Claude Handoff: AI 图片生成器 v1.6.11
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.10+87`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.11+88`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.11 Gemini 中文额度响应识别修复
+
+- 真实失败任务 `gemini_1785384578931547_f5942c4d` 的响应包含“额度重置后才能生成图片”，证明短提示词已进入 Gemini 图片生成链路。
+- `gemini-web-direct-protocol.js` 原中文正则发生乱码，导致一次误判 `moderation_blocked`、一次落入 `gemini_no_image_returned`；现改为 Unicode 转义规则。
+- 明确识别“额度限制影响图片生成”“额度重置后才能生成图片”“图片生成额度耗尽”等响应并返回 `quota_exhausted`。
+- 网关收到 `quota_exhausted` 后沿用现有账号冷却与自动切换逻辑；首次请求没有图片，因此切换账号不会造成同一账号重复生成。
+- 审核规则不再用宽泛的“无法生成”单独判定，避免把额度提示误归为内容审核。
 
 ## v1.6.10 Gemini 直接协议启动门禁修复
 
@@ -459,9 +467,9 @@ node qa\regression-runner.js
 
 1. 检查 `git diff`，只提交本轮源代码和测试，不提交 QA 截图、临时 Edge profile、ASCII buildcheck 或构建目录。
 2. 推送后确认 GitHub Actions 的 `quality`、Android、Windows、macOS、iOS 全部成功。
-3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.6.10"`。
+3. 下载四端 artifacts，逐个检查内嵌 `APP_VERSION = "1.6.11"`。
 4. 对正式 Android APK 核对既有签名 SHA1：`C0:CE:3C:D4:36:95:D6:B1:28:7E:0B:8F:69:51:3F:70:89:AA:AA:91`。
-5. 使用 CI 的 `release-checksums` 产物核对并发布 `SHA256SUMS.txt`，再创建 `v1.6.10` Release；不要在 CI 未绿前创建 Release。
+5. 使用 CI 的 `release-checksums` 产物核对并发布 `SHA256SUMS.txt`，再创建 `v1.6.11` Release；不要在 CI 未绿前创建 Release。
 6. 至少在真实 Windows exe 上复测滚轮、语言下拉、目录选择、模型检测、代理测试和更新安装路径。
 
 ## 不要误改
@@ -477,7 +485,7 @@ node qa\regression-runner.js
 
 ## 工作区说明
 
-- `CLAUDE_HANDOFF.md` 与本文件后半部分保留旧版本历史；当前状态以本文顶部的 v1.6.10 章节为准。
+- `CLAUDE_HANDOFF.md` 与本文件后半部分保留旧版本历史；当前状态以本文顶部的 v1.6.11 章节为准。
 - 中文源路径会触发 Flutter shader 写入失败；Android 本地构建请继续使用纯 ASCII 副本。
 
 ## v1.4.5：专用 Codex 生图网关接入

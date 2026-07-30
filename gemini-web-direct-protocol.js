@@ -247,40 +247,40 @@
         } catch {
           return value;
         }
-      });
+      })
+      .normalize("NFKC");
     if (
-      /额度限制影响图片生成|图片生成.*额度|image generation.*(?:limit|quota)|quota.*image generation/i.test(text)
+      /\u989d\u5ea6\u9650\u5236\u5f71\u54cd\u56fe\u7247\u751f\u6210|\u989d\u5ea6\u91cd\u7f6e\u540e\u624d\u80fd\u751f\u6210\u56fe\u7247|\u56fe\u7247\u751f\u6210.*(?:\u989d\u5ea6|\u9650\u5236)|(?:\u989d\u5ea6|\u6b21\u6570).*(?:\u8017\u5c3d|\u7528\u5b8c|\u91cd\u7f6e)|image generation.*(?:limit|quota)|quota.*image generation/i.test(text)
     ) {
       return {
         code: "quota_exhausted",
         accountStatus: "quota_exhausted",
-        message: "当前 Gemini 账号的图片生成额度已耗尽。",
+        message: "\u5f53\u524d Gemini \u8d26\u53f7\u7684\u56fe\u7247\u751f\u6210\u989d\u5ea6\u5df2\u8017\u5c3d\uff0c\u8bf7\u7b49\u5f85\u989d\u5ea6\u91cd\u7f6e\u6216\u5207\u6362\u8d26\u53f7\u3002",
       };
     }
-    if (/too many requests|rate.?limit|稍后再试|请求过于频繁/i.test(text)) {
+    if (/too many requests|rate.?limit|\u7a0d\u540e\u518d\u8bd5|\u8bf7\u6c42\u8fc7\u4e8e\u9891\u7e41/i.test(text)) {
       return {
         code: "gemini_rate_limited",
         accountStatus: "rate_limited",
-        message: "Gemini 当前正在限流，请稍后重试。",
+        message: "Gemini \u5f53\u524d\u6b63\u5728\u9650\u6d41\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002",
       };
     }
-    if (/sign.?in|log.?in|session expired|登录.*失效/i.test(text)) {
+    if (/sign.?in|log.?in|session expired|\u767b\u5f55.*\u5931\u6548/i.test(text)) {
       return {
         code: "gemini_login_required",
         accountStatus: "needs_login",
-        message: "Gemini 登录状态已失效。",
+        message: "Gemini \u767b\u5f55\u72b6\u6001\u5df2\u5931\u6548\u3002",
       };
     }
-    if (/safety|policy|无法生成|不能生成|违反.*政策|内容.*限制/i.test(text)) {
+    if (/safety|policy|\u5185\u5bb9\u5ba1\u6838|\u8fdd\u53cd.*\u653f\u7b56|\u65e0\u6cd5\u751f\u6210.*(?:\u5b89\u5168|\u653f\u7b56|\u5185\u5bb9)/i.test(text)) {
       return {
         code: "moderation_blocked",
         accountStatus: "",
-        message: "Gemini 因内容审核没有返回图片。",
+        message: "Gemini \u56e0\u5185\u5bb9\u5ba1\u6838\u6ca1\u6709\u8fd4\u56de\u56fe\u7247\u3002",
       };
     }
     return null;
   }
-
   async function readResponse(response, heartbeat = null) {
     if (!response.body?.getReader) return response.text();
     const reader = response.body.getReader();

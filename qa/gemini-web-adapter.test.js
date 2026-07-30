@@ -228,15 +228,28 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.equal(images[0].rcid, "response-candidate");
   assert.equal(images[0].imageId, "generated-image-id");
   assert.match(images[0].url, /googleusercontent\.com/);
+  const expectedQuota = {
+    code: "quota_exhausted",
+    accountStatus: "quota_exhausted",
+    message: "当前 Gemini 账号的图片生成额度已耗尽，请等待额度重置或切换账号。",
+  };
   assert.deepEqual(
     JSON.parse(JSON.stringify(
-      protocol._test.responseFailure('["额度限制影响图片生成"]'),
+      protocol._test.responseFailure('["额度重置后才能生成图片"]'),
     )),
-    {
-      code: "quota_exhausted",
-      accountStatus: "quota_exhausted",
-      message: "当前 Gemini 账号的图片生成额度已耗尽。",
-    },
+    expectedQuota,
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(
+      protocol._test.responseFailure(
+        '["\\u989d\\u5ea6\\u9650\\u5236\\u5f71\\u54cd\\u56fe\\u7247\\u751f\\u6210"]',
+      ),
+    )),
+    expectedQuota,
+  );
+  assert.equal(
+    protocol._test.responseFailure('["内容审核未通过，无法生成图片"]')?.code,
+    "moderation_blocked",
   );
   assert.match(source, /inner\[45\] = 1/);
   assert.match(source, /const rawError = await response\.text\(\)/);
