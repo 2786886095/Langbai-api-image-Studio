@@ -5832,6 +5832,12 @@ async function testGeminiWebImageIntegration(cdp) {
       dom.apiProvider.dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise(resolve => setTimeout(resolve, 0));
       const geminiSizeAfterReturn = getSelectedSize();
+      applyLanguage("zh-CN");
+      const recoveryErrorText = formatImageApiError({
+        status: 502,
+        code: "gemini_generated_image_recovery_failed",
+        message: "Gemini generated the image, but all three download attempts failed.",
+      }).message;
       return {
         ready,
         provider: dom.apiProvider.value,
@@ -5879,6 +5885,7 @@ async function testGeminiWebImageIntegration(cdp) {
         standardSavedSizesVisible,
         geminiVisibleWhileOfficial,
         geminiSizeAfterReturn,
+        recoveryErrorText,
       };
     })()`, true);
     assertQa(
@@ -5903,6 +5910,14 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.standardSizeAfterSwitch === "1536x1024"
         && result.geminiSizeAfterReturn === result.geminiSelectedBeforeSwitch,
       "Gemini must show only its official 1K/2K presets, while switching back restores the existing non-Gemini size set.",
+      result,
+    );
+    assertQa(
+      result.recoveryErrorText.includes("Gemini 原图下载失败")
+        && result.recoveryErrorText.includes("连续三次仍未能下载原图")
+        && !result.recoveryErrorText.includes("????")
+        && !result.recoveryErrorText.includes("网页界面能力不可用"),
+      "A completed Gemini image whose original cannot be downloaded must show a readable recovery error, not UI-capability text or replacement question marks.",
       result,
     );
     assertQa(

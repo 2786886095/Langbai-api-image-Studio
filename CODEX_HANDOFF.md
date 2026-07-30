@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.16
+# Codex / Claude Handoff: AI 图片生成器 v1.6.17
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,14 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.16+93`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.17+94`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.17 Gemini 原图下载错误提示修复
+
+- 根因：`app.js` 中 `gemini_generated_image_recovery_failed` 的简体中文文案在历史编辑中已被真实问号字符覆盖，不是运行时字体问题。
+- `image-task-stability.js` 新增 `result_recovery_failed` 分类；图片已生成但原图下载失败不再归入 `provider_ui_unavailable`。
+- 此分类使用 `retryPolicy=never`，防止自动重提已经成功生成的任务并重复消耗额度。
+- 回归必须断言错误标题为“Gemini 原图下载失败”、正文不存在 `????`，并且不出现“网页界面能力不可用”。
 
 ## v1.6.16 工作区与 Gemini 专属尺寸实装修复
 

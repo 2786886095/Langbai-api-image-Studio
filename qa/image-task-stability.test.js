@@ -63,6 +63,18 @@ test("Gemini page capability failures are not mislabeled as ChatGPT disconnects"
   }
 });
 
+test("a generated Gemini image that cannot be downloaded is not mislabeled as a UI failure or retried", () => {
+  const detail = stability.classifyApiError({
+    status: 502,
+    code: "gemini_generated_image_recovery_failed",
+    message: "Gemini generated the image, but all three original downloads failed.",
+  });
+  assert.equal(detail.category, "result_recovery_failed");
+  assert.equal(detail.retryPolicy, "never");
+  assert.equal(detail.pausesQueue, false);
+  assert.equal(stability.retryDirective(detail, { phase: "poll" }).retryable, false);
+});
+
 test("structured retry directives never repeat unknown or invalid submissions", () => {
   assert.equal(stability.retryDirective("HTTP 400: unsupported parameter").retryable, false);
   assert.equal(stability.retryDirective("HTTP 400: [moderation_blocked] safety system").retryable, false);

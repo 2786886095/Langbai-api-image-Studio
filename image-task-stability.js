@@ -13,6 +13,7 @@
     payload: "payload_too_large",
     rateLimit: "rate_limited",
     providerUi: "provider_ui_unavailable",
+    resultRecovery: "result_recovery_failed",
     disconnected: "upstream_disconnected",
     unavailable: "upstream_unavailable",
     timeout: "upstream_timeout",
@@ -98,8 +99,14 @@
       category = ERROR_CATEGORIES.moderation;
       retryPolicy = "edit_required";
       requiresEdit = true;
+    } else if (/gemini_generated_image_recovery_failed/.test(lower)) {
+      // Generation already succeeded. Automatic resubmission could consume the
+      // user's quota again, so report this as a result-download problem rather
+      // than a Gemini UI capability failure.
+      category = ERROR_CATEGORIES.resultRecovery;
+      retryPolicy = "never";
     } else if (
-      /selector_pack_outdated|protocol_changed|gemini_temporary_chat_unavailable|temporary_chat_(unverified|guard_failed)|gemini_(composer_input_(failed|unstable)|trusted_text_failed|send_unavailable|submission_not_acknowledged|generated_image_recovery_failed|direct_(bootstrap|protocol|upload)_unavailable|no_image_returned|control_(missing|disabled|outside_viewport|occluded)|model_(unavailable|unverified))/.test(lower)
+      /selector_pack_outdated|protocol_changed|gemini_temporary_chat_unavailable|temporary_chat_(unverified|guard_failed)|gemini_(composer_input_(failed|unstable)|trusted_text_failed|send_unavailable|submission_not_acknowledged|direct_(bootstrap|protocol|upload)_unavailable|no_image_returned|control_(missing|disabled|outside_viewport|occluded)|model_(unavailable|unverified))/.test(lower)
     ) {
       category = ERROR_CATEGORIES.providerUi;
       retryPolicy = "after_probe";
