@@ -5838,6 +5838,9 @@ async function testGeminiWebImageIntegration(cdp) {
         code: "gemini_generated_image_recovery_failed",
         message: "Gemini generated the image, but all three download attempts failed.",
       }).message;
+      const legacyCorruptErrorText = sanitizeImageErrorMessage(
+        "Gemini 网页界面能力不可用。Gemini ?????????????????????????",
+      );
       return {
         ready,
         provider: dom.apiProvider.value,
@@ -5886,6 +5889,7 @@ async function testGeminiWebImageIntegration(cdp) {
         geminiVisibleWhileOfficial,
         geminiSizeAfterReturn,
         recoveryErrorText,
+        legacyCorruptErrorText,
       };
     })()`, true);
     assertQa(
@@ -5918,6 +5922,12 @@ async function testGeminiWebImageIntegration(cdp) {
         && !result.recoveryErrorText.includes("????")
         && !result.recoveryErrorText.includes("网页界面能力不可用"),
       "A completed Gemini image whose original cannot be downloaded must show a readable recovery error, not UI-capability text or replacement question marks.",
+      result,
+    );
+    assertQa(
+      result.legacyCorruptErrorText.includes("旧版本保存的错误详情编码损坏")
+        && !result.legacyCorruptErrorText.includes("????"),
+      "Legacy Gemini task errors containing literal replacement question marks must be shown as a readable migration notice.",
       result,
     );
     assertQa(

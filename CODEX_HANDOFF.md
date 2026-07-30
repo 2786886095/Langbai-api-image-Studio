@@ -1,12 +1,19 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.18
+# Codex / Claude Handoff: AI 图片生成器 v1.6.19
 
-更新时间：2026-07-30
+更新时间：2026-07-31
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.18+95`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.19+96`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.19 Gemini 网页原生 2K 修复
+
+- 2K 请求改用网页“制作图片”对应的 Advanced Fast/Pro 图片工具协议。
+- `c8o8Fe` 完整尺寸请求保留并发送 StreamGenerate 的签名图片令牌、描述符与会话路径。
+- `resolution_intent=2k` 已从任务透传到直接协议；原图恢复检查点保存定位字段，但不保存 Cookie。
+- 真实协议验证输出 `2048×2048` PNG、5,669,081 字节；复放结果与网页下载 SHA-256 一致。
 
 ## v1.6.18 Gemini 原图中转域名与持续恢复修复
 

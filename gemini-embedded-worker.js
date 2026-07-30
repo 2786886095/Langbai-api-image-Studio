@@ -2336,9 +2336,34 @@ if (typeof module !== "undefined" && module.exports) {
   }
 
   async function resolveDirectOriginalDownloadUrl(image) {
-    const fullSize = trustedDirectGoogleImageUrl(
+    let fullSize = trustedDirectGoogleImageUrl(
       image?.fullSizeUrl || image?.full_size_url,
-    ) || trustedDirectGoogleImageUrl(image?.url);
+    );
+    if (
+      !fullSize
+      && (image?.downloadToken || image?.download_token)
+      && globalThis.LANGBAI_GEMINI_DIRECT_PROTOCOL?.recoverFullSizeUrl
+    ) {
+      fullSize = trustedDirectGoogleImageUrl(
+        await globalThis.LANGBAI_GEMINI_DIRECT_PROTOCOL.recoverFullSizeUrl({
+          image: {
+            imageId: image?.imageId || image?.image_id,
+            cid: image?.cid,
+            rid: image?.rid,
+            rcid: image?.rcid,
+            downloadToken: image?.downloadToken || image?.download_token,
+            downloadDescriptor:
+              image?.downloadDescriptor || image?.download_descriptor,
+            downloadKey: image?.downloadKey || image?.download_key,
+          },
+        }),
+      );
+      if (fullSize) image.full_size_url = fullSize;
+    }
+    // Old checkpoints did not retain the c8o8Fe signed token. Keep their
+    // preview recovery compatible, but new tasks must prefer the authenticated
+    // full-size locator above.
+    fullSize ||= trustedDirectGoogleImageUrl(image?.url);
     if (!fullSize) return "";
     // Both c8o8Fe and the generated preview URL are protected locators. The
     // =d-I route resolves either locator through two text responses to the
@@ -2628,6 +2653,7 @@ if (typeof module !== "undefined" && module.exports) {
         await claimHeartbeat?.pulse?.();
         await event(task, "generating");
       },
+      resolutionIntent: request.resolution_intent || "",
     });
     let generated;
     try {
@@ -2662,6 +2688,9 @@ if (typeof module !== "undefined" && module.exports) {
         cid: generated.image.cid || "",
         rid: generated.image.rid || "",
         rcid: generated.image.rcid || "",
+        download_token: generated.image.downloadToken || "",
+        download_descriptor: generated.image.downloadDescriptor || [],
+        download_key: generated.image.downloadKey || "",
       },
       image_count: Number(generated.imageCount || 1),
       transport: generated.transport,

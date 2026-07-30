@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.18";
+const APP_VERSION = "1.6.19";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2241,6 +2241,29 @@ function geminiProviderUiReason(detail) {
   return zh[code] || "";
 }
 
+function sanitizeImageErrorMessage(value, fallback = "") {
+  const source = String(value || "").trim();
+  if (!source) return String(fallback || "").trim();
+  const replacementCount = [...source.matchAll(/\?{4,}/g)]
+    .reduce((total, match) => total + match[0].length, 0);
+  if (replacementCount < 8) return source;
+  const readable = source
+    .replace(/\?{4,}/g, " ")
+    .replace(/\s+([，。；：,.!?])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[。；：,.!?\s]+$/g, "")
+    .trim();
+  const notices = {
+    "zh-CN": "旧版本保存的错误详情编码损坏；请在当前版本重新提交该任务。",
+    "zh-Hant": "舊版本儲存的錯誤詳情編碼損壞；請在目前版本重新提交此任務。",
+    en: "The saved error detail was corrupted by an older version. Submit the task again in the current version.",
+    ja: "旧バージョンで保存されたエラー詳細の文字コードが破損しています。現在のバージョンで再送信してください。",
+    ko: "이전 버전에서 저장한 오류 상세 정보의 인코딩이 손상되었습니다. 현재 버전에서 작업을 다시 제출하세요.",
+  };
+  return [readable, notices[currentLanguage] || notices["zh-CN"]].filter(Boolean).join("。")
+    || String(fallback || notices["zh-CN"]).trim();
+}
+
 function formatImageApiError(error, extra = {}) {
   const detail = classifyImageApiError(error, extra);
   const language = IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"];
@@ -2250,7 +2273,9 @@ function formatImageApiError(error, extra = {}) {
   if (detail.safetyViolations.length) parts.push(`${language.violations}: ${detail.safetyViolations.join(", ")}`);
   if (detail.requiresEdit) parts.push(language.editRequired);
   if (detail.requestId) parts.push(`${language.requestId}: ${detail.requestId}`);
-  if (detail.category !== "moderation_blocked" && !geminiReason && detail.originalMessage) parts.push(detail.originalMessage);
+  if (detail.category !== "moderation_blocked" && !geminiReason && detail.originalMessage) {
+    parts.push(sanitizeImageErrorMessage(detail.originalMessage, language.unknown));
+  }
   return { detail, message: parts.filter(Boolean).join("。") };
 }
 
@@ -9761,7 +9786,10 @@ function releaseCardImageCache(card) {
 
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   const errorDetail = classifyImageApiError(errMsg);
-  const message = String(errMsg?.message || errMsg || "生成失败");
+  const message = sanitizeImageErrorMessage(
+    errMsg?.message || errMsg,
+    (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"])[errorDetail.category] || "生成失败",
+  );
   const requiresEdit = Boolean(errorDetail.requiresEdit);
   const retryBlocked = Boolean(
     errorDetail.retryPolicy === "never"

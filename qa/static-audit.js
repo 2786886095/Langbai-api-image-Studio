@@ -58,10 +58,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.18";
-const expectedBuild = 95;
-const expectedCacheToken = "20260730-1-6-18";
-const expectedSwCache = "ai-image-generator-1-6-18-20260730";
+const expectedVersion = "1.6.19";
+const expectedBuild = 96;
+const expectedCacheToken = "20260731-1-6-19";
+const expectedSwCache = "ai-image-generator-1-6-19-20260731";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -76,9 +76,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.18/);
-assert.match(html, /20260730-1-6-18/g);
-assert.match(sw, /ai-image-generator-1-6-18-20260730/);
+assert.match(html, /v1\.6\.19/);
+assert.match(html, /20260731-1-6-19/g);
+assert.match(sw, /ai-image-generator-1-6-19-20260731/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -92,10 +92,10 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,18,95/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.18"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.18";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260730-1-6-18/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,19,96/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.19"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.19";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260731-1-6-19/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -256,7 +256,9 @@ assert.match(geminiDirectProtocol, /recoverFullSizeUrl/);
 assert.match(geminiEmbeddedWorker, /resource-download-request/);
 assert.match(geminiEmbeddedWorker, /resolveDirectOriginalDownloadUrl\(image\)/);
 assert.match(geminiEmbeddedWorker, /full_size_url: generated\.image\.fullSizeUrl/);
-assert.match(geminiEmbeddedWorker, /\|\| trustedDirectGoogleImageUrl\(image\?\.url\)/);
+assert.match(geminiEmbeddedWorker, /fullSize \|\|= trustedDirectGoogleImageUrl\(image\?\.url\)/);
+assert.match(geminiEmbeddedWorker, /download_token: generated\.image\.downloadToken/);
+assert.match(geminiEmbeddedWorker, /resolutionIntent: request\.resolution_intent/);
 assert.match(geminiEmbeddedWorker, /const candidates = \[resolvedOriginal\]/);
 assert.doesNotMatch(geminiEmbeddedWorker, /highResolution/);
 assert.match(geminiEmbeddedWorker, /info\.pixels > bestInfo\.pixels/);
@@ -268,6 +270,9 @@ assert.match(app, /final:\s*source,\s*transform:\s*"none"/);
 assert.doesNotMatch(geminiSizeCapabilities, /'exact_output'|'local_4k_upscale'|'strict_native'/);
 assert.match(geminiEmbeddedBrowser, /allowText: message\['type'\] == 'resource-download-request'/);
 assert.match(geminiDirectProtocol, /inner\[45\] = 1/);
+assert.match(geminiDirectProtocol, /inner\[49\] = 14/);
+assert.match(geminiDirectProtocol, /inner\[96\] = 1/);
+assert.match(geminiDirectProtocol, /e6fa609c3fa255c0/);
 assert.match(geminiDirectProtocol, /content-push\.googleapis\.com\/upload/);
 assert.ok(
   geminiDirectProtocol.includes("\\u989d\\u5ea6\\u91cd\\u7f6e\\u540e"),

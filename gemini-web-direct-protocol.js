@@ -13,6 +13,10 @@
     fast: ["fbb127bbb056c959", 1],
     pro: ["9d8ca3786ebdfbea", 1],
   });
+  const IMAGE_TOOL_MODEL_HEADERS = Object.freeze({
+    fast: ["56fdd199312815e2", 1],
+    pro: ["e6fa609c3fa255c0", 3],
+  });
 
   function error(message, code, extra = {}) {
     return Object.assign(new Error(message), { code, ...extra });
@@ -108,9 +112,19 @@
     ].join("-").toUpperCase();
   }
 
-  function modelHeaders(preference) {
-    const selected = MODEL_HEADERS[String(preference || "auto").toLowerCase()];
+  function modelHeaders(preference, requestUuid = "", imageTool = false) {
+    const selected = (imageTool ? IMAGE_TOOL_MODEL_HEADERS : MODEL_HEADERS)[
+      String(preference || "auto").toLowerCase()
+    ];
     if (!selected) return {};
+    if (imageTool) {
+      return {
+        "x-goog-ext-525001261-jspb":
+          `[1,null,null,null,"${selected[0]}",null,null,0,[4,5,6,8],null,null,2,null,null,${selected[1]},1,"${requestUuid}"]`,
+        "x-goog-ext-73010989-jspb": "[0]",
+        "x-goog-ext-73010990-jspb": "[0,0,0]",
+      };
+    }
     return {
       "x-goog-ext-525001261-jspb":
         `[1,null,null,null,"${selected[0]}",null,null,0,[4],null,null,${selected[1]}]`,
@@ -250,12 +264,20 @@
           for (const entry of group) {
             const url = nested(entry, [0, 3, 3], "");
             if (!/^https:\/\//i.test(String(url || ""))) continue;
+            const downloadDescriptor = nested(entry, [3], []);
             images.push({
               url: String(url),
               imageId: String(nested(entry, [1, 0], "")),
               cid: String(metadata?.[0] || ""),
               rid: String(metadata?.[1] || ""),
               rcid: String(candidate?.[0] || ""),
+              // c8o8Fe requires the signed image token and the exact image
+              // descriptor returned by StreamGenerate.  Omitting these fields
+              // resolves the 1024px preview instead of the UI's full-size PNG.
+              downloadToken: String(nested(entry, [0, 3, 5], "")),
+              downloadDescriptor: Array.isArray(downloadDescriptor)
+                ? downloadDescriptor
+                : [],
             });
           }
         }
@@ -338,33 +360,64 @@
     return result;
   }
 
-  async function resolveFullSizeImageUrl(image, state, fetchImpl = fetch) {
-    if (!image?.imageId || !image?.cid || !image?.rid || !image?.rcid) return "";
+  function randomDownloadKey() {
+    const seed = Math.random().toString(36).slice(2, 8) || "image0";
+    return seed.repeat(3).slice(0, 18);
+  }
+
+  function buildFullSizeRpcPayload(image) {
+    const imageId = String(image?.imageId || image?.image_id || "");
+    const cid = String(image?.cid || "");
+    const rid = String(image?.rid || "");
+    const rcid = String(image?.rcid || "");
+    const downloadToken = String(
+      image?.downloadToken || image?.download_token || "",
+    );
+    if (!imageId || !cid || !rid || !rcid || !downloadToken) return null;
+    const outputKey = String(
+      image?.downloadKey || image?.download_key || randomDownloadKey(),
+    );
+    const sourceDescriptor = image?.downloadDescriptor
+      || image?.download_descriptor;
+    const downloadDescriptor = Array.isArray(sourceDescriptor)
+      ? JSON.parse(JSON.stringify(sourceDescriptor))
+      : [20];
+    downloadDescriptor[0] = Number(downloadDescriptor[0] || 20);
+    downloadDescriptor[1] = "";
     const descriptor = [
-      [null, null, null, [null, null, null, null, null, ""]],
-      [image.imageId, 0],
+      [null, null, null, [null, null, null, null, null, downloadToken]],
+      [imageId, 0],
       null,
-      [19, ""],
-      null,
-      null,
+      downloadDescriptor,
       null,
       null,
       null,
-      "",
+      null,
+      null,
+      outputKey,
     ];
-    const payload = [
-      descriptor,
-      [image.rid, image.rcid, image.cid, null, ""],
-      1,
-      0,
-      1,
-    ];
+    return {
+      payload: [
+        descriptor,
+        [rid, rcid, cid, null, outputKey],
+        1,
+        0,
+        1,
+      ],
+      sourcePath: `/app/${cid.replace(/^c_/, "")}`,
+      outputKey,
+    };
+  }
+
+  async function resolveFullSizeImageUrl(image, state, fetchImpl = fetch) {
+    const request = buildFullSizeRpcPayload(image);
+    if (!request) return "";
     const query = new URLSearchParams({
       rpcids: FULL_SIZE_RPC_ID,
       hl: state.language || "zh-CN",
       _reqid: String(Math.floor(10000 + Math.random() * 90000)),
       rt: "c",
-      "source-path": "/app",
+      "source-path": request.sourcePath,
     });
     if (state.buildLabel) query.set("bl", state.buildLabel);
     if (state.sessionId) query.set("f.sid", state.sessionId);
@@ -378,7 +431,7 @@
       },
       body: new URLSearchParams({
         at: state.accessToken,
-        "f.req": JSON.stringify([[[FULL_SIZE_RPC_ID, JSON.stringify(payload), null, "generic"]]]),
+        "f.req": JSON.stringify([[[FULL_SIZE_RPC_ID, JSON.stringify(request.payload), null, "generic"]]]),
       }),
     });
     if (!response.ok) return "";
@@ -499,15 +552,17 @@
     fetchImpl = fetch,
     heartbeat = null,
     onBeforeSubmit = null,
+    resolutionIntent = "",
   } = {}) {
     const state = await bootstrap(fetchImpl);
     const uploaded = await uploadReferences(references, state, fetchImpl);
     const message = [String(prompt || "").trim(), 0, null, uploaded, null, null, 0];
-    const inner = Array(69).fill(null);
+    const useImageTool = String(resolutionIntent || "").toLowerCase() === "2k";
+    const inner = Array(useImageTool ? 97 : 69).fill(null);
     inner[0] = message;
     inner[1] = [state.language || "zh-CN"];
     inner[2] = ["", "", "", null, null, null, null, null, null, ""];
-    inner[6] = [1];
+    inner[6] = [useImageTool ? 0 : 1];
     inner[7] = 1;
     inner[10] = 1;
     inner[11] = 0;
@@ -516,11 +571,18 @@
     inner[27] = 1;
     inner[30] = [4];
     inner[41] = [1];
-    inner[45] = 1;
+    if (!useImageTool) inner[45] = 1;
+    if (useImageTool) inner[49] = 14;
     inner[53] = 0;
     inner[59] = uuid();
     inner[61] = [];
-    inner[68] = 2;
+    inner[68] = useImageTool ? 1 : 2;
+    if (useImageTool) {
+      inner[79] = String(modelPreference || "").toLowerCase() === "pro" ? 3 : 1;
+      inner[80] = 1;
+      inner[91] = 0;
+      inner[96] = 1;
+    }
 
     const query = new URLSearchParams({
       hl: state.language || "zh-CN",
@@ -545,7 +607,7 @@
           "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
           "X-Same-Domain": "1",
           "x-goog-ext-525005358-jspb": `["${inner[59]}",1]`,
-          ...modelHeaders(modelPreference),
+          ...modelHeaders(modelPreference, inner[59], useImageTool),
         },
         body,
       });
@@ -639,6 +701,7 @@
     recoverFullSizeUrl,
     _test: Object.freeze({
       generatedImages,
+      buildFullSizeRpcPayload,
       extractFullSizeRpcUrl,
       modelHeaders,
       normalizeUploadedFileIdentifier,

@@ -214,10 +214,14 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
     [null, null, null, [
       null,
       null,
-      null,
+      "watermarked-generated.png",
       "https://lh3.googleusercontent.com/generated=s1024-rj",
+      null,
+      "$signed-full-size-token",
     ]],
     ["generated-image-id"],
+    null,
+    [20, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null, "imagen_default.complaintflow"],
   ]]];
   const payload = [];
   payload[1] = ["conversation-id", "reply-id"];
@@ -231,7 +235,26 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.equal(images[0].rid, "reply-id");
   assert.equal(images[0].rcid, "response-candidate");
   assert.equal(images[0].imageId, "generated-image-id");
+  assert.equal(images[0].downloadToken, "$signed-full-size-token");
+  assert.equal(images[0].downloadDescriptor[0], 20);
   assert.match(images[0].url, /googleusercontent\.com/);
+  const fullSizeRequest = protocol._test.buildFullSizeRpcPayload(images[0]);
+  assert.ok(fullSizeRequest);
+  assert.equal(fullSizeRequest.sourcePath, "/app/conversation-id");
+  assert.equal(fullSizeRequest.payload[0][0][3][5], "$signed-full-size-token");
+  assert.equal(fullSizeRequest.payload[0][3][0], 20);
+  assert.equal(fullSizeRequest.payload[1][0], "reply-id");
+  assert.equal(fullSizeRequest.payload[1][1], "response-candidate");
+  const imageToolHeaders = protocol._test.modelHeaders(
+    "pro",
+    "REQUEST-UUID",
+    true,
+  );
+  assert.match(
+    imageToolHeaders["x-goog-ext-525001261-jspb"],
+    /e6fa609c3fa255c0.*\[4,5,6,8\].*REQUEST-UUID/,
+  );
+  assert.equal(imageToolHeaders["x-goog-ext-73010990-jspb"], "[0,0,0]");
   const fullSizeUrl = "https://lh3.googleusercontent.com/full-size-indirection";
   const fullSizeRpc = `)]}'\n${JSON.stringify([["wrb.fr", "c8o8Fe", JSON.stringify([fullSizeUrl]), null, null, null, "generic"]])}`;
   assert.equal(protocol._test.extractFullSizeRpcUrl(fullSizeRpc), fullSizeUrl);
@@ -288,6 +311,8 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
     "moderation_blocked",
   );
   assert.match(source, /inner\[45\] = 1/);
+  assert.match(source, /inner\[49\] = 14/);
+  assert.match(source, /inner\[96\] = 1/);
   assert.match(source, /const rawError = await response\.text\(\)/);
   assert.match(source, /response\.headers\.get\("x-request-id"\)/);
   assert.match(source, /normalizeUploadedFileIdentifier\(await response\.text\(\)\)/);
@@ -313,7 +338,9 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(worker, /resource-download-request/);
   assert.match(worker, /resolveDirectOriginalDownloadUrl\(image\)/);
   assert.match(worker, /full_size_url: generated\.image\.fullSizeUrl/);
-  assert.match(worker, /\|\| trustedDirectGoogleImageUrl\(image\?\.url\)/);
+  assert.match(worker, /fullSize \|\|= trustedDirectGoogleImageUrl\(image\?\.url\)/);
+  assert.match(worker, /download_token: generated\.image\.downloadToken/);
+  assert.match(worker, /resolutionIntent: request\.resolution_intent/);
   assert.match(worker, /const candidates = \[resolvedOriginal\]/);
   assert.doesNotMatch(worker, /highResolution/);
   assert.match(worker, /=d-I\?alr=yes/);
