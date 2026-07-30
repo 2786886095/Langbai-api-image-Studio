@@ -34,12 +34,16 @@
       missing.push("gemini_generation_transport");
     }
     if (value.fullsize_download !== true) missing.push("fullsize_download");
-    if (!Array.isArray(value.dimension_modes) || !value.dimension_modes.includes("exact_output")) missing.push("dimension_mode:exact_output");
+    if (!Array.isArray(value.dimension_modes) || !value.dimension_modes.includes("native_fullsize")) missing.push("dimension_mode:native_fullsize");
     return { ok: missing.length === 0, missing, capabilities: value };
   }
 
   function buildTaskRequest({ prompt, size, refs = [], options = {}, clientRequestId = "" }) {
-    const resolved = sizes.resolveRequest({ ...options, targetSize: options.targetSize || size });
+    const resolved = sizes.resolveRequest({
+      ...options,
+      targetSize: options.targetSize || size,
+      sizeMode: "native_fullsize",
+    });
     const sourceReferences = Array.isArray(refs) ? refs : [];
     if (sourceReferences.length > 20) {
       const error = new Error(`Gemini web image tasks accept at most 20 references; received ${sourceReferences.length}`);

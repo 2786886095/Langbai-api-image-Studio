@@ -7,7 +7,7 @@
 
   const PROVIDER_ID = "geminiWeb";
   const RATIOS = Object.freeze(["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16"]);
-  const SIZE_MODES = Object.freeze(["native_fullsize", "strict_native", "exact_output", "local_4k_upscale"]);
+  const SIZE_MODES = Object.freeze(["native_fullsize"]);
   const CROP_MODES = Object.freeze(["smart_cover", "center_cover", "contain"]);
   const TARGET_PRESETS = Object.freeze([
     "832x1216", "1216x832", "1024x1024", "2048x2048",
@@ -19,7 +19,7 @@
     "3:2": Object.freeze({ width: 2528, height: 1696, resolution: "2k", status: "verified" }),
   });
   const DEFAULTS = Object.freeze({
-    sizeMode: "exact_output",
+    sizeMode: "native_fullsize",
     ratio: "auto",
     targetSize: "832x1216",
     cropMode: "smart_cover",
@@ -99,8 +99,8 @@
       target,
       resolutionIntent: "2k",
       verifiedNative: native,
-      requiresPostProcess: options.sizeMode === "exact_output" || options.sizeMode === "local_4k_upscale",
-      requiresExactNative: options.sizeMode === "strict_native",
+      requiresPostProcess: false,
+      requiresExactNative: false,
     };
   }
 
@@ -154,8 +154,8 @@
     return [
       `${orientation} ${resolved.ratio} 构图，按网页原生 2K 细节绘制。`,
       `${quality}。`,
-      `主体保持在中央安全区，四周保留 8% 可裁切空间。`,
-      `最终目标输出为 ${target.text}；不要在画面内写入尺寸说明。`,
+      `全局分辨率 ${target.text} 仅用于确定构图方向与最接近比例。`,
+      `完整保留画面内容；不要在画面内写入尺寸说明。`,
     ].join("");
   }
 

@@ -41,6 +41,7 @@ test("damaged legacy Gemini options fall back without crashing startup", () => {
   assert.equal(normalized.ratio, sizes.DEFAULTS.ratio);
   assert.equal(normalized.qualityIntent, sizes.DEFAULTS.qualityIntent);
   assert.equal(normalized.modelPreference, sizes.DEFAULTS.modelPreference);
+  assert.equal(sizes.normalizeOptions({ sizeMode: "exact_output" }).sizeMode, "native_fullsize");
   assert.doesNotThrow(() => sizes.normalizeOptions(null));
   assert.doesNotThrow(() => sizes.normalizeOptions("legacy"));
 });
@@ -64,6 +65,7 @@ test("builds one resumable temporary-chat task without credentials", () => {
   assert.equal(task.requested_ratio, "2:3");
   assert.equal(task.requested_size.width, 832);
   assert.equal(task.references.length, 1);
+  assert.equal(task.size_mode, "native_fullsize");
   assert.equal(task.quality_intent, "detail");
   assert.equal(task.model_preference, "pro");
   assert.equal(JSON.stringify(task).includes("cookie"), false);
@@ -95,7 +97,7 @@ test("validates companion capabilities and produces a safe audit", () => {
     temporary_chat_available: false,
     direct_protocol_available: true,
     fullsize_download: true,
-    dimension_modes: ["native_fullsize", "exact_output"],
+    dimension_modes: ["native_fullsize"],
   }).ok, true);
   const unavailable = adapter.validateCapabilities({
     provider: "gemini_web",
@@ -103,7 +105,7 @@ test("validates companion capabilities and produces a safe audit", () => {
     temporary_chat_available: false,
     direct_protocol_available: false,
     fullsize_download: true,
-    dimension_modes: ["native_fullsize", "exact_output"],
+    dimension_modes: ["native_fullsize"],
   });
   assert.equal(unavailable.ok, false);
   assert.deepEqual(unavailable.missing, ["gemini_generation_transport"]);
@@ -302,8 +304,8 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(worker, /resolveDirectOriginalDownloadUrl\(image\)/);
   assert.match(worker, /=d-I\?alr=yes/);
   assert.match(worker, /info\.pixels > bestInfo\.pixels/);
-  assert.match(worker, /sizeMode === "exact_output" && upscaleRatio > 1\.5/);
-  assert.match(worker, /软件已停止伪高清放大/);
+  assert.match(worker, /Preserve the authenticated Gemini original byte-for-byte/);
+  assert.match(worker, /final: source/);
   assert.match(worker, /generated = await generateDirect\(null\)/);
   assert.match(worker, /error\?\.message \|\| ""/);
   assert.match(
@@ -320,14 +322,16 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   );
 });
 
-test("writes exact global dimensions into the cached Gemini task result", () => {
+test("preserves the downloaded Gemini original in the cached task result", () => {
   const worker = fs.readFileSync(
     path.join(__dirname, "..", "gemini-embedded-worker.js"),
     "utf8",
   );
   assert.match(worker, /async function transformForRequestedOutput\(blob, request = \{\}\)/);
-  assert.match(worker, /\["exact_output", "local_4k_upscale"\]\.includes\(sizeMode\)/);
-  assert.match(worker, /context\.drawImage\(decoded\.source, \.\.\.sourceRect, \.\.\.targetRect\)/);
+  assert.doesNotMatch(worker, /safe_zone_center_crop\+high_quality_resample/);
+  assert.match(worker, /Preserve the authenticated Gemini original byte-for-byte/);
+  assert.match(worker, /blob,\s*source,\s*final: source,\s*transform: "none"/);
+  assert.doesNotMatch(worker, /context\.drawImage\(decoded\.source/);
   assert.match(worker, /const processed = await transformForRequestedOutput\(downloadedBlob, request\)/);
   assert.match(worker, /final_size: `\$\{processed\.final\.width\}x\$\{processed\.final\.height\}`/);
   assert.match(worker, /body: blob/);

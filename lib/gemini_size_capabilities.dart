@@ -10,9 +10,6 @@ const List<String> geminiWebRatios = <String>[
 
 const List<String> geminiDimensionModes = <String>[
   'native_fullsize',
-  'strict_native',
-  'exact_output',
-  'local_4k_upscale',
 ];
 
 Map<String, Object?> geminiWebCapabilities({

@@ -14,7 +14,7 @@
 - `gemini-web-direct-protocol.js` 新增 `c8o8Fe` Batchexecute 原图 RPC，生成完成后以 `cid/rid/rcid/image_id` 获取 `fullSizeUrl`。
 - `gemini-embedded-worker.js` 按网页协议执行 `=d-I?alr=yes` 两级文本跳转，再下载最终原图；Windows 增加受 Google 主机白名单约束的 `resource-download-request`，Cookie 仍只留在 WebView2/原生网络层。
 - 多个下载候选改为解码后按真实像素数选优，不再按 Blob 字节大小选优。
-- `exact_output` 的放大比例超过 1.5 时以 `fullsize_download_missing` 终止，避免再次输出像素尺寸正确但内容低清的假高清文件；`local_4k_upscale` 仍保留用户明确选择的本地放大语义。
+- Gemini 新任务固定 `size_mode=native_fullsize`；工作器与前端二次复核均保留原图尺寸，不裁切、不缩小、不放大。全局分辨率只决定请求的最接近构图比例，审计中的 `final_size` 必须等于 `downloaded_fullsize`。
 
 ## v1.6.14 Windows 主 WebView 防误重载与工作区恢复
 

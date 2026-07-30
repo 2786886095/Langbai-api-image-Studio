@@ -2107,7 +2107,7 @@ const GEMINI_WEB_MODULES_AVAILABLE = Boolean(
   window.GeminiImageSizeRegistry && window.GeminiWebImageAdapter,
 );
 const GEMINI_WEB_FALLBACK_DEFAULTS = Object.freeze({
-  sizeMode: "exact_output",
+  sizeMode: "native_fullsize",
   ratio: "auto",
   targetSize: "832x1216",
   cropMode: "smart_cover",
@@ -2699,7 +2699,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "快速", qualityStandard: "标准", qualityDetail: "精细",
     queue: "本地队列上限",
     facts: "临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计",
-    capability: "构图比例由全局分辨率自动推导；网页原图下载后会无拉伸裁切缩放到所选全局尺寸。",
+    capability: "构图比例由全局分辨率自动推导；下载后保留网页原图的字节与像素尺寸，不裁切、不缩小、不放大。",
   }),
   "zh-Hant": Object.freeze({
     title: "Gemini 網頁生圖", hint: "在軟體內完成 Gemini 登入；登入成功後視窗會自動收起，後續任務由隱藏瀏覽器執行。",
@@ -2714,7 +2714,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "快速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "本機佇列上限",
     facts: "臨時對話 · 使用全域解析度 · 完整尺寸下載 · 精確尺寸稽核",
-    capability: "構圖比例由全域解析度自動推導；網頁原圖下載後會以不拉伸裁切縮放至所選全域尺寸。",
+    capability: "構圖比例由全域解析度自動推導；下載後保留網頁原圖的位元組與像素尺寸，不裁切、不縮小、不放大。",
   }),
   en: Object.freeze({
     title: "Gemini Web Images", hint: "Sign in to Gemini inside the app. The login view closes automatically, while a hidden browser runs later tasks.",
@@ -2729,7 +2729,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "Fast", qualityStandard: "Standard", qualityDetail: "Detail",
     queue: "Local queue limit",
     facts: "Temporary Chat · global resolution · full-size download · dimension audit",
-    capability: "Composition is derived from the global resolution; the downloaded original is cropped and resized without stretching.",
+    capability: "Composition is derived from the global resolution; the downloaded original keeps its exact bytes and pixel dimensions with no crop, downscale, or upscale.",
   }),
   ja: Object.freeze({
     title: "Gemini ウェブ画像", hint: "アプリ内で Gemini にログインします。成功後は画面を自動で閉じ、非表示ブラウザがタスクを実行します。",
@@ -2744,7 +2744,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "高速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "ローカルキュー上限",
     facts: "一時チャット · グローバル解像度 · フルサイズ取得 · サイズ監査",
-    capability: "構図比率はグローバル解像度から自動算出し、元画像を伸ばさずに切り抜き・リサイズします。",
+    capability: "構図比率はグローバル解像度から算出し、取得した元画像は切り抜き・縮小・拡大をせず、そのまま保存します。",
   }),
   ko: Object.freeze({
     title: "Gemini 웹 이미지", hint: "앱 안에서 Gemini에 로그인합니다. 성공하면 화면이 자동으로 닫히고 숨겨진 브라우저가 작업을 실행합니다.",
@@ -2759,7 +2759,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "빠름", qualityStandard: "표준", qualityDetail: "정밀",
     queue: "로컬 대기열 상한",
     facts: "임시 채팅 · 전역 해상도 · 전체 크기 다운로드 · 크기 감사",
-    capability: "구도 비율은 전역 해상도에서 자동 계산하며 원본을 늘리지 않고 자른 뒤 선택한 크기로 조정합니다.",
+    capability: "구도 비율은 전역 해상도에서 계산하며, 다운로드한 원본은 자르기·축소·확대 없이 원래 바이트와 픽셀 크기로 저장합니다.",
   }),
 });
 
@@ -2771,7 +2771,7 @@ function getGeminiWebOptions() {
   return geminiImageSizes.normalizeOptions({
     // Gemini has no second size selector. The app-wide resolution is the
     // authoritative target and the nearest Gemini ratio is derived from it.
-    sizeMode: "exact_output",
+    sizeMode: "native_fullsize",
     ratio: "auto",
     targetSize: getSelectedSize(),
     cropMode: "smart_cover",
@@ -7380,57 +7380,17 @@ async function transformGeminiResultBlob(blob, resolved) {
   const source = await readImageBlobDimensions(blob);
   if (!source?.width || !source?.height) throw new Error("Gemini full-size image could not be decoded");
   const sourceSize = `${source.width}x${source.height}`;
-  if (resolved.sizeMode === "native_fullsize" || resolved.sizeMode === "strict_native") {
-    const strictMismatch = resolved.sizeMode === "strict_native"
-      && resolved.verifiedNative
-      && (source.width !== resolved.verifiedNative.width || source.height !== resolved.verifiedNative.height);
-    return {
-      blob,
-      source,
-      final: source,
-      transform: strictMismatch ? "strict_native_mismatch" : "none",
-      strictMismatch,
-      sourceSize,
-      transformPlan: null,
-    };
-  }
-
-  const target = resolved.target;
-  const plan = geminiImageSizes.planTransform(
-    source.width,
-    source.height,
-    target.width,
-    target.height,
-    resolved.cropMode,
-  );
-  const sourceUrl = URL.createObjectURL(blob);
-  try {
-    const image = await loadImageElement(sourceUrl);
-    const canvas = document.createElement("canvas");
-    canvas.width = target.width;
-    canvas.height = target.height;
-    const context = canvas.getContext("2d", { alpha: true });
-    if (!context) throw new Error("Canvas 2D is unavailable");
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
-    const [tx, ty, tw, th] = plan.targetRect;
-    if (resolved.cropMode === "contain") context.clearRect(0, 0, target.width, target.height);
-    context.drawImage(image, ...plan.sourceRect, tx, ty, tw, th);
-    return {
-      blob: await canvasToImageBlob(canvas),
-      source,
-      final: { width: target.width, height: target.height },
-      // WebView2 does not expose the actual resampling kernel. Keep the audit
-      // factual rather than claiming Lanczos when the browser only guarantees
-      // high-quality interpolation.
-      transform: String(plan.action || "resize").replace("+lanczos", "+high_quality_resample"),
-      strictMismatch: false,
-      sourceSize,
-      transformPlan: plan,
-    };
-  } finally {
-    URL.revokeObjectURL(sourceUrl);
-  }
+  // Gemini results are immutable originals. Global dimensions guide only the
+  // requested composition ratio and must never rewrite the downloaded file.
+  return {
+    blob,
+    source,
+    final: source,
+    transform: "none",
+    strictMismatch: false,
+    sourceSize,
+    transformPlan: null,
+  };
 }
 
 async function normalizeGeminiTaskResult(task, {

@@ -5592,7 +5592,7 @@ async function testGeminiWebImageIntegration(cdp) {
                 provider: "gemini_web", temporary_chat_required: false,
                 temporary_chat_available: false, direct_protocol_available: true,
                 fullsize_download: true,
-                effective_concurrency: 1, dimension_modes: ["native_fullsize", "strict_native", "exact_output", "local_4k_upscale"],
+                effective_concurrency: 1, dimension_modes: ["native_fullsize"],
               }) };
             } else if (url.endsWith("/v1/accounts")) {
               result = { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
@@ -5869,7 +5869,7 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.bodies[0].body.n === 1
         && result.bodies[0].body.temporary_chat_required === true
         && `${result.bodies[0].body.requested_size.width}x${result.bodies[0].body.requested_size.height}` === result.globalSize
-        && result.bodies[0].body.size_mode === "exact_output"
+        && result.bodies[0].body.size_mode === "native_fullsize"
         && result.bodies[0].body.crop_mode === "smart_cover"
         && result.bodies[0].body.quality_intent === "detail"
         && result.bodies[0].body.model_preference === "pro"
@@ -5914,11 +5914,12 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.meta?.audit?.requestedModelMode === "pro"
         && result.meta?.audit?.selectedModelMode === "pro"
         && result.meta?.response?.nativeSize === "1x1"
-        && result.meta?.response?.finalSize === result.globalSize
-        && /resample|crop|contain/i.test(result.meta?.response?.dimensionAction || "")
+        && result.meta?.response?.finalSize === "1x1"
+        && result.meta?.response?.dimensionAction === "none"
+        && result.meta?.audit?.nativeSha256 === result.meta?.audit?.finalSha256
         && result.concurrency === 1
         && result.pollCount === 2,
-      "Gemini audit metadata must preserve temporary-chat verification, decode the native dimensions, and convert the final image to the app-wide resolution while transient poll failures keep the original task alive.",
+      "Gemini audit metadata must preserve temporary-chat verification and keep the downloaded original byte-for-byte while transient poll failures keep the original task alive.",
       result,
     );
     assertQa(

@@ -82,7 +82,7 @@ void main() {
     }
   });
 
-  test('Gemini capabilities preserve temporary-chat and size guarantees', () {
+  test('Gemini capabilities preserve temporary-chat and original-size guarantees', () {
     final capabilities = geminiWebCapabilities(
       companionConnected: true,
       sessionAvailable: true,
@@ -97,15 +97,7 @@ void main() {
     expect(capabilities['temporary_chat_required'], isTrue);
     expect(capabilities['fullsize_download'], isTrue);
     expect(capabilities['effective_concurrency'], 2);
-    expect(
-      capabilities['dimension_modes'],
-      containsAll(<String>[
-        'native_fullsize',
-        'strict_native',
-        'exact_output',
-        'local_4k_upscale',
-      ]),
-    );
+    expect(capabilities['dimension_modes'], <String>['native_fullsize']);
   });
 
   test('Gemini companion resumes the oldest live claim after navigation', () {
