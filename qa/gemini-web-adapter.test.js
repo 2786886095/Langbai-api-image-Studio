@@ -286,6 +286,9 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(source, /normalizeUploadedFileIdentifier\(await response\.text\(\)\)/);
   assert.match(source, /const FULL_SIZE_RPC_ID = "c8o8Fe"/);
   assert.match(source, /resolveFullSizeImageUrl\(image, state, fetchImpl\)/);
+  assert.match(source, /resolveFullSizeImageUrlWithRetry/);
+  assert.match(source, /recoverFullSizeUrl/);
+  assert.match(source, /attempt <= 2/);
   assert.match(source, /fullSizeUrl:/);
   assert.match(source, /temporaryVerified: false/);
   assert.match(source, /StreamGenerate/);
@@ -302,6 +305,10 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(worker, /selectedDirectModel = "fast"/);
   assert.match(worker, /resource-download-request/);
   assert.match(worker, /resolveDirectOriginalDownloadUrl\(image\)/);
+  assert.match(worker, /full_size_url: generated\.image\.fullSizeUrl/);
+  assert.match(worker, /\|\| trustedDirectGoogleImageUrl\(image\?\.url\)/);
+  assert.match(worker, /const candidates = \[resolvedOriginal\]/);
+  assert.doesNotMatch(worker, /highResolution/);
   assert.match(worker, /=d-I\?alr=yes/);
   assert.match(worker, /info\.pixels > bestInfo\.pixels/);
   assert.match(worker, /Preserve the authenticated Gemini original byte-for-byte/);

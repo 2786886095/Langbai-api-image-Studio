@@ -12,6 +12,7 @@
 
 - 用户样图 `panel-1（1）.png` 虽为 `1536×1024`，本机任务 `gemini_1785399255491955_e36dd828` 的审计明确记录 `downloaded_fullsize=512x343`、`final_size=1536x1024`，旧版是在放大预览图。
 - `gemini-web-direct-protocol.js` 新增 `c8o8Fe` Batchexecute 原图 RPC，生成完成后以 `cid/rid/rcid/image_id` 获取 `fullSizeUrl`。
+- 真实临时会话中 `c8o8Fe` 可能返回 `BardErrorInfo 1003`；`gemini-embedded-worker.js` 会将生成预览 URL 仅作为原图定位器，经 `=d-I?alr=yes` 两级鉴权跳转取得原始 PNG。下载候选只允许该最终原图，禁止保存预览图或 `=s2048` 变体。
 - `gemini-embedded-worker.js` 按网页协议执行 `=d-I?alr=yes` 两级文本跳转，再下载最终原图；Windows 增加受 Google 主机白名单约束的 `resource-download-request`，Cookie 仍只留在 WebView2/原生网络层。
 - 多个下载候选改为解码后按真实像素数选优，不再按 Blob 字节大小选优。
 - Gemini 新任务固定 `size_mode=native_fullsize`；工作器与前端二次复核均保留原图尺寸，不裁切、不缩小、不放大。全局分辨率只决定请求的最接近构图比例，审计中的 `final_size` 必须等于 `downloaded_fullsize`。

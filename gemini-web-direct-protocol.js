@@ -383,6 +383,40 @@
     return extractFullSizeRpcUrl(await response.text());
   }
 
+  async function resolveFullSizeImageUrlWithRetry(
+    image,
+    state,
+    fetchImpl = fetch,
+    heartbeat = null,
+  ) {
+    // Gemini may expose the preview before c8o8Fe has indexed the original.
+    // Wait for that original instead of silently falling back to the preview.
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const resolved = await resolveFullSizeImageUrl(image, state, fetchImpl)
+        .catch(() => "");
+      if (resolved) return resolved;
+      if (attempt < 2) {
+        if (heartbeat) await heartbeat();
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    }
+    return "";
+  }
+
+  async function recoverFullSizeUrl({
+    image,
+    fetchImpl = fetch,
+    heartbeat = null,
+  } = {}) {
+    const state = await bootstrap(fetchImpl);
+    return resolveFullSizeImageUrlWithRetry(
+      image,
+      state,
+      fetchImpl,
+      heartbeat,
+    );
+  }
+
   function responseFailure(raw) {
     const text = String(raw || "")
       .replace(/\\"/g, '"')
@@ -582,7 +616,12 @@
     const resolvedImages = await Promise.all(images.map(async image => ({
       ...image,
       previewUrl: image.url,
-      fullSizeUrl: await resolveFullSizeImageUrl(image, state, fetchImpl).catch(() => ""),
+      fullSizeUrl: await resolveFullSizeImageUrlWithRetry(
+        image,
+        state,
+        fetchImpl,
+        heartbeat,
+      ),
     })));
     return {
       image: resolvedImages[0],
@@ -595,12 +634,14 @@
 
   globalThis.LANGBAI_GEMINI_DIRECT_PROTOCOL = Object.freeze({
     generate,
+    recoverFullSizeUrl,
     _test: Object.freeze({
       generatedImages,
       extractFullSizeRpcUrl,
       modelHeaders,
       normalizeUploadedFileIdentifier,
       resolveFullSizeImageUrl,
+      resolveFullSizeImageUrlWithRetry,
       trustedGoogleImageUrl,
       responseFailure,
       streamPayloads,

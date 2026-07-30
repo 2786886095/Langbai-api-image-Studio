@@ -2321,11 +2321,13 @@ if (typeof module !== "undefined" && module.exports) {
   }
 
   async function resolveDirectOriginalDownloadUrl(image) {
-    const fullSize = trustedDirectGoogleImageUrl(image?.fullSizeUrl);
+    const fullSize = trustedDirectGoogleImageUrl(
+      image?.fullSizeUrl || image?.full_size_url,
+    ) || trustedDirectGoogleImageUrl(image?.url);
     if (!fullSize) return "";
-    // Gemini's full-size RPC returns a protected indirection URL. The current
-    // web protocol resolves it through two short text responses before the
-    // final original image can be downloaded.
+    // Both c8o8Fe and the generated preview URL are protected locators. The
+    // =d-I route resolves either locator through two text responses to the
+    // authenticated original. The locator itself is never saved as an image.
     const first = await readDirectGoogleText(`${fullSize}=d-I?alr=yes`);
     if (!first) return "";
     return await readDirectGoogleText(first);
@@ -2347,16 +2349,13 @@ if (typeof module !== "undefined" && module.exports) {
   }
 
   async function downloadDirectGeneratedImage(image) {
-    const original = String(image?.url || "");
-    if (!/^https:\/\//i.test(original)) {
+    const preview = String(image?.url || "");
+    if (!/^https:\/\//i.test(preview)) {
       throw Object.assign(
         new Error("Gemini 直接调用没有返回有效图片地址。"),
         { code: "fullsize_download_missing", directSubmissionStarted: true },
       );
     }
-    const highResolution = original
-      .replace(/=s\d+(?:-[a-z]+)?(?:\?.*)?$/i, "")
-      + "=s2048-rj";
     let best = null;
     let bestInfo = { pixels: 0, width: 0, height: 0 };
     const failures = [];
@@ -2365,14 +2364,15 @@ if (typeof module !== "undefined" && module.exports) {
         failures.push(`fullsize-rpc:${String(error?.code || error?.name || error)}`);
         return "";
       });
-    const candidates = [
-      resolvedOriginal,
-      trustedDirectGoogleImageUrl(image?.fullSizeUrl)
-        ? `${trustedDirectGoogleImageUrl(image.fullSizeUrl)}=s2048-rj`
-        : "",
-      highResolution,
-      original,
-    ];
+    if (!resolvedOriginal) {
+      throw Object.assign(
+        new Error(
+          "Gemini 已返回预览图，但原图地址尚未就绪；软件未保存、缩放或放大预览图，请稍后重试原图下载。",
+        ),
+        { code: "fullsize_download_missing", directSubmissionStarted: true },
+      );
+    }
+    const candidates = [resolvedOriginal];
     const consider = async blob => {
       if (!blob?.size) return;
       const info = await directBlobPixelInfo(blob);
@@ -2632,6 +2632,7 @@ if (typeof module !== "undefined" && module.exports) {
       phase: "direct_image_ready",
       image: {
         url: generated.image.url,
+        full_size_url: generated.image.fullSizeUrl || "",
         image_id: generated.image.imageId || "",
         cid: generated.image.cid || "",
         rid: generated.image.rid || "",

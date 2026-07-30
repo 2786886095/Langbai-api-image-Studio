@@ -230,8 +230,14 @@ assert.match(geminiDirectProtocol, /function normalizeUploadedFileIdentifier\(/)
 assert.match(geminiDirectProtocol, /\^\\\/contrib_service\\\//);
 assert.match(geminiDirectProtocol, /const FULL_SIZE_RPC_ID = "c8o8Fe"/);
 assert.match(geminiDirectProtocol, /resolveFullSizeImageUrl\(image, state, fetchImpl\)/);
+assert.match(geminiDirectProtocol, /resolveFullSizeImageUrlWithRetry/);
+assert.match(geminiDirectProtocol, /recoverFullSizeUrl/);
 assert.match(geminiEmbeddedWorker, /resource-download-request/);
 assert.match(geminiEmbeddedWorker, /resolveDirectOriginalDownloadUrl\(image\)/);
+assert.match(geminiEmbeddedWorker, /full_size_url: generated\.image\.fullSizeUrl/);
+assert.match(geminiEmbeddedWorker, /\|\| trustedDirectGoogleImageUrl\(image\?\.url\)/);
+assert.match(geminiEmbeddedWorker, /const candidates = \[resolvedOriginal\]/);
+assert.doesNotMatch(geminiEmbeddedWorker, /highResolution/);
 assert.match(geminiEmbeddedWorker, /info\.pixels > bestInfo\.pixels/);
 assert.match(geminiEmbeddedWorker, /Preserve the authenticated Gemini original byte-for-byte/);
 assert.doesNotMatch(geminiEmbeddedWorker, /safe_zone_center_crop\+high_quality_resample/);
