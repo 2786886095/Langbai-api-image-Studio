@@ -1575,6 +1575,12 @@ class WindowsAppHealthSnapshot {
   }
 }
 
+/// WebView2 reports GPU, utility and frame-process failures even when it
+/// recovers them internally. Rebuilding the main WebView for those events
+/// destroys the user's in-memory editor. Only the browser or main renderer
+/// exiting requires a new controller.
+bool windowsProcessFailureRequiresRebuild(int kind) => kind == 0 || kind == 1;
+
 class _WindowsWebShellState extends State<WindowsWebShell>
     with WidgetsBindingObserver {
   windows_webview.WinWebViewController? _controller;
@@ -1736,8 +1742,14 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       await controller
           .addScriptToExecuteOnDocumentCreated(_windowsBridgeScript);
       controller.onProcessFailed = (kind) {
-        if (generation == _webViewGeneration) {
+        if (generation == _webViewGeneration &&
+            windowsProcessFailureRequiresRebuild(kind)) {
           unawaited(_recoverWindowsWebView('WebView2 process failed ($kind)'));
+        } else {
+          debugPrint(
+            'WebView2 recovered an auxiliary process failure without '
+            'reloading the editor (kind=$kind).',
+          );
         }
       };
       await controller.setNavigationDelegate(
@@ -2078,8 +2090,16 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     } catch (error) {
       _failedHealthChecks++;
       debugPrint('Windows WebView health check failed: $error');
-      if (_failedHealthChecks >= 2) {
-        await _recoverWindowsWebView('WebView2 stopped responding');
+      if (_failedHealthChecks >= 3) {
+        // A probe may time out while another WebView RPC is busy. It is
+        // telemetry, not proof that the page died. Disposing a live controller
+        // here caused the periodic white flash and erased unsaved work. Hard
+        // browser/renderer exits are recovered by onProcessFailed above.
+        debugPrint(
+          'Windows WebView health probes remain unavailable; preserving the '
+          'live editor instead of performing a destructive reload.',
+        );
+        if (_failedHealthChecks > 100) _failedHealthChecks = 100;
       }
     }
   }

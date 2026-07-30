@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.13
+# Codex / Claude Handoff: AI 图片生成器 v1.6.14
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,16 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.13+90`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.14+91`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.14 Windows 主 WebView 防误重载与工作区恢复
+
+- 根因一：旧逻辑对所有 WebView2 `ProcessFailed` 类型都重建主控制器；GPU、Utility、Frame 等辅助进程本可由 WebView2 自愈，却触发整页闪白。
+- 根因二：20 秒健康检查连续两次 JavaScript 探针超时就销毁控制器；当 WebView RPC 正忙时会误判，造成无条件数据丢失。
+- `windowsProcessFailureRequiresRebuild()` 现在只允许 kind 0（BrowserProcessExited）和 kind 1（RenderProcessExited）重建；辅助进程故障仅记录日志。
+- 健康探测仅作遥测，不再触发破坏性恢复；真实主进程退出仍由 `onProcessFailed` 恢复。
+- `ai_image_gen_workspace_draft_v1` 每 5 秒及输入变化时保存元数据草稿，恢复模式、提示词、分镜/嵌字行、尺寸、重试次数和历史项目结果；不保存 API Key、Cookie、图片字节或参考图本体。
+- 回归包含完整文档导航重载，验证 `__AI_GEN_APP_READY`、未保存提示词、项目 ID 与结果卡均恢复。
 
 ## v1.6.13 Gemini 真实生图与鉴权下载修复
 

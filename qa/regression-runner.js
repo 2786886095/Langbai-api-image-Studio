@@ -194,14 +194,25 @@ async function setupBrowserPage() {
   return cdp;
 }
 
-async function loadFresh(cdp, query = "qa", viewport = { width: 1365, height: 768, mobile: false }) {
+async function loadFresh(
+  cdp,
+  query = "qa",
+  viewport = { width: 1365, height: 768, mobile: false },
+  { preserveWorkspaceDraft = false } = {},
+) {
+  if (!preserveWorkspaceDraft) {
+    await cdp.eval(`(() => {
+      try { localStorage.removeItem("ai_image_gen_workspace_draft_v1"); } catch {}
+      return true;
+    })()`).catch(() => {});
+  }
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: viewport.width,
     height: viewport.height,
     deviceScaleFactor: 1,
     mobile: viewport.mobile,
   });
-  const targetUrl = `${appUrl}?${query}=${Date.now()}`;
+  const targetUrl = `${appUrl}?${query}=${Date.now()}&qaDisableWorkspaceDraft=${preserveWorkspaceDraft ? "0" : "1"}`;
   await cdp.send("Page.navigate", { url: targetUrl });
   let lastState = null;
   for (let i = 0; i < 200; i++) {
@@ -4269,6 +4280,84 @@ async function testGptImage2InpaintRoutes(cdp) {
   assertQa(result.grsai.disabled && result.custom.disabled, "GrsAI and generic custom routes must not claim the dedicated mask workflow.", result);
 }
 
+async function testWorkspaceDraftSurvivesFullDocumentReload(cdp) {
+  logStep("A full WebView document reload restores unsaved prompts and the active history-backed project");
+  await loadFresh(
+    cdp,
+    "workspace-draft-before-reload",
+    { width: 1365, height: 768, mobile: false },
+    { preserveWorkspaceDraft: true },
+  );
+  await cdp.eval(`(() => {
+    localStorage.clear();
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const project = {
+      id: "qa_workspace_project",
+      type: "comic-project",
+      mode: "comic",
+      title: "Reload recovery project",
+      createdAt: new Date().toISOString(),
+      globalPrompt: "workspace global prompt",
+      status: "partial",
+      panels: [
+        { panelId: "1", prompt: "workspace panel one", status: "success", size: "1024x1024" },
+        { panelId: "2", prompt: "workspace panel two", status: "pending", size: "1024x1536", hadReferences: true },
+      ],
+      images: [
+        { id: "qa_workspace_image", panelId: "1", prompt: "workspace panel one", imageUrl: png, size: "1024x1024" },
+      ],
+      imageUrl: png,
+    };
+    saveHistory([project]);
+    switchMode("comic");
+    dom.prompt.value = project.globalPrompt;
+    dom.panelTbody.innerHTML = "";
+    panelCounter = 0;
+    project.panels.forEach(panel => {
+      const row = addPanelRow(null, { syncCount: false });
+      row.querySelector("textarea").value = panel.prompt;
+      applyHistoryPanelSize(row, panel.size);
+    });
+    syncPanelCountInput();
+    currentComicHistoryId = project.id;
+    restoreHistoryItem(project);
+    persistWorkspaceDraft();
+    return JSON.parse(localStorage.getItem(WORKSPACE_DRAFT_KEY));
+  })()`);
+
+  await loadFresh(
+    cdp,
+    "workspace-draft-after-reload",
+    { width: 1365, height: 768, mobile: false },
+    { preserveWorkspaceDraft: true },
+  );
+  const result = await cdp.eval(`(() => ({
+    mode: currentMode,
+    prompt: dom.prompt.value,
+    panelPrompts: collectPanels().map(panel => panel.prompt),
+    resultCards: dom.resultGrid.querySelectorAll(".result-item").length,
+    activeProjectId: currentComicHistoryId,
+    failedCards: dom.resultGrid.querySelectorAll('[data-status="failed"]').length,
+    appReady: window.__AI_GEN_APP_READY === true,
+  }))()`);
+  assertQa(
+    result.appReady
+      && result.mode === "comic"
+      && result.prompt === "workspace global prompt"
+      && result.panelPrompts.join("|") === "workspace panel one|workspace panel two"
+      && result.resultCards === 2
+      && result.failedCards === 1
+      && result.activeProjectId === "qa_workspace_project",
+    "Reload recovery must restore the editor draft and active project without reference-image bytes.",
+    result,
+  );
+  await cdp.eval(`(() => {
+    localStorage.removeItem(WORKSPACE_DRAFT_KEY);
+    saveHistory([]);
+    return true;
+  })()`);
+}
+
 async function testStorageFaultIsolationAndHistoryDbRecovery(cdp) {
   logStep("Storage write faults cannot stop startup, and a rejected history DB open can recover");
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -5884,6 +5973,7 @@ async function main() {
     await testBulkPromptInputBeyondOneHundred(cdp);
     await testUploadDebounceWindow(cdp);
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
+    await testWorkspaceDraftSurvivesFullDocumentReload(cdp);
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
     await testInterruptedProjectCheckpointResume(cdp);
     await testHistoryRestoreAndExport(cdp);

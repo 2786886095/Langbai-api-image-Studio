@@ -109,4 +109,16 @@ void main() {
     expect(windowsMainWebViewProfileName, 'Default');
     expect(windowsSelfTestWebViewProfileName, isNot('Default'));
   });
+
+  test('auxiliary WebView2 process failures do not reload the editor', () {
+    expect(windowsProcessFailureRequiresRebuild(0), isTrue);
+    expect(windowsProcessFailureRequiresRebuild(1), isTrue);
+    for (final kind in <int>[2, 3, 4, 5, 6, 7, 8, 9]) {
+      expect(
+        windowsProcessFailureRequiresRebuild(kind),
+        isFalse,
+        reason: 'WebView2 can recover auxiliary process kind $kind itself.',
+      );
+    }
+  });
 }

@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.13";
+const APP_VERSION = "1.6.14";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -11541,6 +11541,161 @@ function restoreHistoryItem(item) {
   showStatus("已从历史记录恢复到结果区", "success");
 }
 
+// ─── 工作区自动恢复 ──────────────────────────────────────────
+// Native WebView processes can still be terminated by Windows. Keep a compact
+// metadata-only editor draft so a genuine process crash does not erase prompts
+// or the currently displayed history-backed results. API keys and image bytes
+// are intentionally excluded; reference images must still be reselected.
+const WORKSPACE_DRAFT_KEY = "ai_image_gen_workspace_draft_v1";
+const WORKSPACE_DRAFT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+let workspaceDraftTimer = null;
+let workspaceDraftRestoring = false;
+
+function workspaceDraftDisabledForTest() {
+  return new URLSearchParams(location.search).get("qaDisableWorkspaceDraft") === "1";
+}
+
+function captureWorkspaceDraft() {
+  const panels = collectPanels().map(panel => ({
+    prompt: panel.prompt || "",
+    size: panel.size || "",
+    retryCount: panel.retryCount ?? getGlobalRetryCount(),
+    hadReference: Boolean(panel.references?.length),
+  }));
+  const captions = collectCaptionRows().map(row => ({
+    captionText: row.captionText || "",
+    hadReference: Boolean(row.reference),
+  }));
+  const singleHistoryIds = [...(dom.resultGrid?.children || [])]
+    .map(card => String(card._historyRecordId || ""))
+    .filter(Boolean);
+  return {
+    schema: 1,
+    savedAt: Date.now(),
+    mode: currentMode,
+    prompt: dom.prompt?.value || "",
+    nImages: dom.nImages?.value || "1",
+    zipFileName: dom.zipFileName?.value || "",
+    selectedSize: getSelectedSize(),
+    customWidth: dom.customWidth?.value || "",
+    customHeight: dom.customHeight?.value || "",
+    panels,
+    captions,
+    activeProjectId: String(currentComicHistoryId || ""),
+    singleHistoryIds,
+  };
+}
+
+function persistWorkspaceDraft() {
+  if (workspaceDraftRestoring || workspaceDraftDisabledForTest()) return;
+  try {
+    safeStorageSetItem(WORKSPACE_DRAFT_KEY, JSON.stringify(captureWorkspaceDraft()), { force: true });
+  } catch (error) {
+    console.warn("工作区自动保存失败", error);
+  }
+}
+
+function scheduleWorkspaceDraftSave({ immediate = false } = {}) {
+  clearTimeout(workspaceDraftTimer);
+  if (immediate) {
+    persistWorkspaceDraft();
+    return;
+  }
+  workspaceDraftTimer = setTimeout(persistWorkspaceDraft, 250);
+}
+
+function applyWorkspaceSizeDraft(draft) {
+  const size = String(draft.selectedSize || "");
+  const radio = [...document.querySelectorAll('input[name="size"]')]
+    .find(input => input.value === size);
+  if (radio) {
+    radio.checked = true;
+    radio.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
+  }
+  const match = size.match(/^(\d{2,5})x(\d{2,5})$/);
+  const custom = document.querySelector('input[name="size"][value="custom"]');
+  if (!match || !custom) return;
+  custom.checked = true;
+  if (dom.customWidth) dom.customWidth.value = draft.customWidth || match[1];
+  if (dom.customHeight) dom.customHeight.value = draft.customHeight || match[2];
+  custom.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function restoreWorkspaceDraft() {
+  if (workspaceDraftDisabledForTest()) return false;
+  const draft = safeStorageReadJson(
+    WORKSPACE_DRAFT_KEY,
+    null,
+    value => value && value.schema === 1 && Number.isFinite(Number(value.savedAt)),
+  );
+  if (!draft || Date.now() - Number(draft.savedAt) > WORKSPACE_DRAFT_MAX_AGE_MS) return false;
+  workspaceDraftRestoring = true;
+  try {
+    switchMode(["single", "comic", "caption"].includes(draft.mode) ? draft.mode : "single");
+    if (dom.prompt) dom.prompt.value = String(draft.prompt || "");
+    if (dom.nImages) dom.nImages.value = String(draft.nImages || "1");
+    if (dom.zipFileName) dom.zipFileName.value = String(draft.zipFileName || "");
+    applyWorkspaceSizeDraft(draft);
+
+    if (Array.isArray(draft.panels) && draft.panels.length) {
+      dom.panelTbody.innerHTML = "";
+      panelCounter = 0;
+      draft.panels.forEach(panel => {
+        const row = addPanelRow(null, { syncCount: false });
+        const prompt = row.querySelector("textarea");
+        if (prompt) prompt.value = String(panel.prompt || "");
+        applyHistoryPanelSize(row, panel.size || "");
+        const retry = row.querySelector(".panel-retry-count");
+        if (retry) retry.value = String(clampRetryCount(panel.retryCount, getGlobalRetryCount()));
+      });
+      syncPanelCountInput();
+    }
+    if (Array.isArray(draft.captions) && draft.captions.length) {
+      dom.captionTbody.innerHTML = "";
+      captionRowCounter = 0;
+      draft.captions.forEach(item => {
+        const row = addCaptionRow();
+        const caption = row.querySelector(".caption-text");
+        if (caption) caption.value = String(item.captionText || "");
+      });
+    }
+
+    const history = loadHistory();
+    const project = draft.activeProjectId
+      ? history.find(item => item.id === draft.activeProjectId && isHistoryProject(item))
+      : null;
+    if (project) {
+      restoreHistoryItem(project);
+    } else if (Array.isArray(draft.singleHistoryIds) && draft.singleHistoryIds.length) {
+      const records = draft.singleHistoryIds
+        .map(id => history.find(item => item.id === id && !isHistoryProject(item)))
+        .filter(Boolean);
+      if (records.length) {
+        dom.resultGrid.innerHTML = "";
+        records.reverse().forEach(restoreHistoryItem);
+      }
+    }
+    refreshLocalizedUiState();
+    return true;
+  } finally {
+    workspaceDraftRestoring = false;
+  }
+}
+
+function installWorkspaceDraftAutosave() {
+  if (workspaceDraftDisabledForTest()) return;
+  document.addEventListener("input", () => scheduleWorkspaceDraftSave(), true);
+  document.addEventListener("change", () => scheduleWorkspaceDraftSave(), true);
+  [dom.panelTbody, dom.captionTbody, dom.resultGrid].filter(Boolean).forEach(target => {
+    new MutationObserver(() => scheduleWorkspaceDraftSave())
+      .observe(target, { childList: true, subtree: true });
+  });
+  addEventListener("pagehide", persistWorkspaceDraft);
+  setInterval(persistWorkspaceDraft, 5000);
+  scheduleWorkspaceDraftSave({ immediate: true });
+}
+
 dom.historyBtn?.addEventListener("click", () => {
   renderHistory();
   openModal(dom.historyModal);
@@ -12732,7 +12887,9 @@ dom.clearResults.addEventListener("click", () => {
   dom.emptyState.classList.remove("hidden");
   dom.resultToolbar.classList.add("hidden");
   generatedImageUrls = [];
+  currentComicHistoryId = null;
   updateFailedRetryTools();
+  scheduleWorkspaceDraftSave({ immediate: true });
 });
 
 async function downloadAllAsZip() {
@@ -13021,6 +13178,8 @@ async function initializeApplication() {
   }
 
   initI18n();
+  restoreWorkspaceDraft();
+  installWorkspaceDraftAutosave();
   showStorageRecoveryIssues();
   registerServiceWorker();
   initManualWheelScrollFix();
