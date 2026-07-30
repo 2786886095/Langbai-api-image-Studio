@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.12
+# Codex / Claude Handoff: AI 图片生成器 v1.6.13
 
 更新时间：2026-07-30
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
@@ -6,7 +6,17 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.12+89`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.13+90`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.13 Gemini 真实生图与鉴权下载修复
+
+- 根因一：Gemini 直连返回的 `lh3.googleusercontent.com/gg-dl/...` 图片地址要求登录会话；页面 `fetch()` 受 CORS 限制，普通 Dart `HttpClient` 即使附带 Cookie 仍会返回 403。
+- 修复：Windows WebView2 宿主新增仅供 Dart 调用的 DevTools 协议桥；`Network.loadNetworkResource(includeCredentials=true)` 和 `IO.read` 在原登录会话内读取图片，再把图片字节交给现有缓存与尺寸处理链。Cookie 不返回给 Gemini 页面 JavaScript。
+- 根因二：非终态任务重启时会回到 `waiting_for_browser/preparing_temporary_chat`，但已有 `direct_image_ready` 检查点恢复成功后需要直接进入 `locating_full_size`；旧状态机把这条安全恢复路径拒绝为 409。
+- 修复：仅当任务持有经过网关净化的 `direct_image_ready` 检查点时，允许从准备态进入原图恢复态；没有检查点的任务仍不能跳过提交状态。
+- 直连额度回退保持单调状态，不再从 `generating` 倒退到准备/上传/提交；自动模型对齐当前网页模式，并仅在明确未生成图片时尝试 Fast 或网页回退。
+- 真实验收任务 `gemini_1785393219008967_c74bf8a5` 已成功完成；下载结果为 203,209 字节、`512×512` PNG、SHA-256 `03C890E0A401C7B638CC8E788321B6699D9A0E15D5711D410859E83ECDC819C2`。
+- 分支 CI `30519317779` 已在升版前通过四端构建；正式 v1.6.13 发布仍须以 main 的最终 CI、包内版本和 Release 资产校验为准。
 
 ## v1.6.12 Gemini 直连额度误判与网页回退修复
 
