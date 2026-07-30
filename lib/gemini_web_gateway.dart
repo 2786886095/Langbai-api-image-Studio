@@ -57,6 +57,32 @@ const Map<String, Set<String>> _geminiStatusTransitions = <String, Set<String>>{
   'locating_full_size': <String>{'locating_full_size'},
 };
 
+bool geminiStatusTransitionAllowed(
+  GeminiImageTask task,
+  String nextStatus,
+) {
+  if (<String>{
+    'failed',
+    'needs_login',
+    'protocol_changed',
+    'cancelled',
+  }.contains(nextStatus)) {
+    return true;
+  }
+  final allowed = _geminiStatusTransitions[task.status] ?? const <String>{};
+  if (allowed.contains(nextStatus)) return true;
+
+  // On process restart every non-terminal task is deliberately reset to
+  // waiting_for_browser, then the claimed companion moves it to preparation.
+  // A task that already owns a sanitized direct-image checkpoint must resume
+  // at the download/save phase without pretending to submit the paid request
+  // again. This narrowly scoped transition is therefore forward recovery, not
+  // a general shortcut around the state machine.
+  return task.status == 'preparing_temporary_chat' &&
+      nextStatus == 'locating_full_size' &&
+      task.recovery['phase'] == 'direct_image_ready';
+}
+
 Map<String, Object?>? _sanitizeGeminiTaskRecovery(Object? value) {
   if (value is! Map || value['phase']?.toString() != 'direct_image_ready') {
     return null;
@@ -1295,15 +1321,7 @@ class GeminiWebGatewayManager {
           return;
         }
         final nextStatus = body['status']?.toString() ?? task.status;
-        final allowed =
-            _geminiStatusTransitions[task.status] ?? const <String>{};
-        final terminalTransition = <String>{
-          'failed',
-          'needs_login',
-          'protocol_changed',
-          'cancelled',
-        }.contains(nextStatus);
-        if (!terminalTransition && !allowed.contains(nextStatus)) {
+        if (!geminiStatusTransitionAllowed(task, nextStatus)) {
           await _json(response, 409, <String, Object?>{
             'error': <String, Object?>{
               'code': 'invalid_status_transition',

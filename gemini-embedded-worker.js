@@ -1458,6 +1458,13 @@ if (typeof module !== "undefined" && module.exports) {
     );
   }
 
+  function currentGeminiModelMode() {
+    const trigger = findGeminiModelTrigger();
+    if (trigger && matchesGeminiModelMode(trigger, "pro")) return "pro";
+    if (trigger && matchesGeminiModelMode(trigger, "fast")) return "fast";
+    return "";
+  }
+
   function setComposerText(composer, text) {
     composer.focus();
     if (composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement) {
@@ -2407,7 +2414,8 @@ if (typeof module !== "undefined" && module.exports) {
           if (blob.size > 0 && (!best || blob.size > best.size)) best = blob;
         } catch (error) {
           failures.push(
-            `native:${String(error?.code || error?.name || error)}`,
+            `native:${String(error?.code || error?.name || error)}`
+            + `:${String(error?.message || "").replace(/\s+/g, " ").slice(0, 240)}`,
           );
         }
       }
@@ -2532,7 +2540,8 @@ if (typeof module !== "undefined" && module.exports) {
       submission_transport: recovery.transport || "gemini_web_direct_rpc",
       direct_protocol: "StreamGenerate",
       requested_model_mode: request.model_preference || "auto",
-      selected_model_mode: request.model_preference || "auto",
+      selected_model_mode:
+        recovery.model_preference || request.model_preference || "auto",
       temporary_chat_requested: true,
       temporary_chat_verified: false,
       temporary_chat_verification: {
@@ -2571,16 +2580,43 @@ if (typeof module !== "undefined" && module.exports) {
     const prompt =
       "Generate one image now. Return the image directly without explanatory text.\n\n"
       + requestedPrompt;
-    const generated = await directProtocol.generate({
+    const requestedModelPreference = request.model_preference || "auto";
+    let selectedDirectModel = requestedModelPreference === "auto"
+      ? (currentGeminiModelMode() || "fast")
+      : requestedModelPreference;
+    const generateDirect = onBeforeSubmit => directProtocol.generate({
       prompt,
       references: request.references || [],
-      modelPreference: request.model_preference || "auto",
-      onBeforeSubmit: () => event(task, "submitting"),
+      modelPreference: selectedDirectModel,
+      onBeforeSubmit,
       heartbeat: async () => {
         await claimHeartbeat?.pulse?.();
         await event(task, "generating");
       },
     });
+    let generated;
+    try {
+      generated = await generateDirect(() => event(task, "submitting"));
+    } catch (error) {
+      const canTryFastRoute =
+        error?.code === "gemini_direct_quota_unavailable"
+        && error?.safeToFallbackToUi === true
+        && requestedModelPreference === "auto"
+        && selectedDirectModel !== "fast";
+      if (!canTryFastRoute) throw error;
+      notifyNative("direct_model_fallback", {
+        status: "fallback",
+        code: error.code,
+        from_model: selectedDirectModel,
+        to_model: "fast",
+        task_id: task.id,
+      });
+      selectedDirectModel = "fast";
+      // The first direct response explicitly confirmed that it produced no
+      // image. The task is already `generating`, so the alternate model request
+      // must not send another backward `submitting` transition.
+      generated = await generateDirect(null);
+    }
     await event(task, "generating");
     const recovery = {
       phase: "direct_image_ready",
@@ -2593,6 +2629,7 @@ if (typeof module !== "undefined" && module.exports) {
       },
       image_count: Number(generated.imageCount || 1),
       transport: generated.transport,
+      model_preference: selectedDirectModel,
     };
     await event(task, "locating_full_size", null, null, recovery);
     task.recovery = recovery;
@@ -2672,13 +2709,24 @@ if (typeof module !== "undefined" && module.exports) {
           task_id: task.id,
         });
       }
-      await event(task, "preparing_temporary_chat");
+      // A direct-route quota response is terminal for that request and proves
+      // that no image was produced, but the task has already reached
+      // `generating`. Keep that monotonic state while preparing the page
+      // fallback instead of trying to move it backwards through the gateway
+      // state machine.
+      if (!directFallbackReason) {
+        await event(task, "preparing_temporary_chat");
+      }
       const temporaryChatVerification = await ensureTemporaryChat(task);
       const before = historyDigest();
       const selectedModelMode = await selectGeminiModel(request.model_preference || "auto");
-      await event(task, "uploading_references");
+      if (!directFallbackReason) {
+        await event(task, "uploading_references");
+      }
       await uploadReferences(request.references || []);
-      await event(task, "submitting");
+      if (!directFallbackReason) {
+        await event(task, "submitting");
+      }
       const explicitImageAction = await enableImageAction();
       const preSubmissionHistory = historyDigest();
       const currentOrdinaryHistoryVisible = !!preSubmissionHistory.currentKey

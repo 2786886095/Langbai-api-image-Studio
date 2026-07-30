@@ -575,6 +575,52 @@ void WebviewWinFloatingPlugin::HandleMethodCall(
           "dispatchTrustedTextInput() error",
           "Text input is empty, oversized, or the WebView is unavailable.");
     }
+  } else if (method_call.method_name().compare("getCookiesForUrls") == 0) {
+    std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
+        shared_result = std::move(result);
+    const auto urls_json = std::get<std::string>(
+        arguments[flutter::EncodableValue("urlsJson")]);
+    const auto hr = webview->getCookiesForUrls(
+        utf8ToUtf16(urls_json).c_str(),
+        [shared_result](HRESULT error, std::string response) {
+          if (FAILED(error)) {
+            shared_result->Error(
+                "getCookiesForUrls() error",
+                "WebView2 rejected the cookie query.");
+          } else {
+            shared_result->Success(flutter::EncodableValue(response));
+          }
+        });
+    if (FAILED(hr)) {
+      shared_result->Error(
+          "getCookiesForUrls() error",
+          "The WebView or cookie URL list is unavailable.");
+    }
+  } else if (method_call.method_name().compare(
+                 "callDevToolsProtocolMethod") == 0) {
+    std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>
+        shared_result = std::move(result);
+    const auto method = std::get<std::string>(
+        arguments[flutter::EncodableValue("method")]);
+    const auto params_json = std::get<std::string>(
+        arguments[flutter::EncodableValue("paramsJson")]);
+    const auto hr = webview->callDevToolsProtocolMethod(
+        utf8ToUtf16(method).c_str(),
+        utf8ToUtf16(params_json).c_str(),
+        [shared_result](HRESULT error, std::string response) {
+          if (FAILED(error)) {
+            shared_result->Error(
+                "callDevToolsProtocolMethod() error",
+                "WebView2 rejected the DevTools protocol request.");
+          } else {
+            shared_result->Success(flutter::EncodableValue(response));
+          }
+        });
+    if (FAILED(hr)) {
+      shared_result->Error(
+          "callDevToolsProtocolMethod() error",
+          "The WebView or DevTools request is unavailable.");
+    }
   } else if (method_call.method_name().compare(
                  "addScriptToExecuteOnDocumentCreated") == 0) {
     std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>

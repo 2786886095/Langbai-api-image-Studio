@@ -1819,9 +1819,126 @@ class _GeminiWindowsEmbeddedBrowserState
         ..idleTimeout = const Duration(seconds: 60)
         ..findProxy = (_) => 'DIRECT';
       try {
+        List<int>? browserBytes;
+        try {
+          final frameTree = jsonDecode(
+            await controller.callDevToolsProtocolMethod(
+              'Page.getFrameTree',
+              '{}',
+            ),
+          );
+          String? frameId;
+          if (frameTree is Map) {
+            final frameTreeNode = frameTree['frameTree'];
+            if (frameTreeNode is Map) {
+              final frameNode = frameTreeNode['frame'];
+              if (frameNode is Map) {
+                frameId = frameNode['id']?.toString();
+              }
+            }
+          }
+          if (frameId != null && frameId.isNotEmpty) {
+            final loaded = jsonDecode(
+              await controller.callDevToolsProtocolMethod(
+                'Network.loadNetworkResource',
+                jsonEncode(<String, Object?>{
+                  'frameId': frameId,
+                  'url': uri.toString(),
+                  'options': <String, Object?>{
+                    'disableCache': true,
+                    'includeCredentials': true,
+                  },
+                }),
+              ),
+            );
+            final resource = loaded is Map ? loaded['resource'] : null;
+            final stream = resource is Map
+                ? resource['stream']?.toString() ?? ''
+                : '';
+            final success = resource is Map && resource['success'] == true;
+            if (success && stream.isNotEmpty) {
+              final collected = <int>[];
+              try {
+                while (true) {
+                  final chunk = jsonDecode(
+                    await controller.callDevToolsProtocolMethod(
+                      'IO.read',
+                      jsonEncode(<String, Object?>{
+                        'handle': stream,
+                        'size': 1024 * 1024,
+                      }),
+                    ),
+                  );
+                  if (chunk is! Map) break;
+                  final data = chunk['data']?.toString() ?? '';
+                  if (data.isNotEmpty) {
+                    collected.addAll(chunk['base64Encoded'] == true
+                        ? base64Decode(data)
+                        : utf8.encode(data));
+                  }
+                  if (collected.length > _maxNativeTransportBytes) {
+                    throw const FormatException(
+                      'Gemini image exceeds the 96 MiB native limit.',
+                    );
+                  }
+                  if (chunk['eof'] == true) break;
+                }
+              } finally {
+                try {
+                  await controller.callDevToolsProtocolMethod(
+                    'IO.close',
+                    jsonEncode(<String, Object?>{'handle': stream}),
+                  );
+                } catch (_) {}
+              }
+              if (collected.isNotEmpty) browserBytes = collected;
+            }
+          }
+        } catch (_) {
+          browserBytes = null;
+        }
+        if (browserBytes != null && browserBytes.isNotEmpty) {
+          response = <String, Object?>{
+            'source': 'langbai-gemini-native',
+            'type': 'native-response',
+            'requestId': requestId,
+            'response': <String, Object?>{
+              'bodyBase64': base64Encode(browserBytes),
+              'contentType': 'application/octet-stream',
+            },
+          };
+          await controller.runJavaScript(
+            'window.postMessage(${jsonEncode(response)}, "*");',
+          );
+          return;
+        }
+        final cookiePayload = jsonDecode(await controller.getCookiesForUrls(
+          <String>[
+            'https://gemini.google.com/',
+            uri.toString(),
+          ],
+        ));
+        final cookiePairs = <String>[];
+        if (cookiePayload is Map && cookiePayload['cookies'] is List) {
+          final names = <String>{};
+          for (final item in cookiePayload['cookies'] as List) {
+            if (item is! Map) continue;
+            final name = item['name']?.toString() ?? '';
+            final value = item['value']?.toString() ?? '';
+            if (name.isEmpty || value.isEmpty || !names.add(name)) continue;
+            cookiePairs.add('$name=$value');
+          }
+        }
         final request =
             await client.getUrl(uri).timeout(const Duration(seconds: 30));
         request.headers.set(HttpHeaders.acceptHeader, 'image/*');
+        request.headers.set(HttpHeaders.refererHeader, 'https://gemini.google.com/');
+        request.headers.set(HttpHeaders.userAgentHeader,
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36');
+        if (cookiePairs.isNotEmpty) {
+          request.headers.set(HttpHeaders.cookieHeader, cookiePairs.join('; '));
+        }
         final downloaded =
             await request.close().timeout(const Duration(seconds: 70));
         if (downloaded.statusCode < 200 || downloaded.statusCode >= 300) {

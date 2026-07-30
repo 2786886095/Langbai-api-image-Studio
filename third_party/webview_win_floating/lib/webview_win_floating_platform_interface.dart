@@ -100,6 +100,18 @@ abstract class WebviewWinFloatingPlatform extends PlatformInterface {
     throw UnimplementedError();
   }
 
+  Future<String> getCookiesForUrls(int webviewId, List<String> urls) {
+    throw UnimplementedError();
+  }
+
+  Future<String> callDevToolsProtocolMethod(
+    int webviewId,
+    String method,
+    String paramsJson,
+  ) {
+    throw UnimplementedError();
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,

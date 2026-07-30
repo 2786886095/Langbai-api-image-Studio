@@ -5,6 +5,10 @@ Vendored from `jakky1/webview_win_floating` commit
 
 Local changes:
 
+- add a native-only `Network.getCookies` bridge so the Dart host can download
+  protected Gemini-generated images without exposing cookies to page JavaScript;
+- add a native-only DevTools protocol bridge used by the Dart host to read
+  protected generated-image streams through Chromium's network session;
 - expose document-created scripts so the existing trusted native bridge is
   installed before application JavaScript runs;
 - surface WebView2 `ProcessFailed` events to Dart;

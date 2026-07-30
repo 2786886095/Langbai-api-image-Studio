@@ -65,6 +65,13 @@ public:
     HRESULT dispatchTrustedTextInput(
         PCWSTR text,
         std::function<void(HRESULT, std::string)> callback);
+    HRESULT getCookiesForUrls(
+        PCWSTR urlsJson,
+        std::function<void(HRESULT, std::string)> callback);
+    HRESULT callDevToolsProtocolMethod(
+        PCWSTR method,
+        PCWSTR paramsJson,
+        std::function<void(HRESULT, std::string)> callback);
     HRESULT addScriptToExecuteOnDocumentCreated(
         PCWSTR javaScriptString,
         std::function<void(HRESULT)> callback);
@@ -790,6 +797,54 @@ HRESULT MyWebViewImpl::dispatchTrustedTextInput(
     return m_pWebview->CallDevToolsProtocolMethod(
         L"Input.insertText",
         params.c_str(),
+        Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
+            [callback](HRESULT error, LPCWSTR resultObjectAsJson) -> HRESULT {
+                if (callback) {
+                    callback(
+                        error,
+                        resultObjectAsJson == nullptr
+                            ? std::string()
+                            : utf8_encode(resultObjectAsJson));
+                }
+                return S_OK;
+            }).Get());
+}
+
+HRESULT MyWebViewImpl::getCookiesForUrls(
+    PCWSTR urlsJson,
+    std::function<void(HRESULT, std::string)> callback)
+{
+    if (!m_pWebview || urlsJson == nullptr || urlsJson[0] == L'\0') {
+        return E_INVALIDARG;
+    }
+    return m_pWebview->CallDevToolsProtocolMethod(
+        L"Network.getCookies",
+        urlsJson,
+        Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
+            [callback](HRESULT error, LPCWSTR resultObjectAsJson) -> HRESULT {
+                if (callback) {
+                    callback(
+                        error,
+                        resultObjectAsJson == nullptr
+                            ? std::string()
+                            : utf8_encode(resultObjectAsJson));
+                }
+                return S_OK;
+            }).Get());
+}
+
+HRESULT MyWebViewImpl::callDevToolsProtocolMethod(
+    PCWSTR method,
+    PCWSTR paramsJson,
+    std::function<void(HRESULT, std::string)> callback)
+{
+    if (!m_pWebview || method == nullptr || method[0] == L'\0' ||
+        paramsJson == nullptr || paramsJson[0] == L'\0') {
+        return E_INVALIDARG;
+    }
+    return m_pWebview->CallDevToolsProtocolMethod(
+        method,
+        paramsJson,
         Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
             [callback](HRESULT error, LPCWSTR resultObjectAsJson) -> HRESULT {
                 if (callback) {

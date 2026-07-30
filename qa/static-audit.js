@@ -310,10 +310,39 @@ assert.match(
   /safeAfterDirectSubmission[\s\S]*gemini_direct_quota_unavailable[\s\S]*direct_protocol_fallback/,
   "The embedded worker must safely continue through the page after a terminal direct-route quota rejection",
 );
+assert.match(
+  geminiEmbeddedWorker,
+  /if \(!directFallbackReason\) \{\s*await event\(task, "preparing_temporary_chat"\)[\s\S]*if \(!directFallbackReason\) \{\s*await event\(task, "uploading_references"\)[\s\S]*if \(!directFallbackReason\) \{\s*await event\(task, "submitting"\)/,
+  "A page fallback must keep the already-generating task state monotonic",
+);
+assert.match(
+  geminiEmbeddedWorker,
+  /currentGeminiModelMode\(\) \|\| "fast"[\s\S]*direct_model_fallback[\s\S]*generated = await generateDirect\(null\)/,
+  "Auto mode must align direct generation with the visible model and may try the terminally safe Fast route without regressing task state",
+);
 assert.match(geminiEmbeddedBrowser, /GeminiMobileEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /GeminiWindowsEmbeddedBrowser/);
 assert.match(geminiEmbeddedBrowser, /gemini-embedded-worker\.js/);
 assert.match(geminiEmbeddedBrowser, /nativeBridgeCapability/);
+assert.match(geminiEmbeddedBrowser, /controller\.getCookiesForUrls\(/);
+assert.match(geminiEmbeddedBrowser, /HttpHeaders\.cookieHeader/);
+assert.match(geminiEmbeddedBrowser, /_isAllowedGeminiImageUrl\(uri\)/);
+assert.match(vendoredWindowsWebview, /Future<String> getCookiesForUrls\(/);
+assert.match(vendoredWindowsMethodChannel, /invokeMethod<String>\('getCookiesForUrls'/);
+assert.match(vendoredWindowsNativeWebview, /Network\.getCookies/);
+assert.match(vendoredWindowsPlugin, /getCookiesForUrls/);
+assert.match(vendoredWindowsWebview, /Future<String> callDevToolsProtocolMethod\(/);
+assert.match(vendoredWindowsMethodChannel, /invokeMethod<String>\('callDevToolsProtocolMethod'/);
+assert.match(vendoredWindowsNativeWebview, /Network\.getCookies/);
+assert.match(vendoredWindowsPlugin, /callDevToolsProtocolMethod/);
+assert.match(geminiEmbeddedBrowser, /Network\.loadNetworkResource/);
+assert.match(geminiEmbeddedBrowser, /Page\.getFrameTree/);
+assert.match(geminiEmbeddedBrowser, /'IO\.read'/);
+assert.doesNotMatch(
+  geminiEmbeddedWorker,
+  /getCookiesForUrls|cookieHeader/,
+  "Gemini page JavaScript must not receive raw WebView2 cookies",
+);
 assert.match(geminiEmbeddedBrowser, /__LANGBAI_GEMINI_NATIVE_CAPABILITY/);
 assert.doesNotMatch(
   geminiEmbeddedBrowser,
@@ -346,6 +375,10 @@ assert.match(geminiWebGateway, /_persistenceChain/);
 assert.match(geminiWebGateway, /_companionLeaseDuration/);
 assert.match(geminiWebGateway, /stale_or_wrong_task_claim/);
 assert.match(geminiWebGateway, /invalid_status_transition/);
+assert.match(
+  geminiWebGateway,
+  /task\.status == 'preparing_temporary_chat'[\s\S]*nextStatus == 'locating_full_size'[\s\S]*task\.recovery\['phase'\] == 'direct_image_ready'/,
+);
 assert.match(geminiWebGateway, /image-tasks\/\(\[\^\/\]\+\)\/cancel/);
 assert.match(geminiWebGateway, /task\.error = null/);
 assert.match(geminiWebGateway, /try \{\s*await _recordAccountSuccess\(task\.accountId\);\s*\} catch \(_\) \{\}/);

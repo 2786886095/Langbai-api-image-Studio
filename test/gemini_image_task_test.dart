@@ -177,4 +177,36 @@ void main() {
       'resume_generated_image',
     );
   });
+
+  test('generated image checkpoint resumes directly at full-size recovery', () {
+    GeminiImageTask task({required bool recoverable}) => GeminiImageTask(
+          id: recoverable ? 'recoverable' : 'plain',
+          clientRequestId: recoverable ? 'recoverable' : 'plain',
+          request: const <String, Object?>{},
+          status: 'preparing_temporary_chat',
+          recovery: recoverable
+              ? const <String, Object?>{
+                  'phase': 'direct_image_ready',
+                  'image': <String, Object?>{
+                    'url': 'https://lh3.googleusercontent.com/example',
+                  },
+                }
+              : const <String, Object?>{},
+        );
+
+    expect(
+      geminiStatusTransitionAllowed(
+          task(recoverable: true), 'locating_full_size'),
+      isTrue,
+    );
+    expect(
+      geminiStatusTransitionAllowed(
+          task(recoverable: false), 'locating_full_size'),
+      isFalse,
+    );
+    expect(
+      geminiStatusTransitionAllowed(task(recoverable: true), 'submitting'),
+      isFalse,
+    );
+  });
 }

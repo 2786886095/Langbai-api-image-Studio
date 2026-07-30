@@ -551,6 +551,31 @@ class WinWebViewController {
     );
   }
 
+  /// Reads cookies through WebView2's DevTools session for native-only HTTP
+  /// work. The result is never injected into page JavaScript.
+  Future<String> getCookiesForUrls(List<String> urls) async {
+    await _initFuture;
+    return WebviewWinFloatingPlatform.instance.getCookiesForUrls(
+      _webviewId,
+      urls,
+    );
+  }
+
+  /// Calls a DevTools protocol method through the host WebView2 controller.
+  /// This native-only channel is used for authenticated resource recovery and
+  /// is never injected into page JavaScript.
+  Future<String> callDevToolsProtocolMethod(
+    String method,
+    String paramsJson,
+  ) async {
+    await _initFuture;
+    return WebviewWinFloatingPlatform.instance.callDevToolsProtocolMethod(
+      _webviewId,
+      method,
+      paramsJson,
+    );
+  }
+
   Future<void> addScriptToExecuteOnDocumentCreated(
     String javaScriptString,
   ) async {

@@ -265,6 +265,24 @@ test("direct Gemini protocol bypasses the composer and extracts generated images
   assert.match(worker, /gemini_direct_quota_unavailable/);
   assert.match(worker, /safeAfterDirectSubmission/);
   assert.match(worker, /direct_protocol_fallback/);
+  assert.match(worker, /function currentGeminiModelMode\(\)/);
+  assert.match(worker, /currentGeminiModelMode\(\) \|\| "fast"/);
+  assert.match(worker, /direct_model_fallback/);
+  assert.match(worker, /selectedDirectModel = "fast"/);
+  assert.match(worker, /generated = await generateDirect\(null\)/);
+  assert.match(worker, /error\?\.message \|\| ""/);
+  assert.match(
+    worker,
+    /if \(!directFallbackReason\) \{\s*await event\(task, "preparing_temporary_chat"\)/,
+  );
+  assert.match(
+    worker,
+    /if \(!directFallbackReason\) \{\s*await event\(task, "uploading_references"\)/,
+  );
+  assert.match(
+    worker,
+    /if \(!directFallbackReason\) \{\s*await event\(task, "submitting"\)/,
+  );
 });
 
 test("writes exact global dimensions into the cached Gemini task result", () => {

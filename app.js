@@ -2076,7 +2076,16 @@ function installGlobalWheelScrollBridge() {
   window.addEventListener("wheel", event => {
     if (event.defaultPrevented) return;
     if (event.ctrlKey || event.metaKey || event.shiftKey) return;
-    if (getTopVisibleOverlay()) return;
+    const overlay = getTopVisibleOverlay();
+    if (overlay) {
+      const overlayScroller = getScrollableAncestor(resolveWheelEventStartElement(event));
+      if (overlayScroller && overlay.contains(overlayScroller)) return;
+      // Body overflow alone does not stop wheel scroll chaining into a nested
+      // page panel in Chromium/WebView2. Consume wheel input that has no
+      // scrollable owner inside the active modal so the background stays put.
+      event.preventDefault();
+      return;
+    }
     const activeScroller = getScrollableAncestor(resolveWheelEventStartElement(event));
     if (activeScroller) return;
     const panel = dom.inputPanel;

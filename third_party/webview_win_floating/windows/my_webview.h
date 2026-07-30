@@ -57,6 +57,13 @@ public:
 	virtual HRESULT dispatchTrustedTextInput(
 		PCWSTR text,
 		std::function<void(HRESULT, std::string)> callback) = 0;
+	virtual HRESULT getCookiesForUrls(
+		PCWSTR urlsJson,
+		std::function<void(HRESULT, std::string)> callback) = 0;
+	virtual HRESULT callDevToolsProtocolMethod(
+		PCWSTR method,
+		PCWSTR paramsJson,
+		std::function<void(HRESULT, std::string)> callback) = 0;
 	virtual HRESULT addScriptToExecuteOnDocumentCreated(
 		LPCWSTR javaScriptString,
 		std::function<void(HRESULT)> callback) = 0;

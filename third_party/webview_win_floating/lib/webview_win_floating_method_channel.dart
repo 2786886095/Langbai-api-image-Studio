@@ -269,6 +269,29 @@ class MethodChannelWebviewWinFloating extends WebviewWinFloatingPlatform {
   }
 
   @override
+  Future<String> getCookiesForUrls(int webviewId, List<String> urls) async {
+    return await methodChannel.invokeMethod<String>('getCookiesForUrls', {
+          "webviewId": webviewId,
+          "urlsJson": jsonEncode(<String, Object?>{"urls": urls}),
+        }) ??
+        '{"cookies":[]}';
+  }
+
+  @override
+  Future<String> callDevToolsProtocolMethod(
+    int webviewId,
+    String method,
+    String paramsJson,
+  ) async {
+    return await methodChannel.invokeMethod<String>('callDevToolsProtocolMethod', {
+          "webviewId": webviewId,
+          "method": method,
+          "paramsJson": paramsJson,
+        }) ??
+        '{}';
+  }
+
+  @override
   Future<void> addScriptToExecuteOnDocumentCreated(
     int webviewId,
     String javaScriptString,
