@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.21";
+const APP_VERSION = "1.6.22";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -740,6 +740,23 @@ const CLEAN_LOCALES = {
   }
 };
 
+
+Object.assign(CLEAN_LOCALES["zh-CN"], {
+  importProjectFolder: "\u6062\u590d\u9879\u76ee\u6587\u4ef6\u5939", importProjectZip: "\u6062\u590d\u9879\u76ee ZIP", importingExportedProject: "\u6b63\u5728\u6062\u590d\u9879\u76ee\u2026", importProjectZipHint: "\u9009\u62e9\u8f6f\u4ef6\u5bfc\u51fa\u7684\u9879\u76ee ZIP", importProjectZipInvalid: "\u65e0\u6548\u6216\u5df2\u635f\u574f\u7684\u9879\u76ee ZIP", importProjectZipUnsupported: "\u9879\u76ee ZIP \u4f7f\u7528\u4e86\u4e0d\u652f\u6301\u7684\u52a0\u5bc6\u6216\u538b\u7f29\u683c\u5f0f", importProjectZipTooLarge: "\u9879\u76ee ZIP \u8fc7\u5927\u6216\u5305\u542b\u8fc7\u591a\u6587\u4ef6"
+});
+Object.assign(CLEAN_LOCALES["zh-Hant"], {
+  importProjectFolder: "\u6062\u5fa9\u5c08\u6848\u8cc7\u6599\u593e", importProjectZip: "\u6062\u5fa9\u5c08\u6848 ZIP", importingExportedProject: "\u6b63\u5728\u6062\u5fa9\u5c08\u6848\u2026", importProjectZipHint: "\u9078\u64c7\u8edf\u9ad4\u532f\u51fa\u7684\u5c08\u6848 ZIP", importProjectZipInvalid: "\u7121\u6548\u6216\u5df2\u640d\u58de\u7684\u5c08\u6848 ZIP", importProjectZipUnsupported: "\u5c08\u6848 ZIP \u4f7f\u7528\u4e86\u4e0d\u652f\u63f4\u7684\u52a0\u5bc6\u6216\u58d3\u7e2e\u683c\u5f0f", importProjectZipTooLarge: "\u5c08\u6848 ZIP \u904e\u5927\u6216\u5305\u542b\u904e\u591a\u6a94\u6848"
+});
+Object.assign(CLEAN_LOCALES.en, {
+  importProjectFolder: "Restore Project Folder", importProjectZip: "Restore Project ZIP", importingExportedProject: "Restoring project...", importProjectZipHint: "Choose a project ZIP exported by the app", importProjectZipInvalid: "The project ZIP is invalid or damaged", importProjectZipUnsupported: "The project ZIP uses unsupported encryption or compression", importProjectZipTooLarge: "The project ZIP is too large or contains too many files"
+});
+Object.assign(CLEAN_LOCALES.ja, {
+  importProjectFolder: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a9\u30eb\u30c0\u30fc\u3092\u5fa9\u5143", importProjectZip: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 ZIP \u3092\u5fa9\u5143", importingExportedProject: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3092\u5fa9\u5143\u4e2d...", importProjectZipHint: "\u30a2\u30d7\u30ea\u304c\u66f8\u304d\u51fa\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 ZIP \u3092\u9078\u629e", importProjectZipInvalid: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 ZIP \u304c\u7121\u52b9\u307e\u305f\u306f\u7834\u640d\u3057\u3066\u3044\u307e\u3059", importProjectZipUnsupported: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 ZIP \u306e\u6697\u53f7\u5316\u307e\u305f\u306f\u5727\u7e2e\u5f62\u5f0f\u306f\u672a\u5bfe\u5fdc\u3067\u3059", importProjectZipTooLarge: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 ZIP \u304c\u5927\u3059\u304e\u308b\u304b\u3001\u30d5\u30a1\u30a4\u30eb\u6570\u304c\u591a\u3059\u304e\u307e\u3059"
+});
+Object.assign(CLEAN_LOCALES.ko, {
+  importProjectFolder: "\ud504\ub85c\uc81d\ud2b8 \ud3f4\ub354 \ubcf5\uc6d0", importProjectZip: "\ud504\ub85c\uc81d\ud2b8 ZIP \ubcf5\uc6d0", importingExportedProject: "\ud504\ub85c\uc81d\ud2b8 \ubcf5\uc6d0 \uc911...", importProjectZipHint: "\uc571\uc5d0\uc11c \ub0b4\ubcf4\ub0b8 \ud504\ub85c\uc81d\ud2b8 ZIP\uc744 \uc120\ud0dd\ud558\uc138\uc694", importProjectZipInvalid: "\ud504\ub85c\uc81d\ud2b8 ZIP\uc774 \uc798\ubabb\ub418\uc5c8\uac70\ub098 \uc190\uc0c1\ub418\uc5c8\uc2b5\ub2c8\ub2e4", importProjectZipUnsupported: "\ud504\ub85c\uc81d\ud2b8 ZIP\uc758 \uc554\ud638\ud654 \ub610\ub294 \uc555\ucd95 \ud615\uc2dd\uc744 \uc9c0\uc6d0\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4", importProjectZipTooLarge: "\ud504\ub85c\uc81d\ud2b8 ZIP\uc774 \ub108\ubb34 \ud06c \uac83\uc774\ub098 \ud30c\uc77c \uc218\uac00 \ub108\ubb34 \ub9ce\uc2b5\ub2c8\ub2e4"
+});
+
 const INPAINT_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
     inpaintRequiresGptImage2: "局部重绘仅支持 ChatGPT 网页生图或官方 OpenAI 的 gpt-image-2",
@@ -1357,8 +1374,10 @@ function applyCleanLanguage() {
   setText("#historyTitle", "historyTitle");
   setText("#historyModal .modal-header .field-hint", "historyHint");
   setAttr("#historySearch", "placeholder", "searchHistory");
-  setButtonText(dom.importProjectFolder, "folder", "importExportedProject");
+  setButtonText(dom.importProjectFolder, "folder", "importProjectFolder");
+  setButtonText(dom.importProjectZip, "zip", "importProjectZip");
   if (dom.projectFolderInput) dom.projectFolderInput.setAttribute("aria-label", cleanText("importProjectFolderHint"));
+  if (dom.projectZipInput) dom.projectZipInput.setAttribute("aria-label", cleanText("importProjectZipHint"));
   if (dom.refreshHistory) dom.refreshHistory.textContent = cleanText("refresh");
   updateOfficialCostSummary();
 }
@@ -1683,6 +1702,8 @@ const dom = {
   historySearch: $("#historySearch"),
   importProjectFolder: $("#importProjectFolder"),
   projectFolderInput: $("#projectFolderInput"),
+  importProjectZip: $("#importProjectZip"),
+  projectZipInput: $("#projectZipInput"),
   refreshHistory:$("#refreshHistory"),
   historyList:   $("#historyList"),
   // OpenCodex 局部重绘
@@ -12077,6 +12098,9 @@ function createImportedProjectFileIndex(files = []) {
 function findImportedProjectFile(index, projectPath, relativeFilename) {
   const relative = importedProjectPath(relativeFilename);
   if (!isSafeImportedProjectPath(relative)) return null;
+  // Folder exports store names relative to project.json; ZIP exports from older versions
+  // may already include the project root. Accept either form without allowing traversal.
+  if (index.has(relative)) return index.get(relative);
   const parent = importedProjectPath(projectPath).split("/").slice(0, -1).join("/");
   const expected = parent ? `${parent}/${relative}` : relative;
   if (index.has(expected)) return index.get(expected);
@@ -12093,6 +12117,135 @@ function importedReferenceIdsFor(panelOrImage, project) {
   const panelId = String(panelOrImage?.panelId || "");
   const legacy = project?.panelReferenceIds?.[panelId] || project?.imageReferenceIds?.[panelId] || [];
   return Array.isArray(legacy) ? legacy.map(String) : [];
+}
+
+
+const PROJECT_IMPORT_MAX_ARCHIVE_BYTES = 512 * 1024 * 1024;
+const PROJECT_IMPORT_MAX_FILES = 512;
+const PROJECT_IMPORT_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
+const PROJECT_IMPORT_MAX_FILE_BYTES = 100 * 1024 * 1024;
+
+function projectZipError(key) {
+  return new Error(cleanText(key));
+}
+
+function zipReadUint16(bytes, offset) {
+  if (offset < 0 || offset + 2 > bytes.length) throw projectZipError("importProjectZipInvalid");
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 2).getUint16(0, true);
+}
+
+function zipReadUint32(bytes, offset) {
+  if (offset < 0 || offset + 4 > bytes.length) throw projectZipError("importProjectZipInvalid");
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, true);
+}
+
+function zipFindEndOfCentralDirectory(bytes) {
+  const minimum = 22;
+  const start = Math.max(0, bytes.length - minimum - 0xFFFF);
+  for (let offset = bytes.length - minimum; offset >= start; offset--) {
+    if (zipReadUint32(bytes, offset) !== 0x06054B50) continue;
+    const commentLength = zipReadUint16(bytes, offset + 20);
+    if (offset + minimum + commentLength === bytes.length) return offset;
+  }
+  throw projectZipError("importProjectZipInvalid");
+}
+
+function isSafeProjectImportPath(value = "") {
+  const raw = String(value || "");
+  if (!raw || raw.includes("\u0000") || /^[\\/]/.test(raw)) return false;
+  const normalized = importedProjectPath(raw);
+  return isSafeImportedProjectPath(normalized) && normalized.length <= 512;
+}
+
+function decodeZipEntryName(bytes) {
+  const value = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  if (!value || value.includes("\uFFFD")) throw projectZipError("importProjectZipInvalid");
+  return value;
+}
+
+async function inflateProjectZipEntry(compressed) {
+  if (typeof DecompressionStream !== "function") throw projectZipError("importProjectZipUnsupported");
+  try {
+    const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    throw projectZipError("importProjectZipInvalid");
+  }
+}
+
+function projectImportMimeType(path) {
+  if (/(^|\/)project\.json$/i.test(path)) return "application/json";
+  return guessedImageMimeType(path);
+}
+
+function createImportedProjectFile(bytes, path) {
+  const file = new File([bytes], path.split("/").pop() || "project-file", { type: projectImportMimeType(path) });
+  try { Object.defineProperty(file, "webkitRelativePath", { value: path }); } catch { /* native File property is already present */ }
+  return file;
+}
+
+async function extractProjectZipFiles(zipFile) {
+  if (!(zipFile instanceof Blob) || zipFile.size <= 0 || zipFile.size > PROJECT_IMPORT_MAX_ARCHIVE_BYTES) {
+    throw projectZipError("importProjectZipTooLarge");
+  }
+  const bytes = new Uint8Array(await zipFile.arrayBuffer());
+  const endOffset = zipFindEndOfCentralDirectory(bytes);
+  const disk = zipReadUint16(bytes, endOffset + 4);
+  const centralDisk = zipReadUint16(bytes, endOffset + 6);
+  const entriesOnDisk = zipReadUint16(bytes, endOffset + 8);
+  const entryCount = zipReadUint16(bytes, endOffset + 10);
+  const centralSize = zipReadUint32(bytes, endOffset + 12);
+  const centralOffset = zipReadUint32(bytes, endOffset + 16);
+  if (disk !== 0 || centralDisk !== 0 || entriesOnDisk !== entryCount || entryCount > PROJECT_IMPORT_MAX_FILES || centralOffset + centralSize > endOffset || entryCount === 0) {
+    throw projectZipError("importProjectZipTooLarge");
+  }
+  let offset = centralOffset;
+  let totalBytes = 0;
+  const paths = new Set();
+  const files = [];
+  for (let index = 0; index < entryCount; index++) {
+    if (zipReadUint32(bytes, offset) !== 0x02014B50) throw projectZipError("importProjectZipInvalid");
+    const flags = zipReadUint16(bytes, offset + 8);
+    const method = zipReadUint16(bytes, offset + 10);
+    const expectedCrc = zipReadUint32(bytes, offset + 16);
+    const compressedSize = zipReadUint32(bytes, offset + 20);
+    const uncompressedSize = zipReadUint32(bytes, offset + 24);
+    const fileNameLength = zipReadUint16(bytes, offset + 28);
+    const extraLength = zipReadUint16(bytes, offset + 30);
+    const commentLength = zipReadUint16(bytes, offset + 32);
+    const diskStart = zipReadUint16(bytes, offset + 34);
+    const localOffset = zipReadUint32(bytes, offset + 42);
+    const headerEnd = offset + 46 + fileNameLength + extraLength + commentLength;
+    if (headerEnd > bytes.length || diskStart !== 0 || (flags & 0x0001) !== 0 || (method !== 0 && method !== 8) || compressedSize === 0xFFFFFFFF || uncompressedSize === 0xFFFFFFFF) {
+      throw projectZipError("importProjectZipUnsupported");
+    }
+    const rawPath = decodeZipEntryName(bytes.subarray(offset + 46, offset + 46 + fileNameLength));
+    const path = importedProjectPath(rawPath);
+    offset = headerEnd;
+    if (rawPath.endsWith("/") || rawPath.endsWith("\\")) continue;
+    if (!isSafeProjectImportPath(rawPath) || paths.has(path.toLowerCase())) throw projectZipError("importProjectZipInvalid");
+    paths.add(path.toLowerCase());
+    totalBytes += uncompressedSize;
+    if (totalBytes > PROJECT_IMPORT_MAX_TOTAL_BYTES || uncompressedSize > PROJECT_IMPORT_MAX_FILE_BYTES) throw projectZipError("importProjectZipTooLarge");
+    if (zipReadUint32(bytes, localOffset) !== 0x04034B50) throw projectZipError("importProjectZipInvalid");
+    const localNameLength = zipReadUint16(bytes, localOffset + 26);
+    const localExtraLength = zipReadUint16(bytes, localOffset + 28);
+    const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (dataStart > bytes.length || dataEnd > bytes.length) throw projectZipError("importProjectZipInvalid");
+    const compressed = bytes.subarray(dataStart, dataEnd);
+    const extracted = method === 0 ? compressed.slice() : await inflateProjectZipEntry(compressed);
+    if (extracted.length !== uncompressedSize || crc32(extracted) !== expectedCrc) throw projectZipError("importProjectZipInvalid");
+    if (/(^|\/)project\.json$/i.test(path) || /\.(?:png|jpe?g|webp|gif)$/i.test(path)) {
+      files.push(createImportedProjectFile(extracted, path));
+    }
+  }
+  if (!files.some(file => /(^|\/)project\.json$/i.test(file.webkitRelativePath || file.name))) throw projectZipError("importProjectInvalid");
+  return files;
+}
+
+async function restoreExportedProjectFromZip(zipFile) {
+  return restoreExportedProjectFromFiles(await extractProjectZipFiles(zipFile));
 }
 
 async function restoreExportedProjectFromFiles(files) {
@@ -12245,24 +12398,45 @@ async function restoreExportedProjectFromFiles(files) {
   showStatus(`${cleanText("importProjectRestored")}${suffix}`, failedReferences.length ? "info" : "success");
 }
 
-async function importExportedProjectFolder() {
-  const files = [...(dom.projectFolderInput?.files || [])];
-  if (!files.length) return;
-  if (dom.importProjectFolder) {
-    dom.importProjectFolder.disabled = true;
-    setButtonText(dom.importProjectFolder, "folder", "importingExportedProject");
+let projectImportInFlight = false;
+
+function setProjectImportButtonsBusy(activeButton = null, busy = false) {
+  [dom.importProjectFolder, dom.importProjectZip].filter(Boolean).forEach(button => {
+    button.disabled = busy;
+  });
+  if (busy && activeButton === dom.importProjectFolder) setButtonText(dom.importProjectFolder, "folder", "importingExportedProject");
+  if (busy && activeButton === dom.importProjectZip) setButtonText(dom.importProjectZip, "zip", "importingExportedProject");
+  if (!busy) {
+    setButtonText(dom.importProjectFolder, "folder", "importProjectFolder");
+    setButtonText(dom.importProjectZip, "zip", "importProjectZip");
   }
+}
+
+async function runProjectImport(activeButton, input, loader) {
+  if (projectImportInFlight) return;
+  projectImportInFlight = true;
+  setProjectImportButtonsBusy(activeButton, true);
   try {
-    await restoreExportedProjectFromFiles(files);
+    await loader();
   } catch (error) {
     showStatus(`${cleanText("exportFailed")}: ${error?.message || error}`, "error");
   } finally {
-    if (dom.projectFolderInput) dom.projectFolderInput.value = "";
-    if (dom.importProjectFolder) {
-      dom.importProjectFolder.disabled = false;
-      setButtonText(dom.importProjectFolder, "folder", "importExportedProject");
-    }
+    if (input) input.value = "";
+    projectImportInFlight = false;
+    setProjectImportButtonsBusy(null, false);
   }
+}
+
+async function importExportedProjectFolder() {
+  const files = [...(dom.projectFolderInput?.files || [])];
+  if (!files.length) return;
+  await runProjectImport(dom.importProjectFolder, dom.projectFolderInput, () => restoreExportedProjectFromFiles(files));
+}
+
+async function importExportedProjectZip() {
+  const zipFile = dom.projectZipInput?.files?.[0] || null;
+  if (!zipFile) return;
+  await runProjectImport(dom.importProjectZip, dom.projectZipInput, () => restoreExportedProjectFromZip(zipFile));
 }
 
 dom.historyBtn?.addEventListener("click", () => {
@@ -12271,6 +12445,8 @@ dom.historyBtn?.addEventListener("click", () => {
 });
 dom.importProjectFolder?.addEventListener("click", () => openFileInputOnce(dom.projectFolderInput));
 dom.projectFolderInput?.addEventListener("change", () => { void importExportedProjectFolder(); });
+dom.importProjectZip?.addEventListener("click", () => openFileInputOnce(dom.projectZipInput));
+dom.projectZipInput?.addEventListener("change", () => { void importExportedProjectZip(); });
 dom.closeHistory?.addEventListener("click", () => closeModal(dom.historyModal));
 dom.historyModal?.addEventListener("click", e => { if (e.target === dom.historyModal) closeModal(dom.historyModal); });
 dom.refreshHistory?.addEventListener("click", renderHistory);

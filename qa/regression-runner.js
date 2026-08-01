@@ -1340,6 +1340,9 @@ async function testExportedProjectFolderRoundTrip(cdp) {
     const meta = buildCurrentProjectExportMeta(images, { title: "roundtrip", globalPrompt: "GLOBAL" });
     const zip = await buildImagesZip(images, { ...meta, folder: "roundtrip" });
     const zipText = new TextDecoder().decode(await zip.arrayBuffer());
+    const zipFile = new File([zip], "roundtrip.zip", { type: "application/zip" });
+    const zipFiles = await extractProjectZipFiles(zipFile);
+    const zipFilePaths = zipFiles.map(file => file.webkitRelativePath || file.name);
     const manifest = {
       schema: 3,
       format: "langbai-project-folder",
@@ -1366,6 +1369,23 @@ async function testExportedProjectFolderRoundTrip(cdp) {
       fileWithPath(PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png", pngBytes, "image/png", "roundtrip/" + PROJECT_EXPORT_REFERENCE_DIR + "/" + PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png"),
     ]);
     await new Promise(resolve => setTimeout(resolve, 100));
+    const folderRoundTrip = {
+      refs: referenceImages.length,
+      cards: document.querySelectorAll(".result-item img").length,
+      retryRefs: document.querySelector(".result-item")?._retryContext?.references?.length || 0,
+    };
+    await restoreExportedProjectFromZip(zipFile);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    let damagedZipRejected = false;
+    try { await extractProjectZipFiles(new File([new Uint8Array([1, 2, 3, 4])], "damaged.zip", { type: "application/zip" })); }
+    catch { damagedZipRejected = true; }
+    let deflateRoundTrip = null;
+    if (typeof CompressionStream === "function" && typeof DecompressionStream === "function") {
+      const raw = new TextEncoder().encode("project-zip-deflate");
+      const compressed = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+      const restored = await inflateProjectZipEntry(compressed);
+      deflateRoundTrip = new TextDecoder().decode(restored) === "project-zip-deflate";
+    }
     return {
       zipHasReference: zipText.includes(PROJECT_EXPORT_REFERENCE_DIR + "/" + PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png"),
       references: referenceImages.map(item => item.fileName),
@@ -1375,13 +1395,27 @@ async function testExportedProjectFolderRoundTrip(cdp) {
       retryReferenceCount: document.querySelector(".result-item")?._retryContext?.references?.length || 0,
       importedHistoryProject: loadHistory().find(item => String(item.id || "").startsWith("imported_"))?.type || "",
       referenceDirectory: PROJECT_EXPORT_REFERENCE_DIR,
+      folderRoundTrip,
+      zipRoundTrip: {
+        extractedProject: zipFilePaths.some(path => /(^|\\/)project\.json$/i.test(path)),
+        extractedReference: zipFilePaths.some(path => path.includes(PROJECT_EXPORT_REFERENCE_DIR + "/")),
+        refs: referenceImages.length,
+        cards: document.querySelectorAll(".result-item img").length,
+        retryRefs: document.querySelector(".result-item")?._retryContext?.references?.length || 0,
+      },
+      damagedZipRejected,
+      deflateRoundTrip,
     };
   })()`, true);
   assertQa(result.zipHasReference, "ZIP export must contain global reference images in the named reference folder.", result);
   assertQa(result.references.includes("global-reference.png"), "Folder restore must reattach exported global reference images.", result);
   assertQa(result.panelPrompt === "restored panel prompt" && result.panelSize === "1024x1536", "Folder restore must restore panel prompts and per-panel dimensions.", result);
-  assertQa(result.resultImages === 1 && result.retryReferenceCount === 1, "Folder restore must restore output cards and their reference-aware retry context.", result);
+  assertQa(result.folderRoundTrip.cards === 1 && result.folderRoundTrip.retryRefs === 1, "Folder restore must restore output cards and their reference-aware retry context.", result);
   assertQa(result.importedHistoryProject === "comic-project", "Restored comic folders should be added to history as one project without embedding reference bytes.", result);
+  assertQa(result.folderRoundTrip.refs === 1 && result.folderRoundTrip.cards === 1, "Folder restore must remain functional alongside ZIP restore.", result);
+  assertQa(result.zipRoundTrip.extractedProject && result.zipRoundTrip.extractedReference && result.zipRoundTrip.refs === 1 && result.zipRoundTrip.cards === 1 && result.zipRoundTrip.retryRefs === 1, "Project ZIP restore must restore its manifest, references, and result image through the same project recovery path.", result);
+  assertQa(result.damagedZipRejected, "Damaged project ZIP files must be rejected before they can change the workspace.", result);
+  assertQa(result.deflateRoundTrip === null || result.deflateRoundTrip === true, "When the browser exposes Deflate streams, project ZIP restore must correctly inflate a raw Deflate entry.", result);
 }
 
 async function testHistoryImageCacheFallback(cdp) {

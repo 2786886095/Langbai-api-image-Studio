@@ -2076,9 +2076,9 @@ select.custom-select-native {
 }
 .setting-row strong { display: block; font-size: 0.86rem; margin-bottom: 3px; }
 .history-toolbar {
-  display: flex; gap: 8px; align-items: center; margin-bottom: 12px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;
 }
-.history-toolbar input { flex: 1; }
+.history-toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; }
 .history-list {
   display: flex; flex-direction: column; gap: 14px;
 }

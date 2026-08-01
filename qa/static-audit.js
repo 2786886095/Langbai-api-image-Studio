@@ -58,10 +58,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.21";
-const expectedBuild = 98;
-const expectedCacheToken = "20260801-1-6-21";
-const expectedSwCache = "ai-image-generator-1-6-21-20260801";
+const expectedVersion = "1.6.22";
+const expectedBuild = 99;
+const expectedCacheToken = "20260801-1-6-22";
+const expectedSwCache = "ai-image-generator-1-6-22-20260801";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -76,9 +76,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.21/);
-assert.match(html, /20260801-1-6-21/g);
-assert.match(sw, /ai-image-generator-1-6-21-20260801/);
+assert.match(html, /v1\.6\.22/);
+assert.match(html, /20260801-1-6-22/g);
+assert.match(sw, /ai-image-generator-1-6-22-20260801/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -92,10 +92,10 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,21,98/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.21"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.21";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260801-1-6-21/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,22,99/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.22"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.22";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260801-1-6-22/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -191,6 +191,11 @@ assert.match(app, /function restoreExportedProjectFromFiles\(/);
 assert.match(app, /function importExportedProjectFolder\(/);
 assert.match(html, /id="importProjectFolder"/);
 assert.match(html, /id="projectFolderInput"[^>]*webkitdirectory/);
+assert.match(html, /id="projectZipInput"[^>]*accept="\.zip/);
+assert.match(app, /async function extractProjectZipFiles\(zipFile\)/);
+assert.match(app, /new DecompressionStream\("deflate-raw"\)/);
+assert.match(app, /PROJECT_IMPORT_MAX_TOTAL_BYTES/);
+assert.match(app, /async function restoreExportedProjectFromZip\(zipFile\)/);
 const initializeApplicationCall = app.search(/\b(?:void\s+)?initializeApplication\(\)(?:\.catch|\s*;)/);
 assert.ok(
   initializeApplicationCall >= 0,
