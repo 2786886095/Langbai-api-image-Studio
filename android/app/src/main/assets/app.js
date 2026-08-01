@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.19";
+const APP_VERSION = "1.6.20";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2098,6 +2098,9 @@ installGlobalWheelScrollBridge();
 // ─── 配置管理 ──────────────────────────────────────────────
 const STORAGE_KEY = "ai_image_gen_config";
 const DEFAULT_API_KEY = "ai_image_gen_default_api_id";
+// Default and currently active profiles are separate. This keeps a custom
+// select repaint from making the active provider appear to fall back.
+const ACTIVE_API_PROFILE_KEY = "ai_image_gen_active_api_profile_id";
 const OFFICIAL_API_ENDPOINT = "https://api.openai.com/v1/images/generations";
 const imageTaskStability = window.ImageTaskStability;
 if (!imageTaskStability) throw new Error("image-task-stability.js 未加载，生图稳定层无法启动");
@@ -3466,6 +3469,8 @@ async function checkGeminiHealth({
   return geminiHealthPromise;
 }
 function loadConfig() {
+  const activeProfile = getActiveApiProfileConfig();
+  if (activeProfile) return activeProfile;
   const saved = safeStorageReadJson(STORAGE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
   if (saved?.endpoint) {
     const normalized = normalizeApiConfig(saved);
@@ -3473,6 +3478,24 @@ function loadConfig() {
     return normalized;
   }
   return getDefaultApiConfig() || saved || {};
+}
+
+function loadActiveApiProfileId() {
+  return safeStorageGetItem(ACTIVE_API_PROFILE_KEY) || "";
+}
+
+function saveActiveApiProfileId(id) {
+  if (id) safeStorageSetItem(ACTIVE_API_PROFILE_KEY, String(id));
+  else safeStorageRemoveItem(ACTIVE_API_PROFILE_KEY);
+}
+
+function getActiveApiProfileConfig() {
+  const id = loadActiveApiProfileId();
+  if (!id) return null;
+  const profile = loadAllApis().find(item => String(item?.id || "") === String(id));
+  if (profile) return profile;
+  saveActiveApiProfileId("");
+  return null;
 }
 function secureStorageBridgeAvailable() {
   return window.__AI_GEN_SECURE_STORAGE === true && typeof FlutterDownload !== "undefined" && !!FlutterDownload.postMessage;
@@ -3897,9 +3920,15 @@ function saveAllApis(list) {
   repaired.forEach(config => persistApiKeySecurely(config, STORAGE_APIS));
 }
 
-function renderSavedApis() {
+function renderSavedApis(options = {}) {
   const apis = loadAllApis();
   const defaultId = loadDefaultApiId();
+  const preferredId = String(
+    options.selectedId
+    ?? dom.savedApis?.value
+    ?? loadActiveApiProfileId()
+    ?? "",
+  ) || loadActiveApiProfileId();
   dom.savedApis.innerHTML = `<option value="">${cleanText("manualApi")}</option>`;
   apis.forEach(api => {
     const opt = document.createElement("option");
@@ -3909,6 +3938,9 @@ function renderSavedApis() {
     opt.textContent = `${api.id === defaultId ? "★ " : ""}${apiProviderLabel(provider)} · ${api.name || api.endpoint}`;
     dom.savedApis.appendChild(opt);
   });
+  dom.savedApis.value = apis.some(api => String(api.id) === String(preferredId))
+    ? String(preferredId)
+    : "";
   customSelects.savedApis?.syncLabel();
 }
 
@@ -3946,6 +3978,8 @@ dom.savedApis.addEventListener("change", async () => {
   if (api) {
     await applyConfig(api);
     saveConfig(api);
+    saveActiveApiProfileId(api.id);
+    renderSavedApis({ selectedId: api.id });
     showStatus(`已切换: ${api.name || api.endpoint}`, "info");
     updateApiQuickState();
   }
@@ -3967,7 +4001,8 @@ dom.saveConfig.addEventListener("click", async () => {
   else apis.push(cfg);
   saveAllApis(apis);
   saveConfig(cfg);
-  renderSavedApis();
+  saveActiveApiProfileId(cfg.id);
+  renderSavedApis({ selectedId: cfg.id });
   dom.savedApis.value = String(cfg.id);
   customSelects.savedApis?.syncLabel();
   showStatus(`已保存: ${cfg.name} ✅`, "success");
@@ -3998,7 +4033,8 @@ dom.setDefaultApi?.addEventListener("click", async () => {
   saveDefaultApiId(cfg.id);
   saveConfig(cfg);
   await applyConfig(cfg);
-  renderSavedApis();
+  saveActiveApiProfileId(cfg.id);
+  renderSavedApis({ selectedId: cfg.id });
   dom.savedApis.value = String(cfg.id);
   customSelects.savedApis?.syncLabel();
   showStatus(`已设为默认 API: ${cfg.name}`, "success");
@@ -4020,6 +4056,7 @@ dom.deleteSavedApi.addEventListener("click", async () => {
     void queueSecureStorageOperation(() => nativeDownload.deleteSecret(secureApiKeyName(deleted.id))).catch(() => {});
   }
   if (loadDefaultApiId() === deleted?.id) saveDefaultApiId("");
+  if (loadActiveApiProfileId() === deleted?.id) saveActiveApiProfileId("");
   dom.savedApis.value = "";
   renderSavedApis();
   const active = loadConfig();
@@ -4044,6 +4081,7 @@ dom.deleteSavedApi.addEventListener("click", async () => {
 function detachSavedApiProfile({ clearKey = true, resetProviderOptions = true } = {}) {
   apiConfigApplySequence++;
   if (dom.savedApis) dom.savedApis.value = "";
+  saveActiveApiProfileId("");
   customSelects.savedApis?.syncLabel();
   if (clearKey && dom.apiKey) dom.apiKey.value = "";
   if (dom.proxyEndpoint) dom.proxyEndpoint.value = "";
@@ -4080,27 +4118,42 @@ dom.apiProvider?.addEventListener("change", () => {
   } else if (GRSAI_NANO_BANANA_MODELS.includes(dom.model.value.trim()) || dom.model.value.trim() === "gpt-image-2-vip") {
     dom.model.value = "";
   }
-  saveConfig(currentApiConfig(apiProviderLabel(provider), { forceNew: true }));
+  persistCurrentProviderOptions({ forceNew: true, render: false });
   updateApiQuickState();
   scheduleOfficialCostSummaryUpdate();
   if (provider === "official") void refreshUsdCnyRate({ force: false, announce: false });
 });
 
-function persistCurrentProviderOptions() {
-  const cfg = currentApiConfig();
+let activeApiConfigPersistTimer = null;
+
+function persistCurrentProviderOptions({ forceNew = false, render = true } = {}) {
+  const cfg = currentApiConfig("", { forceNew });
   saveConfig(cfg);
   const selectedId = dom.savedApis.value;
-  if (!selectedId) return;
   const apis = loadAllApis();
   const index = findSavedApiIndex(selectedId, apis);
-  if (index < 0 || !apiConfigIdentityMatches(apis[index], cfg.apiProvider, cfg.endpoint)) return;
-  cfg.id = apis[index].id;
-  cfg.name = apis[index].name;
-  apis[index] = cfg;
-  saveAllApis(apis);
-  renderSavedApis();
-  dom.savedApis.value = String(cfg.id);
-  customSelects.savedApis?.syncLabel();
+  if (index >= 0 && apiConfigIdentityMatches(apis[index], cfg.apiProvider, cfg.endpoint)) {
+    cfg.id = apis[index].id;
+    cfg.name = apis[index].name;
+    apis[index] = cfg;
+    saveAllApis(apis);
+    saveConfig(cfg);
+    saveActiveApiProfileId(cfg.id);
+    if (render) renderSavedApis({ selectedId: cfg.id });
+    else customSelects.savedApis?.syncLabel();
+  } else {
+    saveActiveApiProfileId("");
+    if (render) renderSavedApis({ selectedId: "" });
+  }
+  return cfg;
+}
+
+function scheduleCurrentApiConfigPersist() {
+  clearTimeout(activeApiConfigPersistTimer);
+  activeApiConfigPersistTimer = setTimeout(() => {
+    activeApiConfigPersistTimer = null;
+    persistCurrentProviderOptions({ render: false });
+  }, 280);
 }
 
 document.querySelectorAll(".provider-segments[data-provider-control]").forEach(group => {
@@ -4883,6 +4936,7 @@ document.addEventListener("click", event => {
 });
 
 dom.openApiConfig?.addEventListener("click", () => {
+  renderSavedApis();
   keepApiConfigVisible();
   dom.apiEndpoint?.focus();
 });
@@ -4893,8 +4947,14 @@ dom.quickDetectModels?.addEventListener("click", () => {
 });
 
 [dom.apiEndpoint, dom.apiKey, dom.model, dom.proxyEndpoint].forEach(input => {
-  input?.addEventListener("input", updateApiQuickState);
-  input?.addEventListener("change", updateApiQuickState);
+  input?.addEventListener("input", () => {
+    updateApiQuickState();
+    scheduleCurrentApiConfigPersist();
+  });
+  input?.addEventListener("change", () => {
+    updateApiQuickState();
+    scheduleCurrentApiConfigPersist();
+  });
 });
 
 // ─── 主题切换 ──────────────────────────────────────────────
@@ -5835,6 +5895,7 @@ dom.apiEndpoint.addEventListener("change", () => {
   } else {
     dom.model.placeholder = "gpt-image-2";
   }
+  scheduleCurrentApiConfigPersist();
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -10043,6 +10104,8 @@ function executeRetryAllFailedRun(run) {
                 quiet: true,
                 bulkRetryAttempt: attempt,
                 bulkRetryMaxAttempts: run.maxAttempts,
+                apiSnapshot: run.apiSnapshot,
+                useCurrentApiSnapshot: false,
               });
             }
             if (result === true) {
@@ -10122,6 +10185,7 @@ async function retryAllFailedResults() {
   }
 
   const additionalRetryCount = getFailedRetryCount();
+  const apiSnapshot = captureApiRequestSnapshot();
   const run = {
     cards: [],
     pendingCards: [],
@@ -10140,7 +10204,8 @@ async function retryAllFailedResults() {
     cancelRequested: false,
     suppressCompletionStatus: false,
     sourceGenerationRun: activeGenerationRun,
-    providerConcurrency: Math.max(1, Number(cards[0]?._retryContext?.apiSnapshot?.providerConcurrency || getProviderConcurrency())),
+    apiSnapshot,
+    providerConcurrency: Math.max(1, Number(apiSnapshot.providerConcurrency || getProviderConcurrency(apiSnapshot))),
     abortController: new AbortController(),
   };
   run.sourceGenerationRun?.settledPromise?.then(() => run.pump?.());
@@ -10249,7 +10314,11 @@ function renderRetryLoading(card, panelId, promptText, options = {}) {
 
 async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   const currentContext = card._retryContext || {};
-  let context = { ...currentContext };
+  const useCurrentApiSnapshot = options.useCurrentApiSnapshot !== false;
+  const apiSnapshot = options.apiSnapshot || (useCurrentApiSnapshot
+    ? captureApiRequestSnapshot()
+    : currentContext.apiSnapshot || captureApiRequestSnapshot());
+  let context = { ...currentContext, apiSnapshot };
   if (editBeforeRetry) {
     context = await editRetryContext(context);
     if (!context) return false;
@@ -10278,7 +10347,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   const retryCount = clampRetryCount(options.retryCountOverride ?? context.retryCount, getGlobalRetryCount());
   const isProject = context.mode === "comic" || context.mode === "caption";
   const label = context.mode === "caption" ? "图片" : "分镜";
-  setRetryContext(card, panelId, { ...context, prompt: promptText, size, retryCount });
+  setRetryContext(card, panelId, { ...context, apiSnapshot, prompt: promptText, size, retryCount });
   renderRetryLoading(card, panelId, promptText, options);
   const cardAbort = new AbortController();
   card._cardRetryAbortController = cardAbort;
@@ -10286,7 +10355,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     const references = Array.isArray(context.references) ? context.references : undefined;
     const data = await callImageAPI(promptText, size, 1, `${label} ${panelId}`, {
       references, maxRetries: retryCount, signal: cardAbort.signal,
-      apiSnapshot: context.apiSnapshot,
+      apiSnapshot,
       onRetryAttempt: info => updateCardRetryAttempt(card, info),
       onTaskSubmitted: task => isProject
         ? updateProjectCheckpoint(context.projectId || currentComicHistoryId, panelId, {
@@ -10299,8 +10368,8 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
       skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
       recordPrompt: isProject ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
       fullPrompt: promptText,
-      apiSnapshot: context.apiSnapshot,
-      retryContext: { ...context, prompt: promptText, fullPrompt: promptText, size, retryCount },
+      apiSnapshot,
+      retryContext: { ...context, apiSnapshot, prompt: promptText, fullPrompt: promptText, size, retryCount },
     });
     // HTTP 200 不等于生图成功；中转站偶尔会返回空 data。replacePlaceholder() 已将卡片
     // 标为失败，这里必须把 false 交回“全部重试”调度器继续下一轮，只有真实图片才停止。
@@ -13221,7 +13290,7 @@ async function restoreSavedConfigurationOnStartup() {
   await applyConfig(config);
   if (!config.endpoint) dom.apiEndpoint.placeholder = GRSAI_API_ENDPOINT;
   if (!config.model) dom.model.placeholder = "gpt-image-2";
-  renderSavedApis();
+  renderSavedApis({ selectedId: config?.id || loadActiveApiProfileId() });
   if (apiProfileRepairNotice?.length) {
     const repairedNames = [...apiProfileRepairNotice];
     apiProfileRepairNotice = null;
@@ -13230,8 +13299,7 @@ async function restoreSavedConfigurationOnStartup() {
   if (config?.id) {
     const idx = findSavedApiIndex(config.id, loadAllApis());
     if (idx >= 0) {
-      dom.savedApis.value = String(config.id);
-      customSelects.savedApis?.syncLabel();
+      renderSavedApis({ selectedId: config.id });
     }
   }
   dom.configSection.open = false;

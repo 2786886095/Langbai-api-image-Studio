@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-image-generator-1-6-19-20260731";
+const CACHE_NAME = "ai-image-generator-1-6-20-20260801";
 const CORE_ASSETS = [
   "./",
   "./index.html",

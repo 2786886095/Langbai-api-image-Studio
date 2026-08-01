@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
@@ -58,10 +58,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.19";
-const expectedBuild = 96;
-const expectedCacheToken = "20260731-1-6-19";
-const expectedSwCache = "ai-image-generator-1-6-19-20260731";
+const expectedVersion = "1.6.20";
+const expectedBuild = 97;
+const expectedCacheToken = "20260801-1-6-20";
+const expectedSwCache = "ai-image-generator-1-6-20-20260801";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -76,9 +76,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.19/);
-assert.match(html, /20260731-1-6-19/g);
-assert.match(sw, /ai-image-generator-1-6-19-20260731/);
+assert.match(html, /v1\.6\.20/);
+assert.match(html, /20260801-1-6-20/g);
+assert.match(sw, /ai-image-generator-1-6-20-20260801/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -92,10 +92,10 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,19,96/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.19"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.19";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260731-1-6-19/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,20,97/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.20"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.20";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260801-1-6-20/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -173,6 +173,11 @@ assert.match(app, /const CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS = 1200000;/);
 assert.match(app, /Date\.now\(\) \+ CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS/);
 assert.match(app, /function restoreSavedConfigurationOnStartup\(\)/);
 assert.match(app, /function initializeApplication\(\)/);
+assert.match(app, /const ACTIVE_API_PROFILE_KEY = "ai_image_gen_active_api_profile_id";/);
+assert.match(app, /function getActiveApiProfileConfig\(\)/);
+assert.match(app, /function scheduleCurrentApiConfigPersist\(\)/);
+assert.match(app, /apiSnapshot: run\.apiSnapshot,/);
+assert.match(app, /const useCurrentApiSnapshot = options\.useCurrentApiSnapshot !== false;/);
 assert.match(app, /const WORKSPACE_DRAFT_KEY = "ai_image_gen_workspace_draft_v1";/);
 assert.match(app, /function captureWorkspaceDraft\(\)/);
 assert.match(app, /function restoreWorkspaceDraft\(\)/);

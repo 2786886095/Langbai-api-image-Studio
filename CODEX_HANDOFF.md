@@ -1,12 +1,19 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.19
+# Codex / Claude Handoff: AI 图片生成器 v1.6.20
 
-更新时间：2026-07-31
+更新时间：2026-08-01
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.19+96`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.20+97`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.20 API 激活配置与重新生成路由修复
+
+- 新增 `ACTIVE_API_PROFILE_KEY`，默认 API 和当前实际选择的 API 配置分别持久化；配置面板重绘不再显示为默认/手动填写。
+- 地址、密钥、模型及浏览器 CORS 转发地址使用 280ms 防抖自动保存；选中的已保存配置会原地更新。
+- `retryResultCard()` 默认捕获当前 API 快照；“全部失败重试”在点击时捕获统一快照并使用其并发上限，不再沿用每张卡片的旧接口。
+- 回归覆盖：重启后恢复当前配置；失败卡片从旧 GrsAI 快照改为当前官方 API 重试时，请求 URL、Bearer Key、模型及卡片上下文都切换到官方 API。
 
 ## v1.6.19 Gemini 网页原生 2K 修复
 

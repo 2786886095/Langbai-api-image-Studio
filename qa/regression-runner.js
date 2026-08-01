@@ -396,6 +396,8 @@ async function testApiConfig(cdp) {
       key: document.getElementById("apiKey").value,
       model: document.getElementById("model").value,
       proxy: document.getElementById("proxyEndpoint").value,
+      provider: document.getElementById("apiProvider").value,
+      selected: document.getElementById("savedApis").value,
       configOpen: document.getElementById("configSection").open,
     };
     const answerAskDialog = async (value) => {
@@ -428,8 +430,42 @@ async function testApiConfig(cdp) {
     };
   })()`, true);
   assertQa(reloadDelete.before.endpoint.includes("huanapi"), "Saved API should restore after reload.", reloadDelete);
+  assertQa(reloadDelete.before.provider === "custom" && reloadDelete.before.selected === saveResult.active.id, "Reopening API settings must retain the currently selected saved profile instead of showing the default/manual entry.", reloadDelete);
   assertQa(reloadDelete.after.endpoint === "" && reloadDelete.after.key === "", "Deleting active API should clear fields.", reloadDelete);
   assertQa(reloadDelete.after.apis.length === 0 && reloadDelete.after.active === null, "Deleting active API should clear storage.", reloadDelete);
+
+  const autoPersistDraft = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const set = (id, value) => {
+      const element = document.getElementById(id);
+      element.value = value;
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    set("apiProvider", "official");
+    set("apiEndpoint", "https://api.openai.com/v1/images/generations");
+    set("apiKey", "sk-active-draft-key");
+    set("model", "gpt-image-2");
+    set("proxyEndpoint", "http://127.0.0.1:8787/active");
+    await new Promise(resolve => setTimeout(resolve, 360));
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  })()`, true);
+  assertQa(autoPersistDraft.apiProvider === "official" && autoPersistDraft.endpoint.includes("api.openai.com") && autoPersistDraft.apiKey === "sk-active-draft-key", "Changing the active API fields must persist a usable active configuration without requiring another click on Save config.", autoPersistDraft);
+
+  await cdp.eval("location.reload()");
+  for (let i = 0; i < 60; i++) {
+    const restored = await cdp.eval(`document.getElementById("apiProvider")?.value === "official" && document.getElementById("apiKey")?.value === "sk-active-draft-key"`).catch(() => false);
+    if (restored) break;
+    await sleep(100);
+  }
+  const autoPersistReload = await cdp.eval(`(() => ({
+    provider: document.getElementById("apiProvider").value,
+    endpoint: document.getElementById("apiEndpoint").value,
+    key: document.getElementById("apiKey").value,
+    model: document.getElementById("model").value,
+    proxy: document.getElementById("proxyEndpoint").value,
+  }))()`);
+  assertQa(autoPersistReload.provider === "official" && autoPersistReload.endpoint.includes("api.openai.com") && autoPersistReload.key === "sk-active-draft-key" && autoPersistReload.model === "gpt-image-2" && autoPersistReload.proxy.endsWith("/active"), "Restarting must restore the actively edited provider rather than replacing it with the default API.", autoPersistReload);
 
   const legacyIdentity = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -5090,6 +5126,68 @@ async function testRetainedProviderProfilesAndGatewayMigration(cdp) {
   assertQa(result.gatewayOptionHidden && !result.gatewayInBrowserList, "The native Windows/Android gateway must be absent from the plain-browser custom dropdown instead of leaving an unusable choice.", result);
 }
 
+async function testManualRetryUsesCurrentlySelectedApi(cdp) {
+  logStep("Manual retry and retry-all use the API selected at retry time, not the failed card's old provider snapshot");
+  await loadFresh(cdp, "retry-current-api");
+  const result = await cdp.eval(`(async () => {
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const originalFetch = window.fetch.bind(window);
+    const calls = [];
+    window.fetch = async (url, options = {}) => {
+      const textUrl = String(url);
+      if (textUrl.includes("api.openai.com")) {
+        calls.push({
+          url: textUrl,
+          authorization: new Headers(options.headers || {}).get("Authorization"),
+          body: JSON.parse(String(options.body || "{}")),
+        });
+        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(url, options);
+    };
+    try {
+      localStorage.clear();
+      applyApiProvider("grsai", { forceEndpoint: true });
+      dom.apiKey.value = "sk-old-grsai";
+      dom.model.value = "gpt-image-2";
+      const oldSnapshot = captureApiRequestSnapshot();
+      const card = addResultPlaceholder("retry-current-api", "retry through selected provider", {
+        mode: "single",
+        prompt: "retry through selected provider",
+        size: "1024x1024",
+        apiSnapshot: oldSnapshot,
+      });
+      markPlaceholderFailed(card, "retry-current-api", Object.assign(new Error("HTTP 500: old provider failed"), { status: 500 }), {
+        mode: "single",
+        prompt: "retry through selected provider",
+        size: "1024x1024",
+        apiSnapshot: oldSnapshot,
+      });
+      dom.apiProvider.value = "official";
+      dom.apiProvider.dispatchEvent(new Event("change", { bubbles: true }));
+      dom.apiEndpoint.value = "https://api.openai.com/v1/images/generations";
+      dom.apiKey.value = "sk-new-official";
+      dom.model.value = "gpt-image-2";
+      const ok = await retryResultCard(card, false, { quiet: true, retryCountOverride: 0 });
+      return {
+        ok,
+        calls,
+        oldProvider: oldSnapshot.provider,
+        retriedProvider: card._retryContext?.apiSnapshot?.provider,
+        retriedEndpoint: card._retryContext?.apiSnapshot?.endpoint,
+        cardStatus: card.dataset.status,
+      };
+    } finally {
+      window.fetch = originalFetch;
+    }
+  })()`, true);
+  assertQa(result.ok && result.cardStatus === "success", "A failed card should regenerate successfully after selecting a new API.", result);
+  assertQa(result.oldProvider === "grsai" && result.retriedProvider === "official" && result.retriedEndpoint.includes("api.openai.com"), "Retry context must be replaced with the currently selected API snapshot.", result);
+  assertQa(result.calls.length === 1 && result.calls[0].url.includes("api.openai.com") && result.calls[0].authorization === "Bearer sk-new-official" && result.calls[0].body.model === "gpt-image-2", "The retry request must actually reach the newly selected API with its current credential and model.", result);
+}
+
 async function testProviderPanelsResponsiveAfterGateway(cdp) {
   logStep("Provider panels remain responsive and clickable after adding the ChatGPT web image gateway");
   for (const viewport of [
@@ -6087,6 +6185,7 @@ async function main() {
     await testCancelDuringFirstAttempt(cdp);
     await testDesktopProxyControls(cdp);
     await testRetainedProviderProfilesAndGatewayMigration(cdp);
+    await testManualRetryUsesCurrentlySelectedApi(cdp);
     await testProviderPanelsResponsiveAfterGateway(cdp);
     await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
     await testOpenAiOfficialProviderResponsiveLayout(cdp);
