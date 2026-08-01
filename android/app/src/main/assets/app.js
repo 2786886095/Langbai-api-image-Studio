@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.20";
+const APP_VERSION = "1.6.21";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -402,7 +402,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Hint: "仅用于 GrsAI 首次提交返回 HTTP 504；自动重提可能偶尔生成重复图片。次数设为 0 可关闭。",
     grsaiSubmit504Waiting: "GrsAI 提交返回 HTTP 504，{seconds} 秒后进行第 {retryIndex}/{maxRetries} 次重试…",
     grsaiSubmit504Exhausted: "HTTP 504：GrsAI 提交请求仍然超时，已完成 {count} 次自动重试。任务可能已经提交，请先在 GrsAI 后台确认，再决定是否手动重试。",
-    restoreProject: "恢复项目", downloadProject: "导出项目", viewPrompts: "查看提示词与分镜",
+    restoreProject: "恢复项目", downloadProject: "导出项目", importExportedProject: "恢复导出项目", importingExportedProject: "正在恢复导出项目?", importProjectFolderHint: "选择软件导出的项目文件夹", importProjectInvalid: "未找到有效的 project.json", importProjectRestored: "已从导出文件夹恢复项目", viewPrompts: "查看提示词与分镜",
     globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目", captionImageCol: "图片", captionBubbleCol: "气泡文字",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
@@ -480,7 +480,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Hint: "僅用於 GrsAI 首次提交回傳 HTTP 504；自動重提偶爾可能生成重複圖片。次數設為 0 可關閉。",
     grsaiSubmit504Waiting: "GrsAI 提交回傳 HTTP 504，{seconds} 秒後進行第 {retryIndex}/{maxRetries} 次重試…",
     grsaiSubmit504Exhausted: "HTTP 504：GrsAI 提交請求仍然逾時，已完成 {count} 次自動重試。任務可能已提交，請先在 GrsAI 後台確認，再決定是否手動重試。",
-    restoreProject: "恢復專案", downloadProject: "匯出專案", viewPrompts: "查看提示詞與分鏡",
+    restoreProject: "恢復專案", downloadProject: "匯出專案", importExportedProject: "恢復匯出專案", importingExportedProject: "正在恢復匯出專案?", importProjectFolderHint: "選擇軟體匯出的專案資料夾", importProjectInvalid: "找不到有效的 project.json", importProjectRestored: "已從匯出資料夾恢復專案", viewPrompts: "查看提示詞與分鏡",
     globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案", captionImageCol: "圖片", captionBubbleCol: "氣泡文字",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
@@ -558,7 +558,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Hint: "Used only when the initial GrsAI submission returns HTTP 504. Resubmitting can occasionally create duplicate images. Set retries to 0 to disable.",
     grsaiSubmit504Waiting: "GrsAI submission returned HTTP 504. Retry {retryIndex}/{maxRetries} in {seconds} seconds…",
     grsaiSubmit504Exhausted: "HTTP 504: The GrsAI submission still timed out after {count} automatic retries. The task may have been submitted; check the GrsAI dashboard before retrying manually.",
-    restoreProject: "Restore Project", downloadProject: "Export Project", viewPrompts: "View prompts and panels",
+    restoreProject: "Restore Project", downloadProject: "Export Project", importExportedProject: "Restore Exported Project", importingExportedProject: "Restoring exported project?", importProjectFolderHint: "Choose a project folder exported by the app", importProjectInvalid: "No valid project.json was found", importProjectRestored: "Project restored from the exported folder", viewPrompts: "View prompts and panels",
     globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project", captionImageCol: "Image", captionBubbleCol: "Bubble Text",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
@@ -636,7 +636,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Hint: "GrsAI の初回送信が HTTP 504 を返した場合だけ使用します。再送により重複画像が生成される場合があります。0 で無効化します。",
     grsaiSubmit504Waiting: "GrsAI 送信が HTTP 504 を返しました。{seconds} 秒後に {retryIndex}/{maxRetries} 回目を再試行します…",
     grsaiSubmit504Exhausted: "HTTP 504：GrsAI 送信は {count} 回の自動再試行後もタイムアウトしました。タスクが送信済みの可能性があるため、手動再試行の前に GrsAI ダッシュボードを確認してください。",
-    restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", viewPrompts: "プロンプトとコマを見る",
+    restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", importExportedProject: "書き出しプロジェクトを復元", importingExportedProject: "書き出しプロジェクトを復元中?", importProjectFolderHint: "アプリが書き出したプロジェクトフォルダーを選択", importProjectInvalid: "有効な project.json がありません", importProjectRestored: "書き出しフォルダーからプロジェクトを復元しました", viewPrompts: "プロンプトとコマを見る",
     globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト", captionImageCol: "画像", captionBubbleCol: "吹き出しテキスト",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
@@ -714,7 +714,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Hint: "GrsAI 최초 제출이 HTTP 504를 반환할 때만 사용합니다. 재제출로 중복 이미지가 생성될 수 있습니다. 0으로 비활성화합니다.",
     grsaiSubmit504Waiting: "GrsAI 제출이 HTTP 504를 반환했습니다. {seconds}초 후 {retryIndex}/{maxRetries}번째 재시도를 진행합니다…",
     grsaiSubmit504Exhausted: "HTTP 504: GrsAI 제출이 {count}회의 자동 재시도 후에도 시간 초과되었습니다. 작업이 제출되었을 수 있으므로 수동 재시도 전에 GrsAI 대시보드를 확인하세요.",
-    restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", viewPrompts: "프롬프트와 콘티 보기",
+    restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", importExportedProject: "내보낸 프로젝트 복원", importingExportedProject: "내보낸 프로젝트 복원 중?", importProjectFolderHint: "앱에서 내보낸 프로젝트 폴더를 선택하세요", importProjectInvalid: "유효한 project.json을 찾지 못했습니다", importProjectRestored: "내보낸 폴더에서 프로젝트를 복원했습니다", viewPrompts: "프롬프트와 콘티 보기",
     globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트", captionImageCol: "이미지", captionBubbleCol: "말풍선 텍스트",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
@@ -1357,6 +1357,8 @@ function applyCleanLanguage() {
   setText("#historyTitle", "historyTitle");
   setText("#historyModal .modal-header .field-hint", "historyHint");
   setAttr("#historySearch", "placeholder", "searchHistory");
+  setButtonText(dom.importProjectFolder, "folder", "importExportedProject");
+  if (dom.projectFolderInput) dom.projectFolderInput.setAttribute("aria-label", cleanText("importProjectFolderHint"));
   if (dom.refreshHistory) dom.refreshHistory.textContent = cleanText("refresh");
   updateOfficialCostSummary();
 }
@@ -1679,6 +1681,8 @@ const dom = {
   historyModal:  $("#historyModal"),
   closeHistory:  $("#closeHistory"),
   historySearch: $("#historySearch"),
+  importProjectFolder: $("#importProjectFolder"),
+  projectFolderInput: $("#projectFolderInput"),
   refreshHistory:$("#refreshHistory"),
   historyList:   $("#historyList"),
   // OpenCodex 局部重绘
@@ -6176,6 +6180,198 @@ function serializableReferences(refs) {
   return (refs || []).map(({ fileName, dataUrl, width, height }) => ({ fileName, dataUrl, width, height }));
 }
 
+
+const PROJECT_EXPORT_SCHEMA_VERSION = 3;
+const PROJECT_EXPORT_REFERENCE_DIR = "\u53c2\u8003\u56fe";
+
+function exportReferenceIdentity(ref) {
+  const dataUrl = String(ref?.dataUrl || "");
+  if (dataUrl) return `data:${dataUrl}`;
+  return `meta:${String(ref?.fileName || "reference")}\u0000${Number(ref?.width) || 0}x${Number(ref?.height) || 0}`;
+}
+
+function referenceFileStem(ref, fallback = "reference") {
+  const raw = String(ref?.fileName || fallback).replace(/\.[^.]+$/, "");
+  return sanitizeFilePart(raw, fallback);
+}
+
+function currentProjectExportPanels(images = []) {
+  if (currentMode === "comic") {
+    return collectPanels().map(panel => ({
+      panelId: String(panel.id || ""),
+      panelPrompt: panel.prompt || "",
+      prompt: panel.prompt || "",
+      size: panel.size || "",
+      retryCount: panel.retryCount ?? null,
+      references: serializableReferences(panel.references || []),
+    }));
+  }
+  if (currentMode === "caption") {
+    return collectCaptionRows().map(row => ({
+      panelId: String(row.id || ""),
+      panelPrompt: row.captionText || "",
+      prompt: row.captionText || "",
+      size: "",
+      retryCount: null,
+      references: serializableReferences(row.reference ? [row.reference] : []),
+    }));
+  }
+  return images.map((image, index) => ({
+    panelId: String(image.panelId || index + 1),
+    panelPrompt: image.panelPrompt || image.prompt || "",
+    prompt: image.prompt || "",
+    size: image.size || getSelectedSize(),
+    retryCount: image.retryCount ?? null,
+    references: serializableReferences(image.references || []),
+  }));
+}
+
+function buildCurrentProjectExportMeta(images, overrides = {}) {
+  const mode = overrides.mode || currentMode;
+  const isComic = mode === "comic";
+  const isCaption = mode === "caption";
+  return {
+    title: overrides.title || (isComic ? cleanText("comicProject") : isCaption ? cleanText("captionProject") : cleanText("appTitle")),
+    mode,
+    createdAt: overrides.createdAt || new Date().toISOString(),
+    model: overrides.model || dom.model?.value?.trim?.() || "",
+    globalPrompt: overrides.globalPrompt ?? getEffectivePrompt(),
+    size: overrides.size || getSelectedSize(),
+    retryCount: overrides.retryCount ?? getGlobalRetryCount(),
+    panels: Array.isArray(overrides.panels) ? overrides.panels : currentProjectExportPanels(images),
+  };
+}
+
+async function prepareProjectExportReferences(images, meta = {}) {
+  const candidates = new Map();
+  const add = (ref, scope = "panel", panelId = "") => {
+    if (!ref?.dataUrl) return "";
+    const identity = exportReferenceIdentity(ref);
+    let candidate = candidates.get(identity);
+    if (!candidate) {
+      candidate = {
+        id: `ref-${candidates.size + 1}`,
+        ref: { ...ref },
+        scopes: new Set(),
+        panelIds: new Set(),
+      };
+      candidates.set(identity, candidate);
+    }
+    candidate.scopes.add(scope);
+    if (panelId !== undefined && panelId !== null && String(panelId) !== "") candidate.panelIds.add(String(panelId));
+    return candidate.id;
+  };
+
+  const globalReferenceIds = serializableReferences(meta.globalReferences || referenceImages)
+    .map(ref => add(ref, "global"))
+    .filter(Boolean);
+  const panels = Array.isArray(meta.panels) ? meta.panels : [];
+  const panelReferenceIds = {};
+  panels.forEach((panel, index) => {
+    const panelId = String(panel?.panelId || index + 1);
+    panelReferenceIds[panelId] = serializableReferences(panel?.references || [])
+      .map(ref => add(ref, "panel", panelId))
+      .filter(Boolean);
+  });
+  const imageReferenceIds = {};
+  images.forEach((image, index) => {
+    const panelId = String(image?.panelId || index + 1);
+    imageReferenceIds[panelId] = serializableReferences(image?.references || [])
+      .map(ref => add(ref, "image", panelId))
+      .filter(Boolean);
+  });
+
+  const references = [];
+  const files = [];
+  const failures = [];
+  for (const [index, candidate] of [...candidates.values()].entries()) {
+    try {
+      const blob = dataUrlToBlob(candidate.ref.dataUrl);
+      if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("Reference image is empty");
+      const extension = imageExtFromBlob(candidate.ref.dataUrl, blob);
+      const relativeFilename = `${PROJECT_EXPORT_REFERENCE_DIR}/${PROJECT_EXPORT_REFERENCE_DIR}-${String(index + 1).padStart(3, "0")}-${referenceFileStem(candidate.ref)}.${extension}`;
+      files.push({
+        id: candidate.id,
+        relativeFilename,
+        fileName: relativeFilename.split("/").pop(),
+        mimeType: blob.type || "image/png",
+        blob,
+      });
+      references.push({
+        id: candidate.id,
+        filename: relativeFilename,
+        fileName: candidate.ref.fileName || relativeFilename.split("/").pop(),
+        width: Number(candidate.ref.width) || null,
+        height: Number(candidate.ref.height) || null,
+        scopes: [...candidate.scopes],
+        panelIds: [...candidate.panelIds],
+      });
+    } catch (error) {
+      failures.push(`${candidate.ref.fileName || candidate.id}: ${error?.message || error}`);
+    }
+  }
+  const available = new Set(references.map(item => item.id));
+  const onlyAvailable = ids => (ids || []).filter(id => available.has(id));
+  return {
+    files,
+    references,
+    globalReferenceIds: onlyAvailable(globalReferenceIds),
+    panelReferenceIds: Object.fromEntries(Object.entries(panelReferenceIds).map(([id, ids]) => [id, onlyAvailable(ids)])),
+    imageReferenceIds: Object.fromEntries(Object.entries(imageReferenceIds).map(([id, ids]) => [id, onlyAvailable(ids)])),
+    failures,
+  };
+}
+
+function buildProjectExportManifest(images, exported, meta, references, imageFailures = []) {
+  const referenceFailures = Array.isArray(references?.failures) ? references.failures : [];
+  const sourcePanels = Array.isArray(meta.panels) ? meta.panels : [];
+  return {
+    schema: PROJECT_EXPORT_SCHEMA_VERSION,
+    format: "langbai-project-folder",
+    title: meta.title || "",
+    mode: meta.mode || currentMode,
+    createdAt: meta.createdAt || new Date().toISOString(),
+    model: meta.model || dom.model?.value?.trim?.() || "",
+    globalPrompt: meta.globalPrompt || "",
+    size: meta.size || "",
+    retryCount: meta.retryCount ?? null,
+    referenceFolder: PROJECT_EXPORT_REFERENCE_DIR,
+    references: references?.references || [],
+    globalReferenceIds: references?.globalReferenceIds || [],
+    panels: sourcePanels.map((panel, index) => {
+      const panelId = String(panel?.panelId || index + 1);
+      const referenceIds = references?.panelReferenceIds?.[panelId] || [];
+      return {
+        panelId,
+        panelPrompt: panel?.panelPrompt || panel?.prompt || "",
+        prompt: panel?.prompt || panel?.panelPrompt || "",
+        size: panel?.size || "",
+        retryCount: panel?.retryCount ?? null,
+        referenceIds,
+        hadReferences: referenceIds.length > 0 || panel?.hadReferences === true,
+      };
+    }),
+    images: exported.map(({ filename, panelId, prompt, panelPrompt, size, retryCount, requested, actual, audit, review, references: imageRefs }, index) => {
+      const id = String(panelId || index + 1);
+      const promptOnly = getPanelOnlyPrompt({ prompt, panelPrompt }, meta.globalPrompt || "");
+      return {
+        filename,
+        panelId: id,
+        prompt: promptOnly,
+        panelPrompt: promptOnly,
+        size,
+        retryCount,
+        requested,
+        actual,
+        audit,
+        review: review || "pending",
+        referenceIds: references?.imageReferenceIds?.[id] || serializableReferences(imageRefs || []).map(() => "").filter(Boolean),
+      };
+    }),
+    failures: [...imageFailures, ...referenceFailures],
+  };
+}
+
 // ═══════════════════════════════════════════════════════════
 //  全局参考图片上传
 // ═══════════════════════════════════════════════════════════
@@ -9693,6 +9889,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     prompt: recordPrompt,
     panelPrompt: options.retryContext?.panelPrompt || (isProjectContext ? recordPrompt : ""),
     fullPrompt,
+    references: serializableReferences(options.retryContext?.references || []),
     billing,
     usage,
   };
@@ -11492,6 +11689,10 @@ async function downloadHistoryProject(item) {
       createdAt: item.createdAt,
       model: item.model || "",
       globalPrompt: item.globalPrompt || "",
+      size: item.size || "",
+      retryCount: item.retryCount ?? null,
+      panels: Array.isArray(item.panels) ? item.panels : [],
+      globalReferences: [],
     });
     const filename = `${sanitizeFilePart(item.title || (item.mode === "caption" ? "caption-project" : "comic-project"), item.mode === "caption" ? "caption-project" : "comic-project")}.zip`;
     await saveOrDownloadBlob(zipBlob, filename, "application/zip", "zips");
@@ -11839,10 +12040,237 @@ function installWorkspaceDraftAutosave() {
   scheduleWorkspaceDraftSave({ immediate: true });
 }
 
+function guessedImageMimeType(fileName = "") {
+  const extension = String(fileName).split(".").pop().toLowerCase();
+  return ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" })[extension] || "image/png";
+}
+
+function importedProjectPath(value = "") {
+  return String(value || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
+}
+
+function isSafeImportedProjectPath(value = "") {
+  const normalized = importedProjectPath(value);
+  return Boolean(normalized) && !normalized.split("/").some(part => part === ".." || part === ".");
+}
+
+async function readImportedProjectImage(file) {
+  if (!(file instanceof Blob) || file.size <= 0) throw new Error("Imported image is empty");
+  const type = String(file.type || "").startsWith("image/") ? file.type : guessedImageMimeType(file.name || "");
+  const normalized = file instanceof File && file.type === type
+    ? file
+    : new File([file], file.name || "reference.png", { type });
+  return readImageReference(normalized);
+}
+
+function createImportedProjectFileIndex(files = []) {
+  const index = new Map();
+  for (const file of files) {
+    if (!(file instanceof File)) continue;
+    const path = importedProjectPath(file.webkitRelativePath || file.name || "");
+    if (!path || !isSafeImportedProjectPath(path)) continue;
+    index.set(path, file);
+  }
+  return index;
+}
+
+function findImportedProjectFile(index, projectPath, relativeFilename) {
+  const relative = importedProjectPath(relativeFilename);
+  if (!isSafeImportedProjectPath(relative)) return null;
+  const parent = importedProjectPath(projectPath).split("/").slice(0, -1).join("/");
+  const expected = parent ? `${parent}/${relative}` : relative;
+  if (index.has(expected)) return index.get(expected);
+  const normalizedExpected = expected.toLowerCase();
+  for (const [path, file] of index.entries()) {
+    if (path.toLowerCase() === normalizedExpected || path.toLowerCase().endsWith(`/${relative.toLowerCase()}`)) return file;
+  }
+  return null;
+}
+
+function importedReferenceIdsFor(panelOrImage, project) {
+  const direct = Array.isArray(panelOrImage?.referenceIds) ? panelOrImage.referenceIds : [];
+  if (direct.length) return direct.map(String);
+  const panelId = String(panelOrImage?.panelId || "");
+  const legacy = project?.panelReferenceIds?.[panelId] || project?.imageReferenceIds?.[panelId] || [];
+  return Array.isArray(legacy) ? legacy.map(String) : [];
+}
+
+async function restoreExportedProjectFromFiles(files) {
+  const index = createImportedProjectFileIndex(files);
+  const projectEntry = [...index.entries()].find(([path]) => /(^|\/)project\.json$/i.test(path));
+  if (!projectEntry) throw new Error(cleanText("importProjectInvalid"));
+  const [projectPath, projectFile] = projectEntry;
+  let project;
+  try {
+    project = JSON.parse(await projectFile.text());
+  } catch {
+    throw new Error(cleanText("importProjectInvalid"));
+  }
+  if (!project || typeof project !== "object" || !Array.isArray(project.images)) {
+    throw new Error(cleanText("importProjectInvalid"));
+  }
+  const mode = ["single", "comic", "caption"].includes(project.mode) ? project.mode : "comic";
+  const referenceById = new Map();
+  const failedReferences = [];
+  const referenceRows = Array.isArray(project.references) ? project.references : [];
+  for (const entry of referenceRows) {
+    const id = String(entry?.id || "");
+    const file = findImportedProjectFile(index, projectPath, entry?.filename || "");
+    if (!id || !file) {
+      if (id) failedReferences.push(id);
+      continue;
+    }
+    try {
+      const restored = await readImportedProjectImage(file);
+      restored.fileName = String(entry.fileName || restored.fileName || file.name || "reference.png");
+      referenceById.set(id, restored);
+    } catch {
+      failedReferences.push(id);
+    }
+  }
+  const refsFor = ids => (ids || []).map(id => referenceById.get(String(id))).filter(Boolean);
+  const globalIds = Array.isArray(project.globalReferenceIds)
+    ? project.globalReferenceIds
+    : referenceRows.filter(item => Array.isArray(item.scopes) && item.scopes.includes("global")).map(item => item.id);
+
+  clearAllReferenceImages();
+  referenceImages = sortReferencesByName(dedupeReferences(refsFor(globalIds)));
+  renderThumbGrid();
+  switchMode(mode);
+  if (dom.prompt) dom.prompt.value = String(project.globalPrompt || "");
+  if (project.size) applyWorkspaceSizeDraft({ selectedSize: String(project.size) });
+
+  const sourcePanels = Array.isArray(project.panels) && project.panels.length ? project.panels : project.images;
+  if (mode === "comic") {
+    dom.panelTbody.innerHTML = "";
+    panelCounter = 0;
+    sourcePanels.forEach((panel, panelIndex) => {
+      const row = addPanelRow(refsFor(importedReferenceIdsFor(panel, project))[0] || null, { syncCount: false });
+      const prompt = row.querySelector("textarea");
+      if (prompt) prompt.value = getPanelOnlyPrompt(panel, project.globalPrompt || "");
+      applyHistoryPanelSize(row, panel.size || project.size || "");
+      const retry = row.querySelector(".panel-retry-count");
+      if (retry && panel.retryCount !== undefined && panel.retryCount !== null) retry.value = String(clampRetryCount(panel.retryCount, getGlobalRetryCount()));
+      row.dataset.panelId = String(panel.panelId || panelIndex + 1);
+    });
+    if (dom.panelTbody.children.length === 0) addPanelRow();
+    renumberPanels();
+  } else if (mode === "caption") {
+    dom.captionTbody.innerHTML = "";
+    captionRowCounter = 0;
+    sourcePanels.forEach(panel => {
+      const row = addCaptionRow(refsFor(importedReferenceIdsFor(panel, project))[0] || null);
+      const caption = row.querySelector(".caption-text");
+      if (caption) caption.value = getPanelOnlyPrompt(panel, project.globalPrompt || "");
+    });
+    if (dom.captionTbody.children.length === 0) addCaptionRow();
+  }
+
+  dom.resultGrid.innerHTML = "";
+  dom.resultGrid.classList.remove("hidden");
+  dom.resultToolbar.classList.remove("hidden");
+  dom.emptyState.classList.add("hidden");
+  generatedImageUrls = [];
+  const restoredRecords = [];
+  const projectImages = Array.isArray(project.images) ? project.images : [];
+  for (let imageIndex = 0; imageIndex < projectImages.length; imageIndex++) {
+    const image = projectImages[imageIndex];
+    const file = findImportedProjectFile(index, projectPath, image?.filename || "");
+    if (!file) continue;
+    try {
+      const source = await readImportedProjectImage(file);
+      const panelId = String(image.panelId || imageIndex + 1);
+      const panelPrompt = getPanelOnlyPrompt(image, project.globalPrompt || "");
+      const fullPrompt = project.globalPrompt ? `${project.globalPrompt}\n\n${panelPrompt}` : panelPrompt;
+      const retryContext = {
+        mode,
+        panelId,
+        globalPrompt: String(project.globalPrompt || ""),
+        panelPrompt,
+        prompt: fullPrompt,
+        fullPrompt,
+        size: image.size || project.size || getSelectedSize(),
+        retryCount: image.retryCount ?? project.retryCount ?? getGlobalRetryCount(),
+        references: dedupeReferences(refsFor([...globalIds, ...importedReferenceIdsFor(image, project)])),
+      };
+      const card = document.createElement("div");
+      card.className = "result-item";
+      dom.resultGrid.appendChild(card);
+      const record = replacePlaceholder(card, panelId, { data: [{ url: source.dataUrl, mime_type: source.file?.type || "image/png" }] }, fullPrompt, {
+        skipHistory: true,
+        recordPrompt: mode === "single" ? fullPrompt : panelPrompt,
+        fullPrompt,
+        size: retryContext.size,
+        review: image.review || "pending",
+        retryContext,
+      });
+      if (record) restoredRecords.push(record);
+    } catch (error) {
+      console.warn("Imported project image could not be restored:", error);
+    }
+  }
+
+  if (mode === "comic" || mode === "caption") {
+    const importedId = `imported_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    currentComicHistoryId = importedId;
+    await saveGenerationProject({
+      id: importedId,
+      type: mode === "caption" ? "caption-project" : "comic-project",
+      mode,
+      title: String(project.title || cleanText(mode === "caption" ? "captionProject" : "comicProject")),
+      createdAt: new Date().toISOString(),
+      globalPrompt: String(project.globalPrompt || ""),
+      model: String(project.model || ""),
+      size: String(project.size || ""),
+      retryCount: project.retryCount ?? getGlobalRetryCount(),
+      panels: sourcePanels.map((panel, index) => ({
+        panelId: String(panel.panelId || index + 1),
+        panelPrompt: getPanelOnlyPrompt(panel, project.globalPrompt || ""),
+        prompt: getPanelOnlyPrompt(panel, project.globalPrompt || ""),
+        size: panel.size || project.size || "",
+        retryCount: panel.retryCount ?? project.retryCount ?? null,
+        references: [],
+        hadReferences: importedReferenceIdsFor(panel, project).length > 0,
+        status: "success",
+      })),
+      images: restoredRecords,
+    });
+  } else {
+    for (const record of restoredRecords) await saveGenerationRecord(record);
+  }
+  updateFailedRetryTools();
+  refreshLocalizedUiState();
+  closeModal(dom.historyModal);
+  const suffix = failedReferences.length ? ` (${failedReferences.length} references skipped)` : "";
+  showStatus(`${cleanText("importProjectRestored")}${suffix}`, failedReferences.length ? "info" : "success");
+}
+
+async function importExportedProjectFolder() {
+  const files = [...(dom.projectFolderInput?.files || [])];
+  if (!files.length) return;
+  if (dom.importProjectFolder) {
+    dom.importProjectFolder.disabled = true;
+    setButtonText(dom.importProjectFolder, "folder", "importingExportedProject");
+  }
+  try {
+    await restoreExportedProjectFromFiles(files);
+  } catch (error) {
+    showStatus(`${cleanText("exportFailed")}: ${error?.message || error}`, "error");
+  } finally {
+    if (dom.projectFolderInput) dom.projectFolderInput.value = "";
+    if (dom.importProjectFolder) {
+      dom.importProjectFolder.disabled = false;
+      setButtonText(dom.importProjectFolder, "folder", "importExportedProject");
+    }
+  }
+}
+
 dom.historyBtn?.addEventListener("click", () => {
   renderHistory();
   openModal(dom.historyModal);
 });
+dom.importProjectFolder?.addEventListener("click", () => openFileInputOnce(dom.projectFolderInput));
+dom.projectFolderInput?.addEventListener("change", () => { void importExportedProjectFolder(); });
 dom.closeHistory?.addEventListener("click", () => closeModal(dom.historyModal));
 dom.historyModal?.addEventListener("click", e => { if (e.target === dom.historyModal) closeModal(dom.historyModal); });
 dom.refreshHistory?.addEventListener("click", renderHistory);
@@ -12840,6 +13268,7 @@ async function buildImagesZip(images, meta = {}) {
   const exported = [];
   const failures = [];
   const folder = sanitizeFilePart(meta.folder || "images", "images");
+  const references = await prepareProjectExportReferences(images, meta);
 
   for (let i = 0; i < images.length; i++) {
     const image = images[i];
@@ -12869,21 +13298,16 @@ async function buildImagesZip(images, meta = {}) {
     }
   }
 
+  for (const reference of references.files) {
+    entries.push({
+      name: makeUniqueArchiveName(`${folder}/${reference.relativeFilename}`, usedNames),
+      data: await blobToBytes(reference.blob),
+    });
+  }
   entries.push({ name: makeUniqueArchiveName(`${folder}/prompts.txt`, usedNames), data: encodeUtf8(promptsTextForExport(exported.length ? exported : images, meta)) });
   entries.push({
     name: makeUniqueArchiveName(`${folder}/project.json`, usedNames),
-    data: encodeUtf8(JSON.stringify({
-      title: meta.title || "",
-      mode: meta.mode || currentMode,
-      createdAt: meta.createdAt || new Date().toISOString(),
-      model: meta.model || dom.model?.value?.trim?.() || "",
-      globalPrompt: meta.globalPrompt || "",
-      images: exported.map(({ filename, panelId, prompt, panelPrompt, size, retryCount, requested, actual, audit, review }) => {
-        const promptOnly = getPanelOnlyPrompt({ prompt, panelPrompt }, meta.globalPrompt || "");
-        return { filename, panelId, prompt: promptOnly, panelPrompt: promptOnly, size, retryCount, requested, actual, audit, review: review || "pending" };
-      }),
-      failures,
-    }, null, 2)),
+    data: encodeUtf8(JSON.stringify(buildProjectExportManifest(images, exported, meta, references, failures), null, 2)),
   });
   entries.push({
     name: makeUniqueArchiveName(`${folder}/audit.json`, usedNames),
@@ -13046,16 +13470,14 @@ async function downloadAllAsZip() {
   setDownloadProgress(2, cleanText("preparingZip"));
 
   try {
+    const currentMeta = buildCurrentProjectExportMeta(images);
     const zipBlob = await buildImagesZip(images.map((image, index) => ({
       ...image,
       panelId: image.panelId || index + 1,
       prompt: image.prompt || "",
     })), {
+      ...currentMeta,
       folder: currentMode === "comic" ? "comic-project" : currentMode === "caption" ? "caption-project" : "images",
-      mode: currentMode,
-      title: currentMode === "comic" ? cleanText("comicProject") : currentMode === "caption" ? cleanText("captionProject") : cleanText("appTitle"),
-      globalPrompt: getEffectivePrompt(),
-      model: dom.model.value.trim(),
     });
     const customName = dom.zipFileName.value.trim();
     const filename = customName ? `${sanitizeFilePart(customName, "images")}.zip` : `ai-images-${Date.now()}.zip`;
@@ -13092,6 +13514,8 @@ async function saveProjectResultsToFolder() {
       await nativeDownload.chooseDir("images");
     }
     const folder = buildProjectFolderName(isCaption ? "caption" : "comic");
+    const exportMeta = buildCurrentProjectExportMeta(images, { title: folder });
+    const references = await prepareProjectExportReferences(images, exportMeta);
     const failures = [];
     const exported = [];
     let saved = 0;
@@ -13122,23 +13546,22 @@ async function saveProjectResultsToFolder() {
     }
 
     if (exported.length) {
-      const metadata = {
-        title: folder,
-        mode: currentMode,
-        createdAt: new Date().toISOString(),
-        model: dom.model.value.trim(),
-        globalPrompt: getEffectivePrompt(),
-        images: exported.map(image => ({
-          filename: image.filename,
-          panelId: image.panelId,
-          prompt: getPanelOnlyPrompt(image, getEffectivePrompt()),
-          requested: image.requested || null,
-          actual: image.actual || null,
-          audit: image.audit || null,
-          review: image.review || "pending",
-        })),
-        failures,
-      };
+      for (let index = 0; index < references.files.length; index++) {
+        const reference = references.files[index];
+        const relativeParts = reference.relativeFilename.split("/");
+        const referenceFolder = relativeParts.length > 1
+          ? `${folder}/${relativeParts.slice(0, -1).join("/")}`
+          : folder;
+        setDownloadProgress(94 + Math.round((index / Math.max(references.files.length, 1)) * 4), `${cleanText("collectingImages")} ${images.length + index + 1}/${images.length + references.files.length}`);
+        await nativeDownload.saveFile(
+          "images",
+          reference.fileName,
+          reference.mimeType,
+          await blobToBase64(reference.blob),
+          referenceFolder,
+        );
+      }
+      const metadata = buildProjectExportManifest(images, exported, exportMeta, references, failures);
       const projectBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
       const contactBlob = new Blob([buildContactSheetHtml(exported, metadata, "")], { type: "text/html" });
       await nativeDownload.saveFile("images", "project.json", "application/json", await blobToBase64(projectBlob), folder);

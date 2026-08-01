@@ -364,18 +364,22 @@ class MainActivity : FlutterActivity() {
             }
 
             var targetDir: DocumentFile = tree
-            val trimmedFolder = folder.trim()
-            if (trimmedFolder.isNotEmpty()) {
-                val safeFolder = sanitizeFileName(trimmedFolder)
-                if (safeFolder.isNotEmpty() && safeFolder != "." && safeFolder != "..") {
-                    val existing = tree.findFile(safeFolder)
-                    val folderDir = if (existing != null && existing.isDirectory) existing else tree.createDirectory(safeFolder)
-                    if (folderDir == null) {
-                        result.error("create_failed", "Cannot create folder $safeFolder.", null)
-                        return
-                    }
-                    targetDir = folderDir
+            val safeFolderParts = folder.trim()
+                .split(Regex("""[/\\]+"""))
+                .map(::sanitizeFileName)
+                .filter { it.isNotEmpty() && it != "." && it != ".." }
+            for (safeFolder in safeFolderParts) {
+                val existing = targetDir.findFile(safeFolder)
+                val folderDir = when {
+                    existing != null && existing.isDirectory -> existing
+                    existing == null -> targetDir.createDirectory(safeFolder)
+                    else -> null
                 }
+                if (folderDir == null) {
+                    result.error("create_failed", "Cannot create folder $safeFolder.", null)
+                    return
+                }
+                targetDir = folderDir
             }
 
             val bytes = Base64.decode(encoded, Base64.DEFAULT)

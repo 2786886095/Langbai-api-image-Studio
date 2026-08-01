@@ -1302,6 +1302,88 @@ async function testHistoryRestoreAndExport(cdp) {
   assertQa(result.buttonDisabled === false, "Generate button should reset after generation.", result);
 }
 
+async function testExportedProjectFolderRoundTrip(cdp) {
+  logStep("Project exports include reference images and an exported folder restores prompts, dimensions, references, and result images");
+  await loadFresh(cdp, "exported-folder-roundtrip");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    await clearHistoryBlobStore().catch(() => {});
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const pngBytes = base64ToBytes(png);
+    const ref = { fileName: "global-reference.png", dataUrl: "data:image/png;base64," + png, width: 1, height: 1 };
+    referenceImages = [ref];
+    renderThumbGrid();
+    switchMode("comic");
+    dom.panelTbody.innerHTML = "";
+    panelCounter = 0;
+    const row = addPanelRow();
+    row.querySelector("textarea").value = "restored panel prompt";
+    row.querySelector(".panel-size-w").value = "1024";
+    row.querySelector(".panel-size-h").value = "1536";
+    const card = document.createElement("div");
+    card.className = "result-item";
+    dom.resultGrid.innerHTML = "";
+    dom.resultGrid.appendChild(card);
+    replacePlaceholder(card, "1", { data: [{ b64_json: png, mime_type: "image/png" }] }, "GLOBAL\\n\\nrestored panel prompt", {
+      skipHistory: true,
+      recordPrompt: "restored panel prompt",
+      fullPrompt: "GLOBAL\\n\\nrestored panel prompt",
+      size: "1024x1536",
+      retryContext: {
+        mode: "comic", panelId: "1", globalPrompt: "GLOBAL", panelPrompt: "restored panel prompt",
+        prompt: "GLOBAL\\n\\nrestored panel prompt", fullPrompt: "GLOBAL\\n\\nrestored panel prompt",
+        size: "1024x1536", references: [ref], retryCount: 2,
+      },
+    });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const images = getCurrentResultImages();
+    const meta = buildCurrentProjectExportMeta(images, { title: "roundtrip", globalPrompt: "GLOBAL" });
+    const zip = await buildImagesZip(images, { ...meta, folder: "roundtrip" });
+    const zipText = new TextDecoder().decode(await zip.arrayBuffer());
+    const manifest = {
+      schema: 3,
+      format: "langbai-project-folder",
+      title: "roundtrip",
+      mode: "comic",
+      createdAt: new Date().toISOString(),
+      model: "gpt-image-2",
+      globalPrompt: "GLOBAL",
+      size: "1024x1536",
+      retryCount: 2,
+      references: [{ id: "ref-1", filename: PROJECT_EXPORT_REFERENCE_DIR + "/" + PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png", fileName: "global-reference.png", width: 1, height: 1, scopes: ["global"] }],
+      globalReferenceIds: ["ref-1"],
+      panels: [{ panelId: "1", panelPrompt: "restored panel prompt", prompt: "restored panel prompt", size: "1024x1536", retryCount: 2, referenceIds: [] }],
+      images: [{ filename: "panel-1.png", panelId: "1", prompt: "restored panel prompt", panelPrompt: "restored panel prompt", size: "1024x1536", retryCount: 2, referenceIds: ["ref-1"] }],
+    };
+    const fileWithPath = (name, bytes, type, relative) => {
+      const file = new File([bytes], name, { type });
+      Object.defineProperty(file, "webkitRelativePath", { value: relative });
+      return file;
+    };
+    await restoreExportedProjectFromFiles([
+      fileWithPath("project.json", JSON.stringify(manifest), "application/json", "roundtrip/project.json"),
+      fileWithPath("panel-1.png", pngBytes, "image/png", "roundtrip/panel-1.png"),
+      fileWithPath(PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png", pngBytes, "image/png", "roundtrip/" + PROJECT_EXPORT_REFERENCE_DIR + "/" + PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png"),
+    ]);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return {
+      zipHasReference: zipText.includes(PROJECT_EXPORT_REFERENCE_DIR + "/" + PROJECT_EXPORT_REFERENCE_DIR + "-001-global-reference.png"),
+      references: referenceImages.map(item => item.fileName),
+      panelPrompt: document.querySelector("#panelTbody textarea")?.value || "",
+      panelSize: (document.querySelector("#panelTbody .panel-size-w")?.value || "") + "x" + (document.querySelector("#panelTbody .panel-size-h")?.value || ""),
+      resultImages: document.querySelectorAll(".result-item img").length,
+      retryReferenceCount: document.querySelector(".result-item")?._retryContext?.references?.length || 0,
+      importedHistoryProject: loadHistory().find(item => String(item.id || "").startsWith("imported_"))?.type || "",
+      referenceDirectory: PROJECT_EXPORT_REFERENCE_DIR,
+    };
+  })()`, true);
+  assertQa(result.zipHasReference, "ZIP export must contain global reference images in the named reference folder.", result);
+  assertQa(result.references.includes("global-reference.png"), "Folder restore must reattach exported global reference images.", result);
+  assertQa(result.panelPrompt === "restored panel prompt" && result.panelSize === "1024x1536", "Folder restore must restore panel prompts and per-panel dimensions.", result);
+  assertQa(result.resultImages === 1 && result.retryReferenceCount === 1, "Folder restore must restore output cards and their reference-aware retry context.", result);
+  assertQa(result.importedHistoryProject === "comic-project", "Restored comic folders should be added to history as one project without embedding reference bytes.", result);
+}
+
 async function testHistoryImageCacheFallback(cdp) {
   logStep("History previews, lightbox, and ZIP export fall back to the original image URL when IndexedDB bytes are missing");
   await loadFresh(cdp, "history-image-fallback");
@@ -1747,6 +1829,8 @@ async function testSaveComicFolder(cdp) {
     const projectNamePlaceholder = document.getElementById("zipFileName").placeholder;
 
     set("prompt", "GLOBAL");
+    referenceImages = [{ fileName: "folder-export-reference.png", dataUrl: "data:image/png;base64," + png, width: 1, height: 1 }];
+    renderThumbGrid();
     set("panelCount", "2");
     document.getElementById("createPanels").click();
     await new Promise(r => setTimeout(r, 80));
@@ -1788,16 +1872,19 @@ async function testSaveComicFolder(cdp) {
     const unnamedCaptionCalls = await saveFolderOnce();
 
     const saveCalls = [...namedComicCalls, ...unnamedComicCalls, ...unnamedCaptionCalls];
+    const rootFolders = calls => [...new Set(calls.map(c => c.folder).filter(folder => !String(folder).endsWith("/" + PROJECT_EXPORT_REFERENCE_DIR)))];
     return {
       singleHidden,
       comicHidden,
       saveCallCount: saveCalls.length,
-      namedComicFolders: [...new Set(namedComicCalls.map(c => c.folder))],
-      unnamedComicFolders: [...new Set(unnamedComicCalls.map(c => c.folder))],
-      unnamedCaptionFolders: [...new Set(unnamedCaptionCalls.map(c => c.folder))],
+      namedComicFolders: rootFolders(namedComicCalls),
+      unnamedComicFolders: rootFolders(unnamedComicCalls),
+      unnamedCaptionFolders: rootFolders(unnamedCaptionCalls),
       fileNames: [...new Set(saveCalls.map(c => c.fileName))],
       kinds: [...new Set(saveCalls.map(c => c.kind))],
       allHaveBase64: saveCalls.every(c => typeof c.base64 === "string" && c.base64.length > 0),
+      referenceFolders: [...new Set(saveCalls.filter(c => String(c.fileName).includes("reference")).map(c => c.folder))],
+      referenceDirectory: PROJECT_EXPORT_REFERENCE_DIR,
       projectNamePlaceholder,
       captionNamePlaceholder,
     };
@@ -1805,7 +1892,8 @@ async function testSaveComicFolder(cdp) {
 
   assertQa(result.singleHidden === true, "Save-to-folder button should stay hidden in single-image mode.", result);
   assertQa(result.comicHidden === false, "Save-to-folder button should become visible when switching to comic mode.", result);
-  assertQa(result.saveCallCount === 12 && result.fileNames.includes("project.json") && result.fileNames.includes("contact-sheet.html"), "Each 2-image project export should save both images plus its resumable audit manifest and contact sheet.", result);
+  assertQa(result.saveCallCount === 15 && result.fileNames.includes("project.json") && result.fileNames.includes("contact-sheet.html"), "Each 2-image project export should save both images, its reference image, and the resumable manifest/contact sheet.", result);
+  assertQa(result.referenceFolders.every(folder => String(folder).includes("/" + result.referenceDirectory)), "Folder export must place each reference image in the named reference subfolder.", result);
   assertQa(result.namedComicFolders.length === 1 && /^海边-故事_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.namedComicFolders[0]), "An entered project name must become the folder name, with invalid filename characters sanitized and a timestamp appended.", result);
   assertQa(result.unnamedComicFolders.length === 1 && /^漫画项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedComicFolders[0]), "An unnamed comic export must use the localized comic-project prefix plus timestamp.", result);
   assertQa(result.unnamedCaptionFolders.length === 1 && /^嵌字项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedCaptionFolders[0]), "An unnamed caption export must use a different localized caption-project prefix plus timestamp.", result);
@@ -1813,7 +1901,7 @@ async function testSaveComicFolder(cdp) {
   assertQa(/项目.*文件夹/.test(result.projectNamePlaceholder) && /项目.*文件夹/.test(result.captionNamePlaceholder), "Comic and caption modes should explain that the name field controls both the project and folder name.", result);
   assertQa(result.kinds.length === 1 && result.kinds[0] === "images", "Folder save should use the 'images' download-directory kind, matching the existing image-dir picker.", result);
   assertQa(result.allHaveBase64, "Every saveFile call should carry the actual image bytes as base64.", result);
-  assertQa(result.fileNames.length === 6 && result.fileNames.includes("panel-1.png") && result.fileNames.includes("image-1.png"), "Comic panels, caption images, manifests, and contact sheets should retain distinct filenames inside their project folder.", result);
+  assertQa(result.fileNames.length === 7 && result.fileNames.includes("panel-1.png") && result.fileNames.includes("image-1.png") && result.fileNames.some(name => String(name).includes("reference")), "Comic panels, caption images, references, manifests, and contact sheets should retain distinct filenames inside their project folder.", result);
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
@@ -6170,6 +6258,7 @@ async function main() {
     await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
     await testInterruptedProjectCheckpointResume(cdp);
     await testHistoryRestoreAndExport(cdp);
+    await testExportedProjectFolderRoundTrip(cdp);
     await testHistoryImageCacheFallback(cdp);
     await testGeneratedImagePersistentCache(cdp);
     await testHistoryPruneConcurrency(cdp);

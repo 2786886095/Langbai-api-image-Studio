@@ -58,10 +58,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.20";
-const expectedBuild = 97;
-const expectedCacheToken = "20260801-1-6-20";
-const expectedSwCache = "ai-image-generator-1-6-20-20260801";
+const expectedVersion = "1.6.21";
+const expectedBuild = 98;
+const expectedCacheToken = "20260801-1-6-21";
+const expectedSwCache = "ai-image-generator-1-6-21-20260801";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -76,9 +76,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.20/);
-assert.match(html, /20260801-1-6-20/g);
-assert.match(sw, /ai-image-generator-1-6-20-20260801/);
+assert.match(html, /v1\.6\.21/);
+assert.match(html, /20260801-1-6-21/g);
+assert.match(sw, /ai-image-generator-1-6-21-20260801/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -92,10 +92,10 @@ assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,20,97/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.20"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.20";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260801-1-6-20/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,21,98/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.21"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.21";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260801-1-6-21/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -124,6 +124,7 @@ assert.match(androidSettings, /com\.chaquo\.python" version "17\.0\.0"/);
 assert.match(androidBuild, /version = "3\.13"/);
 assert.match(androidBuild, /Pillow==11\.0\.0/);
 assert.match(androidMainActivity, /getModule\("android_chatgpt_gateway"\)/);
+assert.match(androidMainActivity, /safeFolderParts/);
 assert.match(androidGatewayPython, /chat-requirements/);
 assert.match(androidGatewayPython, /interactive_verification_required/);
 assert.match(androidGatewayPython, /ImageOps\.fit/);
@@ -183,6 +184,13 @@ assert.match(app, /function captureWorkspaceDraft\(\)/);
 assert.match(app, /function restoreWorkspaceDraft\(\)/);
 assert.match(app, /function installWorkspaceDraftAutosave\(\)/);
 assert.match(app, /restoreWorkspaceDraft\(\);\s*installWorkspaceDraftAutosave\(\);/);
+assert.match(app, /const PROJECT_EXPORT_SCHEMA_VERSION = 3;/);
+assert.match(app, /function prepareProjectExportReferences\(/);
+assert.match(app, /function buildProjectExportManifest\(/);
+assert.match(app, /function restoreExportedProjectFromFiles\(/);
+assert.match(app, /function importExportedProjectFolder\(/);
+assert.match(html, /id="importProjectFolder"/);
+assert.match(html, /id="projectFolderInput"[^>]*webkitdirectory/);
 const initializeApplicationCall = app.search(/\b(?:void\s+)?initializeApplication\(\)(?:\.catch|\s*;)/);
 assert.ok(
   initializeApplicationCall >= 0,
