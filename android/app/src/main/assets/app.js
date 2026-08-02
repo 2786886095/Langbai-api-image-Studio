@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.23";
+const APP_VERSION = "1.6.24";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -2141,6 +2141,10 @@ const DEFAULT_API_KEY = "ai_image_gen_default_api_id";
 // Default and currently active profiles are separate. This keeps a custom
 // select repaint from making the active provider appear to fall back.
 const ACTIVE_API_PROFILE_KEY = "ai_image_gen_active_api_profile_id";
+// A provider profile remains the source of truth, but this small preference
+// record protects ChatGPT Web image controls when an older/partial profile is
+// restored or the active profile selector is temporarily unavailable.
+const CODEX_GATEWAY_OPTIONS_STORAGE_KEY = "ai_image_gen_codex_gateway_options_v1";
 const OFFICIAL_API_ENDPOINT = "https://api.openai.com/v1/images/generations";
 const imageTaskStability = window.ImageTaskStability;
 if (!imageTaskStability) throw new Error("image-task-stability.js 未加载，生图稳定层无法启动");
@@ -2722,6 +2726,31 @@ function applyOfficialImageOptions(value = {}) {
 
 function normalizeCodexGatewayOptions(value = {}) {
   return codexImageGateway.normalizeOptions(value);
+}
+
+function hasCodexGatewayOptions(config = {}) {
+  return Boolean(
+    config
+    && typeof config === "object"
+    && config.codexGatewayOptionsExplicit !== false
+    && (Object.prototype.hasOwnProperty.call(config, "codexGatewayOptions")
+      || Object.prototype.hasOwnProperty.call(config, "openCodexImageOptions")),
+  );
+}
+
+function loadPersistedCodexGatewayOptions() {
+  const stored = safeStorageReadJson(
+    CODEX_GATEWAY_OPTIONS_STORAGE_KEY,
+    null,
+    value => Boolean(value && typeof value === "object" && !Array.isArray(value)),
+  );
+  return stored ? normalizeCodexGatewayOptions(stored) : null;
+}
+
+function savePersistedCodexGatewayOptions(value = {}) {
+  const options = normalizeCodexGatewayOptions(value);
+  safeStorageSetItem(CODEX_GATEWAY_OPTIONS_STORAGE_KEY, JSON.stringify(options));
+  return options;
 }
 
 function getCodexGatewayOptions() {
@@ -3620,6 +3649,7 @@ function normalizeApiConfig(config = {}) {
   const apiProvider = legacyGateway
     ? CODEX_IMAGE_GATEWAY_PROVIDER
     : configuredProvider;
+  const hasExplicitGatewayOptions = hasCodexGatewayOptions(config);
   const gatewayOptions = apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER
     ? normalizeCodexGatewayOptions(config.codexGatewayOptions || config.openCodexImageOptions || {})
     : undefined;
@@ -3642,6 +3672,10 @@ function normalizeApiConfig(config = {}) {
     model: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? CODEX_IMAGE_GATEWAY_MODEL : apiProvider === GEMINI_WEB_PROVIDER ? GEMINI_WEB_MODEL : (config.model || ""),
     officialImageOptions: apiProvider === "official" ? normalizeOfficialImageOptions(config.officialImageOptions) : undefined,
     codexGatewayOptions: gatewayOptions,
+    // Retain whether options were actually present in the stored profile. This
+    // lets an upgraded client distinguish an old partial profile from a user
+    // deliberately choosing the default values.
+    codexGatewayOptionsExplicit: apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER ? hasExplicitGatewayOptions : undefined,
     geminiWebOptions: geminiOptions,
     proxyEndpoint: config.proxyEndpoint || "",
     platform: config.platform || apiProviderLabel(apiProvider) || readableEndpoint(normalizedEndpoint) || cleanText("customApi"),
@@ -3771,7 +3805,14 @@ async function applyConfig(cfg) {
   }
   dom.model.value = normalized.model || "";
   applyOfficialImageOptions(normalized.officialImageOptions || OFFICIAL_IMAGE_OPTION_DEFAULTS);
-  applyCodexGatewayOptions(normalized.codexGatewayOptions || CODEX_GATEWAY_OPTION_DEFAULTS);
+  // Old ChatGPT Web profiles did not contain provider options. Restore the
+  // last explicit user choice for those profiles instead of silently showing
+  // Medium + Exact output on every restart.
+  const codexGatewayOptions = provider === CODEX_IMAGE_GATEWAY_PROVIDER && !hasCodexGatewayOptions(cfg)
+    ? (loadPersistedCodexGatewayOptions() || normalized.codexGatewayOptions || CODEX_GATEWAY_OPTION_DEFAULTS)
+    : (normalized.codexGatewayOptions || CODEX_GATEWAY_OPTION_DEFAULTS);
+  applyCodexGatewayOptions(codexGatewayOptions);
+  if (provider === CODEX_IMAGE_GATEWAY_PROVIDER) savePersistedCodexGatewayOptions(codexGatewayOptions);
   applyGeminiWebOptions(normalized.geminiWebOptions || geminiImageSizes.DEFAULTS);
   dom.proxyEndpoint.value = normalized.proxyEndpoint || "";
   if (!normalized.model && provider === "grsai") dom.model.placeholder = "点击输入或检测选择模型";
@@ -4168,22 +4209,35 @@ let activeApiConfigPersistTimer = null;
 
 function persistCurrentProviderOptions({ forceNew = false, render = true } = {}) {
   const cfg = currentApiConfig("", { forceNew });
-  saveConfig(cfg);
-  const selectedId = dom.savedApis.value;
   const apis = loadAllApis();
-  const index = findSavedApiIndex(selectedId, apis);
-  if (index >= 0 && apiConfigIdentityMatches(apis[index], cfg.apiProvider, cfg.endpoint)) {
+  const candidateIds = forceNew
+    ? []
+    : [dom.savedApis?.value, loadActiveApiProfileId()].filter(Boolean);
+  const index = candidateIds
+    .map(id => findSavedApiIndex(id, apis))
+    .find(candidateIndex => candidateIndex >= 0 && apiConfigIdentityMatches(apis[candidateIndex], cfg.apiProvider, cfg.endpoint)) ?? -1;
+
+  // Bind the current UI values to the existing profile before writing either
+  // storage record. Writing the transient id first was susceptible to a later
+  // restart restoring the profile's old defaults.
+  if (index >= 0) {
     cfg.id = apis[index].id;
     cfg.name = apis[index].name;
     apis[index] = cfg;
     saveAllApis(apis);
-    saveConfig(cfg);
     saveActiveApiProfileId(cfg.id);
-    if (render) renderSavedApis({ selectedId: cfg.id });
-    else customSelects.savedApis?.syncLabel();
   } else {
     saveActiveApiProfileId("");
-    if (render) renderSavedApis({ selectedId: "" });
+  }
+  if (cfg.apiProvider === CODEX_IMAGE_GATEWAY_PROVIDER) {
+    savePersistedCodexGatewayOptions(cfg.codexGatewayOptions || getCodexGatewayOptions());
+  }
+  saveConfig(cfg);
+  if (index >= 0) {
+    if (render) renderSavedApis({ selectedId: cfg.id });
+    else customSelects.savedApis?.syncLabel();
+  } else if (render) {
+    renderSavedApis({ selectedId: "" });
   }
   return cfg;
 }

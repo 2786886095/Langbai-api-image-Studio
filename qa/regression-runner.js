@@ -4416,6 +4416,97 @@ async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
   assertQa(result.outside && result.inside, "Local inpaint compositing must alter only masked pixels.", result);
 }
 
+async function testCodexGatewayOptionsPersistAcrossRestart(cdp) {
+  logStep("ChatGPT web image quality and dimension handling persist across profile restores");
+  await loadFresh(cdp, "codex-gateway-options-persist-initial");
+  const beforeRestart = await cdp.eval(`(async () => {
+    localStorage.clear();
+    const profile = normalizeApiConfig({
+      id: "qa-codex-gateway-options",
+      name: "QA ChatGPT Web",
+      apiProvider: CODEX_IMAGE_GATEWAY_PROVIDER,
+      endpoint: CODEX_IMAGE_GATEWAY_BASE_URL,
+      model: CODEX_IMAGE_GATEWAY_MODEL,
+      codexGatewayOptions: { quality: "medium", dimensionMode: "exact_output", clientQueue: 10 },
+    });
+    saveAllApis([profile]);
+    saveActiveApiProfileId(profile.id);
+    saveConfig(profile);
+    await applyConfig(profile);
+    document.querySelector('[data-provider-control="codexGatewayQuality"] button[data-value="low"]').click();
+    document.querySelector('[data-provider-control="codexGatewayDimensionMode"] button[data-value="native"]').click();
+    const active = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    const saved = JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]");
+    const fallback = JSON.parse(localStorage.getItem(CODEX_GATEWAY_OPTIONS_STORAGE_KEY) || "{}");
+    return { active, saved, fallback, ui: getCodexGatewayOptions() };
+  })()`, true);
+  assertQa(
+    beforeRestart.ui.quality === "low"
+      && beforeRestart.ui.dimensionMode === "native"
+      && beforeRestart.active.codexGatewayOptions?.quality === "low"
+      && beforeRestart.active.codexGatewayOptions?.dimensionMode === "native"
+      && beforeRestart.saved[0]?.codexGatewayOptions?.quality === "low"
+      && beforeRestart.saved[0]?.codexGatewayOptions?.dimensionMode === "native"
+      && beforeRestart.fallback.quality === "low"
+      && beforeRestart.fallback.dimensionMode === "native",
+    "Changing ChatGPT Web quality or dimension handling must update the active profile, saved profile, and recovery preference before restart.",
+    beforeRestart,
+  );
+
+  await loadFresh(cdp, "codex-gateway-options-persist-restart");
+  const restored = await cdp.eval(`(() => ({
+    provider: dom.apiProvider.value,
+    selected: dom.savedApis.value,
+    ui: getCodexGatewayOptions(),
+    active: JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"),
+    saved: JSON.parse(localStorage.getItem(STORAGE_APIS) || "[]"),
+  }))()`, true);
+  assertQa(
+    restored.provider === "codexImageGateway"
+      && restored.selected === "qa-codex-gateway-options"
+      && restored.ui.quality === "low"
+      && restored.ui.dimensionMode === "native"
+      && restored.active.codexGatewayOptions?.quality === "low"
+      && restored.active.codexGatewayOptions?.dimensionMode === "native"
+      && restored.saved[0]?.codexGatewayOptions?.quality === "low"
+      && restored.saved[0]?.codexGatewayOptions?.dimensionMode === "native",
+    "Restarting must restore the last selected ChatGPT Web output quality and dimension handling instead of Medium + Exact output.",
+    restored,
+  );
+
+  const legacyProfile = await cdp.eval(`(() => {
+    const legacy = {
+      id: "qa-codex-gateway-legacy",
+      name: "Legacy ChatGPT Web",
+      apiProvider: CODEX_IMAGE_GATEWAY_PROVIDER,
+      endpoint: CODEX_IMAGE_GATEWAY_BASE_URL,
+      model: CODEX_IMAGE_GATEWAY_MODEL,
+    };
+    localStorage.setItem(STORAGE_APIS, JSON.stringify([legacy]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+    localStorage.setItem(ACTIVE_API_PROFILE_KEY, legacy.id);
+    localStorage.setItem(CODEX_GATEWAY_OPTIONS_STORAGE_KEY, JSON.stringify({ quality: "high", dimensionMode: "strict_native", clientQueue: 7 }));
+    return legacy;
+  })()`, true);
+  await loadFresh(cdp, "codex-gateway-options-legacy-recovery");
+  const legacyRestored = await cdp.eval(`(() => ({
+    provider: dom.apiProvider.value,
+    ui: getCodexGatewayOptions(),
+    active: JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"),
+  }))()`, true);
+  assertQa(
+    legacyRestored.provider === "codexImageGateway"
+      && legacyRestored.ui.quality === "high"
+      && legacyRestored.ui.dimensionMode === "strict_native",
+    "An older ChatGPT Web profile without option fields must recover the last explicit quality and dimension handling preference.",
+    { legacyProfile, legacyRestored },
+  );
+  // Do not leak a selected local gateway profile into unrelated provider and
+  // caption tests that follow in the shared browser process.
+  await cdp.eval(`(() => { localStorage.clear(); return true; })()`, true);
+  await loadFresh(cdp, "codex-gateway-options-persist-cleanup");
+}
+
 async function testGptImage2InpaintRoutes(cdp) {
   logStep("Local inpaint is enabled only for the two retained gpt-image-2 providers");
   await loadFresh(cdp, "gpt-image-2-inpaint-current-routes");
@@ -6359,6 +6450,7 @@ async function main() {
     await testOpenAiOfficialProviderOptionsAndIsolation(cdp);
     await testOpenAiOfficialProviderResponsiveLayout(cdp);
     await testOpenCodexDualModelsSizesAndLocalInpaint(cdp);
+    await testCodexGatewayOptionsPersistAcrossRestart(cdp);
     await testGptImage2InpaintRoutes(cdp);
     await testInpaintModalInteractionSafety(cdp);
     await testAndroidChatGptGatewayEntry(cdp);
