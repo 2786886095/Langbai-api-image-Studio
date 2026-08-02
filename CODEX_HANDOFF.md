@@ -1,12 +1,20 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.22
+# Codex / Claude Handoff: AI 图片生成器 v1.6.23
 
-更新时间：2026-08-01
-项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v145-publish`
+更新时间：2026-08-02
+项目路径：`D:\Downloads\新建文件夹\Langbai-api-image-Studio`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.22+99`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.23+100`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.23 Gemini 本地去水印
+
+- 内置 `@pilio/gemini-watermark-remover` 1.0.33 浏览器处理核心，不依赖独立服务或外部去水印 API。
+- Gemini 网页生图结果默认在本机处理，设置中可关闭；开启时界面、缓存、历史和下载只使用处理后的 PNG。
+- 顶部橡皮擦入口支持导入单张或多张 PNG/JPEG/WebP；单张直接保存，多张写入自动创建的时间戳文件夹。
+- 处理审计记录原始/最终 SHA-256、像素尺寸、命中模板、位置、决策层级和处理次数。
+- 上游 MIT 许可证位于 `THIRD_PARTY_LICENSES/gemini-watermark-remover-MIT.txt`。
 
 ## v1.6.22 项目 ZIP 恢复
 

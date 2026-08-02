@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-image-generator-1-6-22-20260801";
+const CACHE_NAME = "ai-image-generator-1-6-23-20260802";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const CORE_ASSETS = [
   "./gemini-image-size-registry.js",
   "./gemini-web-image-adapter.js",
   "./gemini-selector-pack.js",
+  "./gemini-watermark-remover.bundle.js",
   "./app.js",
   "./manifest.webmanifest",
   "./assets/icons/mascot-app-icon.png",

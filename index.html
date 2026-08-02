@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260801-1-6-22">
+  <link rel="stylesheet" href="style.css?v=20260802-1-6-23">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,6 +37,8 @@
             <button type="button" class="language-option" role="option" data-lang="ko">한국어</button>
           </div>
         </div>
+        <button type="button" id="importWatermarkImages" class="icon-btn" title="导入图片去 Gemini 水印" aria-label="导入图片去 Gemini 水印"><span class="ui-icon ui-icon-eraser"></span></button>
+        <input type="file" id="watermarkImageInput" accept="image/png,image/jpeg,image/webp" multiple hidden>
         <button type="button" id="historyBtn" class="icon-btn" title="查看生图记录" aria-label="查看生图记录"><span class="ui-icon ui-icon-history"></span></button>
         <button type="button" id="exportBtn" class="icon-btn" title="导出 ZIP" aria-label="导出 ZIP"><span class="ui-icon ui-icon-zip"></span></button>
         <button type="button" id="settingsBtn" class="icon-btn" title="设置" aria-label="设置"><span class="ui-icon ui-icon-settings"></span></button>
@@ -369,7 +371,7 @@
               <div class="provider-facts">
                 <span id="geminiFacts">临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计</span>
               </div>
-              <p class="provider-capability-note" id="geminiCapabilityNote">选择 Gemini 后使用 Google 官方比例尺寸；下载文件保持网页原图，不裁切、不缩小、不放大。</p>
+              <p class="provider-capability-note" id="geminiCapabilityNote">选择 Gemini 后使用 Google 官方比例尺寸；默认在本机去水印并保持像素尺寸，不裁切、不缩小、不放大。</p>
             </section>
 
             <section class="provider-panel provider-panel-grsai" id="grsaiProviderPanel" aria-labelledby="grsaiProviderTitle">
@@ -796,6 +798,15 @@
           <p class="field-hint" id="generatedCacheStatus" role="status" aria-live="polite">缓存会在应用启动和生成新图片时自动清理。</p>
         </section>
 
+        <section class="settings-section watermark-settings">
+          <h3 id="watermarkSettingsTitle">Gemini 去水印</h3>
+          <label class="checkbox-field">
+            <input type="checkbox" id="geminiWatermarkRemovalEnabled" checked>
+            <span id="geminiWatermarkRemovalLabel">生成完成后自动去除 Gemini 水印</span>
+          </label>
+          <p class="field-hint" id="geminiWatermarkRemovalHint">默认开启。开启后，Gemini 生成结果会先在本机处理，界面、缓存和下载仅使用处理后的图片。</p>
+        </section>
+
         <section class="settings-section retry-settings">
           <h3>自动重试</h3>
           <label class="field">
@@ -847,7 +858,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.22</strong>
+            <strong id="currentVersionLabel">v1.6.23</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -1048,12 +1059,13 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260801-1-6-22"></script>
-  <script src="image-task-stability.js?v=20260801-1-6-22"></script>
-  <script src="codex-image-gateway.js?v=20260801-1-6-22"></script>
-  <script src="gemini-image-size-registry.js?v=20260801-1-6-22"></script>
-  <script src="gemini-web-image-adapter.js?v=20260801-1-6-22"></script>
-  <script src="gemini-selector-pack.js?v=20260801-1-6-22"></script>
-  <script src="app.js?v=20260801-1-6-22"></script>
+  <script src="bootstrap-guard.js?v=20260802-1-6-23"></script>
+  <script src="image-task-stability.js?v=20260802-1-6-23"></script>
+  <script src="codex-image-gateway.js?v=20260802-1-6-23"></script>
+  <script src="gemini-image-size-registry.js?v=20260802-1-6-23"></script>
+  <script src="gemini-web-image-adapter.js?v=20260802-1-6-23"></script>
+  <script src="gemini-selector-pack.js?v=20260802-1-6-23"></script>
+  <script src="gemini-watermark-remover.bundle.js?v=20260802-1-6-23"></script>
+  <script src="app.js?v=20260802-1-6-23"></script>
 </body>
 </html>
