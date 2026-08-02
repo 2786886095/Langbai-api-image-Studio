@@ -1,12 +1,20 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.24
+# Codex / Claude Handoff: AI 图片生成器 v1.6.25
 
-更新时间：2026-08-02
+更新时间：2026-08-03
 项目路径：`D:\Downloads\新建文件夹\Langbai-api-image-Studio`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.24+101`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.25+102`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.25 ChatGPT 失败任务重试修复
+
+- 认证失败卡片点击“重试”会启动重新登录，并在账号恢复后自动续跑原卡片。
+- Android 的同一入口会打开账号设置和 Session 导入，导入成功后自动续跑。
+- ChatGPT 本机桥接超时卡片支持手动与批量重试。
+- 重复账号激活不再反复写入相同令牌；会话桥接超时会重启内置网关一次后继续。
+- 浏览器回归覆盖 401 按钮点击、重新登录挂起/恢复和 10 秒桥接超时重试。
 
 ## v1.6.24 ChatGPT 网页生图配置持久化
 

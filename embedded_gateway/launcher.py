@@ -70,7 +70,7 @@ def create_app():
 
     app = FastAPI(
         title="Langbai Embedded ChatGPT Image Gateway",
-        version="1.6.24",
+        version="1.6.25",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
