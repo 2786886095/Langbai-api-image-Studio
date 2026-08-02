@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.23
+# Codex / Claude Handoff: AI 图片生成器 v1.6.24
 
 更新时间：2026-08-02
 项目路径：`D:\Downloads\新建文件夹\Langbai-api-image-Studio`
@@ -6,7 +6,14 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.23+100`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.24+101`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.24 ChatGPT 网页生图配置持久化
+
+- ChatGPT 网页生图的质量与尺寸处理选项同步写入活动配置、已保存配置和独立恢复偏好。
+- 重启与重新选择配置时恢复最后一次显式选择，不再回落到“中 / 精确输出”。
+- 旧版缺少 `codexGatewayOptions` 字段的配置通过恢复偏好兼容。
+- 浏览器回归覆盖改值、重启、已保存配置恢复与旧配置恢复。
 
 ## v1.6.23 Gemini 本地去水印
 
