@@ -4,6 +4,15 @@
 
 「api生图」是一款面向单图、漫画分镜和气泡嵌字工作流的中文图片生成软件。Web 前端与 Flutter 软件壳共用同一套项目数据和生成逻辑，支持 OpenAI 官方 Image API、ChatGPT 网页生图、Gemini 网页生图、GrsAI 与 OpenAI 兼容接口。
 
+## v1.6.23 Gemini 本地去水印集成
+
+- Gemini 生成结果默认先调用内置的 `gemini-watermark-remover` 浏览器处理核心，再进入界面、缓存、历史与下载链路；运行时不需要独立服务或外部去水印 API。
+- “设置 → Gemini 去水印”可关闭自动处理。开启时只使用处理后的 PNG，保持原像素尺寸且不裁切、不缩放；关闭时保留网页下载的原始文件字节。
+- 顶部橡皮擦按钮支持导入 PNG、JPEG、WebP 单张或多张图片。每次由用户选择保存位置；单张直接保存，多张写入自动创建的 `gemini-watermark-removed-*` 文件夹。
+- 上游版本、MIT 许可证与集成说明见 `THIRD_PARTY_NOTICES.md` 和 `THIRD_PARTY_LICENSES/gemini-watermark-remover-MIT.txt`。
+
+> 下方版本记录中的“原样保存 Gemini 原图”等表述描述的是对应旧版本当时的行为；当前行为以上述设置为准。
+
 ## v1.6.22 项目 ZIP 恢复
 
 - 历史记录中的“恢复项目”现在提供两种入口：项目文件夹和项目 ZIP。

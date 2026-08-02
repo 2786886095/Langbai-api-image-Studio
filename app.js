@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.22";
+const APP_VERSION = "1.6.23";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -393,6 +393,7 @@ const CLEAN_LOCALES = {
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…", projectExportName: "项目 / 文件夹名称（可选）…",
     downloadZip: "打包下载 ZIP", saveToFolder: "保存到文件夹", savingToFolder: "保存中……", folderSaved: "已保存到文件夹", clearResults: "清空结果", emptyTitle: "生成的图片将显示在这里",
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
+    importWatermarkImages: "导入图片去 Gemini 水印", watermarkSettingsTitle: "Gemini 去水印", watermarkRemovalLabel: "生成完成后自动去除 Gemini 水印", watermarkRemovalHint: "默认开启。开启后，Gemini 生成结果会先在本机处理，界面、缓存和下载仅使用处理后的图片。",
     imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录", imageAskEveryTime: "每次保存图片时询问路径", zipAskEveryTime: "每次保存 ZIP 时询问路径", pathModeHint: "未勾选时使用上方保存目录；勾选后每次保存都会重新选择一次目录。", textSelectAll: "全选", textCut: "剪切", textCopy: "复制", textPaste: "粘贴",
     historyTitle: "生图记录", historyHint: "漫画与嵌字任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
@@ -471,6 +472,7 @@ const CLEAN_LOCALES = {
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…", projectExportName: "專案 / 資料夾名稱（可選）…",
     downloadZip: "打包下載 ZIP", saveToFolder: "儲存到資料夾", savingToFolder: "儲存中……", folderSaved: "已儲存到資料夾", clearResults: "清空結果", emptyTitle: "生成的圖片將顯示在這裡",
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
+    importWatermarkImages: "匯入圖片移除 Gemini 浮水印", watermarkSettingsTitle: "Gemini 浮水印移除", watermarkRemovalLabel: "生成完成後自動移除 Gemini 浮水印", watermarkRemovalHint: "預設開啟。開啟後，Gemini 生成結果會先在本機處理，介面、快取與下載只使用處理後的圖片。",
     imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄", imageAskEveryTime: "每次儲存圖片時詢問路徑", zipAskEveryTime: "每次儲存 ZIP 時詢問路徑", pathModeHint: "未勾選時使用上方儲存目錄；勾選後每次儲存都會重新選擇一次目錄。", textSelectAll: "全選", textCut: "剪下", textCopy: "複製", textPaste: "貼上",
     historyTitle: "生圖記錄", historyHint: "漫畫與嵌字工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
@@ -549,6 +551,7 @@ const CLEAN_LOCALES = {
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...", projectExportName: "Project / folder name (optional)...",
     downloadZip: "Download ZIP", saveToFolder: "Save to Folder", savingToFolder: "Saving...", folderSaved: "Saved to folder", clearResults: "Clear Results", emptyTitle: "Generated images will appear here",
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
+    importWatermarkImages: "Import images and remove Gemini watermark", watermarkSettingsTitle: "Gemini Watermark Removal", watermarkRemovalLabel: "Automatically remove Gemini watermarks after generation", watermarkRemovalHint: "Enabled by default. Gemini results are processed locally first; only processed images appear in the UI, cache, and downloads.",
     imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder", imageAskEveryTime: "Ask where to save each image", zipAskEveryTime: "Ask where to save each ZIP", pathModeHint: "When unchecked, the saved folder above is used. When checked, a folder is requested for every save.", textSelectAll: "Select all", textCut: "Cut", textCopy: "Copy", textPaste: "Paste",
     historyTitle: "Generation History", historyHint: "Comic and caption jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
@@ -627,6 +630,7 @@ const CLEAN_LOCALES = {
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...", projectExportName: "プロジェクト / フォルダー名（任意）...",
     downloadZip: "ZIP ダウンロード", saveToFolder: "フォルダーに保存", savingToFolder: "保存中……", folderSaved: "フォルダーに保存しました", clearResults: "結果をクリア", emptyTitle: "生成画像はここに表示されます",
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
+    importWatermarkImages: "画像を読み込んで Gemini 透かしを除去", watermarkSettingsTitle: "Gemini 透かし除去", watermarkRemovalLabel: "生成後に Gemini 透かしを自動除去", watermarkRemovalHint: "既定で有効です。有効時は Gemini の結果を端末内で先に処理し、画面・キャッシュ・ダウンロードには処理後の画像だけを使用します。",
     imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択", imageAskEveryTime: "画像保存時に毎回保存先を確認", zipAskEveryTime: "ZIP 保存時に毎回保存先を確認", pathModeHint: "未選択の場合は上の保存先を使用します。選択すると保存のたびにフォルダーを確認します。", textSelectAll: "すべて選択", textCut: "切り取り", textCopy: "コピー", textPaste: "貼り付け",
     historyTitle: "生成履歴", historyHint: "漫画と文字入れはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
@@ -705,6 +709,7 @@ const CLEAN_LOCALES = {
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...", projectExportName: "프로젝트 / 폴더 이름(선택)...",
     downloadZip: "ZIP 다운로드", saveToFolder: "폴더에 저장", savingToFolder: "저장 중……", folderSaved: "폴더에 저장됨", clearResults: "결과 비우기", emptyTitle: "생성된 이미지가 여기에 표시됩니다",
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
+    importWatermarkImages: "이미지를 가져와 Gemini 워터마크 제거", watermarkSettingsTitle: "Gemini 워터마크 제거", watermarkRemovalLabel: "생성 후 Gemini 워터마크 자동 제거", watermarkRemovalHint: "기본으로 켜져 있습니다. Gemini 결과를 기기에서 먼저 처리하며 화면, 캐시, 다운로드에는 처리된 이미지만 사용합니다.",
     imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택", imageAskEveryTime: "이미지를 저장할 때마다 경로 묻기", zipAskEveryTime: "ZIP을 저장할 때마다 경로 묻기", pathModeHint: "선택하지 않으면 위의 저장 폴더를 사용합니다. 선택하면 저장할 때마다 폴더를 다시 묻습니다.", textSelectAll: "전체 선택", textCut: "잘라내기", textCopy: "복사", textPaste: "붙여넣기",
     historyTitle: "생성 기록", historyHint: "만화와 캡션 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
@@ -1296,6 +1301,10 @@ function applyCleanLanguage() {
   setButtonText(dom.chooseImageDir, "image", "imageFolder");
   setButtonText(dom.chooseZipDir, "zip", "zipFolder");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
+  if (dom.importWatermarkImages) {
+    dom.importWatermarkImages.title = cleanText("importWatermarkImages");
+    dom.importWatermarkImages.setAttribute("aria-label", cleanText("importWatermarkImages"));
+  }
   setButtonText(dom.saveComicFolder, "folder", "saveToFolder");
   if (dom.clearResults) dom.clearResults.textContent = cleanText("clearResults");
   setText(".retry-failed-count span", "failedRetryCount");
@@ -1329,6 +1338,9 @@ function applyCleanLanguage() {
   setText(".cache-settings .field-hint", "cacheRetentionHint");
   if (dom.clearGeneratedCache) dom.clearGeneratedCache.textContent = cleanText("clearGeneratedCache");
   if (dom.generatedCacheStatus && !dom.generatedCacheStatus.dataset.customStatus) dom.generatedCacheStatus.textContent = cleanText("cacheAutoHint");
+  setText("#watermarkSettingsTitle", "watermarkSettingsTitle");
+  setText("#geminiWatermarkRemovalLabel", "watermarkRemovalLabel");
+  setText("#geminiWatermarkRemovalHint", "watermarkRemovalHint");
   setText(".retry-settings h3", "autoRetry");
   setText("#globalRetryLabel", "globalRetries");
   setText("#retryHint", "retryHint");
@@ -1632,6 +1644,8 @@ const dom = {
   resultGrid:    $("#resultGrid"),
   resultToolbar: $("#resultToolbar"),
   downloadZip:   $("#downloadZip"),
+  importWatermarkImages: $("#importWatermarkImages"),
+  watermarkImageInput: $("#watermarkImageInput"),
   saveComicFolder: $("#saveComicFolder"),
   clearResults:  $("#clearResults"),
   retryFailedTools: $("#retryFailedTools"),
@@ -1679,6 +1693,7 @@ const dom = {
   cacheRetentionDays: $("#cacheRetentionDays"),
   clearGeneratedCache: $("#clearGeneratedCache"),
   generatedCacheStatus: $("#generatedCacheStatus"),
+  geminiWatermarkRemovalEnabled: $("#geminiWatermarkRemovalEnabled"),
   retryCount:     $("#retryCount"),
   grsaiSubmit504RetryCount: $("#grsaiSubmit504RetryCount"),
   grsaiSubmit504RetryInterval: $("#grsaiSubmit504RetryInterval"),
@@ -2751,7 +2766,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "快速", qualityStandard: "标准", qualityDetail: "精细",
     queue: "本地队列上限",
     facts: "临时对话 · 使用全局分辨率 · 完整尺寸下载 · 精确尺寸审计",
-    capability: "选择 Gemini 时使用官方 1K / 2K 比例尺寸；下载后保留网页原图的字节与像素尺寸，不裁切、不缩小、不放大。",
+    capability: "选择 Gemini 时使用官方 1K / 2K 比例尺寸；默认在本机去水印并保持像素尺寸，不裁切、不缩小、不放大。关闭去水印后才保留网页原始字节。",
   }),
   "zh-Hant": Object.freeze({
     title: "Gemini 網頁生圖", hint: "在軟體內完成 Gemini 登入；登入成功後視窗會自動收起，後續任務由隱藏瀏覽器執行。",
@@ -2766,7 +2781,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "快速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "本機佇列上限",
     facts: "臨時對話 · 使用全域解析度 · 完整尺寸下載 · 精確尺寸稽核",
-    capability: "選擇 Gemini 時使用官方 1K / 2K 比例尺寸；下載後保留網頁原圖的位元組與像素尺寸，不裁切、不縮小、不放大。",
+    capability: "選擇 Gemini 時使用官方 1K / 2K 比例尺寸；預設在本機移除浮水印並保持像素尺寸，不裁切、不縮小、不放大。關閉後才保留網頁原始位元組。",
   }),
   en: Object.freeze({
     title: "Gemini Web Images", hint: "Sign in to Gemini inside the app. The login view closes automatically, while a hidden browser runs later tasks.",
@@ -2781,7 +2796,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "Fast", qualityStandard: "Standard", qualityDetail: "Detail",
     queue: "Local queue limit",
     facts: "Temporary Chat · global resolution · full-size download · dimension audit",
-    capability: "Gemini uses official 1K/2K ratio presets; the downloaded original keeps its exact bytes and pixel dimensions with no crop, downscale, or upscale.",
+    capability: "Gemini uses official 1K/2K ratio presets. Local watermark removal is enabled by default and preserves pixel dimensions without cropping or resizing; disable it to keep the original web bytes.",
   }),
   ja: Object.freeze({
     title: "Gemini ウェブ画像", hint: "アプリ内で Gemini にログインします。成功後は画面を自動で閉じ、非表示ブラウザがタスクを実行します。",
@@ -2796,7 +2811,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "高速", qualityStandard: "標準", qualityDetail: "精細",
     queue: "ローカルキュー上限",
     facts: "一時チャット · グローバル解像度 · フルサイズ取得 · サイズ監査",
-    capability: "Gemini 選択時は公式 1K / 2K 比率サイズを使用し、取得した元画像は切り抜き・縮小・拡大せず保存します。",
+    capability: "Gemini は公式 1K / 2K 比率サイズを使用します。既定では端末内で透かしを除去し、画素サイズを保ったまま切り抜き・縮小・拡大を行いません。無効時のみ元のバイト列を保存します。",
   }),
   ko: Object.freeze({
     title: "Gemini 웹 이미지", hint: "앱 안에서 Gemini에 로그인합니다. 성공하면 화면이 자동으로 닫히고 숨겨진 브라우저가 작업을 실행합니다.",
@@ -2811,7 +2826,7 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     qualityFast: "빠름", qualityStandard: "표준", qualityDetail: "정밀",
     queue: "로컬 대기열 상한",
     facts: "임시 채팅 · 전역 해상도 · 전체 크기 다운로드 · 크기 감사",
-    capability: "Gemini 선택 시 공식 1K / 2K 비율 크기를 사용하며, 원본은 자르기·축소·확대 없이 저장합니다.",
+    capability: "Gemini는 공식 1K/2K 비율을 사용합니다. 기본으로 기기에서 워터마크를 제거하며 픽셀 크기를 유지하고 자르기·축소·확대를 하지 않습니다. 끄면 원본 웹 바이트를 저장합니다.",
   }),
 });
 
@@ -2847,35 +2862,35 @@ const SIZE_POLICY_TEXT = Object.freeze({
   "zh-CN": Object.freeze({
     official: "gpt-image-2 支持满足约束的任意尺寸；带“官方”的七项是 OpenAI 常用预设。",
     opencodex: "ChatGPT 网页生图会请求所选方向与尺寸；原生模式保留实际像素，精确输出会在本地无拉伸裁切缩放。",
-    gemini: "Gemini 专用区使用 Google 官方 1K / 2K 比例尺寸；尺寸用于构图请求，下载文件始终保留网页原图像素，不裁切、不缩小、不放大。",
+    gemini: "Gemini 专用区使用 Google 官方 1K / 2K 比例尺寸；默认本地去水印并保持原像素尺寸，不裁切、不缩小、不放大。",
     nano: "Nano Banana 2 只使用上方的官方“比例 × 分辨率档位”；这里的像素尺寸不会发送。",
     generic: "预设尺寸会作为像素尺寸发送；自定义接口是否支持由服务端决定。",
   }),
   "zh-Hant": Object.freeze({
     official: "gpt-image-2 支援符合限制的任意尺寸；標示「官方」的七項是 OpenAI 常用預設。",
     opencodex: "Codex 私有額度路徑實測固定約 157 萬像素；所選尺寸用於提示方向與比例，請以生成後的實際尺寸為準。",
-    gemini: "Gemini 專用區使用 Google 官方 1K / 2K 比例尺寸；尺寸用於構圖請求，下載檔案保留網頁原圖像素，不裁切、不縮小、不放大。",
+    gemini: "Gemini 專用區使用 Google 官方 1K / 2K 比例尺寸；預設本機移除浮水印並保持原像素尺寸，不裁切、不縮小、不放大。",
     nano: "Nano Banana 2 只使用上方官方的「比例 × 解析度檔位」；此處像素尺寸不會傳送。",
     generic: "預設尺寸會作為像素尺寸傳送；自訂介面是否支援由伺服器決定。",
   }),
   en: Object.freeze({
     official: "gpt-image-2 accepts any compliant size. The seven Official choices are OpenAI's popular presets.",
     opencodex: "The Codex private quota route was measured at about 1.57 MP. The selected size guides orientation and ratio; check the decoded size.",
-    gemini: "Gemini uses Google's official 1K/2K ratio presets. They guide composition; downloads preserve the web original with no crop, downscale, or upscale.",
+    gemini: "Gemini uses Google's official 1K/2K ratio presets. Local watermark removal is enabled by default and preserves pixel dimensions without cropping or resizing.",
     nano: "Nano Banana 2 uses only the official ratio and resolution tier above. Pixel presets here are not sent.",
     generic: "Pixel dimensions are sent as requested. Custom-server support depends on that server.",
   }),
   ja: Object.freeze({
     official: "gpt-image-2 は制約を満たす任意サイズに対応します。「公式」の7項目は OpenAI の代表的なプリセットです。",
     opencodex: "Codex の非公開クォータ経路は実測で約 157 万画素固定です。選択サイズは向きと比率の指示に使われ、生成後の実寸を正とします。",
-    gemini: "Gemini は Google 公式の 1K / 2K 比率サイズを使用します。構図指定だけに使い、ダウンロードした元画像は切り抜き・縮小・拡大しません。",
+    gemini: "Gemini は Google 公式の 1K / 2K 比率サイズを使用します。既定では端末内で透かしを除去し、画素サイズを保ったまま切り抜き・縮小・拡大を行いません。",
     nano: "Nano Banana 2 は上の公式「比率 × 解像度段階」のみを使用し、ここのピクセル値は送信しません。",
     generic: "ピクセル寸法を要求値として送信します。対応可否は接続先サーバーによります。",
   }),
   ko: Object.freeze({
     official: "gpt-image-2는 제약을 만족하는 임의 크기를 지원합니다. '공식' 7개 항목은 OpenAI 권장 프리셋입니다.",
     opencodex: "Codex 비공개 할당량 경로는 실측상 약 157만 화소로 고정됩니다. 선택 크기는 방향과 비율 안내에 사용되며 실제 크기를 확인해야 합니다.",
-    gemini: "Gemini는 Google 공식 1K / 2K 비율 크기를 사용합니다. 구성 요청에만 쓰며 다운로드 원본은 자르기·축소·확대하지 않습니다.",
+    gemini: "Gemini는 Google 공식 1K/2K 비율을 사용합니다. 기본으로 기기에서 워터마크를 제거하며 픽셀 크기를 유지하고 자르기·축소·확대를 하지 않습니다.",
     nano: "Nano Banana 2는 위의 공식 '비율 × 해상도 단계'만 사용하며 이 픽셀 크기는 전송하지 않습니다.",
     generic: "픽셀 크기를 요청값으로 전송합니다. 지원 여부는 연결한 서버에 따라 다릅니다.",
   }),
@@ -5012,7 +5027,7 @@ const DESKTOP_PROXY_PRESETS = {
 };
 
 function loadSettings() {
-  const defaults = { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, retryCount: 3, grsaiSubmit504RetryCount: 2, grsaiSubmit504RetryInterval: 30, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
+  const defaults = { historyEnabled: true, historyLimit: 100, cacheRetentionDays: 7, imageAskEveryTime: false, zipAskEveryTime: false, geminiWatermarkRemovalEnabled: true, retryCount: 3, grsaiSubmit504RetryCount: 2, grsaiSubmit504RetryInterval: 30, desktopProxyMode: DESKTOP_PROXY_DEFAULT_MODE, desktopProxyCustomUrl: "" };
   return {
     ...defaults,
     ...safeStorageReadJson(SETTINGS_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value)),
@@ -5026,6 +5041,7 @@ function saveSettings(next = {}) {
   merged.cacheRetentionDays = Math.min(365, Math.max(1, Math.round(Number(merged.cacheRetentionDays) || 7)));
   merged.imageAskEveryTime = merged.imageAskEveryTime === true;
   merged.zipAskEveryTime = merged.zipAskEveryTime === true;
+  merged.geminiWatermarkRemovalEnabled = merged.geminiWatermarkRemovalEnabled !== false;
   merged.retryCount = clampRetryCount(merged.retryCount);
   merged.grsaiSubmit504RetryCount = clampRetryCount(merged.grsaiSubmit504RetryCount, 2);
   merged.grsaiSubmit504RetryInterval = clampGrsaiSubmit504RetryInterval(merged.grsaiSubmit504RetryInterval);
@@ -5042,6 +5058,7 @@ function applySettings(settings = loadSettings()) {
   if (dom.cacheRetentionDays) dom.cacheRetentionDays.value = String(settings.cacheRetentionDays || 7);
   if (dom.imageAskEveryTime) dom.imageAskEveryTime.checked = settings.imageAskEveryTime === true;
   if (dom.zipAskEveryTime) dom.zipAskEveryTime.checked = settings.zipAskEveryTime === true;
+  if (dom.geminiWatermarkRemovalEnabled) dom.geminiWatermarkRemovalEnabled.checked = settings.geminiWatermarkRemovalEnabled !== false;
   if (dom.retryCount) dom.retryCount.value = String(clampRetryCount(settings.retryCount));
   if (dom.grsaiSubmit504RetryCount) dom.grsaiSubmit504RetryCount.value = String(clampRetryCount(settings.grsaiSubmit504RetryCount, 2));
   if (dom.grsaiSubmit504RetryInterval) dom.grsaiSubmit504RetryInterval.value = String(clampGrsaiSubmit504RetryInterval(settings.grsaiSubmit504RetryInterval));
@@ -5366,6 +5383,7 @@ dom.cacheRetentionDays?.addEventListener("change", () => {
 });
 dom.imageAskEveryTime?.addEventListener("change", () => saveSettings({ imageAskEveryTime: dom.imageAskEveryTime.checked }));
 dom.zipAskEveryTime?.addEventListener("change", () => saveSettings({ zipAskEveryTime: dom.zipAskEveryTime.checked }));
+dom.geminiWatermarkRemovalEnabled?.addEventListener("change", () => saveSettings({ geminiWatermarkRemovalEnabled: dom.geminiWatermarkRemovalEnabled.checked }));
 dom.clearGeneratedCache?.addEventListener("click", () => void clearGeneratedImageCacheFromSettings());
 dom.retryCount?.addEventListener("change", () => saveSettings({ retryCount: dom.retryCount.value }));
 dom.grsaiSubmit504RetryCount?.addEventListener("change", () => saveSettings({ grsaiSubmit504RetryCount: dom.grsaiSubmit504RetryCount.value }));
@@ -7760,20 +7778,69 @@ async function sha256BlobHex(blob) {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
 }
 
+function summarizeGeminiWatermarkMeta(meta) {
+  if (!meta || typeof meta !== "object") return null;
+  return {
+    applied: meta.applied === true,
+    skipReason: meta.skipReason || null,
+    size: Number.isFinite(Number(meta.size)) ? Number(meta.size) : null,
+    position: meta.position && typeof meta.position === "object" ? {
+      x: Number(meta.position.x) || 0,
+      y: Number(meta.position.y) || 0,
+      width: Number(meta.position.width) || 0,
+      height: Number(meta.position.height) || 0,
+    } : null,
+    source: meta.source || null,
+    decisionTier: meta.decisionTier || null,
+    passCount: Number(meta.passCount) || 0,
+    processorPath: meta.processorPath || "main-thread",
+  };
+}
+
+async function removeGeminiWatermarkBlob(blob) {
+  if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("Gemini 去水印输入为空");
+  const remover = globalThis.GeminiWatermarkRemover;
+  if (!remover || typeof remover.processWatermarkBlob !== "function") {
+    throw new Error("Gemini 去水印模块未加载");
+  }
+  const result = await remover.processWatermarkBlob(blob, { adaptiveMode: "always" });
+  if (!(result?.processedBlob instanceof Blob) || result.processedBlob.size <= 0) {
+    throw new Error("Gemini 去水印模块未生成有效图片");
+  }
+  return {
+    blob: result.processedBlob,
+    meta: summarizeGeminiWatermarkMeta(result.processedMeta),
+  };
+}
+
 async function transformGeminiResultBlob(blob, resolved) {
   const source = await readImageBlobDimensions(blob);
   if (!source?.width || !source?.height) throw new Error("Gemini full-size image could not be decoded");
   const sourceSize = `${source.width}x${source.height}`;
-  // Gemini results are immutable originals. Global dimensions guide only the
-  // requested composition ratio and must never rewrite the downloaded file.
+  if (loadSettings().geminiWatermarkRemovalEnabled === false) {
+    return {
+      blob,
+      source,
+      final: source,
+      transform: "none",
+      strictMismatch: false,
+      sourceSize,
+      transformPlan: null,
+      watermarkRemoval: { enabled: false, applied: false, skipReason: "disabled" },
+    };
+  }
+  const removed = await removeGeminiWatermarkBlob(blob);
+  const final = await readImageBlobDimensions(removed.blob);
+  if (!final?.width || !final?.height) throw new Error("Gemini 去水印结果无法解码");
   return {
-    blob,
+    blob: removed.blob,
     source,
-    final: source,
-    transform: "none",
+    final,
+    transform: "gemini_watermark_removed",
     strictMismatch: false,
     sourceSize,
     transformPlan: null,
+    watermarkRemoval: { enabled: true, ...(removed.meta || {}) },
   };
 }
 
@@ -7829,6 +7896,7 @@ async function normalizeGeminiTaskResult(task, {
         cropRect: processed.transformPlan?.sourceRect || null,
         drawRect: processed.transformPlan?.targetRect || null,
         strictNativeMismatch: processed.strictMismatch,
+        watermarkRemoval: processed.watermarkRemoval || null,
         nativeSha256,
         finalSha256,
         startedAt: new Date(startedAt).toISOString(),
@@ -9709,6 +9777,16 @@ function renderOpenCodexResultMeta(element, record) {
   if (actual.dimensionStatus === "mismatch") actualParts.push(currentLanguage === "en" ? "size mismatch" : "尺寸不符·将隔离导出");
   if (actual.dimensionAction === "smart_cover_crop") {
     actualParts.push(currentLanguage === "en" ? "cover-cropped (edges may be cropped)" : "智能覆盖裁切（边缘可能被裁掉）");
+  }
+  if (actual.dimensionAction === "gemini_watermark_removed") {
+    const watermarkLabels = {
+      "zh-CN": "Gemini 水印已处理",
+      "zh-Hant": "Gemini 浮水印已處理",
+      en: "Gemini watermark processed",
+      ja: "Gemini 透かし処理済み",
+      ko: "Gemini 워터마크 처리됨",
+    };
+    actualParts.push(watermarkLabels[currentLanguage] || watermarkLabels["zh-CN"]);
   }
   element.classList.toggle("is-dimension-mismatch", actual.dimensionStatus === "mismatch");
   element.innerHTML = `
@@ -13509,6 +13587,108 @@ async function buildImagesZip(images, meta = {}) {
   setDownloadProgress(72, cleanText("compressing"));
   return makeZipBlob(entries);
 }
+
+function buildWatermarkOutputFolderName() {
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "_").slice(0, 15);
+  return `gemini-watermark-removed-${stamp}`;
+}
+
+function buildWatermarkOutputFileName(file, usedNames) {
+  const original = String(file?.name || "image").replace(/\.[^.]+$/, "");
+  const base = sanitizeFilePart(original, "image");
+  let name = `${base}-watermark-removed.png`;
+  let suffix = 2;
+  while (usedNames.has(name.toLowerCase())) {
+    name = `${base}-watermark-removed-${suffix++}.png`;
+  }
+  usedNames.add(name.toLowerCase());
+  return name;
+}
+
+async function writeWatermarkBlobToBrowserDirectory(directoryHandle, folderName, fileName, blob) {
+  const targetDirectory = folderName
+    ? await directoryHandle.getDirectoryHandle(folderName, { create: true })
+    : directoryHandle;
+  const fileHandle = await targetDirectory.getFileHandle(fileName, { create: true });
+  const writable = await fileHandle.createWritable();
+  try {
+    await writable.write(blob);
+    await writable.close();
+  } catch (error) {
+    await writable.abort?.();
+    throw error;
+  }
+}
+
+async function processImportedWatermarkImages(fileList) {
+  const files = Array.from(fileList || []).filter(file =>
+    file instanceof Blob && file.size > 0 && (/^image\/(?:png|jpeg|webp)$/i.test(file.type) || /\.(?:png|jpe?g|webp)$/i.test(file.name || "")));
+  if (!files.length) {
+    showStatus(currentLanguage === "en" ? "Choose PNG, JPEG, or WebP images." : "请选择 PNG、JPEG 或 WebP 图片。", "error");
+    return;
+  }
+
+  dom.importWatermarkImages.disabled = true;
+  setDownloadProgress(1, currentLanguage === "en" ? "Preparing local watermark removal…" : "准备本地去水印…");
+  const folderName = files.length > 1 ? buildWatermarkOutputFolderName() : "";
+  const usedNames = new Set();
+  const failures = [];
+  let saved = 0;
+  let directoryHandle = null;
+
+  try {
+    if (nativeDownload.available()) {
+      await nativeDownload.chooseDir("images");
+    } else if (typeof globalThis.showDirectoryPicker === "function") {
+      directoryHandle = await globalThis.showDirectoryPicker({ mode: "readwrite" });
+    }
+
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      const progress = 5 + Math.round((index / Math.max(files.length, 1)) * 88);
+      setDownloadProgress(progress, `${currentLanguage === "en" ? "Removing watermark" : "正在去水印"} ${index + 1}/${files.length}`);
+      try {
+        const removed = await removeGeminiWatermarkBlob(file);
+        const outputName = buildWatermarkOutputFileName(file, usedNames);
+        if (nativeDownload.available()) {
+          await nativeDownload.saveFile("images", outputName, "image/png", await blobToBase64(removed.blob), folderName);
+        } else if (directoryHandle) {
+          await writeWatermarkBlobToBrowserDirectory(directoryHandle, folderName, outputName, removed.blob);
+        } else {
+          triggerDownload(removed.blob, outputName);
+        }
+        saved++;
+      } catch (error) {
+        failures.push(`${file.name || index + 1}: ${error?.message || error}`);
+      }
+    }
+
+    if (!saved) throw new Error(failures.join("; ") || "没有生成有效的去水印图片");
+    setDownloadProgress(100, currentLanguage === "en"
+      ? `Saved ${saved}/${files.length} processed image(s)`
+      : `已保存 ${saved}/${files.length} 张去水印图片`, true);
+    showStatus(
+      currentLanguage === "en"
+        ? `Watermark removal finished: ${saved}/${files.length}`
+        : `Gemini 去水印完成：${saved}/${files.length}`,
+      failures.length ? "error" : "success",
+    );
+    if (failures.length) console.warn("部分导入图片去水印失败", failures);
+  } catch (error) {
+    hideDownloadProgress();
+    if (error?.name !== "AbortError") {
+      showStatus(`${currentLanguage === "en" ? "Watermark removal failed" : "Gemini 去水印失败"}: ${error?.message || error}`, "error");
+    }
+  } finally {
+    dom.importWatermarkImages.disabled = false;
+    if (dom.watermarkImageInput) dom.watermarkImageInput.value = "";
+  }
+}
+
+dom.importWatermarkImages?.addEventListener("click", () => openFileInputOnce(dom.watermarkImageInput));
+dom.watermarkImageInput?.addEventListener("change", () => {
+  void processImportedWatermarkImages(dom.watermarkImageInput.files);
+});
 
 async function downloadImage(imageSource, index, fallbackUrl = "") {
   try {

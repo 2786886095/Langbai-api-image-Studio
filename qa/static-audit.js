@@ -15,6 +15,7 @@ const codexImageGateway = read("codex-image-gateway.js");
 const geminiSizeRegistry = read("gemini-image-size-registry.js");
 const geminiWebAdapter = read("gemini-web-image-adapter.js");
 const geminiSelectorPack = read("gemini-selector-pack.js");
+const geminiWatermarkRemover = read("gemini-watermark-remover.bundle.js");
 const geminiDirectProtocol = read("gemini-web-direct-protocol.js");
 const geminiEmbeddedWorker = read("gemini-embedded-worker.js");
 const bootstrapGuard = read("bootstrap-guard.js");
@@ -26,6 +27,7 @@ const handoff = read("CODEX_HANDOFF.md");
 const runnerRc = read("windows/runner/Runner.rc");
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const workflow = read(".github/workflows/build-all-platforms.yml");
+const regressionRunner = read("qa/regression-runner.js");
 const dartMain = read("lib/main.dart");
 const proxyConfig = read("lib/proxy_config.dart");
 const codexGatewayConfig = read("lib/codex_image_gateway_config.dart");
@@ -58,10 +60,10 @@ const vendoredWindowsPlugin = read("third_party/webview_win_floating/windows/web
 const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.22";
-const expectedBuild = 99;
-const expectedCacheToken = "20260801-1-6-22";
-const expectedSwCache = "ai-image-generator-1-6-22-20260801";
+const expectedVersion = "1.6.23";
+const expectedBuild = 100;
+const expectedCacheToken = "20260802-1-6-23";
+const expectedSwCache = "ai-image-generator-1-6-23-20260802";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -71,14 +73,15 @@ assert.match(pubspec, /^\s*- codex-image-gateway\.js$/m);
 assert.match(pubspec, /^\s*- gemini-image-size-registry\.js$/m);
 assert.match(pubspec, /^\s*- gemini-web-image-adapter\.js$/m);
 assert.match(pubspec, /^\s*- gemini-selector-pack\.js$/m);
+assert.match(pubspec, /^\s*- gemini-watermark-remover\.bundle\.js$/m);
 assert.match(pubspec, /^\s*- gemini-web-direct-protocol\.js$/m);
 assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.22/);
-assert.match(html, /20260801-1-6-22/g);
-assert.match(sw, /ai-image-generator-1-6-22-20260801/);
+assert.match(html, /v1\.6\.23/);
+assert.match(html, /20260802-1-6-23/g);
+assert.match(sw, /ai-image-generator-1-6-23-20260802/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -91,17 +94,36 @@ assert.deepEqual(
 assert.match(sw, new RegExp(expectedSwCache.replaceAll("-", "\\-")));
 assert.match(sw, /codex-image-gateway\.js/);
 assert.match(sw, /gemini-web-image-adapter\.js/);
+assert.match(sw, /gemini-watermark-remover\.bundle\.js/);
+assert.match(geminiWatermarkRemover, /@pilio\/gemini-watermark-remover v1\.0\.33/);
+assert.match(geminiWatermarkRemover, /processWatermarkBlob/);
+assert.ok(
+  html.indexOf("gemini-watermark-remover.bundle.js") < html.indexOf("app.js?v="),
+  "Watermark remover bundle must load before app.js",
+);
+assert.match(app, /geminiWatermarkRemovalEnabled:\s*true/);
+assert.match(app, /async function removeGeminiWatermarkBlob\(blob\)/);
+assert.match(app, /transform:\s*"gemini_watermark_removed"/);
+assert.match(app, /async function processImportedWatermarkImages\(fileList\)/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,22,99/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.22"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.22";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260801-1-6-22/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,23,100/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.23"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.23";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260802-1-6-23/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
 assert.match(workflow, /node --check gemini-web-direct-protocol\.js/);
+assert.match(workflow, /node --check gemini-watermark-remover\.bundle\.js/);
+assert.match(workflow, /"gemini-watermark-remover\.bundle\.js"/);
 assert.match(workflow, /"gemini-web-direct-protocol\.js"/);
 assert.match(workflow, /node qa\/gemini-web-adapter\.test\.js/);
+assert.match(regressionRunner, /gemini-watermark-48-synthetic\.png/);
+assert.match(regressionRunner, /watermarkSmoke\?\.transform === "gemini_watermark_removed"/);
+assert.ok(
+  fs.statSync(path.join(root, "qa/fixtures/gemini-watermark-48-synthetic.png")).size > 1000,
+  "Synthetic Gemini watermark fixture must be present",
+);
 assert.match(workflow, /node qa\/gemini-temporary-chat-state\.test\.js/);
 assert.match(workflow, /node --test qa\/service-worker-consistency\.test\.js/);
 assert.match(workflow, /SHA256SUMS\.txt/);
@@ -283,8 +305,16 @@ assert.match(geminiEmbeddedWorker, /info\.pixels > bestInfo\.pixels/);
 assert.match(geminiEmbeddedWorker, /Preserve the authenticated Gemini original byte-for-byte/);
 assert.doesNotMatch(geminiEmbeddedWorker, /safe_zone_center_crop\+high_quality_resample/);
 assert.doesNotMatch(geminiEmbeddedWorker, /requestedOutputSize\(/);
-assert.match(app, /Gemini results are immutable originals/);
-assert.match(app, /final:\s*source,\s*transform:\s*"none"/);
+assert.match(
+  app,
+  /geminiWatermarkRemovalEnabled === false[\s\S]*?blob,[\s\S]*?final:\s*source,[\s\S]*?transform:\s*"none"/,
+  "Disabling Gemini watermark removal must preserve the downloaded blob",
+);
+assert.match(
+  app,
+  /const removed = await removeGeminiWatermarkBlob\(blob\)[\s\S]*?blob:\s*removed\.blob[\s\S]*?transform:\s*"gemini_watermark_removed"/,
+  "Enabled Gemini watermark removal must expose only the processed blob",
+);
 assert.doesNotMatch(geminiSizeCapabilities, /'exact_output'|'local_4k_upscale'|'strict_native'/);
 assert.match(geminiEmbeddedBrowser, /allowText: message\['type'\] == 'resource-download-request'/);
 assert.match(geminiDirectProtocol, /inner\[45\] = 1/);
@@ -590,6 +620,7 @@ for (const file of [
   "app.js", "bootstrap-guard.js", "image-task-stability.js",
   "codex-image-gateway.js", "gemini-image-size-registry.js",
   "gemini-web-image-adapter.js", "gemini-selector-pack.js",
+  "gemini-watermark-remover.bundle.js",
   "gemini-web-direct-protocol.js",
   "gemini-embedded-worker.js",
   "index.html", "style.css", "sw.js", "manifest.webmanifest",

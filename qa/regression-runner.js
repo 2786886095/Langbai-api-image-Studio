@@ -5941,6 +5941,24 @@ async function testGeminiWebImageIntegration(cdp) {
         modelPreference: "pro",
         clientQueue: 10,
       });
+      const defaultWatermarkEnabled = loadSettings().geminiWatermarkRemovalEnabled === true
+        && dom.geminiWatermarkRemovalEnabled?.checked === true;
+      const syntheticWatermarkBlob = await fetch("/qa/fixtures/gemini-watermark-48-synthetic.png")
+        .then(response => {
+          if (!response.ok) throw new Error("Synthetic watermark fixture is unavailable");
+          return response.blob();
+        });
+      const syntheticWatermarkResult = await transformGeminiResultBlob(syntheticWatermarkBlob, {});
+      const watermarkSmoke = {
+        inputBytes: syntheticWatermarkBlob.size,
+        outputBytes: syntheticWatermarkResult.blob.size,
+        outputType: syntheticWatermarkResult.blob.type,
+        transform: syntheticWatermarkResult.transform,
+        sourceSize: syntheticWatermarkResult.sourceSize,
+        finalSize: String(syntheticWatermarkResult.final.width) + "x" + String(syntheticWatermarkResult.final.height),
+        meta: syntheticWatermarkResult.watermarkRemoval,
+      };
+      saveSettings({ geminiWatermarkRemovalEnabled: false });
       const ready = await checkGeminiHealth({ announce: false, force: true });
       await nativeDownload.openGeminiWebLogin();
       const submitted = [];
@@ -6063,6 +6081,8 @@ async function testGeminiWebImageIntegration(cdp) {
       );
       return {
         ready,
+        defaultWatermarkEnabled,
+        watermarkSmoke,
         provider: dom.apiProvider.value,
         providerPanelVisible: !dom.geminiProviderPanel.classList.contains("hidden"),
         optionHidden: [...dom.apiProvider.options].find(option => option.value === "geminiWeb")?.hidden,
@@ -6121,6 +6141,21 @@ async function testGeminiWebImageIntegration(cdp) {
         && result.endpoint === "http://127.0.0.1:18160/v1",
       "The native Gemini provider must become ready without interfering with other provider routes.",
       result,
+    );
+    assertQa(
+      result.defaultWatermarkEnabled
+        && result.watermarkSmoke?.outputBytes > 0
+        && result.watermarkSmoke?.outputType === "image/png"
+        && result.watermarkSmoke?.transform === "gemini_watermark_removed"
+        && result.watermarkSmoke?.sourceSize === "320x320"
+        && result.watermarkSmoke?.finalSize === "320x320"
+        && result.watermarkSmoke?.meta?.enabled === true
+        && result.watermarkSmoke?.meta?.applied === true
+        && result.watermarkSmoke?.meta?.size === 48
+        && result.watermarkSmoke?.meta?.position?.x === 240
+        && result.watermarkSmoke?.meta?.position?.y === 240,
+      "Gemini watermark removal must default on and process a real 48px synthetic watermark without resizing.",
+      result.watermarkSmoke,
     );
     assertQa(
       result.geminiVisibleSizes.includes("1264x848")
