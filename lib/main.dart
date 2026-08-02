@@ -121,14 +121,30 @@ Future<Map<String, Object?>> _restartChatGptImageGateway() async {
 Future<Map<String, Object?>> _chatGptAccountSnapshot() =>
     _chatGptMultiAccountStore.snapshot();
 
+bool _isChatGptGatewayActivationTransportError(Object error) =>
+    error is TimeoutException || error is SocketException || error is HttpException;
+
 Future<void> _activateChatGptAccount(String localAccountId) async {
   await _chatGptMultiAccountStore.selectAccount(localAccountId);
   if (Platform.isWindows) {
     final token = await _chatGptMultiAccountStore.readToken(localAccountId);
-    await _embeddedChatGptGateway.setSessionToken(
-      token,
-      accountId: localAccountId,
-    );
+    try {
+      await _embeddedChatGptGateway.setSessionToken(
+        token,
+        accountId: localAccountId,
+      );
+    } catch (error) {
+      if (!_isChatGptGatewayActivationTransportError(error)) rethrow;
+      // A stalled local session bridge used to leak its fixed 10-second Dart
+      // timeout into an image card. Restart only the bundled helper, restore the
+      // selected token, and let the original image request continue once.
+      await _embeddedChatGptGateway.stop();
+      await _embeddedChatGptGateway.configuration();
+      await _embeddedChatGptGateway.setSessionToken(
+        token,
+        accountId: localAccountId,
+      );
+    }
   } else if (Platform.isAndroid) {
     final token = await _chatGptMultiAccountStore.readToken(localAccountId);
     await _androidChatGptGateway.setSessionToken(

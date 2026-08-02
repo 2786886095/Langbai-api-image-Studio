@@ -5886,6 +5886,77 @@ async function testCodexImageGatewayIntegration(cdp) {
       } finally {
         Storage.prototype.setItem = originalStorageSetItem;
       }
+      const originalCallImageAPI = callImageAPI;
+      let retryApiCalls = 0;
+      let authenticationRetry;
+      let timeoutRetry;
+      try {
+        callImageAPI = async () => {
+          retryApiCalls += 1;
+          return { data: [{ b64_json: window.__gatewayPng }] };
+        };
+        const retrySnapshot = captureApiRequestSnapshot();
+        const failedAccount = {
+          ...window.__chatGptAccountsState.accounts[0],
+          status: "authentication_failed",
+          last_error: "HTTP 401: expired QA token",
+        };
+        window.__chatGptAccountsState = {
+          accounts: [failedAccount],
+          active_account_id: failedAccount.local_account_id,
+          auto_switch: true,
+        };
+        renderChatGptAccounts(window.__chatGptAccountsState);
+        const authCard = addResultPlaceholder("auth-retry", "retry after login", {
+          mode: "single", prompt: "retry after login", size: "1024x1024", apiSnapshot: retrySnapshot,
+        });
+        markPlaceholderFailed(authCard, "auth-retry", Object.assign(new Error("HTTP 401: expired QA token"), { status: 401 }), {
+          mode: "single", prompt: "retry after login", size: "1024x1024", apiSnapshot: retrySnapshot,
+        });
+        const authButton = authCard.querySelector(".retry-now");
+        const authButtonInitiallyEnabled = !authButton.disabled;
+        authButton.click();
+        await new Promise(r => setTimeout(r, 40));
+        const openedRelogin = window.__gatewayCalls.some(call => call.action === "reloginChatGpt");
+        const pendingBeforeLogin = pendingChatGptRetryCards.has(authCard);
+        window.__chatGptAccountsState = {
+          ...window.__chatGptAccountsState,
+          accounts: [{ ...failedAccount, status: "ready", last_error: "" }],
+        };
+        window.AiGenChatGptAuth.onState({ status: "ready" });
+        const authDeadline = Date.now() + 2000;
+        while (Date.now() < authDeadline && authCard.dataset.status !== "success") {
+          await new Promise(r => setTimeout(r, 20));
+        }
+        authenticationRetry = {
+          authButtonInitiallyEnabled,
+          openedRelogin,
+          pendingBeforeLogin,
+          finalStatus: authCard.dataset.status,
+          pendingAfterLogin: pendingChatGptRetryCards.has(authCard),
+        };
+
+        const timeoutCard = addResultPlaceholder("timeout-retry", "retry after local bridge timeout", {
+          mode: "single", prompt: "retry after local bridge timeout", size: "1024x1024", apiSnapshot: retrySnapshot,
+        });
+        markPlaceholderFailed(timeoutCard, "timeout-retry", new Error("TimeoutException after 0:00:10.000000: Future not completed"), {
+          mode: "single", prompt: "retry after local bridge timeout", size: "1024x1024", apiSnapshot: retrySnapshot,
+        });
+        const timeoutButton = timeoutCard.querySelector(".retry-now");
+        const timeoutButtonInitiallyEnabled = !timeoutButton.disabled;
+        timeoutButton.click();
+        const timeoutDeadline = Date.now() + 2000;
+        while (Date.now() < timeoutDeadline && timeoutCard.dataset.status !== "success") {
+          await new Promise(r => setTimeout(r, 20));
+        }
+        timeoutRetry = {
+          timeoutButtonInitiallyEnabled,
+          bulkEligible: timeoutCard.dataset.retryBlocked === "false",
+          finalStatus: timeoutCard.dataset.status,
+        };
+      } finally {
+        callImageAPI = originalCallImageAPI;
+      }
       return {
         ready,
         chatGptAuth: {
@@ -5925,6 +5996,7 @@ async function testCodexImageGatewayIntegration(cdp) {
           quotaWriteAttempts,
           quotaFailureEscaped,
         },
+        retryRecovery: { authenticationRetry, timeoutRetry, retryApiCalls },
       };
     })()`, true);
     assertQa(result.ready && result.endpoint === "http://127.0.0.1:18081/v1" && result.model === "gpt-image-2", "The dedicated local gateway must pass health and capability probes before generation.", result);
@@ -5969,6 +6041,23 @@ async function testCodexImageGatewayIntegration(cdp) {
     assertQa(result.protectedUrlChecks.gateway && result.protectedUrlChecks.dynamicPort && !result.protectedUrlChecks.wrongPort && !result.protectedUrlChecks.remoteHost, "Protected task URLs must recognize the embedded gateway's dynamic loopback port while rejecting unrelated local ports and remote hosts.", result);
     assertQa(result.inpaintEnabled && result.inpaintOpened, "Gateway gpt-image-2 must keep local mask inpainting clickable.", result);
     assertQa(result.providerOptions.includes("official") && result.providerOptions.includes("grsai") && result.providerOptions.includes("custom") && !result.gatewayOptionHidden, "The Windows provider list must keep Official, GrsAI and Custom while showing the gateway.", result);
+    assertQa(
+      result.retryRecovery.authenticationRetry.authButtonInitiallyEnabled
+        && result.retryRecovery.authenticationRetry.openedRelogin
+        && result.retryRecovery.authenticationRetry.pendingBeforeLogin
+        && !result.retryRecovery.authenticationRetry.pendingAfterLogin
+        && result.retryRecovery.authenticationRetry.finalStatus === "success",
+      "A ChatGPT 401 card must open sign-in from its visible retry button and automatically resume the same card after account recovery.",
+      result.retryRecovery,
+    );
+    assertQa(
+      result.retryRecovery.timeoutRetry.timeoutButtonInitiallyEnabled
+        && result.retryRecovery.timeoutRetry.bulkEligible
+        && result.retryRecovery.timeoutRetry.finalStatus === "success"
+        && result.retryRecovery.retryApiCalls === 2,
+      "A ChatGPT local-bridge timeout must keep both manual and bulk retry paths actionable instead of rendering a dead button.",
+      result.retryRecovery,
+    );
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
     await cdp.send("Emulation.setUserAgentOverride", { userAgent: "" });

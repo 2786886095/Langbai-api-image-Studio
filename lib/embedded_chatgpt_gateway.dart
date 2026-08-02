@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
+
 const int embeddedGatewayFirstPort = 18081;
 const int embeddedGatewayLastPort = 18100;
 const String embeddedGatewayProcessName = 'langbai_chatgpt_gateway.exe';
@@ -63,6 +65,7 @@ class EmbeddedChatGptGatewayManager {
   String _lastError = '';
   bool _gatewayReady = false;
   bool _stopping = false;
+  final Map<String, String> _appliedSessionFingerprints = <String, String>{};
 
   bool get running => _gatewayReady && _process != null && _port > 0;
 
@@ -108,6 +111,7 @@ class EmbeddedChatGptGatewayManager {
     _apiKey = randomGatewaySecret();
     _bridgeSecret = randomGatewaySecret();
     _lastError = '';
+    _appliedSessionFingerprints.clear();
 
     final attemptedPorts = <int>{};
     final maxPortAttempts = min(3, lastPort - firstPort + 1);
@@ -226,6 +230,7 @@ class EmbeddedChatGptGatewayManager {
       _port = 0;
       _apiKey = '';
       _bridgeSecret = '';
+      _appliedSessionFingerprints.clear();
       if (!_stopping && _lastError.isEmpty) {
         _lastError = 'Bundled image gateway exited with code $exitCode.';
       }
@@ -237,7 +242,12 @@ class EmbeddedChatGptGatewayManager {
     String accessToken, {
     required String accountId,
   }) async {
+    final tokenFingerprint = sha256.convert(utf8.encode(accessToken)).toString();
     final config = await configuration();
+    if (running &&
+        _appliedSessionFingerprints[accountId] == tokenFingerprint) {
+      return;
+    }
     final baseUrl = (config['baseUrl'] ?? '').toString();
     final endpoint = Uri.parse(baseUrl).replace(
       path: '/session-bridge/v1/token',
@@ -253,7 +263,7 @@ class EmbeddedChatGptGatewayManager {
         'account_id': accountId,
       }));
       final response = await request.close().timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 20),
           );
       final body = await utf8.decoder.bind(response).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -262,12 +272,18 @@ class EmbeddedChatGptGatewayManager {
           uri: endpoint,
         );
       }
+      _appliedSessionFingerprints[accountId] = tokenFingerprint;
     } finally {
       client.close(force: true);
     }
   }
 
   Future<void> clearSessionToken({String accountId = ''}) async {
+    if (accountId.isEmpty) {
+      _appliedSessionFingerprints.clear();
+    } else {
+      _appliedSessionFingerprints.remove(accountId);
+    }
     if (!running) return;
     final endpoint = Uri.parse(
       'http://127.0.0.1:$_port/session-bridge/v1/token',
@@ -295,6 +311,7 @@ class EmbeddedChatGptGatewayManager {
     _process = null;
     _gatewayReady = false;
     _port = 0;
+    _appliedSessionFingerprints.clear();
     if (clearSecrets) {
       _apiKey = '';
       _bridgeSecret = '';

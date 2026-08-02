@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.24";
+const APP_VERSION = "1.6.25";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -924,6 +924,9 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
     chatGptOpenSessionFailed: "打开 Session 页面失败", chatGptPasteRequired: "请粘贴 Session JSON 或 accessToken。",
     chatGptImportSuccess: "账号已安全导入并设为当前账号。", chatGptImportFailed: "账号导入失败",
     chatGptAutoSwitchFailed: "自动切换设置保存失败",
+    chatGptRetryRelogin: "该任务的登录已失效，正在打开重新登录窗口；登录成功后会自动重试。",
+    chatGptRetryImport: "该任务的登录已失效。请重新导入 Session；导入成功后会自动重试。",
+    chatGptRetryResuming: "ChatGPT 登录已恢复，正在自动重试失败任务…",
     chatGptAccountStatus_ready: "可用", chatGptAccountStatus_unknown: "待验证",
     chatGptAccountStatus_expired: "已过期", chatGptAccountStatus_authentication_failed: "登录失效",
     chatGptAccountStatus_rate_limited: "额度不足或限流",
@@ -945,6 +948,9 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
     chatGptOpenSessionFailed: "開啟 Session 頁面失敗", chatGptPasteRequired: "請貼上 Session JSON 或 accessToken。",
     chatGptImportSuccess: "帳號已安全匯入並設為目前帳號。", chatGptImportFailed: "帳號匯入失敗",
     chatGptAutoSwitchFailed: "自動切換設定儲存失敗",
+    chatGptRetryRelogin: "此任務的登入已失效，正在開啟重新登入視窗；登入成功後會自動重試。",
+    chatGptRetryImport: "此任務的登入已失效。請重新匯入 Session；匯入成功後會自動重試。",
+    chatGptRetryResuming: "ChatGPT 登入已恢復，正在自動重試失敗任務…",
     chatGptAccountStatus_ready: "可用", chatGptAccountStatus_unknown: "待驗證",
     chatGptAccountStatus_expired: "已過期", chatGptAccountStatus_authentication_failed: "登入失效",
     chatGptAccountStatus_rate_limited: "額度不足或限流",
@@ -966,6 +972,9 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
     chatGptOpenSessionFailed: "Could not open the Session page", chatGptPasteRequired: "Paste Session JSON or an accessToken.",
     chatGptImportSuccess: "Account imported securely and selected.", chatGptImportFailed: "Account import failed",
     chatGptAutoSwitchFailed: "Could not save auto-switch setting",
+    chatGptRetryRelogin: "This task's sign-in expired. Opening sign-in again; the task will retry automatically after success.",
+    chatGptRetryImport: "This task's sign-in expired. Import a fresh Session; the task will retry automatically after import.",
+    chatGptRetryResuming: "ChatGPT sign-in recovered. Retrying the failed task…",
     chatGptAccountStatus_ready: "Ready", chatGptAccountStatus_unknown: "Needs verification",
     chatGptAccountStatus_expired: "Expired", chatGptAccountStatus_authentication_failed: "Sign-in invalid",
     chatGptAccountStatus_rate_limited: "Quota exhausted or rate limited",
@@ -987,6 +996,9 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
     chatGptOpenSessionFailed: "Session ページを開けません", chatGptPasteRequired: "Session JSON または accessToken を貼り付けてください。",
     chatGptImportSuccess: "安全に登録して選択しました。", chatGptImportFailed: "登録に失敗",
     chatGptAutoSwitchFailed: "自動切替設定を保存できません",
+    chatGptRetryRelogin: "このタスクのログインが失効しました。再ログイン画面を開き、成功後に自動再試行します。",
+    chatGptRetryImport: "このタスクのログインが失効しました。新しい Session を登録すると自動再試行します。",
+    chatGptRetryResuming: "ChatGPT のログインが復旧しました。失敗したタスクを再試行しています…",
     chatGptAccountStatus_ready: "利用可能", chatGptAccountStatus_unknown: "要確認",
     chatGptAccountStatus_expired: "期限切れ", chatGptAccountStatus_authentication_failed: "ログイン無効",
     chatGptAccountStatus_rate_limited: "上限到達または制限中",
@@ -1008,6 +1020,9 @@ const CHATGPT_ACCOUNT_LOCALES = Object.freeze({
     chatGptOpenSessionFailed: "Session 페이지를 열지 못했습니다", chatGptPasteRequired: "Session JSON 또는 accessToken을 붙여 넣으세요.",
     chatGptImportSuccess: "계정을 안전하게 가져오고 선택했습니다.", chatGptImportFailed: "계정 가져오기 실패",
     chatGptAutoSwitchFailed: "자동 전환 설정 저장 실패",
+    chatGptRetryRelogin: "이 작업의 로그인이 만료되었습니다. 다시 로그인 창을 열며 성공하면 자동으로 재시도합니다.",
+    chatGptRetryImport: "이 작업의 로그인이 만료되었습니다. 새 Session을 가져오면 자동으로 재시도합니다.",
+    chatGptRetryResuming: "ChatGPT 로그인이 복구되었습니다. 실패한 작업을 다시 시도하는 중…",
     chatGptAccountStatus_ready: "사용 가능", chatGptAccountStatus_unknown: "확인 필요",
     chatGptAccountStatus_expired: "만료됨", chatGptAccountStatus_authentication_failed: "로그인 무효",
     chatGptAccountStatus_rate_limited: "한도 소진 또는 제한됨",
@@ -2000,6 +2015,8 @@ let referenceImages = [];       // { file, dataUrl, width, height } —— 多�
 let generatedImageUrls = [];
 let appWasBackgrounded = false;
 let retryAllFailedRun = null;
+const pendingChatGptRetryCards = new Set();
+let chatGptRetryAuthOpening = false;
 let currentComicHistoryId = null; // 当前结果网格对应的漫画项目历史记录 id（新生成/恢复历史时更新），
                                     // 重试某个分镜时用它定位到要更新的那条历史记录，而不是留着旧图不管
 let latestUpdateRelease = null;
@@ -10288,6 +10305,81 @@ function releaseCardImageCache(card) {
   card._generatedCacheKey = "";
 }
 
+function retryContextProvider(card, context = null) {
+  const source = context || card?._retryContext || {};
+  return String(source?.apiSnapshot?.provider || "");
+}
+
+function isChatGptAuthenticationRetry(card, context = null, apiSnapshot = null) {
+  const category = String(context?.errorCategory || card?.dataset?.errorCategory || "");
+  const provider = String(apiSnapshot?.provider || retryContextProvider(card, context));
+  return category === "authentication_failed" && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
+}
+
+function activeChatGptAccountIsReady() {
+  return activeChatGptAccount()?.status === "ready";
+}
+
+function refreshChatGptFailedRetryAvailability() {
+  const ready = activeChatGptAccountIsReady();
+  for (const card of getFailedResultCards()) {
+    if (!isChatGptAuthenticationRetry(card)) continue;
+    card.dataset.retryBlocked = ready ? "false" : "true";
+    const retryNow = card.querySelector(".retry-now");
+    if (retryNow) retryNow.disabled = false;
+  }
+  updateFailedRetryTools();
+}
+
+async function requestChatGptAuthenticationForRetry(card) {
+  try {
+    renderChatGptAccounts(await nativeDownload.getChatGptAccounts());
+  } catch {}
+  if (activeChatGptAccountIsReady()) {
+    card.dataset.retryBlocked = "false";
+    return true;
+  }
+
+  pendingChatGptRetryCards.add(card);
+  refreshChatGptFailedRetryAvailability();
+  if (isNativeWindowsWebview()) {
+    showStatus(cleanText("chatGptRetryRelogin"), "warning");
+    if (!chatGptRetryAuthOpening) {
+      chatGptRetryAuthOpening = true;
+      try {
+        await runChatGptAuthAction("reloginChatGpt");
+      } finally {
+        chatGptRetryAuthOpening = false;
+      }
+    }
+  } else {
+    openModal(dom.settingsModal);
+    dom.chatGptSessionInput?.focus();
+    showStatus(cleanText("chatGptRetryImport"), "warning");
+  }
+  return false;
+}
+
+let chatGptRetryResumeScheduled = false;
+function resumePendingChatGptRetries() {
+  refreshChatGptFailedRetryAvailability();
+  if (!activeChatGptAccountIsReady() || !pendingChatGptRetryCards.size || chatGptRetryResumeScheduled) return;
+  chatGptRetryResumeScheduled = true;
+  queueMicrotask(async () => {
+    try {
+      const cards = [...pendingChatGptRetryCards];
+      pendingChatGptRetryCards.clear();
+      showStatus(cleanText("chatGptRetryResuming"), "info");
+      for (const card of cards) {
+        if (!card?.isConnected || !card.classList.contains("is-failed")) continue;
+        await retryResultCard(card, false, { authRecoveryConfirmed: true });
+      }
+    } finally {
+      chatGptRetryResumeScheduled = false;
+    }
+  });
+}
+
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   const errorDetail = classifyImageApiError(errMsg);
   const message = sanitizeImageErrorMessage(
@@ -10295,13 +10387,19 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
     (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"])[errorDetail.category] || "生成失败",
   );
   const requiresEdit = Boolean(errorDetail.requiresEdit);
-  const retryBlocked = Boolean(
+  const provider = retryContextProvider(card, retryContext);
+  const chatGptAuthentication = errorDetail.category === "authentication_failed"
+    && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
+  const chatGptManualTimeout = errorDetail.retryPolicy === "manual_unknown_outcome"
+    && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
+  const hardRetryBlocked = Boolean(
     errorDetail.retryPolicy === "never"
-    || errorDetail.retryPolicy === "after_configuration_change"
     || errorDetail.retryPolicy === "edit_required"
-    || errorDetail.retryPolicy === "manual_unknown_outcome"
     || errorDetail.category === "provider_ui_unavailable"
+    || (errorDetail.retryPolicy === "after_configuration_change" && !chatGptAuthentication)
+    || (errorDetail.retryPolicy === "manual_unknown_outcome" && !chatGptManualTimeout)
   );
+  const retryBlocked = hardRetryBlocked || (chatGptAuthentication && !activeChatGptAccountIsReady());
   setRetryContext(card, panelId, {
     ...(card._retryContext || {}),
     ...(retryContext || {}),
@@ -10338,7 +10436,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   card.title = message;
   const retryNow = card.querySelector(".retry-now");
   if (retryNow) {
-    retryNow.disabled = retryBlocked;
+    retryNow.disabled = hardRetryBlocked;
     retryNow.title = requiresEdit ? (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"]).editRequired : cleanText("retry");
     retryNow.addEventListener("click", () => retryResultCard(card, false));
   }
@@ -10765,6 +10863,11 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   if (editBeforeRetry) {
     context = await editRetryContext(context);
     if (!context) return false;
+  }
+  if (!options.authRecoveryConfirmed
+      && isChatGptAuthenticationRetry(card, context, apiSnapshot)
+      && !(await requestChatGptAuthenticationForRetry(card))) {
+    return false;
   }
   const panelId = context.panelId || card.dataset.panelId || "重试";
   if (context.referencesMissing && !(Array.isArray(context.references) && context.references.length)) {
@@ -12906,17 +13009,17 @@ const nativeDownload = (() => {
     saveSecret(key, value) { return request("saveSecret", { key, value }); },
     loadSecret(key) { return request("loadSecret", { key }); },
     deleteSecret(key) { return request("deleteSecret", { key }); },
-    loadCodexImageGatewayConfig() { return request("loadCodexImageGatewayConfig", {}, 10000); },
+    loadCodexImageGatewayConfig() { return request("loadCodexImageGatewayConfig", {}, 60000); },
     restartCodexImageGateway() { return request("restartCodexImageGateway", {}, 40000); },
     getChatGptAccounts() { return request("getChatGptAccounts", {}, 10000); },
     importChatGptSession(input, preferredAccountId = "") {
-      return request("importChatGptSession", { input, preferredAccountId }, 20000);
+      return request("importChatGptSession", { input, preferredAccountId }, 90000);
     },
     selectChatGptAccount(accountId) {
-      return request("selectChatGptAccount", { accountId }, 20000);
+      return request("selectChatGptAccount", { accountId }, 90000);
     },
     activateChatGptAccount(accountId) {
-      return request("activateChatGptAccount", { accountId }, 20000);
+      return request("activateChatGptAccount", { accountId }, 90000);
     },
     deleteChatGptAccount(accountId) {
       return request("deleteChatGptAccount", { accountId }, 20000);
@@ -12925,7 +13028,7 @@ const nativeDownload = (() => {
       return request("setChatGptAutoSwitch", { enabled: !!enabled }, 10000);
     },
     rotateChatGptAccount(failedStatus, reason) {
-      return request("rotateChatGptAccount", { failedStatus, reason }, 20000);
+      return request("rotateChatGptAccount", { failedStatus, reason }, 90000);
     },
     openChatGptSessionPage() {
       return request("openChatGptSessionPage", {}, 10000);
@@ -13004,6 +13107,7 @@ function renderChatGptAccountList() {
           codexGatewayCredentials = null;
           codexGatewayHealthCheckedAt = 0;
           await checkCodexGatewayHealth({ announce: true, force: true });
+          resumePendingChatGptRetries();
         } catch (error) {
           showStatus(`${cleanText("chatGptSwitchFailed")}：${error?.message || error}`, "error");
         } finally {
@@ -13065,6 +13169,7 @@ function renderChatGptAccounts(nextState = {}) {
   dom.chatGptRelogin?.classList.toggle("hidden", !windows || !account);
   dom.chatGptLogout?.classList.toggle("hidden", !account);
   renderChatGptAccountList();
+  refreshChatGptFailedRetryAvailability();
 }
 
 function renderChatGptAuthState(nextState = {}) {
@@ -13075,7 +13180,10 @@ function renderChatGptAuthState(nextState = {}) {
     dom.chatGptAuthStatus.textContent = cleanText(presentation.key);
   }
   if (chatGptAuthState.status === "ready") {
-    nativeDownload.getChatGptAccounts().then(renderChatGptAccounts).catch(() => {});
+    nativeDownload.getChatGptAccounts().then(state => {
+      renderChatGptAccounts(state);
+      resumePendingChatGptRetries();
+    }).catch(() => {});
   }
 }
 
@@ -13125,6 +13233,7 @@ dom.importChatGptSession?.addEventListener("click", async () => {
     codexGatewayHealthCheckedAt = 0;
     showStatus(cleanText("chatGptImportSuccess"), "success");
     if (isCodexGatewaySelected()) await checkCodexGatewayHealth({ announce: true, force: true });
+    resumePendingChatGptRetries();
   } catch (error) {
     if (dom.chatGptSessionInput) dom.chatGptSessionInput.value = "";
     showStatus(`${cleanText("chatGptImportFailed")}：${error?.message || error}`, "error");
