@@ -5442,6 +5442,111 @@ async function testProviderPanelsResponsiveAfterGateway(cdp) {
   }
 }
 
+async function testCodexGatewayAutomaticRecovery(cdp) {
+  logStep("ChatGPT web image gateway preserves health failures, restarts once, and shows circuit recovery countdown");
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      localStorage.clear();
+      window.__AI_GEN_NATIVE_PLATFORM = "windows";
+      window.__gatewayRecoveryCalls = [];
+      window.__gatewayHealthMode = "fail_once";
+      window.__gatewayHealthFailures = 1;
+      window.FlutterDownload = {
+        postMessage(raw) {
+          const payload = JSON.parse(raw);
+          window.__gatewayRecoveryCalls.push(payload);
+          let result = {};
+          if (["loadCodexImageGatewayConfig", "restartCodexImageGateway"].includes(payload.action)) {
+            result = { baseUrl: "http://127.0.0.1:18081/v1", apiKey: "${"e".repeat(64)}" };
+          } else if (payload.action === "getChatGptAccounts") {
+            result = { accounts: [], active_account_id: "", auto_switch: true };
+          } else if (payload.action === "nativeFetch") {
+            const url = String(payload.url || "");
+            if (url.endsWith("/healthz")) {
+              if (window.__gatewayHealthMode === "fail_once" && window.__gatewayHealthFailures > 0) {
+                window.__gatewayHealthFailures--;
+                result = { status: 503, headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "starting" }) };
+              } else {
+                result = {
+                  status: 200,
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ status: "ok", session_available: window.__gatewayHealthMode !== "missing_session" }),
+                };
+              }
+            } else {
+              result = {
+                status: 200,
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  image_only: true, generations: true, edits: true, async_tasks: true,
+                  models: ["gpt-image-2"], max_reference_images: 20,
+                  default_concurrency: 1, max_concurrency: 100,
+                  dimension_modes: ["native", "strict_native", "exact_output"],
+                }),
+              };
+            }
+          }
+          setTimeout(() => window.AiGenAndroidBridge?.resolve(payload.id, result), 0);
+        }
+      };
+    `,
+  });
+  try {
+    await loadFresh(cdp, "codex-gateway-automatic-recovery");
+    const result = await cdp.eval(`(async () => {
+      applyApiProvider(CODEX_IMAGE_GATEWAY_PROVIDER, { forceEndpoint: true });
+      const recovered = await checkCodexGatewayHealth({ announce: false, force: true, allowRestart: true });
+      const restartCallsAfterRecovery = window.__gatewayRecoveryCalls.filter(call => call.action === "restartCodexImageGateway").length;
+
+      window.__gatewayHealthMode = "missing_session";
+      codexGatewayCredentials = null;
+      codexGatewayHealthCheckedAt = 0;
+      setCodexGatewayHealthState("idle");
+      const missingSessionReady = await checkCodexGatewayHealth({ announce: false, force: true, allowRestart: true });
+      const detailedError = codexGatewayUnavailableError();
+      const restartCallsAfterMissingSession = window.__gatewayRecoveryCalls.filter(call => call.action === "restartCodexImageGateway").length;
+
+      scheduleCodexGatewayRecovery(Date.now() + 1600);
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const recoveryState = codexGatewayHealthState;
+      const recoveryText = dom.codexGatewayHealthStatus?.textContent || "";
+      clearCodexGatewayRecoveryTimer();
+      codexGatewayRuntime.resetAfterHealthCheck({ resetReference: true });
+      setCodexGatewayHealthState("ready", CODEX_IMAGE_GATEWAY_MODEL);
+      return {
+        recovered,
+        restartCallsAfterRecovery,
+        missingSessionReady,
+        detailedMessage: detailedError.message,
+        detailedCategory: detailedError.imageError?.category || "",
+        restartCallsAfterMissingSession,
+        recoveryState,
+        recoveryText,
+      };
+    })()`, true);
+    assertQa(
+      result.recovered && result.restartCallsAfterRecovery === 1,
+      "A transient health failure must restart the bundled ChatGPT gateway once and retry the probe.",
+      result,
+    );
+    assertQa(
+      !result.missingSessionReady
+        && result.restartCallsAfterMissingSession === 1
+        && result.detailedMessage.includes("请先导入一个可用的 ChatGPT 账号令牌")
+        && result.detailedCategory === "upstream_unavailable",
+      "A missing account session must keep its actionable reason and must not restart the gateway.",
+      result,
+    );
+    assertQa(
+      result.recoveryState === "recovering" && /\d+\s*秒/.test(result.recoveryText),
+      "An open circuit must show a live recovery countdown before its automatic health probe.",
+      result,
+    );
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+  }
+}
+
 async function testAndroidChatGptGatewayEntry(cdp) {
   logStep("Android exposes the ChatGPT web image provider with manual token import and keeps built-in browser login hidden");
   const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -6451,6 +6556,7 @@ async function main() {
     await testOpenAiOfficialProviderResponsiveLayout(cdp);
     await testOpenCodexDualModelsSizesAndLocalInpaint(cdp);
     await testCodexGatewayOptionsPersistAcrossRestart(cdp);
+    await testCodexGatewayAutomaticRecovery(cdp);
     await testGptImage2InpaintRoutes(cdp);
     await testInpaintModalInteractionSafety(cdp);
     await testAndroidChatGptGatewayEntry(cdp);

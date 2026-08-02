@@ -325,11 +325,18 @@
     });
   }
 
-  function createOpenCodexRuntime({ initialConcurrency = 100, circuitFailureThreshold = 3, circuitMs = 45_000 } = {}) {
+  function createOpenCodexRuntime({
+    initialConcurrency = 100,
+    circuitFailureThreshold = 3,
+    circuitMs = 45_000,
+    failureBatchMs = 5_000,
+  } = {}) {
     const state = {
       concurrency: Math.max(1, Number(initialConcurrency) || 100),
       upstreamFailureStreak: 0,
       circuitOpenUntil: 0,
+      lastFailureIncident: "",
+      lastFailureAt: 0,
       referenceRoute: "unknown",
       referenceFailure: "",
     };
@@ -346,6 +353,8 @@
       },
       recordSuccess({ hasReference = false } = {}) {
         state.upstreamFailureStreak = 0;
+        state.lastFailureIncident = "";
+        state.lastFailureAt = 0;
         if (hasReference) {
           state.referenceRoute = "ready";
           state.referenceFailure = "";
@@ -353,21 +362,44 @@
       },
       recordFailure(classification, { hasReference = false, message = "", now = Date.now() } = {}) {
         const category = classification?.category || ERROR_CATEGORIES.unknown;
+        let failureCounted = false;
+        let circuitOpened = false;
         if (category === ERROR_CATEGORIES.disconnected || category === ERROR_CATEGORIES.unavailable) {
-          state.upstreamFailureStreak += 1;
-          if (state.upstreamFailureStreak >= 2) state.concurrency = 1;
-          if (state.upstreamFailureStreak >= circuitFailureThreshold) state.circuitOpenUntil = now + circuitMs;
+          // A single upstream outage can fan out as a mix of 502 disconnects
+          // and 503 unavailable responses across concurrent cards. Treat the
+          // whole short window as one incident instead of counting each card.
+          const incident = "gateway_upstream_failure";
+          const batchWindow = Math.max(0, Number(failureBatchMs) || 0);
+          const sameIncident = state.lastFailureIncident === incident
+            && now >= state.lastFailureAt
+            && now - state.lastFailureAt <= batchWindow;
+          if (!sameIncident) {
+            state.lastFailureIncident = incident;
+            state.lastFailureAt = now;
+            failureCounted = true;
+            state.upstreamFailureStreak += 1;
+            if (state.upstreamFailureStreak >= 2) state.concurrency = 1;
+            if (state.upstreamFailureStreak >= circuitFailureThreshold) {
+              circuitOpened = state.circuitOpenUntil <= now;
+              state.circuitOpenUntil = now + circuitMs;
+            }
+          }
           if (hasReference) {
             state.referenceRoute = "unavailable";
             state.referenceFailure = String(message || classification?.originalMessage || "").slice(0, 300);
           }
         } else if (category !== ERROR_CATEGORIES.canceled) {
           state.upstreamFailureStreak = 0;
+          state.lastFailureIncident = "";
+          state.lastFailureAt = 0;
         }
+        return Object.freeze({ ...state, failureCounted, circuitOpened });
       },
       resetAfterHealthCheck({ resetReference = false } = {}) {
         state.circuitOpenUntil = 0;
         state.upstreamFailureStreak = 0;
+        state.lastFailureIncident = "";
+        state.lastFailureAt = 0;
         state.concurrency = Math.max(1, Number(initialConcurrency) || 100);
         if (resetReference) {
           state.referenceRoute = "unknown";
