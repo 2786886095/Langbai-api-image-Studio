@@ -810,6 +810,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayHealthChecking: "正在连接 ChatGPT 网页生图网关…",
     codexGatewayHealthReady: "网关可用 · {detail}",
     codexGatewayHealthFailed: "网关不可用：{reason}",
+    codexGatewayCircuitRecovering: "网关正在自动恢复，{seconds} 秒后重新检测",
     codexGatewayKeyHint: "凭据由 Windows 或 Android 软件从系统安全存储读取，仅进入运行内存，不保存到 API 配置中",
     codexGatewayReferenceBoards: "已接收 {count} 张参考图；网关将聚合为编号参考板",
     chatGptAuthTitle: "内置 ChatGPT 官方登录",
@@ -830,6 +831,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "並發可輸入 1–100，預設 10；實際速度、審核與限流由上游帳號狀態決定。",
     codexGatewayHealthCheck: "檢測閘道", codexGatewayHealthIdle: "尚未檢測", codexGatewayHealthChecking: "正在連接 ChatGPT 網頁生圖…",
     codexGatewayHealthReady: "閘道可用 · {detail}", codexGatewayHealthFailed: "閘道不可用：{reason}",
+    codexGatewayCircuitRecovering: "閘道正在自動恢復，{seconds} 秒後重新檢測",
     codexGatewayKeyHint: "憑證由 Windows 或 Android 軟體從系統安全儲存讀取，只進入執行記憶體，不儲存到 API 設定中",
     codexGatewayReferenceBoards: "已接收 {count} 張參考圖；閘道將聚合為編號參考板",
     chatGptAuthTitle: "內建 ChatGPT 官方登入",
@@ -850,6 +852,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "Concurrency is configurable from 1–100 with a default of 10; actual speed and limits depend on the upstream account.",
     codexGatewayHealthCheck: "Test gateway", codexGatewayHealthIdle: "Not tested", codexGatewayHealthChecking: "Connecting to the ChatGPT web image gateway…",
     codexGatewayHealthReady: "Gateway ready · {detail}", codexGatewayHealthFailed: "Gateway unavailable: {reason}",
+    codexGatewayCircuitRecovering: "Gateway recovery in progress; checking again in {seconds}s",
     codexGatewayKeyHint: "Windows or Android loads the credential from OS secure storage into runtime memory only; it is not saved in API profiles",
     codexGatewayReferenceBoards: "{count} references received; the gateway will compile numbered contact sheets",
     chatGptAuthTitle: "Built-in official ChatGPT sign-in",
@@ -870,6 +873,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "同時生成数は 1～100、既定値は 10 です。実際の速度、審査、制限は上流アカウントに依存します。",
     codexGatewayHealthCheck: "ゲートウェイ確認", codexGatewayHealthIdle: "未確認", codexGatewayHealthChecking: "ChatGPT Web 画像に接続中…",
     codexGatewayHealthReady: "ゲートウェイ利用可能 · {detail}", codexGatewayHealthFailed: "ゲートウェイ利用不可：{reason}",
+    codexGatewayCircuitRecovering: "ゲートウェイを自動復旧中です。{seconds} 秒後に再確認します",
     codexGatewayKeyHint: "Windows または Android が OS の安全な保存領域から資格情報を実行メモリだけに読み込み、API 設定には保存しません",
     codexGatewayReferenceBoards: "参照画像 {count} 枚を受信。番号付き参照ボードに統合します",
     chatGptAuthTitle: "内蔵 ChatGPT 公式ログイン",
@@ -890,6 +894,7 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCapability: "동시 생성 수는 1–100, 기본값은 10입니다. 실제 속도, 검토 및 제한은 업스트림 계정 상태에 따라 달라집니다.",
     codexGatewayHealthCheck: "게이트웨이 검사", codexGatewayHealthIdle: "검사 안 함", codexGatewayHealthChecking: "ChatGPT 웹 이미지에 연결 중…",
     codexGatewayHealthReady: "게이트웨이 사용 가능 · {detail}", codexGatewayHealthFailed: "게이트웨이 사용 불가: {reason}",
+    codexGatewayCircuitRecovering: "게이트웨이를 자동 복구 중입니다. {seconds}초 후 다시 확인합니다",
     codexGatewayKeyHint: "Windows 또는 Android가 OS 보안 저장소의 자격 증명을 실행 메모리에서만 사용하며 API 설정에는 저장하지 않습니다",
     codexGatewayReferenceBoards: "참고 이미지 {count}장을 받았습니다. 번호 참조 보드로 통합합니다",
     chatGptAuthTitle: "내장 ChatGPT 공식 로그인",
@@ -2184,6 +2189,7 @@ const CODEX_IMAGE_GATEWAY_MODEL = codexImageGateway.MODEL;
 const CODEX_IMAGE_GATEWAY_REQUEST_TIMEOUT_MS = 300000;
 const CODEX_IMAGE_GATEWAY_TASK_WAIT_TIMEOUT_MS = 1200000;
 const CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS = 30000;
+const CODEX_IMAGE_GATEWAY_RECOVERY_RETRY_MS = 15000;
 const GEMINI_WEB_PROVIDER = geminiWebImage.PROVIDER_ID;
 const GEMINI_WEB_MODEL = geminiWebImage.MODEL;
 const GEMINI_WEB_BASE_URL = geminiWebImage.DEFAULT_BASE_URL;
@@ -3148,6 +3154,7 @@ let codexGatewayHealthDetail = "";
 let codexGatewayHealthPromise = null;
 let codexGatewayCredentials = null;
 let codexGatewayCapabilities = null;
+let codexGatewayRecoveryTimer = null;
 
 function isCodexGatewaySelected() {
   return (dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "")) === CODEX_IMAGE_GATEWAY_PROVIDER;
@@ -3182,6 +3189,8 @@ function setCodexGatewayHealthState(state, detail = "") {
       ? cleanText("codexGatewayHealthChecking")
       : state === "ready"
         ? interpolate(cleanText("codexGatewayHealthReady"), { detail: detail || "image-only" })
+        : state === "recovering"
+          ? interpolate(cleanText("codexGatewayCircuitRecovering"), { seconds: detail || "1" })
         : state === "error"
           ? interpolate(cleanText("codexGatewayHealthFailed"), { reason: detail || "unknown" })
           : cleanText("codexGatewayHealthIdle");
@@ -3215,7 +3224,71 @@ async function loadCodexGatewayCredentials() {
   return codexGatewayCredentials;
 }
 
-async function checkCodexGatewayHealth({ announce = false, force = true } = {}) {
+async function probeCodexGatewayHealth() {
+  const credentials = await loadCodexGatewayCredentials();
+  const healthUrl = `${credentials.baseUrl.replace(/\/v1\/?$/i, "")}/healthz`;
+  const health = await smartFetch(healthUrl, {
+    headers: { Accept: "application/json" }, nativeTimeoutMs: 5000, forceDirectProxy: true,
+  });
+  if (!health.ok) throw new Error(`健康检查 HTTP ${health.status}`);
+  const healthBody = await health.json().catch(() => ({}));
+  if (healthBody?.status !== "ok") throw new Error(healthBody?.message || healthBody?.status || "健康检查失败");
+  if (healthBody?.session_available === false) throw new Error("请先导入一个可用的 ChatGPT 账号令牌");
+  const capsResponse = await smartFetch(`${credentials.baseUrl}/image-capabilities`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${credentials.apiKey}` },
+    nativeTimeoutMs: 5000, forceDirectProxy: true,
+  });
+  if (!capsResponse.ok) throw new Error(`能力检查 HTTP ${capsResponse.status}`);
+  const validated = codexImageGateway.validateCapabilities(await capsResponse.json());
+  if (!validated.ok) throw new Error(`缺少能力：${validated.missing.join(", ")}`);
+  return validated.capabilities;
+}
+
+function shouldRestartCodexGatewayAfterHealthFailure(error) {
+  const reason = String(error?.message || error || "");
+  return !/请先导入|账号令牌|缺少能力|凭据格式无效|仅在 Windows|only.*available/i.test(reason);
+}
+
+function clearCodexGatewayRecoveryTimer() {
+  if (codexGatewayRecoveryTimer != null) clearTimeout(codexGatewayRecoveryTimer);
+  codexGatewayRecoveryTimer = null;
+}
+
+function scheduleCodexGatewayRecovery(openUntil) {
+  clearCodexGatewayRecoveryTimer();
+  const deadline = Math.max(Date.now(), Number(openUntil) || Date.now());
+  const tick = () => {
+    if (!isCodexGatewaySelected()) {
+      clearCodexGatewayRecoveryTimer();
+      return;
+    }
+    const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    if (seconds > 0) {
+      setCodexGatewayHealthState("recovering", String(seconds));
+      codexGatewayRecoveryTimer = setTimeout(tick, Math.min(1000, Math.max(100, deadline - Date.now())));
+      return;
+    }
+    codexGatewayRecoveryTimer = null;
+    void checkCodexGatewayHealth({ announce: false, force: true, allowRestart: true }).then(ready => {
+      if (!ready && isCodexGatewaySelected()) {
+        scheduleCodexGatewayRecovery(Date.now() + CODEX_IMAGE_GATEWAY_RECOVERY_RETRY_MS);
+      }
+    });
+  };
+  tick();
+}
+
+function codexGatewayUnavailableError() {
+  const reason = codexGatewayHealthState === "recovering"
+    ? interpolate(cleanText("codexGatewayCircuitRecovering"), { seconds: codexGatewayHealthDetail || "1" })
+    : interpolate(cleanText("codexGatewayHealthFailed"), { reason: codexGatewayHealthDetail || "unknown" });
+  const error = new Error(reason);
+  error.status = 503;
+  error.code = "codex_gateway_unavailable";
+  return makeImageApiError(error);
+}
+
+async function checkCodexGatewayHealth({ announce = false, force = true, allowRestart = true } = {}) {
   if (!isCodexGatewaySelected()) return true;
   if (!force && codexGatewayHealthState === "ready" && Date.now() - codexGatewayHealthCheckedAt < CODEX_IMAGE_GATEWAY_HEALTH_CACHE_MS) return true;
   if (codexGatewayHealthPromise) return codexGatewayHealthPromise;
@@ -3223,25 +3296,35 @@ async function checkCodexGatewayHealth({ announce = false, force = true } = {}) 
   if (dom.testCodexGatewayHealth) dom.testCodexGatewayHealth.disabled = true;
   codexGatewayHealthPromise = (async () => {
     try {
-      const credentials = await loadCodexGatewayCredentials();
-      const healthUrl = `${credentials.baseUrl.replace(/\/v1\/?$/i, "")}/healthz`;
-      const health = await smartFetch(healthUrl, {
-        headers: { Accept: "application/json" }, nativeTimeoutMs: 5000, forceDirectProxy: true,
-      });
-      if (!health.ok) throw new Error(`健康检查 HTTP ${health.status}`);
-      const healthBody = await health.json().catch(() => ({}));
-      if (healthBody?.status !== "ok") throw new Error(healthBody?.message || healthBody?.status || "健康检查失败");
-      if (healthBody?.session_available === false) throw new Error("请先导入一个可用的 ChatGPT 账号令牌");
-      const capsResponse = await smartFetch(`${credentials.baseUrl}/image-capabilities`, {
-        headers: { Accept: "application/json", Authorization: `Bearer ${credentials.apiKey}` },
-        nativeTimeoutMs: 5000, forceDirectProxy: true,
-      });
-      if (!capsResponse.ok) throw new Error(`能力检查 HTTP ${capsResponse.status}`);
-      const validated = codexImageGateway.validateCapabilities(await capsResponse.json());
-      if (!validated.ok) throw new Error(`缺少能力：${validated.missing.join(", ")}`);
-      codexGatewayCapabilities = validated.capabilities;
+      let capabilities = null;
+      let failure = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          capabilities = await probeCodexGatewayHealth();
+          failure = null;
+          break;
+        } catch (error) {
+          failure = error;
+          const canRestart = attempt === 0
+            && allowRestart
+            && shouldRestartCodexGatewayAfterHealthFailure(error)
+            && typeof nativeDownload.restartCodexImageGateway === "function";
+          if (!canRestart) break;
+          try {
+            await nativeDownload.restartCodexImageGateway();
+            codexGatewayCredentials = null;
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } catch (restartError) {
+            failure = new Error(`${String(error?.message || error)}；自动重启失败：${String(restartError?.message || restartError)}`);
+            break;
+          }
+        }
+      }
+      if (failure || !capabilities) throw failure || new Error("网关健康检查未返回能力信息");
+      codexGatewayCapabilities = capabilities;
       codexGatewayHealthCheckedAt = Date.now();
       codexGatewayRuntime.resetAfterHealthCheck({ resetReference: force });
+      clearCodexGatewayRecoveryTimer();
       setCodexGatewayHealthState("ready", `ChatGPT 网页额度 · ${CODEX_IMAGE_GATEWAY_MODEL}`);
       if (announce) showStatus(interpolate(cleanText("codexGatewayHealthReady"), { detail: CODEX_IMAGE_GATEWAY_MODEL }), "success");
       return true;
@@ -7652,7 +7735,7 @@ registerAdapter({
   getConcurrency() { return getCodexGatewayConcurrency(); },
 
   async fetchModels() {
-    if (!(await checkCodexGatewayHealth({ announce: false, force: true }))) throw new Error("ChatGPT web image gateway is unavailable");
+    if (!(await checkCodexGatewayHealth({ announce: false, force: true }))) throw codexGatewayUnavailableError();
     setModelChoices([CODEX_IMAGE_GATEWAY_MODEL]);
     dom.model.value = CODEX_IMAGE_GATEWAY_MODEL;
     showStatus(`${cleanText("codexGatewayApi")} ? ${CODEX_IMAGE_GATEWAY_MODEL}`, "success");
@@ -7661,7 +7744,7 @@ registerAdapter({
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {
     const signal = options.signal;
     throwIfAborted(signal);
-    if (!(await checkCodexGatewayHealth({ announce: false, force: false }))) throw new Error("ChatGPT web image gateway is unavailable");
+    if (!(await checkCodexGatewayHealth({ announce: false, force: false }))) throw codexGatewayUnavailableError();
     if (Number(n) !== 1) throw new Error("The web image gateway fixes each request to n=1; batches queue separate tasks");
     const gatewayOptions = normalizeCodexGatewayOptions(options.codexGatewayOptions || getCodexGatewayOptions());
     const built = codexImageGateway.buildImageRequest({ prompt, size, refs: hasRef ? refs : [], options: gatewayOptions });
@@ -7677,7 +7760,14 @@ registerAdapter({
       references: hasRef ? refs : [],
     });
     const runtimeGate = codexGatewayRuntime.beforeRequest({ hasReference: hasRef && refs.length > 0 });
-    if (!runtimeGate.allowed) throw makeImageApiError(new Error("HTTP 503: Gateway client circuit breaker temporarily blocked new work"));
+    if (!runtimeGate.allowed) {
+      if (runtimeGate.reason === "circuit_open") {
+        scheduleCodexGatewayRecovery(Date.now() + Math.max(0, Number(runtimeGate.retryAfterMs) || 0));
+      } else if (runtimeGate.detail) {
+        setCodexGatewayHealthState("error", String(runtimeGate.detail));
+      }
+      throw codexGatewayUnavailableError();
+    }
     const attemptedAccounts = new Set();
     const accountFailures = [];
     while (true) {
@@ -7722,10 +7812,13 @@ registerAdapter({
           aggregate.status = status || 429;
           throw makeImageApiError(aggregate);
         }
-        codexGatewayRuntime.recordFailure(classifyImageApiError(normalized), {
+        const runtimeUpdate = codexGatewayRuntime.recordFailure(classifyImageApiError(normalized), {
           hasReference: hasRef && refs.length > 0,
           message: String(normalized?.message || normalized),
         });
+        if (runtimeUpdate.circuitOpenUntil > Date.now()) {
+          scheduleCodexGatewayRecovery(runtimeUpdate.circuitOpenUntil);
+        }
         throw normalized;
       }
     }
@@ -12814,6 +12907,7 @@ const nativeDownload = (() => {
     loadSecret(key) { return request("loadSecret", { key }); },
     deleteSecret(key) { return request("deleteSecret", { key }); },
     loadCodexImageGatewayConfig() { return request("loadCodexImageGatewayConfig", {}, 10000); },
+    restartCodexImageGateway() { return request("restartCodexImageGateway", {}, 40000); },
     getChatGptAccounts() { return request("getChatGptAccounts", {}, 10000); },
     importChatGptSession(input, preferredAccountId = "") {
       return request("importChatGptSession", { input, preferredAccountId }, 20000);

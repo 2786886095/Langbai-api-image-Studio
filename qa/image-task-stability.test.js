@@ -110,7 +110,12 @@ test("actual dimensions are authoritative", () => {
 });
 
 test("OpenCodex runtime starts at two, drops to one, opens a circuit, and blocks a failed reference route", () => {
-  const runtime = stability.createOpenCodexRuntime({ initialConcurrency: 2, circuitFailureThreshold: 3, circuitMs: 60_000 });
+  const runtime = stability.createOpenCodexRuntime({
+    initialConcurrency: 2,
+    circuitFailureThreshold: 3,
+    circuitMs: 60_000,
+    failureBatchMs: 0,
+  });
   const failure = stability.classifyApiError("HTTP 502: socket closed");
   runtime.recordFailure(failure, { hasReference: true, message: "socket closed", now: 1000 });
   assert.equal(runtime.snapshot().concurrency, 2);
@@ -122,6 +127,29 @@ test("OpenCodex runtime starts at two, drops to one, opens a circuit, and blocks
   runtime.resetAfterHealthCheck({ resetReference: true });
   assert.equal(runtime.snapshot().concurrency, 2);
   assert.equal(runtime.beforeRequest({ hasReference: true }).allowed, true);
+});
+
+test("concurrent failures from one upstream incident count as one circuit failure", () => {
+  const runtime = stability.createOpenCodexRuntime({
+    initialConcurrency: 10,
+    circuitFailureThreshold: 3,
+    circuitMs: 45_000,
+    failureBatchMs: 5_000,
+  });
+  const failure = stability.classifyApiError("HTTP 503: service unavailable");
+  const first = runtime.recordFailure(failure, { now: 1_000 });
+  const duplicateA = runtime.recordFailure(failure, { now: 1_100 });
+  const duplicateB = runtime.recordFailure(failure, { now: 1_200 });
+  assert.equal(first.failureCounted, true);
+  assert.equal(duplicateA.failureCounted, false);
+  assert.equal(duplicateB.failureCounted, false);
+  assert.equal(runtime.snapshot().upstreamFailureStreak, 1);
+  assert.equal(runtime.beforeRequest({ now: 1_201 }).allowed, true);
+
+  runtime.recordFailure(failure, { now: 7_000 });
+  const opened = runtime.recordFailure(failure, { now: 13_000 });
+  assert.equal(opened.circuitOpened, true);
+  assert.equal(runtime.beforeRequest({ now: 13_001 }).retryAfterMs, 44_999);
 });
 
 test("request audit hashes normalized prompts and reference bytes without retaining their contents", async () => {

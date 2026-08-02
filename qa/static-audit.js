@@ -125,6 +125,15 @@ assert.match(app, /savePersistedCodexGatewayOptions/);
 assert.match(app, /codexGatewayOptionsExplicit/);
 assert.match(regressionRunner, /testCodexGatewayOptionsPersistAcrossRestart/);
 assert.match(regressionRunner, /ChatGPT web image quality and dimension handling persist across profile restores/);
+assert.match(imageTaskStability, /failureBatchMs = 5_000/);
+assert.match(imageTaskStability, /failureCounted/);
+assert.match(app, /restartCodexImageGateway/);
+assert.match(app, /scheduleCodexGatewayRecovery/);
+assert.match(app, /codexGatewayCircuitRecovering/);
+assert.match(dartMain, /case 'restartCodexImageGateway':/);
+assert.match(dartMain, /_restartChatGptImageGateway/);
+assert.match(regressionRunner, /testCodexGatewayAutomaticRecovery/);
+assert.match(regressionRunner, /preserves health failures, restarts once, and shows circuit recovery countdown/);
 assert.ok(
   fs.statSync(path.join(root, "qa/fixtures/gemini-watermark-48-synthetic.png")).size > 1000,
   "Synthetic Gemini watermark fixture must be present",

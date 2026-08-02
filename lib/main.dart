@@ -109,6 +109,15 @@ Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
   };
 }
 
+Future<Map<String, Object?>> _restartChatGptImageGateway() async {
+  if (Platform.isWindows) {
+    await _embeddedChatGptGateway.stop();
+  } else if (Platform.isAndroid) {
+    await _androidChatGptGateway.stop();
+  }
+  return _loadChatGptImageGatewayConfig();
+}
+
 Future<Map<String, Object?>> _chatGptAccountSnapshot() =>
     _chatGptMultiAccountStore.snapshot();
 
@@ -1251,6 +1260,9 @@ class _MobileWebShellState extends State<MobileWebShell>
         case 'loadCodexImageGatewayConfig':
           result = await _loadChatGptImageGatewayConfig();
           break;
+        case 'restartCodexImageGateway':
+          result = await _restartChatGptImageGateway();
+          break;
         case 'loadGeminiWebGatewayConfig':
           result = await _loadGeminiWebGatewayConfig();
           break;
@@ -2119,6 +2131,9 @@ class _WindowsWebShellState extends State<WindowsWebShell>
           break;
         case 'loadCodexImageGatewayConfig':
           result = await _loadChatGptImageGatewayConfig();
+          break;
+        case 'restartCodexImageGateway':
+          result = await _restartChatGptImageGateway();
           break;
         case 'loadGeminiWebGatewayConfig':
           result = await _loadGeminiWebGatewayConfig();
