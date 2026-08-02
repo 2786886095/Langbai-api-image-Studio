@@ -4616,9 +4616,19 @@ async function testInpaintModalInteractionSafety(cdp) {
     const opened = !dom.inpaintModal.classList.contains("hidden");
     const bodyLocked = document.body.style.overflow === "hidden";
     dom.inputPanel.scrollTop = 140;
-    await new Promise(resolve => requestAnimationFrame(resolve));
+    let stableScrollReads = 0;
+    let previousScrollTop = dom.inputPanel.scrollTop;
+    for (let attempt = 0; attempt < 20 && stableScrollReads < 3; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+      const currentScrollTop = dom.inputPanel.scrollTop;
+      stableScrollReads = currentScrollTop === previousScrollTop ? stableScrollReads + 1 : 0;
+      previousScrollTop = currentScrollTop;
+    }
+    dom.inputPanel.scrollTop = 140;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const mainBefore = dom.inputPanel.scrollTop;
-    dom.inpaintModal.dispatchEvent(new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true }));
+    const wheelEvent = new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true });
+    const wheelCanceled = !dom.inpaintModal.dispatchEvent(wheelEvent) || wheelEvent.defaultPrevented;
     await new Promise(resolve => setTimeout(resolve, 50));
     const mainAfterWheel = dom.inputPanel.scrollTop;
     const focusable = getFocusableElements(dom.inpaintModal);
@@ -4634,6 +4644,7 @@ async function testInpaintModalInteractionSafety(cdp) {
     return {
       opened,
       bodyLocked,
+      wheelCanceled,
       mainBefore,
       mainAfterWheel,
       trapped,
@@ -4646,7 +4657,7 @@ async function testInpaintModalInteractionSafety(cdp) {
       triggerDisabled: trigger.disabled,
     };
   })()`, true);
-  assertQa(result.opened && result.bodyLocked && result.mainAfterWheel === result.mainBefore, "Opening inpaint must lock the page and wheel events must not scroll the main input panel.", result);
+  assertQa(result.opened && result.bodyLocked && result.wheelCanceled && result.mainAfterWheel === result.mainBefore, "Opening inpaint must lock the page and wheel events must not scroll the main input panel.", result);
   assertQa(result.trapped, "Tab from the last inpaint control must wrap to the first control instead of escaping the modal.", result);
   assertQa(result.closed && result.bodyUnlocked && result.focusReturned, "Escape must close inpaint, release body scroll, and restore focus to the opener.", result);
 }
