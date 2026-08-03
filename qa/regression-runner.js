@@ -4412,7 +4412,7 @@ async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
     return { provider: dom.apiProvider.value, endpoint: dom.apiEndpoint.value, model: dom.model.value, options, concurrency: getCodexGatewayConcurrency(options), request, outside, inside };
   })()`, true);
   assertQa(result.provider === "codexImageGateway" && result.endpoint === "http://127.0.0.1:18081/v1" && result.model === "gpt-image-2", "The dedicated gateway must lock its current provider, endpoint and model.", result);
-  assertQa(result.concurrency >= 1 && result.concurrency <= 3 && result.request.route === "images/edits" && result.request.body.images.length === 1 && result.request.body.n === 1, "Gateway queue concurrency and edit request must stay within the account-safe client limit.", result);
+  assertQa(result.concurrency === 100 && result.request.route === "images/edits" && result.request.body.images.length === 1 && result.request.body.n === 1, "Gateway queue concurrency must honor the user-selected 1-100 value while preserving the edit request contract.", result);
   assertQa(result.outside && result.inside, "Local inpaint compositing must alter only masked pixels.", result);
 }
 
@@ -4443,13 +4443,17 @@ async function testCodexGatewayOptionsPersistAcrossRestart(cdp) {
   assertQa(
     beforeRestart.ui.quality === "low"
       && beforeRestart.ui.dimensionMode === "native"
+      && beforeRestart.ui.clientQueue === 10
       && beforeRestart.active.codexGatewayOptions?.quality === "low"
       && beforeRestart.active.codexGatewayOptions?.dimensionMode === "native"
+      && beforeRestart.active.codexGatewayOptions?.clientQueue === 10
       && beforeRestart.saved[0]?.codexGatewayOptions?.quality === "low"
       && beforeRestart.saved[0]?.codexGatewayOptions?.dimensionMode === "native"
+      && beforeRestart.saved[0]?.codexGatewayOptions?.clientQueue === 10
       && beforeRestart.fallback.quality === "low"
-      && beforeRestart.fallback.dimensionMode === "native",
-    "Changing ChatGPT Web quality or dimension handling must update the active profile, saved profile, and recovery preference before restart.",
+      && beforeRestart.fallback.dimensionMode === "native"
+      && beforeRestart.fallback.clientQueue === 10,
+    "Changing ChatGPT Web quality, dimension handling or concurrency must update the active profile, saved profile, and recovery preference before restart.",
     beforeRestart,
   );
 
@@ -4466,11 +4470,14 @@ async function testCodexGatewayOptionsPersistAcrossRestart(cdp) {
       && restored.selected === "qa-codex-gateway-options"
       && restored.ui.quality === "low"
       && restored.ui.dimensionMode === "native"
+      && restored.ui.clientQueue === 10
       && restored.active.codexGatewayOptions?.quality === "low"
       && restored.active.codexGatewayOptions?.dimensionMode === "native"
+      && restored.active.codexGatewayOptions?.clientQueue === 10
       && restored.saved[0]?.codexGatewayOptions?.quality === "low"
-      && restored.saved[0]?.codexGatewayOptions?.dimensionMode === "native",
-    "Restarting must restore the last selected ChatGPT Web output quality and dimension handling instead of Medium + Exact output.",
+      && restored.saved[0]?.codexGatewayOptions?.dimensionMode === "native"
+      && restored.saved[0]?.codexGatewayOptions?.clientQueue === 10,
+    "Restarting must restore the last selected ChatGPT Web output quality, dimension handling and concurrency.",
     restored,
   );
 
@@ -4497,8 +4504,9 @@ async function testCodexGatewayOptionsPersistAcrossRestart(cdp) {
   assertQa(
     legacyRestored.provider === "codexImageGateway"
       && legacyRestored.ui.quality === "high"
-      && legacyRestored.ui.dimensionMode === "strict_native",
-    "An older ChatGPT Web profile without option fields must recover the last explicit quality and dimension handling preference.",
+      && legacyRestored.ui.dimensionMode === "strict_native"
+      && legacyRestored.ui.clientQueue === 7,
+    "An older ChatGPT Web profile without option fields must recover the last explicit quality, dimension handling and concurrency preference.",
     { legacyProfile, legacyRestored },
   );
   // Do not leak a selected local gateway profile into unrelated provider and
@@ -6019,9 +6027,9 @@ async function testCodexImageGatewayIntegration(cdp) {
       result.chatGptAuth,
     );
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
-    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 3, "Gateway quality, dimensions and async resume must persist while legacy queue values are capped at the account-safe limit.", result);
+    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and user-selected concurrency must remain available.", result);
     assertQa(result.webRoute.legacyAsyncPreference === true && result.requestBodies.length === 3, "Legacy asyncTasks=false profiles must be normalized to resumable /image-tasks submissions instead of the missing synchronous route.", result);
-    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 3 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and clamp effective client concurrency to three.", result);
+    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 100 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and honor concurrency up to one hundred.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 3 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission, including an account failover retry, must expose a checkpointable async task id.", result);
     assertQa(

@@ -156,7 +156,7 @@ class AndroidChatGptGatewayManager {
           'async_tasks': true,
           'models': const <String>['gpt-image-2'],
           'max_reference_images': 20,
-          'default_concurrency': 1,
+          'default_concurrency': 5,
           'max_concurrency': 100,
           'dimension_modes': const <String>[
             'native',

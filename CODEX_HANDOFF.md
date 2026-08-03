@@ -1,12 +1,20 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.26
+# Codex / Claude Handoff: AI 图片生成器 v1.6.27
 
-更新时间：2026-08-03
+更新时间：2026-08-04
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.26+103`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.27+104`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.27 ChatGPT 并发设置开放
+
+- ChatGPT 网页生图并发输入范围为 `1–100`，新配置默认 `5`。
+- 用户值同步保存在活动 API、已保存 API 和独立恢复偏好中，浏览器回归覆盖修改、保存与重启恢复。
+- Web 适配器、Windows 内置网关和 Android 网关上限统一为 100；Windows 启动时覆盖旧网关内部的 3 并发限制。
+- 自适应熔断仍可在连续连接故障时临时降低实际并发，健康检查恢复后重新使用用户上限。
+- 验证覆盖 JavaScript、Python、完整浏览器回归、Flutter 静态分析与全量测试。
 
 ## v1.6.26 ChatGPT 批量会话与登录稳定性修复
 

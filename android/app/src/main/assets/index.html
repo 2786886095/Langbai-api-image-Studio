@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260803-1-6-26">
+  <link rel="stylesheet" href="style.css?v=20260804-1-6-27">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -288,15 +288,15 @@
                 </label>
                 <label class="provider-option field">
                   <span id="codexGatewayQueueLabel">同时生成数</span>
-                  <input type="number" id="codexGatewayClientQueue" min="1" max="3" step="1" value="3">
-                  <small id="codexGatewayQueueHint">可输入 1–3，默认 3；批量任务会复用账号会话并自动清理临时对话。</small>
+                  <input type="number" id="codexGatewayClientQueue" min="1" max="100" step="1" value="5">
+                  <small id="codexGatewayQueueHint">可输入 1–100，默认 5；数值越高，对账号会话与网络稳定性的要求越高。</small>
                 </label>
               </div>
 
               <div class="provider-facts">
                 <span id="codexGatewayFacts">GPT Image 2 · 最多 20 张参考图 · ChatGPT 网页会话 · 异步任务最长轮询 20 分钟</span>
               </div>
-              <p class="provider-capability-note" id="codexGatewayCapabilityNote">并发限制为 1–3，默认 3；降低批量任务对账号会话的冲击，成功、失败和取消后都会清理临时对话。</p>
+              <p class="provider-capability-note" id="codexGatewayCapabilityNote">最大并发可在 1–100 间自行调整，默认 5；成功、失败和取消后都会清理临时对话。</p>
               <div class="opencodex-health-row">
                 <button type="button" id="testCodexGatewayHealth" class="btn btn-xs"><span class="ui-icon ui-icon-refresh"></span> 检测网关</button>
                 <button type="button" id="openInpaintFromFile" class="btn btn-xs"><span class="ui-icon ui-icon-mask"></span> 局部重绘</button>
@@ -858,7 +858,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.26</strong>
+            <strong id="currentVersionLabel">v1.6.27</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -1059,13 +1059,13 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260803-1-6-26"></script>
-  <script src="image-task-stability.js?v=20260803-1-6-26"></script>
-  <script src="codex-image-gateway.js?v=20260803-1-6-26"></script>
-  <script src="gemini-image-size-registry.js?v=20260803-1-6-26"></script>
-  <script src="gemini-web-image-adapter.js?v=20260803-1-6-26"></script>
-  <script src="gemini-selector-pack.js?v=20260803-1-6-26"></script>
-  <script src="gemini-watermark-remover.bundle.js?v=20260803-1-6-26"></script>
-  <script src="app.js?v=20260803-1-6-26"></script>
+  <script src="bootstrap-guard.js?v=20260804-1-6-27"></script>
+  <script src="image-task-stability.js?v=20260804-1-6-27"></script>
+  <script src="codex-image-gateway.js?v=20260804-1-6-27"></script>
+  <script src="gemini-image-size-registry.js?v=20260804-1-6-27"></script>
+  <script src="gemini-web-image-adapter.js?v=20260804-1-6-27"></script>
+  <script src="gemini-selector-pack.js?v=20260804-1-6-27"></script>
+  <script src="gemini-watermark-remover.bundle.js?v=20260804-1-6-27"></script>
+  <script src="app.js?v=20260804-1-6-27"></script>
 </body>
 </html>

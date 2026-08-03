@@ -418,9 +418,13 @@ class ConfigStore:
     @property
     def image_account_concurrency(self) -> int:
         try:
-            return max(1, min(3, int(self.data.get("image_account_concurrency", 3))))
+            value = os.getenv("LANGBAI_IMAGE_MAX_CONCURRENCY") or self.data.get(
+                "image_account_concurrency",
+                100,
+            )
+            return max(1, min(100, int(value)))
         except (TypeError, ValueError):
-            return 3
+            return 100
 
     @property
     def image_parallel_generation(self) -> bool:
