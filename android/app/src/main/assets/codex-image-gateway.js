@@ -12,12 +12,12 @@
   const MODEL = "gpt-image-2";
   const MAX_REFERENCE_IMAGES = 20;
   const DIRECT_REFERENCE_IMAGES = 20;
-  const CLIENT_MAX_CONCURRENCY = 3;
+  const CLIENT_MAX_CONCURRENCY = 100;
   const DEFAULTS = Object.freeze({
     quality: "medium",
     dimensionMode: "exact_output",
     asyncTasks: true,
-    clientQueue: 3,
+    clientQueue: 5,
   });
 
   function normalizeBaseUrl(value) {

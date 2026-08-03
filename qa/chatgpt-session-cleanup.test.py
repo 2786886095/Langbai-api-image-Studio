@@ -145,7 +145,7 @@ class SessionCleanupTests(unittest.TestCase):
                 time.sleep(0.01)
             self.assertEqual(state["status"], "cancelled")
             self.assertNotIn("owner:task-one", service._cancel_events)
-            self.assertEqual(service.max_concurrency, 3)
+            self.assertEqual(service.max_concurrency, 70)
 
     def test_desktop_cleanup_runs_after_success_failure_and_cancel(self):
         module, conversation, backend = load_browser_service()

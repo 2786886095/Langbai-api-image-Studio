@@ -212,6 +212,10 @@ class EmbeddedChatGptGatewayManager {
       ].join(Platform.pathSeparator),
       'LANGBAI_GATEWAY_PORT': '$port',
       'LANGBAI_PARENT_PID': '$pid',
+      // The web client owns the user-facing 1-100 queue setting. Keep the
+      // bundled gateway ceiling open so an older persisted gateway config
+      // cannot silently clamp a newly selected value back to three.
+      'LANGBAI_IMAGE_MAX_CONCURRENCY': '100',
       'PYTHONUTF8': '1',
     };
     final launched = await Process.start(

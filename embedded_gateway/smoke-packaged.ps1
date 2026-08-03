@@ -88,7 +88,7 @@ try {
   if (-not $capabilities.image_only -or -not $capabilities.async_tasks -or $capabilities.models -notcontains "gpt-image-2") {
     throw "Gateway image capabilities were invalid."
   }
-  if ([int]$capabilities.default_concurrency -ne 3 -or [int]$capabilities.max_concurrency -ne 3) {
+  if ([int]$capabilities.default_concurrency -ne 5 -or [int]$capabilities.max_concurrency -ne 100) {
     throw "Gateway concurrency protection was not packaged."
   }
 

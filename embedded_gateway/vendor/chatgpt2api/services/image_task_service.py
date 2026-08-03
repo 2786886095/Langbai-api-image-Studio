@@ -124,8 +124,8 @@ class ImageTaskService:
         try:
             max_concurrency = int(self.concurrency_getter())
         except (TypeError, ValueError):
-            max_concurrency = 3
-        self.max_concurrency = max(1, min(3, max_concurrency))
+            max_concurrency = 100
+        self.max_concurrency = max(1, min(100, max_concurrency))
         self._execution_slots = threading.BoundedSemaphore(self.max_concurrency)
         self._lock = threading.RLock()
         self._tasks: dict[str, dict[str, Any]] = {}

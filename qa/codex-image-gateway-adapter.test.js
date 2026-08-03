@@ -30,10 +30,13 @@ test("forces resumable tasks for legacy profiles that disabled async mode", () =
   assert.equal(gateway.normalizeOptions({ asyncTasks: true }).asyncTasks, true);
 });
 
-test("caps legacy and oversized batch concurrency at three", () => {
-  assert.equal(gateway.DEFAULTS.clientQueue, 3);
-  assert.equal(gateway.CLIENT_MAX_CONCURRENCY, 3);
-  assert.equal(gateway.normalizeOptions({ clientQueue: 70 }).clientQueue, 3);
+test("defaults to five and accepts user concurrency from one to one hundred", () => {
+  assert.equal(gateway.DEFAULTS.clientQueue, 5);
+  assert.equal(gateway.CLIENT_MAX_CONCURRENCY, 100);
+  assert.equal(gateway.normalizeOptions({}).clientQueue, 5);
+  assert.equal(gateway.normalizeOptions({ clientQueue: 70 }).clientQueue, 70);
+  assert.equal(gateway.normalizeOptions({ clientQueue: 101 }).clientQueue, 100);
+  assert.equal(gateway.normalizeOptions({ clientQueue: 0 }).clientQueue, 1);
   assert.equal(gateway.normalizeOptions({ clientQueue: 2 }).clientQueue, 2);
 });
 
