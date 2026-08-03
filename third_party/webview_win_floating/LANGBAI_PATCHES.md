@@ -35,3 +35,8 @@ This package uses a windowed WebView2 controller. In Langbai's full-window
 mode, WebView2 is the only visible native content host and Windows input is
 handled directly by the operating system instead of crossing Flutter hit
 testing or texture forwarding.
+## Silent ChatGPT session refresh
+
+The Windows runner marks background ChatGPT authentication processes with the
+`LangbaiSilentWindow` property. The plugin preserves that hidden state when a
+temporary WebView is disposed, so token refresh never flashes the Flutter host.

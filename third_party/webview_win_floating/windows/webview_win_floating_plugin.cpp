@@ -420,7 +420,8 @@ void WebviewWinFloatingPlugin::destroyAllWebViews() {
   m_pendingWebviewMap.clear();
   m_topLevelHostedWebviews.clear();
   destroyTopLevelHostIfUnused();
-  if (m_flutterHWND != nullptr)
+  if (m_flutterHWND != nullptr &&
+      GetPropW(m_flutterHWND, L"LangbaiSilentWindow") == nullptr)
     ShowWindow(m_flutterHWND, SW_SHOWNA);
 }
 

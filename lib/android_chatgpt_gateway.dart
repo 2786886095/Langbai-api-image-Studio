@@ -16,6 +16,7 @@ class _AndroidChatGptTask {
   final DateTime createdAt;
   DateTime updatedAt;
   String status = 'queued';
+  bool cancelRequested = false;
   Map<String, Object?>? result;
   Map<String, Object?>? error;
 
@@ -200,11 +201,13 @@ class AndroidChatGptGatewayManager {
             'Image task not found.',
           );
         } else {
+          task
+            ..cancelRequested = true
+            ..status = 'cancelled'
+            ..updatedAt = DateTime.now().toUtc();
           await _json(request.response, <String, Object?>{
             'id': task.id,
-            'status': task.status,
-            'message':
-                'The upstream mobile task continues and remains resumable.',
+            'status': 'cancelled',
           });
         }
         return;
@@ -271,6 +274,7 @@ class AndroidChatGptGatewayManager {
     String token,
     String bodyJson,
   ) async {
+    if (task.cancelRequested) return;
     task
       ..status = 'running'
       ..updatedAt = DateTime.now().toUtc();
@@ -290,7 +294,12 @@ class AndroidChatGptGatewayManager {
         (key, value) => MapEntry(key.toString(), value),
       );
       final failure = mapped['__error__'];
-      if (failure is Map) {
+      if (task.cancelRequested) {
+        task
+          ..status = 'cancelled'
+          ..result = null
+          ..error = null;
+      } else if (failure is Map) {
         task
           ..status = 'failed'
           ..error = failure.map(
@@ -302,14 +311,16 @@ class AndroidChatGptGatewayManager {
           ..result = mapped;
       }
     } catch (error) {
-      task
-        ..status = 'failed'
-        ..error = <String, Object?>{
-          'status': 502,
-          'type': 'api_error',
-          'code': 'android_gateway_error',
-          'message': error.toString(),
-        };
+      if (!task.cancelRequested) {
+        task
+          ..status = 'failed'
+          ..error = <String, Object?>{
+            'status': 502,
+            'type': 'api_error',
+            'code': 'android_gateway_error',
+            'message': error.toString(),
+          };
+      }
     } finally {
       task.updatedAt = DateTime.now().toUtc();
     }
@@ -326,7 +337,9 @@ class AndroidChatGptGatewayManager {
     _tasks.removeWhere(
       (_, task) =>
           task.updatedAt.isBefore(cutoff) &&
-          (task.status == 'succeeded' || task.status == 'failed'),
+          (task.status == 'succeeded' ||
+              task.status == 'failed' ||
+              task.status == 'cancelled'),
     );
   }
 

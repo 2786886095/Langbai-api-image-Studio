@@ -58,6 +58,28 @@ void main() {
     expect(parsed.maskedEmail, 'a****@example.com');
   });
 
+  test('parser uses the earlier access-token expiry instead of cookie expiry',
+      () {
+    final tokenExpiry = DateTime.now().toUtc().add(const Duration(minutes: 8));
+    final parsed = ParsedChatGptSession.parse(jsonEncode(<String, Object?>{
+      'accessToken': tokenFor(
+        sub: 'short-access-token',
+        exp: tokenExpiry.millisecondsSinceEpoch ~/ 1000,
+      ),
+      'expires': DateTime.now()
+          .toUtc()
+          .add(const Duration(days: 30))
+          .toIso8601String(),
+      'user': <String, String>{'id': 'short-access-token'},
+    }));
+
+    expect(parsed.expiresAt, isNotNull);
+    expect(
+      parsed.expiresAt!.difference(tokenExpiry).inSeconds.abs(),
+      lessThanOrEqualTo(1),
+    );
+  });
+
   test('duplicate account import updates the token in place', () async {
     const storage = FlutterSecureStorage();
     final store = ChatGptMultiAccountStore(storage);

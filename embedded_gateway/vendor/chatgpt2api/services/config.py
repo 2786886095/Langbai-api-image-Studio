@@ -418,9 +418,9 @@ class ConfigStore:
     @property
     def image_account_concurrency(self) -> int:
         try:
-            return max(1, min(100, int(self.data.get("image_account_concurrency", 10))))
+            return max(1, min(3, int(self.data.get("image_account_concurrency", 3))))
         except (TypeError, ValueError):
-            return 10
+            return 3
 
     @property
     def image_parallel_generation(self) -> bool:
@@ -448,7 +448,7 @@ class ConfigStore:
     @property
     def image_remove_conversation_after_result(self) -> bool:
         """出图成功后异步隐藏 ChatGPT 本地对话记录。"""
-        value = self.data.get("image_remove_conversation_after_result", False)
+        value = self.data.get("image_remove_conversation_after_result", True)
         if isinstance(value, str):
             return value.strip().lower() in {"1", "true", "yes", "on"}
         return bool(value)
@@ -456,7 +456,7 @@ class ConfigStore:
     @property
     def image_remove_conversation_always(self) -> bool:
         """无论是否出图，画图请求结束后都异步隐藏 ChatGPT 本地对话记录。"""
-        return _normalize_bool(self.data.get("image_remove_conversation_always"), False)
+        return _normalize_bool(self.data.get("image_remove_conversation_always"), True)
 
     @property
     def image_settle_secs(self) -> float:

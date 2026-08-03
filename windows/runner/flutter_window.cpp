@@ -4,14 +4,19 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+FlutterWindow::FlutterWindow(const flutter::DartProject& project,
+                             bool show_on_first_frame)
+    : project_(project), show_on_first_frame_(show_on_first_frame) {}
 
 FlutterWindow::~FlutterWindow() {}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
+  }
+  if (!show_on_first_frame_) {
+    ::SetPropW(GetHandle(), L"LangbaiSilentWindow",
+               reinterpret_cast<HANDLE>(static_cast<INT_PTR>(1)));
   }
 
   RECT frame = GetClientArea();
@@ -28,7 +33,7 @@ bool FlutterWindow::OnCreate() {
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+    if (show_on_first_frame_) this->Show();
   });
 
   // Flutter can complete the first frame before the "show window" callback is

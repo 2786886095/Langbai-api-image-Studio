@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:io';
 
@@ -55,5 +56,94 @@ void main() {
     expect(command, contains(r'[IO.Path]::GetFullPath'));
     expect(command, contains(r'F:\Apps\Langbai\chatgpt_gateway'));
     expect(command, contains(r'$_.ExecutablePath'));
+  });
+
+  test('concurrent activation of the same account and token is single-flight',
+      () async {
+    final coordinator = SessionActivationCoordinator();
+    final release = Completer<void>();
+    var calls = 0;
+
+    Future<void> apply() async {
+      calls++;
+      await release.future;
+    }
+
+    final attempts = List<Future<void>>.generate(
+      70,
+      (_) => coordinator.activate(
+        accountId: 'account-one',
+        fingerprint: 'fingerprint-one',
+        apply: apply,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 1);
+    release.complete();
+    await Future.wait(attempts);
+
+    await coordinator.activate(
+      accountId: 'account-one',
+      fingerprint: 'fingerprint-one',
+      apply: apply,
+    );
+    expect(calls, 1);
+  });
+
+  test('activation retries after failure and runs again for a new token',
+      () async {
+    final coordinator = SessionActivationCoordinator();
+    var calls = 0;
+
+    Future<void> apply() async {
+      calls++;
+      if (calls == 1) throw StateError('temporary bridge failure');
+    }
+
+    await expectLater(
+      coordinator.activate(
+        accountId: 'account-one',
+        fingerprint: 'fingerprint-one',
+        apply: apply,
+      ),
+      throwsStateError,
+    );
+    await coordinator.activate(
+      accountId: 'account-one',
+      fingerprint: 'fingerprint-one',
+      apply: apply,
+    );
+    await coordinator.activate(
+      accountId: 'account-one',
+      fingerprint: 'fingerprint-two',
+      apply: apply,
+    );
+    expect(calls, 3);
+  });
+
+  test('gateway restart invalidates an activation still in flight', () async {
+    final coordinator = SessionActivationCoordinator();
+    final release = Completer<void>();
+    var calls = 0;
+    final first = coordinator.activate(
+      accountId: 'account-one',
+      fingerprint: 'fingerprint-one',
+      apply: () async {
+        calls++;
+        await release.future;
+      },
+    );
+    coordinator.clear();
+    release.complete();
+    await expectLater(first, throwsA(isA<HttpException>()));
+
+    await coordinator.activate(
+      accountId: 'account-one',
+      fingerprint: 'fingerprint-one',
+      apply: () async {
+        calls++;
+      },
+    );
+    expect(calls, 2);
   });
 }

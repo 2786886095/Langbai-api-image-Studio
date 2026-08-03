@@ -4412,7 +4412,7 @@ async function testOpenCodexDualModelsSizesAndLocalInpaint(cdp) {
     return { provider: dom.apiProvider.value, endpoint: dom.apiEndpoint.value, model: dom.model.value, options, concurrency: getCodexGatewayConcurrency(options), request, outside, inside };
   })()`, true);
   assertQa(result.provider === "codexImageGateway" && result.endpoint === "http://127.0.0.1:18081/v1" && result.model === "gpt-image-2", "The dedicated gateway must lock its current provider, endpoint and model.", result);
-  assertQa(result.concurrency >= 1 && result.concurrency <= 20 && result.request.route === "images/edits" && result.request.body.images.length === 1 && result.request.body.n === 1, "Gateway queue concurrency and edit request must stay within client capabilities.", result);
+  assertQa(result.concurrency >= 1 && result.concurrency <= 3 && result.request.route === "images/edits" && result.request.body.images.length === 1 && result.request.body.n === 1, "Gateway queue concurrency and edit request must stay within the account-safe client limit.", result);
   assertQa(result.outside && result.inside, "Local inpaint compositing must alter only masked pixels.", result);
 }
 
@@ -6019,9 +6019,9 @@ async function testCodexImageGatewayIntegration(cdp) {
       result.chatGptAuth,
     );
     assertQa(result.keyValue === "" && result.keyReadOnly && result.modelReadOnly && result.profile.apiKey === "" && !result.leakedKey, "The local bearer credential must remain memory-only and never enter API profiles or Local Storage.", result);
-    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 10, "Gateway quality, dimensions, async resume and queue controls must retain their selected values.", result);
+    assertQa(result.options.quality === "high" && result.options.dimensionMode === "exact_output" && result.options.asyncTasks && result.options.clientQueue === 3, "Gateway quality, dimensions and async resume must persist while legacy queue values are capped at the account-safe limit.", result);
     assertQa(result.webRoute.legacyAsyncPreference === true && result.requestBodies.length === 3, "Legacy asyncTasks=false profiles must be normalized to resumable /image-tasks submissions instead of the missing synchronous route.", result);
-    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 20 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and clamp effective client concurrency to the audited limit.", result);
+    assertQa(!("routeMode" in result.webRoute.options) && result.webRoute.baseUrl === "http://127.0.0.1:18081/v1" && result.webRoute.concurrency === 3 && result.webRoute.credentialCalls >= 1, "The web-only image route must reuse the protected local credential, remove the old route selector, and clamp effective client concurrency to three.", result);
     assertQa(result.taskWaitTimeoutMs === 1200000, "Resumable gateway tasks must keep polling for up to 20 minutes instead of being reported failed at the old five-minute UI deadline.", result);
     assertQa(result.submitted.length === 3 && result.submitted.every(task => /^imgjob_\d+$/.test(task.id)), "Every gateway submission, including an account failover retry, must expose a checkpointable async task id.", result);
     assertQa(

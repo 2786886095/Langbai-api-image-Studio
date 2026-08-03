@@ -55,6 +55,7 @@ def _compat_task(task: dict[str, Any]) -> dict[str, Any]:
         "running": "running",
         "success": "succeeded",
         "error": "failed",
+        "cancelled": "cancelled",
     }.get(status, status)
     payload: dict[str, Any] = {
         "id": task.get("id"),
@@ -100,8 +101,8 @@ def create_router() -> APIRouter:
             "async_tasks": True,
             "models": ["gpt-image-2"],
             "max_reference_images": 20,
-            "default_concurrency": 10,
-            "max_concurrency": 100,
+            "default_concurrency": 3,
+            "max_concurrency": 3,
             "dimension_modes": ["native", "strict_native", "exact_output"],
             "quality_modes": ["low", "medium", "high"],
             "session_provider": "chatgpt-web",
@@ -148,9 +149,9 @@ def create_router() -> APIRouter:
     @router.post("/v1/image-tasks/{task_id}/cancel")
     async def cancel_task(task_id: str, authorization: str | None = Header(default=None)):
         identity = require_identity(authorization)
-        result = image_task_service.list_tasks(identity, [task_id])
-        if not result.get("items"):
+        task = image_task_service.cancel_task(identity, task_id)
+        if task is None:
             raise HTTPException(status_code=404, detail={"error": "image task not found"})
-        return {"id": task_id, "status": "running", "message": "upstream browser task continues; result remains resumable"}
+        return _compat_task(task)
 
     return router
