@@ -17,8 +17,13 @@ TASK_STATUS_QUEUED = "queued"
 TASK_STATUS_RUNNING = "running"
 TASK_STATUS_SUCCESS = "success"
 TASK_STATUS_ERROR = "error"
-TERMINAL_STATUSES = {TASK_STATUS_SUCCESS, TASK_STATUS_ERROR}
+TASK_STATUS_CANCELLED = "cancelled"
+TERMINAL_STATUSES = {TASK_STATUS_SUCCESS, TASK_STATUS_ERROR, TASK_STATUS_CANCELLED}
 UNFINISHED_STATUSES = {TASK_STATUS_QUEUED, TASK_STATUS_RUNNING}
+
+
+class ImageTaskCancelled(RuntimeError):
+    pass
 
 
 def _now_iso() -> str:
@@ -119,11 +124,12 @@ class ImageTaskService:
         try:
             max_concurrency = int(self.concurrency_getter())
         except (TypeError, ValueError):
-            max_concurrency = 10
-        self.max_concurrency = max(1, min(100, max_concurrency))
+            max_concurrency = 3
+        self.max_concurrency = max(1, min(3, max_concurrency))
         self._execution_slots = threading.BoundedSemaphore(self.max_concurrency)
         self._lock = threading.RLock()
         self._tasks: dict[str, dict[str, Any]] = {}
+        self._cancel_events: dict[str, threading.Event] = {}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._lock:
             self._tasks = self._load_locked()
@@ -214,6 +220,24 @@ class ImageTaskService:
                 missing_ids = []
             return {"items": items, "missing_ids": missing_ids}
 
+    def cancel_task(self, identity: dict[str, object], task_id: str) -> dict[str, Any] | None:
+        owner = _owner_id(identity)
+        key = _task_key(owner, _clean(task_id))
+        with self._lock:
+            task = self._tasks.get(key)
+            if task is None:
+                return None
+            if task.get("status") not in TERMINAL_STATUSES:
+                event = self._cancel_events.setdefault(key, threading.Event())
+                event.set()
+                task["status"] = TASK_STATUS_CANCELLED
+                task["updated_at"] = _now_iso()
+                task["updated_ts"] = time.time()
+                task["error"] = ""
+                task["data"] = []
+                self._save_locked()
+            return _public_task(task)
+
     def _submit(
         self,
         identity: dict[str, object],
@@ -249,6 +273,7 @@ class ImageTaskService:
                 "created_ts": time.time(),
             }
             self._tasks[key] = task
+            self._cancel_events[key] = threading.Event()
             self._save_locked()
             should_start = True
 
@@ -271,7 +296,11 @@ class ImageTaskService:
         model: str,
     ) -> None:
         with self._execution_slots:
-            self._run_task_in_slot(key, mode, payload, identity, model)
+            try:
+                self._run_task_in_slot(key, mode, payload, identity, model)
+            finally:
+                with self._lock:
+                    self._cancel_events.pop(key, None)
 
     def _run_task_in_slot(
         self,
@@ -281,18 +310,31 @@ class ImageTaskService:
         identity: dict[str, object],
         model: str,
     ) -> None:
+        cancel_event = self._cancel_events.setdefault(key, threading.Event())
+        if cancel_event.is_set():
+            return
         started = time.time()
         self._update_task(key, status=TASK_STATUS_RUNNING, error="")
         # 创建进度回调，每个步骤完成后更新任务状态
         def progress_callback(step: str) -> None:
+            raise_if_cancelled()
             if step == "image_stream_resolve_start":
                 self._update_task(key, started_ts=time.time())
             self._update_task(key, progress=step)
+        def raise_if_cancelled() -> None:
+            if cancel_event.is_set():
+                raise ImageTaskCancelled("image task cancelled")
         # 将进度回调添加到 payload 中（handler 会提取并传递给 ConversationRequest）
-        payload_with_progress = {**payload, "progress_callback": progress_callback}
+        payload_with_progress = {
+            **payload,
+            "progress_callback": progress_callback,
+            "raise_if_cancelled": raise_if_cancelled,
+        }
         try:
+            raise_if_cancelled()
             handler = self.edit_handler if mode == "edit" else self.generation_handler
             result = handler(payload_with_progress)
+            raise_if_cancelled()
             if not isinstance(result, dict):
                 raise RuntimeError("image task returned streaming result unexpectedly")
             data = result.get("data")
@@ -328,6 +370,14 @@ class ImageTaskService:
                 request_preview=request_text(payload.get("prompt")),
                 urls=_collect_image_urls(data),
                 account_email=account_email,
+            )
+        except ImageTaskCancelled:
+            self._update_task(
+                key,
+                status=TASK_STATUS_CANCELLED,
+                error="",
+                data=[],
+                duration_ms=int((time.time() - started) * 1000),
             )
         except Exception as exc:
             error_message = str(exc) or "image task failed"
@@ -423,7 +473,7 @@ class ImageTaskService:
             if not task_id or not owner:
                 continue
             status = _clean(item.get("status"))
-            if status not in {TASK_STATUS_QUEUED, TASK_STATUS_RUNNING, TASK_STATUS_SUCCESS, TASK_STATUS_ERROR}:
+            if status not in {TASK_STATUS_QUEUED, TASK_STATUS_RUNNING, TASK_STATUS_SUCCESS, TASK_STATUS_ERROR, TASK_STATUS_CANCELLED}:
                 status = TASK_STATUS_ERROR
             task = {
                 "id": task_id,

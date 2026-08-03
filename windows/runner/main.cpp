@@ -55,6 +55,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       GetCommandLineArguments();
   const bool single_instance_exempt =
       IsSingleInstanceExempt(command_line_arguments);
+  const bool silent_chatgpt_auth =
+      HasArgument(command_line_arguments, "--chatgpt-auth-silent");
   HANDLE instance_mutex = nullptr;
   if (!single_instance_exempt) {
     instance_mutex = ::CreateMutexW(nullptr, TRUE, kMainInstanceMutex);
@@ -73,7 +75,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
-  FlutterWindow window(project);
+  FlutterWindow window(project, !silent_chatgpt_auth);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"AI Image Generator", origin, size)) {

@@ -12,12 +12,12 @@
   const MODEL = "gpt-image-2";
   const MAX_REFERENCE_IMAGES = 20;
   const DIRECT_REFERENCE_IMAGES = 20;
-  const CLIENT_MAX_CONCURRENCY = 20;
+  const CLIENT_MAX_CONCURRENCY = 3;
   const DEFAULTS = Object.freeze({
     quality: "medium",
     dimensionMode: "exact_output",
     asyncTasks: true,
-    clientQueue: 10,
+    clientQueue: 3,
   });
 
   function normalizeBaseUrl(value) {
@@ -51,7 +51,7 @@
       : DEFAULTS.dimensionMode;
     const parsedClientQueue = Number(value.clientQueue);
     const clientQueue = Math.max(1, Math.min(
-      100,
+      CLIENT_MAX_CONCURRENCY,
       Number.isFinite(parsedClientQueue) ? Math.floor(parsedClientQueue) : DEFAULTS.clientQueue,
     ));
     return Object.freeze({

@@ -227,10 +227,15 @@ class ParsedChatGptSession {
           (value) => value.isNotEmpty,
           orElse: () => '',
         );
-    final expiresAt = _parseExpiry(
-          _path(session, const <String>['expires']),
-        ) ??
-        _parseExpiry(jwt['exp']);
+    final expiryCandidates = <DateTime?>[
+      _parseExpiry(_path(session, const <String>['expires'])),
+      _parseExpiry(jwt['exp']),
+    ].whereType<DateTime>().toList(growable: false);
+    final expiresAt = expiryCandidates.isEmpty
+        ? null
+        : expiryCandidates.reduce(
+            (left, right) => left.isBefore(right) ? left : right,
+          );
 
     return ParsedChatGptSession(
       accessToken: token,

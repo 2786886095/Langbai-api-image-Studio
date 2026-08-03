@@ -1,12 +1,20 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.25
+# Codex / Claude Handoff: AI 图片生成器 v1.6.26
 
 更新时间：2026-08-03
-项目路径：`D:\Downloads\新建文件夹\Langbai-api-image-Studio`
+项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.25+102`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.26+103`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.26 ChatGPT 批量会话与登录稳定性修复
+
+- 70 张等大批量任务中的同账号令牌激活合并为一次，客户端和内置网关的有效并发上限统一为 3。
+- 同时使用 accessToken 与浏览器会话的到期时间，并在到期前 5 分钟通过原 WebView2 配置静默刷新。
+- HTTP 401 会先静默刷新原账号并重试当前图片，结果仍失效后再执行账号切换。
+- Windows 与 Android 在成功、失败和取消链路隐藏 ChatGPT 临时图片对话。
+- 专项回归覆盖 70 次并发激活、三种终态清理、Android 清理契约和令牌到期时间优先级。
 
 ## v1.6.25 ChatGPT 失败任务重试修复
 

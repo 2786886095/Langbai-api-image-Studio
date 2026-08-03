@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import time
 from io import BytesIO
 from typing import Any
 
@@ -95,11 +96,16 @@ def _run(body: dict[str, Any], *, edit: bool) -> dict[str, Any]:
     )
     backend = OpenAIBackendAPI(access_token=token)
     conversation_id = ""
-    succeeded = False
+    started_at = time.time()
+    raise_if_cancelled = body.get("raise_if_cancelled")
     try:
         outputs = []
+        if callable(raise_if_cancelled):
+            raise_if_cancelled()
         for output in stream_image_outputs(backend, request, 1, 1):
             conversation_id = output.conversation_id or conversation_id
+            if callable(raise_if_cancelled):
+                raise_if_cancelled()
             if output.kind == "message":
                 raise ImageGenerationError(
                     output.text or "Image generation was rejected by the upstream service",
@@ -112,6 +118,8 @@ def _run(body: dict[str, Any], *, edit: bool) -> dict[str, Any]:
         result = collect_image_outputs(outputs)
         if not result.get("data"):
             raise ImageGenerationError("ChatGPT web completed without an image", conversation_id=conversation_id)
+        if callable(raise_if_cancelled):
+            raise_if_cancelled()
         dimensions = _apply_dimension_mode(result, body)
         result["langbai"] = {
             "provider": "chatgpt-web",
@@ -125,10 +133,21 @@ def _run(body: dict[str, Any], *, edit: bool) -> dict[str, Any]:
             "reference_boards_compiled": False,
             "dimensions": dimensions,
         }
-        succeeded = True
         return result
+    except Exception as exc:
+        conversation_id = str(getattr(exc, "conversation_id", "") or conversation_id)
+        if not conversation_id:
+            try:
+                conversation_id = str(
+                    backend.find_conversation_by_prompt(prompt, started_at) or ""
+                )
+            except Exception:
+                pass
+        raise
     finally:
-        if succeeded and conversation_id:
+        # Image bytes are already local before this point. Hide every temporary
+        # ChatGPT conversation, including failed and user-cancelled tasks.
+        if conversation_id:
             try:
                 backend.delete_conversation(conversation_id)
             except Exception:

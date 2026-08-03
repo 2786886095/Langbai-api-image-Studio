@@ -30,6 +30,13 @@ test("forces resumable tasks for legacy profiles that disabled async mode", () =
   assert.equal(gateway.normalizeOptions({ asyncTasks: true }).asyncTasks, true);
 });
 
+test("caps legacy and oversized batch concurrency at three", () => {
+  assert.equal(gateway.DEFAULTS.clientQueue, 3);
+  assert.equal(gateway.CLIENT_MAX_CONCURRENCY, 3);
+  assert.equal(gateway.normalizeOptions({ clientQueue: 70 }).clientQueue, 3);
+  assert.equal(gateway.normalizeOptions({ clientQueue: 2 }).clientQueue, 2);
+});
+
 test("requires the gateway image-only, async, reference, model and exact-output capabilities", () => {
   const valid = gateway.validateCapabilities({
     image_only: true,

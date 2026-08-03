@@ -76,10 +76,16 @@ final GeminiWebGatewayManager _geminiWebGateway =
 final GeminiEmbeddedBrowserRequestController
     _geminiEmbeddedBrowserRequestController =
     GeminiEmbeddedBrowserRequestController();
+final Map<String, Future<void>> _chatGptAccountActivations =
+    <String, Future<void>>{};
 
 Future<Map<String, Object?>> _loadChatGptImageGatewayConfig() async {
   if (Platform.isWindows) {
     try {
+      final active = await _chatGptMultiAccountStore.activeAccount();
+      if (active != null && _chatGptAccountNeedsRefresh(active)) {
+        await _silentlyRefreshChatGptAccount(active.localAccountId);
+      }
       final configuration = await _embeddedChatGptGateway.configuration();
       await _chatGptMultiAccountStore.restoreGatewaySession(
         (token, accountId) => _embeddedChatGptGateway.setSessionToken(
@@ -122,11 +128,44 @@ Future<Map<String, Object?>> _chatGptAccountSnapshot() =>
     _chatGptMultiAccountStore.snapshot();
 
 bool _isChatGptGatewayActivationTransportError(Object error) =>
-    error is TimeoutException || error is SocketException || error is HttpException;
+    error is TimeoutException ||
+    error is SocketException ||
+    error is HttpException;
 
-Future<void> _activateChatGptAccount(String localAccountId) async {
+bool _chatGptAccountNeedsRefresh(ChatGptSecureAccount account) {
+  if (account.status == 'expired' ||
+      account.status == 'authentication_failed') {
+    return true;
+  }
+  final expiresAt = DateTime.tryParse(account.expiresAt)?.toUtc();
+  return expiresAt != null &&
+      !expiresAt.isAfter(
+        DateTime.now().toUtc().add(const Duration(minutes: 5)),
+      );
+}
+
+Future<void> _activateChatGptAccount(String localAccountId) {
+  final existing = _chatGptAccountActivations[localAccountId];
+  if (existing != null) return existing;
+  late Future<void> future;
+  future = _activateChatGptAccountOnce(localAccountId).whenComplete(() {
+    if (identical(_chatGptAccountActivations[localAccountId], future)) {
+      _chatGptAccountActivations.remove(localAccountId);
+    }
+  });
+  _chatGptAccountActivations[localAccountId] = future;
+  return future;
+}
+
+Future<void> _activateChatGptAccountOnce(String localAccountId) async {
   await _chatGptMultiAccountStore.selectAccount(localAccountId);
   if (Platform.isWindows) {
+    final account = (await _chatGptMultiAccountStore.readAccounts())
+        .where((item) => item.localAccountId == localAccountId)
+        .firstOrNull;
+    if (account != null && _chatGptAccountNeedsRefresh(account)) {
+      await _silentlyRefreshChatGptAccount(localAccountId);
+    }
     final token = await _chatGptMultiAccountStore.readToken(localAccountId);
     try {
       await _embeddedChatGptGateway.setSessionToken(
@@ -211,6 +250,21 @@ Future<Map<String, Object?>> _rotateChatGptAccount(
       ? 'rate_limited'
       : 'authentication_failed';
   final reason = payload['reason']?.toString() ?? '';
+  if (status == 'authentication_failed' &&
+      payload['allowSessionRefresh'] != false &&
+      Platform.isWindows) {
+    final active = await _chatGptMultiAccountStore.activeAccount();
+    if (active != null &&
+        await _silentlyRefreshChatGptAccount(active.localAccountId)) {
+      await _activateChatGptAccount(active.localAccountId);
+      return <String, Object?>{
+        ...await _chatGptAccountSnapshot(),
+        'rotated_to': active.localAccountId,
+        'session_refreshed': true,
+        'all_unavailable': false,
+      };
+    }
+  }
   final next = await _chatGptMultiAccountStore.rotateAfterFailure(
     failedStatus: status,
     reason: reason,
@@ -221,6 +275,33 @@ Future<Map<String, Object?>> _rotateChatGptAccount(
     'rotated_to': next?.localAccountId ?? '',
     'all_unavailable': next == null,
   };
+}
+
+Future<bool> _silentlyRefreshChatGptAccount(String localAccountId) async {
+  final id = validateLocalChatGptAccountId(localAccountId);
+  final store = ChatGptAccountStore();
+  final before = await store.readState(id);
+  final process = await Process.start(
+    Platform.resolvedExecutable,
+    <String>[
+      '--chatgpt-auth-window',
+      '--chatgpt-auth-silent',
+      '--chatgpt-account-id=$id',
+    ],
+    mode: ProcessStartMode.normal,
+  );
+  unawaited(process.stdout.drain<void>());
+  unawaited(process.stderr.drain<void>());
+  try {
+    await process.exitCode.timeout(const Duration(seconds: 30));
+  } on TimeoutException {
+    process.kill();
+    return false;
+  }
+  final refreshed = await store.readState(id);
+  return refreshed.status == 'ready' &&
+      refreshed.lastVerifiedAt.isNotEmpty &&
+      refreshed.lastVerifiedAt != before.lastVerifiedAt;
 }
 
 Future<Map<String, Object?>> _loadGeminiWebGatewayConfig() =>
@@ -372,6 +453,7 @@ Future<void> main(List<String> arguments) async {
       accountId: validateLocalChatGptAccountId(authAccountArgument),
       clearSession: arguments.contains('--chatgpt-auth-clear-session'),
       closeAfterClear: arguments.contains('--chatgpt-auth-close-after-clear'),
+      silent: arguments.contains('--chatgpt-auth-silent'),
     ));
     return;
   }
@@ -420,11 +502,13 @@ class ChatGptAuthApp extends StatelessWidget {
     required this.accountId,
     required this.clearSession,
     required this.closeAfterClear,
+    required this.silent,
   });
 
   final String accountId;
   final bool clearSession;
   final bool closeAfterClear;
+  final bool silent;
 
   @override
   Widget build(BuildContext context) {
@@ -436,6 +520,7 @@ class ChatGptAuthApp extends StatelessWidget {
         accountId: accountId,
         clearSession: clearSession,
         closeAfterClear: closeAfterClear,
+        silent: silent,
       ),
     );
   }
@@ -447,11 +532,13 @@ class ChatGptAuthShell extends StatefulWidget {
     required this.accountId,
     required this.clearSession,
     required this.closeAfterClear,
+    required this.silent,
   });
 
   final String accountId;
   final bool clearSession;
   final bool closeAfterClear;
+  final bool silent;
 
   @override
   State<ChatGptAuthShell> createState() => _ChatGptAuthShellState();
@@ -614,6 +701,17 @@ class _ChatGptAuthShellState extends State<ChatGptAuthShell> {
         await Future<void>.delayed(const Duration(milliseconds: 350));
         await _controller?.dispose();
         exit(0);
+      } else if (widget.silent &&
+          const <String>{
+            'signed_out',
+            'waiting_for_user',
+            'expired',
+            'rate_limited',
+            'protocol_changed',
+            'error',
+          }.contains(status)) {
+        await _controller?.dispose();
+        exit(2);
       }
     } catch (_) {
       final previous = await _store.readState(widget.accountId);

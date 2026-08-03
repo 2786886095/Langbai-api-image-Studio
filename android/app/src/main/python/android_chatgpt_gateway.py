@@ -129,9 +129,31 @@ class Client:
         )
         self.scripts = [DEFAULT_SCRIPT]
         self.data_build = ""
+        self.last_conversation_id = ""
 
     def close(self) -> None:
         self.session.close()
+
+    def delete_conversation(self, conversation_id: str = "") -> None:
+        value = str(conversation_id or self.last_conversation_id).strip()
+        if not value:
+            return
+        path = f"/backend-api/conversation/{value}"
+        response = self.session.patch(
+            BASE_URL + path,
+            headers=self._headers(
+                path,
+                {
+                    "Accept": "*/*",
+                    "Content-Type": "application/json",
+                    "Referer": f"{BASE_URL}/c/{value}",
+                    "X-OpenAI-Target-Route": "/backend-api/conversation/{conversation_id}",
+                },
+            ),
+            json={"is_visible": False},
+            timeout=60,
+        )
+        self._check(response, path)
 
     def _headers(self, path: str, extra: dict[str, str] | None = None) -> dict[str, str]:
         result = {
@@ -417,9 +439,12 @@ class Client:
             conversation_id, file_ids, sediment_ids = _collect_ids(
                 value, conversation_id, file_ids, sediment_ids
             )
+            self.last_conversation_id = conversation_id or self.last_conversation_id
+        self.last_conversation_id = conversation_id or self.last_conversation_id
         return conversation_id, file_ids, sediment_ids
 
     def resolve(self, conversation_id: str, file_ids: set[str], sediment_ids: set[str]) -> list[bytes]:
+        self.last_conversation_id = conversation_id or self.last_conversation_id
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline:
             if conversation_id:
@@ -433,6 +458,7 @@ class Client:
                     conversation_id, file_ids, sediment_ids = _collect_ids(
                         response.text, conversation_id, file_ids, sediment_ids
                     )
+                    self.last_conversation_id = conversation_id or self.last_conversation_id
             urls: list[str] = []
             for file_id in sorted(file_ids):
                 path = f"/backend-api/files/{file_id}/download"
@@ -633,4 +659,8 @@ def generate(access_token: str, body_json: str) -> str:
         )
     finally:
         if client is not None:
+            try:
+                client.delete_conversation()
+            except Exception:
+                pass
             client.close()

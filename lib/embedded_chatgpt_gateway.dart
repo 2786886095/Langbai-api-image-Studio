@@ -45,6 +45,51 @@ String gatewayStopByPathPowerShell(String executablePath) {
       r'''); Get-CimInstance Win32_Process -Filter "Name='langbai_chatgpt_gateway.exe'" | Where-Object { $_.ExecutablePath -and ([IO.Path]::GetFullPath($_.ExecutablePath) -eq $target) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop }''';
 }
 
+class SessionActivationCoordinator {
+  final Map<String, String> _appliedFingerprints = <String, String>{};
+  final Map<String, Future<void>> _inFlight = <String, Future<void>>{};
+  int _generation = 0;
+
+  Future<void> activate({
+    required String accountId,
+    required String fingerprint,
+    required Future<void> Function() apply,
+  }) {
+    if (_appliedFingerprints[accountId] == fingerprint) {
+      return Future<void>.value();
+    }
+    final key = '$accountId:$fingerprint';
+    final existing = _inFlight[key];
+    if (existing != null) return existing;
+
+    final generation = _generation;
+    late Future<void> future;
+    future = Future<void>.sync(apply).then((_) {
+      if (generation != _generation) {
+        throw const HttpException(
+          'Gateway session activation was invalidated by a restart.',
+        );
+      }
+      _appliedFingerprints[accountId] = fingerprint;
+    }).whenComplete(() {
+      if (identical(_inFlight[key], future)) _inFlight.remove(key);
+    });
+    _inFlight[key] = future;
+    return future;
+  }
+
+  void clear([String accountId = '']) {
+    _generation++;
+    if (accountId.isEmpty) {
+      _appliedFingerprints.clear();
+      _inFlight.clear();
+      return;
+    }
+    _appliedFingerprints.remove(accountId);
+    _inFlight.removeWhere((key, _) => key.startsWith('$accountId:'));
+  }
+}
+
 class EmbeddedChatGptGatewayManager {
   EmbeddedChatGptGatewayManager({
     this.firstPort = embeddedGatewayFirstPort,
@@ -65,7 +110,8 @@ class EmbeddedChatGptGatewayManager {
   String _lastError = '';
   bool _gatewayReady = false;
   bool _stopping = false;
-  final Map<String, String> _appliedSessionFingerprints = <String, String>{};
+  final SessionActivationCoordinator _sessionActivation =
+      SessionActivationCoordinator();
 
   bool get running => _gatewayReady && _process != null && _port > 0;
 
@@ -111,7 +157,7 @@ class EmbeddedChatGptGatewayManager {
     _apiKey = randomGatewaySecret();
     _bridgeSecret = randomGatewaySecret();
     _lastError = '';
-    _appliedSessionFingerprints.clear();
+    _sessionActivation.clear();
 
     final attemptedPorts = <int>{};
     final maxPortAttempts = min(3, lastPort - firstPort + 1);
@@ -230,7 +276,7 @@ class EmbeddedChatGptGatewayManager {
       _port = 0;
       _apiKey = '';
       _bridgeSecret = '';
-      _appliedSessionFingerprints.clear();
+      _sessionActivation.clear();
       if (!_stopping && _lastError.isEmpty) {
         _lastError = 'Bundled image gateway exited with code $exitCode.';
       }
@@ -242,12 +288,21 @@ class EmbeddedChatGptGatewayManager {
     String accessToken, {
     required String accountId,
   }) async {
-    final tokenFingerprint = sha256.convert(utf8.encode(accessToken)).toString();
+    final tokenFingerprint =
+        sha256.convert(utf8.encode(accessToken)).toString();
     final config = await configuration();
-    if (running &&
-        _appliedSessionFingerprints[accountId] == tokenFingerprint) {
-      return;
-    }
+    return _sessionActivation.activate(
+      accountId: accountId,
+      fingerprint: tokenFingerprint,
+      apply: () => _applySessionToken(accessToken, accountId, config),
+    );
+  }
+
+  Future<void> _applySessionToken(
+    String accessToken,
+    String accountId,
+    Map<String, Object?> config,
+  ) async {
     final baseUrl = (config['baseUrl'] ?? '').toString();
     final endpoint = Uri.parse(baseUrl).replace(
       path: '/session-bridge/v1/token',
@@ -272,7 +327,6 @@ class EmbeddedChatGptGatewayManager {
           uri: endpoint,
         );
       }
-      _appliedSessionFingerprints[accountId] = tokenFingerprint;
     } finally {
       client.close(force: true);
     }
@@ -280,9 +334,9 @@ class EmbeddedChatGptGatewayManager {
 
   Future<void> clearSessionToken({String accountId = ''}) async {
     if (accountId.isEmpty) {
-      _appliedSessionFingerprints.clear();
+      _sessionActivation.clear();
     } else {
-      _appliedSessionFingerprints.remove(accountId);
+      _sessionActivation.clear(accountId);
     }
     if (!running) return;
     final endpoint = Uri.parse(
@@ -311,7 +365,7 @@ class EmbeddedChatGptGatewayManager {
     _process = null;
     _gatewayReady = false;
     _port = 0;
-    _appliedSessionFingerprints.clear();
+    _sessionActivation.clear();
     if (clearSecrets) {
       _apiKey = '';
       _bridgeSecret = '';
