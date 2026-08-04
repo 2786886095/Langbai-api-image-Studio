@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.29
+# Codex / Claude Handoff: AI 图片生成器 v1.6.30
 
 更新时间：2026-08-04
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
@@ -6,7 +6,14 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.29+106`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.30+107`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.30 内容策略失败重试修复
+
+- 内容策略分类兼容 `content policy`、`content policies` 和 `prompt may violate` 等常见上游响应。
+- 将单卡手动重试与批量原样重试的阻断状态分离：需要编辑的失败卡片可点击重试，批量重试仍会跳过这些卡片。
+- 单图与漫画分镜的内容策略失败均在重试前打开编辑框；漫画重试不再携带旧的全局提示词。
+- Web 与 Android 资源已同步；稳定性测试、完整浏览器回归、静态审计、`flutter analyze` 与 Flutter 全量测试通过。
 
 ## v1.6.29 技能区默认折叠
 

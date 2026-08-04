@@ -15,6 +15,15 @@ test("moderation errors keep safety category and request id instead of becoming 
   assert.deepEqual(detail.safetyViolations, ["sexual"]);
 });
 
+test("provider content-policies wording is classified as moderation instead of parameters", () => {
+  const detail = stability.classifyApiError(
+    "HTTP 400: We are so sorry, but the prompt may violate our content policies. If you think we got it wrong, please retry or edit your prompt.",
+  );
+  assert.equal(detail.category, "moderation_blocked");
+  assert.equal(detail.requiresEdit, true);
+  assert.equal(detail.retryPolicy, "edit_required");
+});
+
 test("HTTP error families remain distinct", () => {
   assert.equal(stability.classifyApiError("HTTP 400: unsupported size").category, "invalid_parameters");
   const dimensionMismatch = stability.classifyApiError({

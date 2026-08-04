@@ -2061,6 +2061,79 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(retry.callAttempts === 3 && retry.callImageReturned, "Image API should stop retrying as soon as a successful image payload returns.", retry);
   assertQa(/1\/3|2\/3/.test(retry.statusText), "Retry status should show the current retry round and total retry rounds.", retry);
 
+  const editRequiredRetry = await cdp.eval(`(async () => {
+    const originalCallImageAPI = callImageAPI;
+    const calls = [];
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    callImageAPI = async prompt => {
+      calls.push(prompt);
+      return { data: [{ b64_json: png }] };
+    };
+    const policyError = Object.assign(new Error("HTTP 400: We are so sorry, but the prompt may violate our content policies. If you think we got it wrong, please retry or edit your prompt."), { status: 400 });
+
+    async function exercise({ id, mode, prompt, panelPrompt = "", globalPrompt = "", edited }) {
+      switchMode(mode);
+      const card = addResultPlaceholder(id, prompt, {
+        mode,
+        prompt,
+        panelPrompt,
+        globalPrompt,
+        size: "1024x1024",
+        apiSnapshot: captureApiRequestSnapshot(),
+      });
+      markPlaceholderFailed(card, id, policyError, card._retryContext);
+      const retryButton = card.querySelector(".retry-now");
+      const before = {
+        category: card.dataset.errorCategory,
+        enabled: !retryButton.disabled,
+        excludedFromBulk: card.dataset.retryBlocked === "true",
+      };
+      retryButton.click();
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const dialog = document.querySelector(".ask-dialog-overlay");
+      const dialogOpened = !!dialog;
+      const input = dialog?.querySelector(".ask-dialog-input");
+      if (input) input.value = edited;
+      dialog?.querySelector(".ask-dialog-ok")?.click();
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline && card.dataset.status !== "success") {
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      return { ...before, dialogOpened, finalStatus: card.dataset.status };
+    }
+
+    try {
+      const single = await exercise({
+        id: "policy-single",
+        mode: "single",
+        prompt: "original single prompt",
+        edited: "edited single prompt",
+      });
+      const comic = await exercise({
+        id: "policy-comic",
+        mode: "comic",
+        prompt: "GLOBAL POLICY TEXT\\n\\noriginal panel prompt",
+        panelPrompt: "original panel prompt",
+        globalPrompt: "GLOBAL POLICY TEXT",
+        edited: "edited comic panel prompt",
+      });
+      return { single, comic, calls };
+    } finally {
+      callImageAPI = originalCallImageAPI;
+      switchMode("single");
+    }
+  })()`, true);
+  assertQa(editRequiredRetry.single.category === "moderation_blocked" && editRequiredRetry.comic.category === "moderation_blocked",
+    "The provider's 'content policies' HTTP 400 wording must be classified as moderation, not invalid parameters.", editRequiredRetry);
+  assertQa(editRequiredRetry.single.enabled && editRequiredRetry.comic.enabled && editRequiredRetry.single.dialogOpened && editRequiredRetry.comic.dialogOpened,
+    "An edit-required failure's visible retry button must stay enabled and open the edit dialog in both single and comic modes.", editRequiredRetry);
+  assertQa(editRequiredRetry.single.excludedFromBulk && editRequiredRetry.comic.excludedFromBulk,
+    "Edit-required cards must remain excluded from bulk unchanged resubmission even though manual retry is actionable.", editRequiredRetry);
+  assertQa(editRequiredRetry.single.finalStatus === "success" && editRequiredRetry.comic.finalStatus === "success",
+    "Confirming the edited prompt must actually submit and replace both failed cards.", editRequiredRetry);
+  assertQa(JSON.stringify(editRequiredRetry.calls) === JSON.stringify(["edited single prompt", "edited comic panel prompt"]),
+    "Manual moderation retry must send the edited prompt; comic retry must omit the old global text that caused the policy failure.", editRequiredRetry);
+
   const clear = await cdp.eval(`(async () => {
     localStorage.clear();
     const originalFetch = window.fetch.bind(window);
