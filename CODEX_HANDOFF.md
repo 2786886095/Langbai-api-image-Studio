@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.28
+# Codex / Claude Handoff: AI 图片生成器 v1.6.29
 
 更新时间：2026-08-04
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
@@ -6,7 +6,14 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.28+105`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.29+106`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.29 技能区默认折叠
+
+- 左侧“当前模式技能”改为原生 `details/summary` 折叠区，软件启动时默认关闭。
+- 点击标题或使用键盘即可展开和收起；标题点击区域不小于 44px，并提供焦点样式与方向指示。
+- 展开后保留技能勾选、说明和“管理技能”入口，右上角技能管理弹窗行为不变。
+- Android 内置资源已同步；完整浏览器回归、静态审计、`flutter analyze` 与 Flutter 全量测试通过。
 
 ## v1.6.28 技能版块与角色三视图
 

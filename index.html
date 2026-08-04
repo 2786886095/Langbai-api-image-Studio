@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260804-1-6-28">
+  <link rel="stylesheet" href="style.css?v=20260804-1-6-29">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -415,14 +415,18 @@
           <button type="button" class="mode-tab" data-mode="turnaround" role="tab" aria-selected="false" tabindex="-1"><span class="ui-icon ui-icon-turnaround"></span> 三视图生成</button>
         </div>
 
-        <section class="active-skills" id="activeSkillsSection" aria-labelledby="activeSkillsTitle">
-          <div class="active-skills-header">
+        <details class="active-skills" id="activeSkillsSection">
+          <summary class="active-skills-header">
             <strong id="activeSkillsTitle"><span class="ui-icon ui-icon-skills"></span> 当前模式技能</strong>
-            <button type="button" id="openSkillsFromPanel" class="btn btn-xs">管理技能</button>
+          </summary>
+          <div class="active-skills-body">
+            <div id="activeSkillsList" class="active-skills-list"></div>
+            <p class="field-hint" id="activeSkillsHint">勾选后按列表顺序注入当前模式的生图提示词；单图与漫画分镜分别记忆。</p>
+            <div class="active-skills-actions">
+              <button type="button" id="openSkillsFromPanel" class="btn btn-xs">管理技能</button>
+            </div>
           </div>
-          <div id="activeSkillsList" class="active-skills-list"></div>
-          <p class="field-hint" id="activeSkillsHint">勾选后按列表顺序注入当前模式的生图提示词；单图与漫画分镜分别记忆。</p>
-        </section>
+        </details>
 
         <!-- ========== 单图模式专属：生成数量 ========== -->
         <label class="field single-only" id="nImagesField">
@@ -852,7 +856,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.28</strong>
+            <strong id="currentVersionLabel">v1.6.29</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -1088,13 +1092,13 @@
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260804-1-6-28"></script>
-  <script src="image-task-stability.js?v=20260804-1-6-28"></script>
-  <script src="codex-image-gateway.js?v=20260804-1-6-28"></script>
-  <script src="gemini-image-size-registry.js?v=20260804-1-6-28"></script>
-  <script src="gemini-web-image-adapter.js?v=20260804-1-6-28"></script>
-  <script src="gemini-selector-pack.js?v=20260804-1-6-28"></script>
-  <script src="gemini-watermark-remover.bundle.js?v=20260804-1-6-28"></script>
-  <script src="app.js?v=20260804-1-6-28"></script>
+  <script src="bootstrap-guard.js?v=20260804-1-6-29"></script>
+  <script src="image-task-stability.js?v=20260804-1-6-29"></script>
+  <script src="codex-image-gateway.js?v=20260804-1-6-29"></script>
+  <script src="gemini-image-size-registry.js?v=20260804-1-6-29"></script>
+  <script src="gemini-web-image-adapter.js?v=20260804-1-6-29"></script>
+  <script src="gemini-selector-pack.js?v=20260804-1-6-29"></script>
+  <script src="gemini-watermark-remover.bundle.js?v=20260804-1-6-29"></script>
+  <script src="app.js?v=20260804-1-6-29"></script>
 </body>
 </html>
