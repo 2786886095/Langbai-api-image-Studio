@@ -3695,7 +3695,7 @@ async function testTurnaroundMode(cdp) {
 }
 
 async function testSkillsManagerAndPromptInjection(cdp) {
-  logStep("Skills: built-in style defaults off, custom skills support CRUD/scope, single and comic selections stay independent, injection follows list order, and turnaround ignores skills");
+  logStep("Skills: sidebar defaults collapsed and expands on demand, built-in style defaults off, custom skills support CRUD/scope, single and comic selections stay independent, injection follows list order, and turnaround ignores skills");
   await loadFresh(cdp, "skills-manager");
   const initial = await cdp.eval(`(async () => {
     localStorage.removeItem(SKILLS_STORAGE_KEY);
@@ -3703,6 +3703,10 @@ async function testSkillsManagerAndPromptInjection(cdp) {
     saveSkillState();
     renderActiveSkills();
 
+    const skillsSection = document.getElementById("activeSkillsSection");
+    const defaultCollapsed = skillsSection.open === false;
+    skillsSection.querySelector("summary").click();
+    const expandedOnClick = skillsSection.open === true;
     const builtIn = skillState.skills.find(skill => skill.id === "builtin-anime-commercial-style");
     const defaultOff = skillState.enabled.single.length === 0 && skillState.enabled.comic.length === 0;
     const builtInVisible = !!document.querySelector('[data-skill-id="builtin-anime-commercial-style"]');
@@ -3737,6 +3741,8 @@ async function testSkillsManagerAndPromptInjection(cdp) {
     const turnaroundUntouched = applyEnabledSkills("BASE", "turnaround") === "BASE";
 
     return {
+      defaultCollapsed,
+      expandedOnClick,
       defaultOff,
       builtInVisible,
       singleHasBuiltIn: singlePrompt.includes(builtIn.template),
@@ -3750,6 +3756,7 @@ async function testSkillsManagerAndPromptInjection(cdp) {
     };
   })()`, true);
 
+  assertQa(initial.defaultCollapsed && initial.expandedOnClick, "The sidebar skill section must start collapsed and expand when its summary is clicked.", initial);
   assertQa(initial.defaultOff && initial.builtInVisible, "The built-in style skill must exist and be unchecked on first use.", initial);
   assertQa(initial.singleHasBuiltIn && !initial.comicBefore.includes("KEEP_IDENTITY_EXACT"), "Checking a single-mode skill must inject it only into the single prompt.", initial);
   assertQa(initial.editedName === "Identity Lock Edited", "Custom skills must be editable through the manager.", initial);
@@ -3760,11 +3767,13 @@ async function testSkillsManagerAndPromptInjection(cdp) {
 
   await loadFresh(cdp, "skills-persist-reload");
   const afterReload = await cdp.eval(`({
+    defaultCollapsed: document.getElementById("activeSkillsSection").open === false,
     selectedSingle: skillState.enabled.single.length,
     selectedComic: skillState.enabled.comic.length,
     editedName: skillState.skills.find(skill => skill.template === "KEEP_IDENTITY_EXACT")?.name,
     singleChecked: document.querySelectorAll('#activeSkillsList input:checked').length,
   })`);
+  assertQa(afterReload.defaultCollapsed, "A full startup must restore the sidebar skill section to its default collapsed state.", afterReload);
   assertQa(afterReload.selectedSingle === 2 && afterReload.selectedComic === 0 && afterReload.singleChecked === 2, "Single/comic skill selections must survive a full reload independently.", afterReload);
   assertQa(afterReload.editedName === "Identity Lock Edited", "Edited custom skill data must survive reload.", afterReload);
 

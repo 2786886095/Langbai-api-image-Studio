@@ -2539,12 +2539,11 @@ details[open] .config-toggle::before { content: "v"; }
 }
 
 .active-skills {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
+  display: block;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface2);
+  overflow: hidden;
 }
 .active-skills-header,
 .skill-editor-heading {
@@ -2553,7 +2552,39 @@ details[open] .config-toggle::before { content: "v"; }
   justify-content: space-between;
   gap: 10px;
 }
+.active-skills-header {
+  min-height: 44px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.active-skills-header::-webkit-details-marker { display: none; }
+.active-skills-header::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  margin-right: 3px;
+  border-right: 2px solid var(--text2);
+  border-bottom: 2px solid var(--text2);
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+}
+.active-skills[open] > .active-skills-header::after { transform: rotate(225deg); }
+.active-skills-header:hover { background: var(--surface3); }
+.active-skills-header:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
 .active-skills-header strong { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; }
+.active-skills-body {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+.active-skills-actions { display: flex; justify-content: flex-end; }
 .active-skills-list { display: grid; gap: 8px; }
 .active-skill-group { display: grid; gap: 5px; }
 .active-skill-group-title,
