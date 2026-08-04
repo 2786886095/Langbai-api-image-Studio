@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.29";
+const APP_VERSION = "1.6.30";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -10553,14 +10553,18 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
     && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
   const chatGptManualTimeout = errorDetail.retryPolicy === "manual_unknown_outcome"
     && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
-  const hardRetryBlocked = Boolean(
+  const manualRetryBlocked = Boolean(
     errorDetail.retryPolicy === "never"
-    || errorDetail.retryPolicy === "edit_required"
     || errorDetail.category === "provider_ui_unavailable"
     || (errorDetail.retryPolicy === "after_configuration_change" && !chatGptAuthentication)
     || (errorDetail.retryPolicy === "manual_unknown_outcome" && !chatGptManualTimeout)
   );
-  const retryBlocked = hardRetryBlocked || (chatGptAuthentication && !activeChatGptAccountIsReady());
+  // An edit-required failure must stay out of "retry all" because resubmitting
+  // the unchanged request is pointless, but its single-card retry remains
+  // actionable: clicking it opens the edit dialog before sending a new request.
+  const bulkRetryBlocked = manualRetryBlocked
+    || requiresEdit
+    || (chatGptAuthentication && !activeChatGptAccountIsReady());
   setRetryContext(card, panelId, {
     ...(card._retryContext || {}),
     ...(retryContext || {}),
@@ -10574,7 +10578,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   card.dataset.errorMessage = message;
   card.dataset.errorCategory = errorDetail.category;
   card.dataset.retryPolicy = errorDetail.retryPolicy;
-  card.dataset.retryBlocked = retryBlocked ? "true" : "false";
+  card.dataset.retryBlocked = bulkRetryBlocked ? "true" : "false";
   card._lastImageError = errorDetail;
   delete card.dataset.queuePosition;
   delete card._retryQueuedSnapshot;
@@ -10597,9 +10601,9 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   card.title = message;
   const retryNow = card.querySelector(".retry-now");
   if (retryNow) {
-    retryNow.disabled = hardRetryBlocked;
+    retryNow.disabled = manualRetryBlocked;
     retryNow.title = requiresEdit ? (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"]).editRequired : cleanText("retry");
-    retryNow.addEventListener("click", () => retryResultCard(card, false));
+    retryNow.addEventListener("click", () => retryResultCard(card, requiresEdit));
   }
   card.querySelector(".edit-retry")?.addEventListener("click", () => retryResultCard(card, true));
   updateFailedRetryTools();

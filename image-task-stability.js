@@ -95,7 +95,7 @@
     } else if (status === 404 && /task[_\s-]*not[_\s-]*found|not found/.test(lower)) {
       category = ERROR_CATEGORIES.taskNotFound;
       retryPolicy = "never";
-    } else if (/moderation_blocked|safety system|safety_violations|content[_\s-]*policy/.test(lower)) {
+    } else if (/moderation_blocked|safety system|safety_violations|content[_\s-]*polic(?:y|ies)|prompt may violate/.test(lower)) {
       category = ERROR_CATEGORIES.moderation;
       retryPolicy = "edit_required";
       requiresEdit = true;
