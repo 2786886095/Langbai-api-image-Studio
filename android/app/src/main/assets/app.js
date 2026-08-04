@@ -1,6 +1,6 @@
 /* ===================================================================
    AI 图片生成器 — app.js
-   三种工作流：单图生成 + 漫画分镜 + 气泡嵌字
+   三种工作流：单图生成 + 漫画分镜 + 角色三视图
    兼容 url 和 b64_json 两种响应格式
    多 API 站点适配（GrsAI / OpenAI / SiliconFlow / Gemini）
    =================================================================== */
@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.27";
+const APP_VERSION = "1.6.28";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -115,7 +115,7 @@ function openFileInputOnce(input) {
   // 这道锁本来是为了防止同一次物理点击被派发成两个 click 事件时重复弹出选择框——那种重复
   // 只会相隔几十毫秒。原来的锁定窗口是 900ms，太长了：原生文件选择框弹出本身可能有明显延迟
   // （尤其冷启动/慢磁盘），用户看不到反馈会不耐烦地再点一次，而这一下会被直接吞掉，表现为
-  // "点了没反应"（嵌字模式批量上传区反馈过这个问题，因为那个入口本来就需要反复点着用）。
+  // 防止文件选择器入口被极短时间内重复触发。
   // 400ms 依然能挡住真正意义上的"同一次点击触发两次"，但不会误伤用户几百毫秒后的正常重试点击。
   if (input._lastPickerOpenAt && now - input._lastPickerOpenAt < 400) return;
   input._lastPickerOpenAt = now;
@@ -141,7 +141,7 @@ const I18N = {
   "切换主题": { "zh-Hant": "切換主題", en: "Toggle theme", ja: "テーマ切替", ko: "테마 전환" },
   "关闭": { "zh-Hant": "關閉", en: "Close", ja: "閉じる", ko: "닫기" },
   "AI 图片生成器": { "zh-Hant": "AI 圖片生成器", en: "AI Image Generator", ja: "AI 画像生成", ko: "AI 이미지 생성기" },
-  "单图生成 · 漫画分镜 · 气泡嵌字": { "zh-Hant": "單圖生成 · 漫畫分鏡 · 氣泡嵌字", en: "Single images · Comic panels · Speech bubbles", ja: "単体画像 · 漫画コマ · 吹き出し文字", ko: "단일 이미지 · 만화 컷 · 말풍선 문구" },
+  "单图生成 · 漫画分镜 · 角色三视图": { "zh-Hant": "單圖生成 · 漫畫分鏡 · 角色三視圖", en: "Single images · Comic panels · Character turnarounds", ja: "単体画像 · 漫画コマ · キャラクター三面図", ko: "단일 이미지 · 만화 컷 · 캐릭터 턴어라운드" },
   "API 配置": { "zh-Hant": "API 設定", en: "API Settings", ja: "API 設定", ko: "API 설정" },
   "已保存的 API": { "zh-Hant": "已儲存的 API", en: "Saved APIs", ja: "保存済み API", ko: "저장된 API" },
   "— 手动填写 —": { "zh-Hant": "— 手動填寫 —", en: "— Manual entry —", ja: "— 手動入力 —", ko: "— 직접 입력 —" },
@@ -208,7 +208,6 @@ const I18N = {
   "一键填写": { "zh-Hant": "一鍵填寫", en: "Auto Fill", ja: "自動入力", ko: "자동 입력" },
   "一键填写模板": { "zh-Hant": "一鍵填寫範本", en: "Auto-fill template", ja: "自動入力テンプレート", ko: "자동 입력 템플릿" },
   "输出分镜 N 的图片": { "zh-Hant": "輸出分鏡 N 的圖片", en: "Generate image for panel N", ja: "コマ N の画像を出力", ko: "컷 N 이미지 출력" },
-  "参考图 N 加编号气泡": { "zh-Hant": "參考圖 N 加編號氣泡", en: "Add numbered bubble to reference N", ja: "参照画像 N に番号吹き出し", ko: "참고 이미지 N에 번호 말풍선" },
   "参考图 N 加文字编号": { "zh-Hant": "參考圖 N 加文字編號", en: "Add text number to reference N", ja: "参照画像 N に文字番号", ko: "참고 이미지 N에 텍스트 번호" },
   "自定义模板...": { "zh-Hant": "自訂範本...", en: "Custom template...", ja: "カスタムテンプレート...", ko: "사용자 템플릿..." },
   "填入": { "zh-Hant": "填入", en: "Fill", ja: "入力", ko: "채우기" },
@@ -287,7 +286,6 @@ const I18N = {
   "请先配置 API Key": { "zh-Hant": "請先設定 API Key", en: "Configure an API key first.", ja: "先に API Key を設定してください。", ko: "먼저 API Key를 설정하세요." },
   "请输入提示词或导入 txt 文件": { "zh-Hant": "請輸入提示詞或匯入 txt 檔案", en: "Enter a prompt or import a txt file.", ja: "プロンプトを入力するか txt ファイルを読み込んでください。", ko: "프롬프트를 입력하거나 txt 파일을 가져오세요." },
   "请至少为一个分镜填写提示词": { "zh-Hant": "請至少為一個分鏡填寫提示詞", en: "Enter a prompt for at least one panel.", ja: "少なくとも 1 コマにプロンプトを入力してください。", ko: "최소 한 컷에 프롬프트를 입력하세요." },
-  "请至少给一张图片上传图片并填写气泡文字": { "zh-Hant": "請至少上傳一張圖片並填寫氣泡文字", en: "Upload at least one image and enter its bubble text.", ja: "少なくとも 1 枚の画像をアップロードし、吹き出しの文字を入力してください。", ko: "이미지를 한 장 이상 업로드하고 말풍선 문구를 입력하세요." },
   "重试前请先填写提示词": { "zh-Hant": "重試前請先填寫提示詞", en: "Enter a prompt before retrying.", ja: "再試行する前にプロンプトを入力してください。", ko: "재시도 전에 프롬프트를 입력하세요." },
   "已从历史记录恢复到结果区": { "zh-Hant": "已從歷史記錄恢復到結果區", en: "Restored from history to the results area.", ja: "履歴から結果エリアへ復元しました。", ko: "기록에서 결과 영역으로 복원했습니다." },
   "历史记录已清空": { "zh-Hant": "歷史記錄已清空", en: "History cleared.", ja: "履歴を消去しました。", ko: "기록을 모두 지웠습니다." },
@@ -350,9 +348,9 @@ for (const [source, translations] of Object.entries(I18N)) {
 const CLEAN_LOCALES = {
   "zh-CN": {
     langZh: "简体", langHant: "繁体", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜 · 气泡嵌字",
+    appTitle: "AI 图片生成器", subtitle: "单图生成 · 漫画分镜 · 角色三视图",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
-    create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置",
+    create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置", skillsTitle: "技能列表", activeSkillsTitle: "当前模式技能", manageSkills: "管理技能", activeSkillsHint: "勾选后按列表顺序注入当前模式的生图提示词；单图与漫画分镜分别记忆。", functionalCategory: "功能类", styleCategory: "风格类", noSkills: "当前模式暂无可用技能，可在右上角技能列表中添加。",
     apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", geminiWebApi: "Gemini 网页生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
     opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
     opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 初始并发 2（断连后降为 1）", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。", inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
@@ -370,24 +368,23 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "自定义代理地址无效，仅支持 http://host:port、https://host:port、socks5://host:port",
     connectApi: "接入 API", apiDetect: "检测", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "点击接入 API 后填写地址、Key 和模型",
-    singleMode: "单图模式", comicMode: "漫画分镜", captionMode: "嵌字模式", prompt: "提示词", globalPrompt: "全局提示词",
-    globalPromptComic: "全局提示词（注入所有分镜）", globalPromptCaption: "全局提示词（注入所有图片）", importTxt: "导入 txt",
+    singleMode: "单图模式", comicMode: "漫画分镜", turnaroundMode: "三视图生成", prompt: "提示词", globalPrompt: "全局提示词",
+    globalPromptComic: "全局提示词（注入所有分镜）", importTxt: "导入 txt",
     promptPlaceholder: "描述你想生成的图片，越详细越好……\n\n例如：一只橘猫坐在窗台上，阳光透过纱帘洒在它身上，油画风格，暖色调",
     globalRefs: "全局参考图片（可选，支持多选）", uploadRefs: "点击或拖拽上传参考图（可多选）",
     uploadRefsClickOnly: "点击上传参考图（可多选）",
-    captionUploadHint: "点击或拖拽批量上传图片（自动按文件名顺序逐张生成，不会一次性打包发送）",
-    captionUploadHintClickOnly: "点击批量上传图片（自动按文件名顺序逐张生成，不会一次性打包发送）",
-    generateAllCaptions: "批量生成全部图片",
+    turnaroundUploadHint: "点击或拖拽导入所有角色图片；每张图片会成为一个独立三视图任务",
+    turnaroundUploadHintClickOnly: "点击导入所有角色图片；每张图片会成为一个独立三视图任务",
+    generateAllTurnarounds: "批量生成全部三视图",
     matchSize: "输出尺寸与参考图一致", resolution: "全局分辨率", landscape: "横版 3:2", portrait: "竖版 2:3",
     custom: "自定义", width: "宽", height: "高", savedSizes: "常用尺寸", saveSizePreset: "保存尺寸", deleteSizePreset: "删除常用尺寸", imageCount: "生成数量", sequential: "依次生成",
     sequentialHint: "不勾选：按当前 API 的并发上限批量生成；勾选：逐张依次生成",
-    panelList: "分镜列表", captionList: "嵌字列表", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
+    panelList: "分镜列表", turnaroundList: "三视图任务", addPanel: "添加分镜", clear: "清空", batchCreate: "批量创建", panelCount: "分镜数",
     createBtn: "创建", autoFill: "一键填写", fill: "填入", panelPrompt: "分镜提示词", retry: "重试",
-    bulkPrompts: "批量输入提示词", bulkComicTitle: "批量输入分镜提示词", bulkCaptionTitle: "批量输入嵌字提示词",
-    bulkComicHint: "每行一条，按顺序对应分镜；再次批量输入会覆盖已有提示词，空行会清空对应分镜。", bulkCaptionHint: "每行一条，按图片名称顺序对应；空行也会占据一个位置。",
+    bulkPrompts: "批量输入提示词", bulkComicTitle: "批量输入分镜提示词",
+    bulkComicHint: "每行一条，按顺序对应分镜；再次批量输入会覆盖已有提示词，空行会清空对应分镜。",
     bulkPromptPlaceholder: "第 1 条提示词\n第 2 条提示词\n第 3 条提示词", bulkPromptCount: "输入 {lines} 行 / 当前 {rows} {unit}",
-    applyBulkPrompts: "按顺序填入", cancel: "取消", noBulkPrompts: "请至少输入一行提示词", noCaptionImages: "请先批量上传图片",
-    tooManyCaptionPrompts: "提示词有 {lines} 条，但当前只有 {rows} 张图片。请删除多出的提示词或继续上传图片。",
+    applyBulkPrompts: "按顺序填入", cancel: "取消", noBulkPrompts: "请至少输入一行提示词",
     overwriteBulkPrompts: "对应位置已有内容。继续后将按行覆盖，空行会清空对应位置，确定继续吗？", bulkPromptsApplied: "已按顺序填写 {count} 条提示词", bulkPromptsRemaining: "，另有 {count} {unit}保持不变",
     reference: "参考图", generateImage: "生成图片", generateAll: "批量生成全部分镜", cancelGeneration: "取消生成",
     imageFolder: "图片目录", zipFolder: "ZIP 目录", notSelected: "未选择", zipName: "压缩包名称（可选）…", projectExportName: "项目 / 文件夹名称（可选）…",
@@ -395,7 +392,7 @@ const CLEAN_LOCALES = {
     emptyHint: "在左侧输入提示词，点击「生成图片」开始", downloadPaths: "下载路径",
     importWatermarkImages: "导入图片去 Gemini 水印", watermarkSettingsTitle: "Gemini 去水印", watermarkRemovalLabel: "生成完成后自动去除 Gemini 水印", watermarkRemovalHint: "默认开启。开启后，Gemini 生成结果会先在本机处理，界面、缓存和下载仅使用处理后的图片。",
     imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录", imageAskEveryTime: "每次保存图片时询问路径", zipAskEveryTime: "每次保存 ZIP 时询问路径", pathModeHint: "未勾选时使用上方保存目录；勾选后每次保存都会重新选择一次目录。", textSelectAll: "全选", textCut: "剪切", textCopy: "复制", textPaste: "粘贴",
-    historyTitle: "生图记录", historyHint: "漫画与嵌字任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
+    historyTitle: "生图记录", historyHint: "漫画与三视图任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
     maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", imageCacheTitle: "图片临时缓存", cacheRetentionDays: "自动清理天数", cacheRetentionHint: "生成成功后立即缓存在应用内部，避免中转图片链接过期；只有打包 ZIP 或保存到文件夹时才会写入所选目录。", clearGeneratedCache: "立即清理缓存", cacheAutoHint: "缓存会在应用启动和生成新图片时自动清理。", cacheCleared: "已清理 {count} 张缓存图片", cacheCleanupFailed: "缓存清理失败：{reason}", autoRetry: "自动重试", globalRetries: "全局重试次数",
     retryHint: "通用 API 只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
@@ -404,7 +401,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Waiting: "GrsAI 提交返回 HTTP 504，{seconds} 秒后进行第 {retryIndex}/{maxRetries} 次重试…",
     grsaiSubmit504Exhausted: "HTTP 504：GrsAI 提交请求仍然超时，已完成 {count} 次自动重试。任务可能已经提交，请先在 GrsAI 后台确认，再决定是否手动重试。",
     restoreProject: "恢复项目", downloadProject: "导出项目", importExportedProject: "恢复导出项目", importingExportedProject: "正在恢复导出项目?", importProjectFolderHint: "选择软件导出的项目文件夹", importProjectInvalid: "未找到有效的 project.json", importProjectRestored: "已从导出文件夹恢复项目", viewPrompts: "查看提示词与分镜",
-    globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", captionProject: "嵌字项目", captionImageCol: "图片", captionBubbleCol: "气泡文字",
+    globalPromptLabel: "全局提示词", panelLabel: "分镜", noPrompt: "无提示词", comicProject: "漫画项目", turnaroundProject: "三视图项目", turnaroundImageCol: "角色参考图", turnaroundPromptCol: "角色说明（可选）", turnaroundOutputCol: "输出",
     noHistory: "暂无生图记录", expand: "展开全部", collapse: "收起",
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
@@ -429,9 +426,9 @@ const CLEAN_LOCALES = {
   },
   "zh-Hant": {
     langZh: "簡體", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡 · 氣泡嵌字",
+    appTitle: "AI 圖片生成器", subtitle: "單圖生成 · 漫畫分鏡 · 角色三視圖",
     web: "Web/PWA", desktop: "桌面", android: "安卓",
-    create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定",
+    create: "創作", panels: "分鏡", history: "歷史", export: "匯出", settings: "設定", skillsTitle: "技能列表", activeSkillsTitle: "目前模式技能", manageSkills: "管理技能", activeSkillsHint: "勾選後依列表順序注入目前模式的生圖提示詞；單圖與漫畫分鏡分別記憶。", functionalCategory: "功能類", styleCategory: "風格類", noSkills: "目前模式沒有可用技能，可在右上角技能列表新增。",
     apiSettings: "API 設定", apiProvider: "API 類型", officialApi: "官方 API", opencodexApi: "OpenCodex 本機生圖", geminiWebApi: "Gemini 網頁生圖", grsaiImageApi: "GrsAI 生圖 API", customApi: "自訂 API",
     opencodexHint: "使用本機 OpenCodex 的 ChatGPT 登入轉發生圖；本機佔位密鑰不會傳送給 OpenAI，實際額度類型由 ChatGPT 上游決定。",
     opencodexPanelTitle: "OpenCodex 本機圖片代理", opencodexPanelHint: "重用本機 ChatGPT/Codex 或 Google Antigravity 登入；僅連線 127.0.0.1，不使用電腦端代理。", openCodexModel: "本機生圖模型", openCodexModelHint: "GPT Image 2 適合通用生成；Nano Banana 2 擅長多參考圖、文字與語意編輯。", opencodexQuality: "品質偏好", opencodexQualityHint: "私有額度上游實測固定為中等品質，其他檔位不會生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 僅傳送自動或不透明；不會傳送透明背景。", openCodexAspectRatio: "畫面比例", openCodexAspectRatioHint: "只能選擇 Nano Banana 2 官方支援的畫面比例。", openCodexImageSize: "解析度檔位", openCodexImageSizeHint: "512/1K 最多並行 5，2K 最多 3，4K 固定單任務。", opencodexFacts: "JSON 圖片協議 · GPT Image 2 · 中等品質 · 約 157 萬像素 · 初始並行 2（斷線後降為 1）", opencodexCapability: "實測輸出約 157 萬像素、最長邊 2172、品質固定為中等；軟體會將尺寸比例寫入提示詞，並以實際回傳尺寸為準。", openCodexNanoFacts: "JSON 圖片協議 · Nano Banana 2 · 目前最多並行 {concurrency} · 單次逾時 620 秒", openCodexNanoCapability: "支援最多 8 張客戶端參考圖、文字渲染與語意編輯；比例與檔位是請求目標，以實際圖片為準。", opencodexHealthCheck: "偵測本機服務", opencodexHealthIdle: "尚未偵測", opencodexHealthChecking: "正在連線 OpenCodex…", opencodexHealthReady: "本機服務可用 · OpenCodex {version}", opencodexHealthFailed: "本機服務無法使用：{reason}", openInpaint: "局部重繪", inpaintRequiresNano: "局部重繪需要選擇 Nano Banana 2", inpaintTitle: "局部重繪", inpaintDisclosure: "Nano Banana 2 產生語意補丁，軟體只在蒙版內本機合成；這不是上游原生 mask 重繪。", inpaintChooseSource: "選擇原圖", inpaintNoSource: "尚未選擇圖片", inpaintPromptLabel: "修改內容", inpaintGenerate: "產生候選補丁", inpaintApply: "套用並加入結果", inpaintInitial: "先選擇原圖，再塗抹要修改的區域。", inpaintNeedSource: "請先選擇原圖", inpaintNeedMask: "請先塗抹要修改的區域", inpaintNeedPrompt: "請輸入修改內容", inpaintGenerating: "正在產生候選補丁 {done}/{total}…", inpaintApplied: "局部重繪結果已加入結果清單", inpaintCandidateFailed: "候選 {index} 失敗：{reason}", inpaintRequestedActual: "請求：{requested} · 實際：{actual}",
@@ -449,24 +446,23 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "自訂代理位址無效，僅支援 http://host:port、https://host:port、socks5://host:port",
     connectApi: "接入 API", apiDetect: "偵測", apiConnected: "API 已接入", apiDisconnected: "API 未接入",
     apiConnectHint: "點擊接入 API 後填寫位址、Key 和模型",
-    singleMode: "單圖模式", comicMode: "漫畫分鏡", captionMode: "嵌字模式", prompt: "提示詞", globalPrompt: "全域提示詞",
-    globalPromptComic: "全域提示詞（套用到所有分鏡）", globalPromptCaption: "全域提示詞（套用到所有圖片）", importTxt: "匯入 txt",
+    singleMode: "單圖模式", comicMode: "漫畫分鏡", turnaroundMode: "三視圖生成", prompt: "提示詞", globalPrompt: "全域提示詞",
+    globalPromptComic: "全域提示詞（套用到所有分鏡）", importTxt: "匯入 txt",
     promptPlaceholder: "描述你想生成的圖片，越詳細越好……\n\n例如：一隻橘貓坐在窗台上，陽光透過紗簾灑在牠身上，油畫風格，暖色調",
     globalRefs: "全域參考圖片（可選，支援多選）", uploadRefs: "點擊或拖曳上傳參考圖（可多選）",
     uploadRefsClickOnly: "點擊上傳參考圖（可多選）",
-    captionUploadHint: "點擊或拖曳批次上傳圖片（自動依檔名順序逐張生成，不會一次性打包傳送）",
-    captionUploadHintClickOnly: "點擊批次上傳圖片（自動依檔名順序逐張生成，不會一次性打包傳送）",
-    generateAllCaptions: "批次生成全部圖片",
+    turnaroundUploadHint: "點擊或拖曳批次上傳圖片（自動依檔名順序逐張生成，不會一次性打包傳送）",
+    turnaroundUploadHintClickOnly: "點擊批次上傳圖片（自動依檔名順序逐張生成，不會一次性打包傳送）",
+    generateAllTurnarounds: "批次生成全部圖片",
     matchSize: "輸出尺寸與參考圖一致", resolution: "全域解析度", landscape: "橫版 3:2", portrait: "直版 2:3",
     custom: "自訂", width: "寬", height: "高", savedSizes: "常用尺寸", saveSizePreset: "儲存尺寸", deleteSizePreset: "刪除常用尺寸", imageCount: "生成數量", sequential: "依序生成",
     sequentialHint: "不勾選：依目前 API 的並發上限批次生成；勾選：逐張依序生成",
-    panelList: "分鏡列表", captionList: "嵌字列表", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
+    panelList: "分鏡列表", turnaroundList: "三視圖任務", addPanel: "新增分鏡", clear: "清空", batchCreate: "批次建立", panelCount: "分鏡數",
     createBtn: "建立", autoFill: "一鍵填寫", fill: "填入", panelPrompt: "分鏡提示詞", retry: "重試",
-    bulkPrompts: "批次輸入提示詞", bulkComicTitle: "批次輸入分鏡提示詞", bulkCaptionTitle: "批次輸入嵌字提示詞",
-    bulkComicHint: "每行一條，依序對應分鏡；再次批次輸入會覆蓋既有提示詞，空行會清除對應分鏡。", bulkCaptionHint: "每行一條，依圖片名稱順序對應；空行也會保留一個位置。",
+    bulkPrompts: "批次輸入提示詞", bulkComicTitle: "批次輸入分鏡提示詞",
+    bulkComicHint: "每行一條，依序對應分鏡；再次批次輸入會覆蓋既有提示詞，空行會清除對應分鏡。",
     bulkPromptPlaceholder: "第 1 條提示詞\n第 2 條提示詞\n第 3 條提示詞", bulkPromptCount: "輸入 {lines} 行 / 目前 {rows} {unit}",
-    applyBulkPrompts: "依序填入", cancel: "取消", noBulkPrompts: "請至少輸入一行提示詞", noCaptionImages: "請先批次上傳圖片",
-    tooManyCaptionPrompts: "提示詞有 {lines} 條，但目前只有 {rows} 張圖片。請刪除多出的提示詞或繼續上傳圖片。",
+    applyBulkPrompts: "依序填入", cancel: "取消", noBulkPrompts: "請至少輸入一行提示詞",
     overwriteBulkPrompts: "對應位置已有內容。繼續後將逐行覆蓋，空行會清除對應位置，確定繼續嗎？", bulkPromptsApplied: "已依序填寫 {count} 條提示詞", bulkPromptsRemaining: "，另有 {count} {unit}保持不變",
     reference: "參考圖", generateImage: "生成圖片", generateAll: "批次生成全部分鏡", cancelGeneration: "取消生成",
     imageFolder: "圖片目錄", zipFolder: "ZIP 目錄", notSelected: "未選擇", zipName: "壓縮包名稱（可選）…", projectExportName: "專案 / 資料夾名稱（可選）…",
@@ -474,7 +470,7 @@ const CLEAN_LOCALES = {
     emptyHint: "在左側輸入提示詞，點擊「生成圖片」開始", downloadPaths: "下載路徑",
     importWatermarkImages: "匯入圖片移除 Gemini 浮水印", watermarkSettingsTitle: "Gemini 浮水印移除", watermarkRemovalLabel: "生成完成後自動移除 Gemini 浮水印", watermarkRemovalHint: "預設開啟。開啟後，Gemini 生成結果會先在本機處理，介面、快取與下載只使用處理後的圖片。",
     imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄", imageAskEveryTime: "每次儲存圖片時詢問路徑", zipAskEveryTime: "每次儲存 ZIP 時詢問路徑", pathModeHint: "未勾選時使用上方儲存目錄；勾選後每次儲存都會重新選擇一次目錄。", textSelectAll: "全選", textCut: "剪下", textCopy: "複製", textPaste: "貼上",
-    historyTitle: "生圖記錄", historyHint: "漫畫與嵌字工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
+    historyTitle: "生圖記錄", historyHint: "漫畫與三視圖工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
     maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", imageCacheTitle: "圖片暫存快取", cacheRetentionDays: "自動清理天數", cacheRetentionHint: "生成成功後會立即快取在應用程式內，避免中轉圖片連結過期；只有打包 ZIP 或儲存到資料夾時才會寫入所選目錄。", clearGeneratedCache: "立即清理快取", cacheAutoHint: "快取會在應用程式啟動和生成新圖片時自動清理。", cacheCleared: "已清理 {count} 張快取圖片", cacheCleanupFailed: "快取清理失敗：{reason}", autoRetry: "自動重試", globalRetries: "全域重試次數",
     retryHint: "通用 API 只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
@@ -483,7 +479,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Waiting: "GrsAI 提交回傳 HTTP 504，{seconds} 秒後進行第 {retryIndex}/{maxRetries} 次重試…",
     grsaiSubmit504Exhausted: "HTTP 504：GrsAI 提交請求仍然逾時，已完成 {count} 次自動重試。任務可能已提交，請先在 GrsAI 後台確認，再決定是否手動重試。",
     restoreProject: "恢復專案", downloadProject: "匯出專案", importExportedProject: "恢復匯出專案", importingExportedProject: "正在恢復匯出專案?", importProjectFolderHint: "選擇軟體匯出的專案資料夾", importProjectInvalid: "找不到有效的 project.json", importProjectRestored: "已從匯出資料夾恢復專案", viewPrompts: "查看提示詞與分鏡",
-    globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", captionProject: "嵌字專案", captionImageCol: "圖片", captionBubbleCol: "氣泡文字",
+    globalPromptLabel: "全域提示詞", panelLabel: "分鏡", noPrompt: "無提示詞", comicProject: "漫畫專案", turnaroundProject: "三視圖專案", turnaroundImageCol: "角色參考圖", turnaroundPromptCol: "角色說明（可選）", turnaroundOutputCol: "輸出",
     noHistory: "暫無生圖記錄", expand: "展開全部", collapse: "收起",
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
@@ -508,9 +504,9 @@ const CLEAN_LOCALES = {
   },
   en: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI Image Generator", subtitle: "Single images · Comic panels · Speech bubbles",
+    appTitle: "AI Image Generator", subtitle: "Single images · Comic panels · Character turnarounds",
     web: "Web/PWA", desktop: "Desktop", android: "Android",
-    create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings",
+    create: "Create", panels: "Panels", history: "History", export: "Export", settings: "Settings", skillsTitle: "Skills", activeSkillsTitle: "Skills for This Mode", manageSkills: "Manage Skills", activeSkillsHint: "Checked templates are injected in list order; single-image and comic selections are remembered separately.", functionalCategory: "Functional", styleCategory: "Style", noSkills: "No skills apply to this mode. Add one from the Skills button.",
     apiSettings: "API Settings", apiProvider: "API Type", officialApi: "Official API", opencodexApi: "OpenCodex Local Images", geminiWebApi: "Gemini Web Images", grsaiImageApi: "GrsAI Image API", customApi: "Custom API",
     opencodexHint: "Routes images through the local OpenCodex ChatGPT login. The placeholder key is never sent to OpenAI; ChatGPT determines the actual quota category.",
     opencodexPanelTitle: "OpenCodex local image proxy", opencodexPanelHint: "Reuses the local ChatGPT/Codex or Google Antigravity login. Connects only to 127.0.0.1 and bypasses the desktop proxy.", openCodexModel: "Local image model", openCodexModelHint: "GPT Image 2 is general purpose; Nano Banana 2 excels at multi-reference, text, and semantic editing.", opencodexQuality: "Quality preference", opencodexQualityHint: "The private quota upstream was measured at fixed Medium quality; the other tiers have no effect.", opencodexBackground: "Background", opencodexBackgroundHint: "gpt-image-2 sends only Auto or Opaque; Transparent is never sent.", openCodexAspectRatio: "Aspect ratio", openCodexAspectRatioHint: "Only official Nano Banana 2 aspect ratios are available.", openCodexImageSize: "Resolution tier", openCodexImageSizeHint: "512/1K: up to 5 concurrent; 2K: 3; 4K: one task.", opencodexFacts: "JSON image protocol · GPT Image 2 · Medium · about 1.57 MP · starts at 2 concurrent (drops to 1 after disconnects)", opencodexCapability: "Measured output is about 1.57 MP with a 2172 px longest edge and fixed Medium quality. The requested ratio is added to the prompt; decoded dimensions are authoritative.", openCodexNanoFacts: "JSON image protocol · Nano Banana 2 · up to {concurrency} concurrent · 620-second timeout", openCodexNanoCapability: "Supports up to 8 client-side references, text rendering, and semantic edits. Ratio and tier are request targets; the decoded image is authoritative.", opencodexHealthCheck: "Test local service", opencodexHealthIdle: "Not checked", opencodexHealthChecking: "Connecting to OpenCodex…", opencodexHealthReady: "Local service ready · OpenCodex {version}", opencodexHealthFailed: "Local service unavailable: {reason}", openInpaint: "Local inpaint", inpaintRequiresNano: "Local inpaint requires Nano Banana 2", inpaintTitle: "Local inpaint", inpaintDisclosure: "Nano Banana 2 generates a semantic patch and the app composites it only inside the local mask. This is not native upstream mask inpainting.", inpaintChooseSource: "Choose source image", inpaintNoSource: "No image selected", inpaintPromptLabel: "Requested change", inpaintGenerate: "Generate candidates", inpaintApply: "Apply and add to results", inpaintInitial: "Choose a source image, then paint the area to change.", inpaintNeedSource: "Choose a source image first", inpaintNeedMask: "Paint the area to change first", inpaintNeedPrompt: "Enter the requested change", inpaintGenerating: "Generating candidate patch {done}/{total}…", inpaintApplied: "The local inpaint result was added to results", inpaintCandidateFailed: "Candidate {index} failed: {reason}", inpaintRequestedActual: "Requested: {requested} · actual: {actual}",
@@ -528,24 +524,23 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "Invalid custom proxy URL. Use http://host:port, https://host:port, or socks5://host:port.",
     connectApi: "Connect API", apiDetect: "Detect", apiConnected: "API connected", apiDisconnected: "API not connected",
     apiConnectHint: "Connect an API, then enter URL, key, and model",
-    singleMode: "Single Image", comicMode: "Comic Panels", captionMode: "Caption Mode", prompt: "Prompt", globalPrompt: "Global Prompt",
-    globalPromptComic: "Global Prompt (applied to all panels)", globalPromptCaption: "Global Prompt (applied to all images)", importTxt: "Import txt",
+    singleMode: "Single Image", comicMode: "Comic Panels", turnaroundMode: "Character Turnaround", prompt: "Prompt", globalPrompt: "Global Prompt",
+    globalPromptComic: "Global Prompt (applied to all panels)", importTxt: "Import txt",
     promptPlaceholder: "Describe the image you want to generate. More detail is better...\n\nExample: an orange cat on a windowsill, sunlight through sheer curtains, oil painting style, warm tones",
     globalRefs: "Global reference images (optional, multiple)", uploadRefs: "Click or drag to upload reference images",
     uploadRefsClickOnly: "Click to upload reference images",
-    captionUploadHint: "Click or drag to bulk-upload images (generated one at a time in filename order, never bundled into a single request)",
-    captionUploadHintClickOnly: "Click to bulk-upload images (generated one at a time in filename order, never bundled into a single request)",
-    generateAllCaptions: "Generate All Images",
+    turnaroundUploadHint: "Click or drag to bulk-upload images (generated one at a time in filename order, never bundled into a single request)",
+    turnaroundUploadHintClickOnly: "Click to bulk-upload images (generated one at a time in filename order, never bundled into a single request)",
+    generateAllTurnarounds: "Generate All Images",
     matchSize: "Match output size to reference", resolution: "Global Resolution", landscape: "Landscape 3:2", portrait: "Portrait 2:3",
     custom: "Custom", width: "W", height: "H", savedSizes: "Saved sizes", saveSizePreset: "Save size", deleteSizePreset: "Delete saved size", imageCount: "Image Count", sequential: "Generate sequentially",
     sequentialHint: "Unchecked: batch generation uses the current API concurrency limit. Checked: generate one image at a time.",
-    panelList: "Panel List", captionList: "Caption List", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
+    panelList: "Panel List", turnaroundList: "Turnaround Tasks", addPanel: "Add Panel", clear: "Clear", batchCreate: "Batch Create", panelCount: "Panels",
     createBtn: "Create", autoFill: "Auto Fill", fill: "Fill", panelPrompt: "Panel Prompt", retry: "Retry",
-    bulkPrompts: "Bulk Prompts", bulkComicTitle: "Bulk Panel Prompts", bulkCaptionTitle: "Bulk Caption Prompts",
-    bulkComicHint: "One prompt per line, matched to panels in order. Reapplying overwrites existing prompts; blank lines clear matching panels.", bulkCaptionHint: "One prompt per line, matched by image filename order. Blank lines keep their position.",
+    bulkPrompts: "Bulk Prompts", bulkComicTitle: "Bulk Panel Prompts",
+    bulkComicHint: "One prompt per line, matched to panels in order. Reapplying overwrites existing prompts; blank lines clear matching panels.",
     bulkPromptPlaceholder: "Prompt 1\nPrompt 2\nPrompt 3", bulkPromptCount: "{lines} lines / {rows} {unit}",
-    applyBulkPrompts: "Apply in Order", cancel: "Cancel", noBulkPrompts: "Enter at least one prompt line", noCaptionImages: "Upload images first",
-    tooManyCaptionPrompts: "There are {lines} prompts but only {rows} images. Remove extra prompts or upload more images.",
+    applyBulkPrompts: "Apply in Order", cancel: "Cancel", noBulkPrompts: "Enter at least one prompt line",
     overwriteBulkPrompts: "Some matching rows already contain text. Continue to overwrite them line by line? Blank lines will clear matching rows.", bulkPromptsApplied: "Applied {count} prompts in order", bulkPromptsRemaining: "; {count} {unit} left unchanged",
     reference: "Reference", generateImage: "Generate Image", generateAll: "Generate All Panels", cancelGeneration: "Cancel Generation",
     imageFolder: "Image Folder", zipFolder: "ZIP Folder", notSelected: "Not selected", zipName: "ZIP name (optional)...", projectExportName: "Project / folder name (optional)...",
@@ -553,7 +548,7 @@ const CLEAN_LOCALES = {
     emptyHint: "Enter a prompt on the left and click Generate Image", downloadPaths: "Download Paths",
     importWatermarkImages: "Import images and remove Gemini watermark", watermarkSettingsTitle: "Gemini Watermark Removal", watermarkRemovalLabel: "Automatically remove Gemini watermarks after generation", watermarkRemovalHint: "Enabled by default. Gemini results are processed locally first; only processed images appear in the UI, cache, and downloads.",
     imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder", imageAskEveryTime: "Ask where to save each image", zipAskEveryTime: "Ask where to save each ZIP", pathModeHint: "When unchecked, the saved folder above is used. When checked, a folder is requested for every save.", textSelectAll: "Select all", textCut: "Cut", textCopy: "Copy", textPaste: "Paste",
-    historyTitle: "Generation History", historyHint: "Comic and caption jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
+    historyTitle: "Generation History", historyHint: "Comic and turnaround jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
     maxRecords: "Maximum records", clearAllHistory: "Clear All Records", imageCacheTitle: "Temporary image cache", cacheRetentionDays: "Auto-clean after days", cacheRetentionHint: "Successful generations are cached inside the app immediately so relay URLs cannot expire first. Files are written to your chosen folder only when you package a ZIP or save to a folder.", clearGeneratedCache: "Clear cache now", cacheAutoHint: "The cache is cleaned automatically on app launch and after new images are generated.", cacheCleared: "Cleared {count} cached images", cacheCleanupFailed: "Cache cleanup failed: {reason}", autoRetry: "Auto Retry", globalRetries: "Global retries",
     retryHint: "For generic APIs, only HTTP 400 retries automatically. 0 disables it. Per-panel retries override this.",
@@ -562,7 +557,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Waiting: "GrsAI submission returned HTTP 504. Retry {retryIndex}/{maxRetries} in {seconds} seconds…",
     grsaiSubmit504Exhausted: "HTTP 504: The GrsAI submission still timed out after {count} automatic retries. The task may have been submitted; check the GrsAI dashboard before retrying manually.",
     restoreProject: "Restore Project", downloadProject: "Export Project", importExportedProject: "Restore Exported Project", importingExportedProject: "Restoring exported project?", importProjectFolderHint: "Choose a project folder exported by the app", importProjectInvalid: "No valid project.json was found", importProjectRestored: "Project restored from the exported folder", viewPrompts: "View prompts and panels",
-    globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", captionProject: "Caption Project", captionImageCol: "Image", captionBubbleCol: "Bubble Text",
+    globalPromptLabel: "Global Prompt", panelLabel: "Panel", noPrompt: "No prompt", comicProject: "Comic Project", turnaroundProject: "Turnaround Project", turnaroundImageCol: "Character Reference", turnaroundPromptCol: "Character Guidance (Optional)", turnaroundOutputCol: "Output",
     noHistory: "No generation history", expand: "Expand", collapse: "Collapse",
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
@@ -587,9 +582,9 @@ const CLEAN_LOCALES = {
   },
   ja: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画コマ · 吹き出し文字",
+    appTitle: "AI 画像生成", subtitle: "単体画像 · 漫画コマ · キャラクター三面図",
     web: "Web/PWA", desktop: "デスクトップ", android: "Android",
-    create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定",
+    create: "作成", panels: "絵コンテ", history: "履歴", export: "書き出し", settings: "設定", skillsTitle: "スキル一覧", activeSkillsTitle: "現在のモードのスキル", manageSkills: "スキル管理", activeSkillsHint: "選択したテンプレートを一覧順に追加します。単体画像と漫画コマの選択は別々に記憶されます。", functionalCategory: "機能", styleCategory: "スタイル", noSkills: "このモードで使えるスキルはありません。右上のスキル一覧から追加できます。",
     apiSettings: "API 設定", apiProvider: "API 種類", officialApi: "公式 API", opencodexApi: "OpenCodex ローカル画像", geminiWebApi: "Gemini ウェブ画像", grsaiImageApi: "GrsAI 画像 API", customApi: "カスタム API",
     opencodexHint: "ローカル OpenCodex の ChatGPT ログイン経由で画像を生成します。プレースホルダーキーは OpenAI に送信されず、実際の利用枠は ChatGPT 側で決まります。",
     opencodexPanelTitle: "OpenCodex ローカル画像プロキシ", opencodexPanelHint: "ローカルの ChatGPT/Codex または Google Antigravity ログインを再利用します。127.0.0.1 のみに接続し、デスクトッププロキシは使用しません。", openCodexModel: "ローカル画像モデル", openCodexModelHint: "GPT Image 2 は汎用生成、Nano Banana 2 は複数参照・文字・意味編集に向いています。", opencodexQuality: "品質の希望", opencodexQualityHint: "非公開クォータ上流は実測で中品質固定です。他の品質段階は反映されません。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 には自動または不透明のみを送り、透明は送りません。", openCodexAspectRatio: "画面比率", openCodexAspectRatioHint: "Nano Banana 2 が公式対応する画面比率のみ選択できます。", openCodexImageSize: "解像度段階", openCodexImageSizeHint: "512/1K は最大 5、2K は 3、4K は 1 タスクです。", opencodexFacts: "JSON 画像プロトコル · GPT Image 2 · 中品質 · 約 157 万画素 · 初期同時 2 件（切断後は 1 件）", opencodexCapability: "実測出力は約 157 万画素、最長辺 2172 px、品質は中固定です。サイズ比率をプロンプトへ追加し、実際の画像寸法を正とします。", openCodexNanoFacts: "JSON 画像プロトコル · Nano Banana 2 · 最大同時 {concurrency} 件 · 620 秒タイムアウト", openCodexNanoCapability: "クライアント側参照画像は最大 8 枚。文字描画と意味編集に対応します。比率と段階は要求値で、実画像を正とします。", opencodexHealthCheck: "ローカルサービスを確認", opencodexHealthIdle: "未確認", opencodexHealthChecking: "OpenCodex に接続中…", opencodexHealthReady: "ローカルサービス利用可能 · OpenCodex {version}", opencodexHealthFailed: "ローカルサービスを利用できません：{reason}", openInpaint: "部分再描画", inpaintRequiresNano: "部分再描画には Nano Banana 2 が必要です", inpaintTitle: "部分再描画", inpaintDisclosure: "Nano Banana 2 が意味的なパッチを生成し、アプリがローカルマスク内だけに合成します。上流ネイティブの mask 再描画ではありません。", inpaintChooseSource: "元画像を選択", inpaintNoSource: "画像未選択", inpaintPromptLabel: "変更内容", inpaintGenerate: "候補を生成", inpaintApply: "適用して結果へ追加", inpaintInitial: "元画像を選び、変更する領域を塗ってください。", inpaintNeedSource: "先に元画像を選択してください", inpaintNeedMask: "先に変更する領域を塗ってください", inpaintNeedPrompt: "変更内容を入力してください", inpaintGenerating: "候補パッチを生成中 {done}/{total}…", inpaintApplied: "部分再描画結果を結果一覧へ追加しました", inpaintCandidateFailed: "候補 {index} 失敗：{reason}", inpaintRequestedActual: "要求：{requested} · 実際：{actual}",
@@ -607,24 +602,23 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "カスタムプロキシ URL が無効です。http://host:port、https://host:port、socks5://host:port のみ対応しています。",
     connectApi: "API 接続", apiDetect: "検出", apiConnected: "API 接続済み", apiDisconnected: "API 未接続",
     apiConnectHint: "API 接続後、URL、Key、モデルを入力してください",
-    singleMode: "単体画像", comicMode: "漫画コマ", captionMode: "テキスト入れモード", prompt: "プロンプト", globalPrompt: "全体プロンプト",
-    globalPromptComic: "全体プロンプト（全コマに適用）", globalPromptCaption: "全体プロンプト（全画像に適用）", importTxt: "txt を読み込む",
+    singleMode: "単体画像", comicMode: "漫画コマ", turnaroundMode: "三面図生成", prompt: "プロンプト", globalPrompt: "全体プロンプト",
+    globalPromptComic: "全体プロンプト（全コマに適用）", importTxt: "txt を読み込む",
     promptPlaceholder: "生成したい画像を詳しく説明してください...\n\n例：窓辺のオレンジ色の猫、薄いカーテン越しの光、油絵風、暖色",
     globalRefs: "全体参考画像（任意・複数可）", uploadRefs: "クリックまたはドラッグで参考画像をアップロード",
     uploadRefsClickOnly: "クリックで参考画像をアップロード",
-    captionUploadHint: "クリックまたはドラッグで画像を一括アップロード（ファイル名順に1枚ずつ生成、まとめて送信はしません）",
-    captionUploadHintClickOnly: "クリックで画像を一括アップロード（ファイル名順に1枚ずつ生成、まとめて送信はしません）",
-    generateAllCaptions: "全画像を一括生成",
+    turnaroundUploadHint: "クリックまたはドラッグで画像を一括アップロード（ファイル名順に1枚ずつ生成、まとめて送信はしません）",
+    turnaroundUploadHintClickOnly: "クリックで画像を一括アップロード（ファイル名順に1枚ずつ生成、まとめて送信はしません）",
+    generateAllTurnarounds: "全画像を一括生成",
     matchSize: "出力サイズを参考画像に合わせる", resolution: "全体解像度", landscape: "横 3:2", portrait: "縦 2:3",
     custom: "カスタム", width: "幅", height: "高", savedSizes: "保存サイズ", saveSizePreset: "サイズ保存", deleteSizePreset: "保存サイズ削除", imageCount: "生成数", sequential: "順番に生成",
     sequentialHint: "オフ：現在の API の同時実行上限で一括生成。オン：1 枚ずつ順番に生成。",
-    panelList: "コマ一覧", captionList: "テキスト入れ一覧", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
+    panelList: "コマ一覧", turnaroundList: "三面図タスク", addPanel: "コマを追加", clear: "クリア", batchCreate: "一括作成", panelCount: "コマ数",
     createBtn: "作成", autoFill: "自動入力", fill: "入力", panelPrompt: "コマプロンプト", retry: "再試行",
-    bulkPrompts: "プロンプト一括入力", bulkComicTitle: "コマプロンプト一括入力", bulkCaptionTitle: "文字入れプロンプト一括入力",
-    bulkComicHint: "1行に1件、コマ順に対応します。再度一括入力すると既存内容を上書きし、空行は対応するコマを消去します。", bulkCaptionHint: "1行に1件、画像ファイル名順に対応します。空行も位置として保持されます。",
+    bulkPrompts: "プロンプト一括入力", bulkComicTitle: "コマプロンプト一括入力",
+    bulkComicHint: "1行に1件、コマ順に対応します。再度一括入力すると既存内容を上書きし、空行は対応するコマを消去します。",
     bulkPromptPlaceholder: "プロンプト 1\nプロンプト 2\nプロンプト 3", bulkPromptCount: "入力 {lines} 行 / 現在 {rows} {unit}",
-    applyBulkPrompts: "順番に入力", cancel: "キャンセル", noBulkPrompts: "プロンプト行を1行以上入力してください", noCaptionImages: "先に画像を一括アップロードしてください",
-    tooManyCaptionPrompts: "プロンプトは {lines} 件ですが、画像は {rows} 枚です。余分なプロンプトを削除するか画像を追加してください。",
+    applyBulkPrompts: "順番に入力", cancel: "キャンセル", noBulkPrompts: "プロンプト行を1行以上入力してください",
     overwriteBulkPrompts: "対応する行に既存内容があります。行ごとに上書きしますか？空行は対応する内容を消去します。", bulkPromptsApplied: "{count} 件のプロンプトを順番に入力しました", bulkPromptsRemaining: "、残り {count} {unit}は変更していません",
     reference: "参考", generateImage: "画像を生成", generateAll: "全コマを生成", cancelGeneration: "生成をキャンセル",
     imageFolder: "画像フォルダ", zipFolder: "ZIP フォルダ", notSelected: "未選択", zipName: "ZIP 名（任意）...", projectExportName: "プロジェクト / フォルダー名（任意）...",
@@ -632,7 +626,7 @@ const CLEAN_LOCALES = {
     emptyHint: "左側にプロンプトを入力し、生成を開始してください", downloadPaths: "保存先",
     importWatermarkImages: "画像を読み込んで Gemini 透かしを除去", watermarkSettingsTitle: "Gemini 透かし除去", watermarkRemovalLabel: "生成後に Gemini 透かしを自動除去", watermarkRemovalHint: "既定で有効です。有効時は Gemini の結果を端末内で先に処理し、画面・キャッシュ・ダウンロードには処理後の画像だけを使用します。",
     imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択", imageAskEveryTime: "画像保存時に毎回保存先を確認", zipAskEveryTime: "ZIP 保存時に毎回保存先を確認", pathModeHint: "未選択の場合は上の保存先を使用します。選択すると保存のたびにフォルダーを確認します。", textSelectAll: "すべて選択", textCut: "切り取り", textCopy: "コピー", textPaste: "貼り付け",
-    historyTitle: "生成履歴", historyHint: "漫画と文字入れはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
+    historyTitle: "生成履歴", historyHint: "漫画と三面図タスクはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
     maxRecords: "最大記録数", clearAllHistory: "すべて削除", imageCacheTitle: "画像一時キャッシュ", cacheRetentionDays: "自動削除までの日数", cacheRetentionHint: "中継画像 URL の期限切れを防ぐため、生成成功後すぐにアプリ内へキャッシュします。選択したフォルダーへ書き込むのは ZIP 作成またはフォルダー保存時だけです。", clearGeneratedCache: "今すぐキャッシュを削除", cacheAutoHint: "キャッシュはアプリ起動時と新しい画像の生成後に自動整理されます。", cacheCleared: "{count} 件のキャッシュ画像を削除しました", cacheCleanupFailed: "キャッシュの整理に失敗しました：{reason}", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
     retryHint: "汎用 API は HTTP 400 の場合のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
@@ -641,7 +635,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Waiting: "GrsAI 送信が HTTP 504 を返しました。{seconds} 秒後に {retryIndex}/{maxRetries} 回目を再試行します…",
     grsaiSubmit504Exhausted: "HTTP 504：GrsAI 送信は {count} 回の自動再試行後もタイムアウトしました。タスクが送信済みの可能性があるため、手動再試行の前に GrsAI ダッシュボードを確認してください。",
     restoreProject: "プロジェクト復元", downloadProject: "プロジェクト書き出し", importExportedProject: "書き出しプロジェクトを復元", importingExportedProject: "書き出しプロジェクトを復元中?", importProjectFolderHint: "アプリが書き出したプロジェクトフォルダーを選択", importProjectInvalid: "有効な project.json がありません", importProjectRestored: "書き出しフォルダーからプロジェクトを復元しました", viewPrompts: "プロンプトとコマを見る",
-    globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", captionProject: "テキスト入れプロジェクト", captionImageCol: "画像", captionBubbleCol: "吹き出しテキスト",
+    globalPromptLabel: "全体プロンプト", panelLabel: "コマ", noPrompt: "プロンプトなし", comicProject: "漫画プロジェクト", turnaroundProject: "三面図プロジェクト", turnaroundImageCol: "キャラクター参照", turnaroundPromptCol: "キャラクター補足（任意）", turnaroundOutputCol: "出力",
     noHistory: "生成履歴はありません", expand: "展開", collapse: "折りたたむ",
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
@@ -666,9 +660,9 @@ const CLEAN_LOCALES = {
   },
   ko: {
     langZh: "简体", langHant: "繁體", langEn: "EN", langJa: "日本語", langKo: "한국어",
-    appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 컷 · 말풍선 문구",
+    appTitle: "AI 이미지 생성기", subtitle: "단일 이미지 · 만화 컷 · 캐릭터 턴어라운드",
     web: "Web/PWA", desktop: "데스크톱", android: "Android",
-    create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정",
+    create: "생성", panels: "콘티", history: "기록", export: "내보내기", settings: "설정", skillsTitle: "스킬 목록", activeSkillsTitle: "현재 모드 스킬", manageSkills: "스킬 관리", activeSkillsHint: "선택한 템플릿을 목록 순서대로 추가합니다. 단일 이미지와 만화 콘티 선택은 별도로 저장됩니다.", functionalCategory: "기능", styleCategory: "스타일", noSkills: "현재 모드에 적용할 스킬이 없습니다. 오른쪽 위 스킬 목록에서 추가하세요.",
     apiSettings: "API 설정", apiProvider: "API 유형", officialApi: "공식 API", opencodexApi: "OpenCodex 로컬 이미지", geminiWebApi: "Gemini 웹 이미지", grsaiImageApi: "GrsAI 이미지 API", customApi: "사용자 API",
     opencodexHint: "로컬 OpenCodex의 ChatGPT 로그인으로 이미지를 생성합니다. 자리표시자 키는 OpenAI로 전송되지 않으며 실제 사용 한도는 ChatGPT에서 결정합니다.",
     opencodexPanelTitle: "OpenCodex 로컬 이미지 프록시", opencodexPanelHint: "로컬 ChatGPT/Codex 또는 Google Antigravity 로그인을 재사용합니다. 127.0.0.1에만 연결하며 데스크톱 프록시는 사용하지 않습니다.", openCodexModel: "로컬 이미지 모델", openCodexModelHint: "GPT Image 2는 범용 생성, Nano Banana 2는 다중 참고·문자·의미 편집에 적합합니다.", opencodexQuality: "품질 선호", opencodexQualityHint: "비공개 할당량 업스트림은 실측상 중간 품질로 고정되며 다른 품질 단계는 적용되지 않습니다.", opencodexBackground: "배경", opencodexBackgroundHint: "gpt-image-2에는 자동 또는 불투명만 전송하며 투명은 전송하지 않습니다.", openCodexAspectRatio: "화면 비율", openCodexAspectRatioHint: "Nano Banana 2가 공식 지원하는 화면 비율만 선택할 수 있습니다.", openCodexImageSize: "해상도 단계", openCodexImageSizeHint: "512/1K는 최대 5개, 2K는 3개, 4K는 1개 작업입니다.", opencodexFacts: "JSON 이미지 프로토콜 · GPT Image 2 · 중간 품질 · 초기 동시 2개(연결 끊김 후 1개)", opencodexCapability: "실측 출력은 약 157만 화소, 최장변 2172 px, 품질은 중간으로 고정됩니다. 크기 비율을 프롬프트에 추가하며 실제 이미지 크기를 기준으로 합니다.", openCodexNanoFacts: "JSON 이미지 프로토콜 · Nano Banana 2 · 최대 동시 {concurrency}개 · 620초 제한", openCodexNanoCapability: "클라이언트 참고 이미지는 최대 8장입니다. 문자 렌더링과 의미 편집을 지원하며 비율과 단계는 요청 목표이고 실제 이미지를 기준으로 합니다.", opencodexHealthCheck: "로컬 서비스 확인", opencodexHealthIdle: "확인 전", opencodexHealthChecking: "OpenCodex 연결 중…", opencodexHealthReady: "로컬 서비스 사용 가능 · OpenCodex {version}", opencodexHealthFailed: "로컬 서비스를 사용할 수 없음: {reason}", openInpaint: "부분 다시 그리기", inpaintRequiresNano: "부분 다시 그리기에는 Nano Banana 2가 필요합니다", inpaintTitle: "부분 다시 그리기", inpaintDisclosure: "Nano Banana 2가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다. 업스트림 네이티브 mask 인페인팅이 아닙니다.", inpaintChooseSource: "원본 이미지 선택", inpaintNoSource: "선택된 이미지 없음", inpaintPromptLabel: "변경 내용", inpaintGenerate: "후보 생성", inpaintApply: "적용하고 결과에 추가", inpaintInitial: "원본 이미지를 선택한 뒤 변경할 영역을 칠하세요.", inpaintNeedSource: "먼저 원본 이미지를 선택하세요", inpaintNeedMask: "먼저 변경할 영역을 칠하세요", inpaintNeedPrompt: "변경 내용을 입력하세요", inpaintGenerating: "후보 패치 생성 중 {done}/{total}…", inpaintApplied: "부분 다시 그리기 결과를 결과 목록에 추가했습니다", inpaintCandidateFailed: "후보 {index} 실패: {reason}", inpaintRequestedActual: "요청: {requested} · 실제: {actual}",
@@ -686,24 +680,23 @@ const CLEAN_LOCALES = {
     desktopProxyInvalid: "사용자 프록시 URL이 잘못되었습니다. http://host:port, https://host:port, socks5://host:port만 지원합니다.",
     connectApi: "API 연결", apiDetect: "감지", apiConnected: "API 연결됨", apiDisconnected: "API 미연결",
     apiConnectHint: "API를 연결한 뒤 URL, Key, 모델을 입력하세요",
-    singleMode: "단일 이미지", comicMode: "만화 콘티", captionMode: "말풍선 모드", prompt: "프롬프트", globalPrompt: "전체 프롬프트",
-    globalPromptComic: "전체 프롬프트(모든 콘티에 적용)", globalPromptCaption: "전체 프롬프트(모든 이미지에 적용)", importTxt: "txt 가져오기",
+    singleMode: "단일 이미지", comicMode: "만화 콘티", turnaroundMode: "턴어라운드 생성", prompt: "프롬프트", globalPrompt: "전체 프롬프트",
+    globalPromptComic: "전체 프롬프트(모든 콘티에 적용)", importTxt: "txt 가져오기",
     promptPlaceholder: "생성할 이미지를 자세히 설명하세요...\n\n예: 창가에 앉은 주황색 고양이, 커튼 사이로 비치는 햇빛, 유화 스타일, 따뜻한 톤",
     globalRefs: "전체 참고 이미지(선택, 다중)", uploadRefs: "클릭하거나 드래그해 참고 이미지 업로드",
     uploadRefsClickOnly: "클릭하여 참고 이미지 업로드",
-    captionUploadHint: "클릭하거나 드래그해 이미지를 일괄 업로드(파일명 순서대로 한 장씩 생성하며, 한 번에 묶어서 보내지 않음)",
-    captionUploadHintClickOnly: "클릭하여 이미지를 일괄 업로드(파일명 순서대로 한 장씩 생성하며, 한 번에 묶어서 보내지 않음)",
-    generateAllCaptions: "전체 이미지 일괄 생성",
+    turnaroundUploadHint: "클릭하거나 드래그해 이미지를 일괄 업로드(파일명 순서대로 한 장씩 생성하며, 한 번에 묶어서 보내지 않음)",
+    turnaroundUploadHintClickOnly: "클릭하여 이미지를 일괄 업로드(파일명 순서대로 한 장씩 생성하며, 한 번에 묶어서 보내지 않음)",
+    generateAllTurnarounds: "전체 이미지 일괄 생성",
     matchSize: "출력 크기를 참고 이미지와 맞춤", resolution: "전체 해상도", landscape: "가로 3:2", portrait: "세로 2:3",
     custom: "사용자 지정", width: "너비", height: "높이", savedSizes: "저장 크기", saveSizePreset: "크기 저장", deleteSizePreset: "저장 크기 삭제", imageCount: "생성 수", sequential: "순차 생성",
     sequentialHint: "선택 해제: 현재 API의 동시 처리 한도에 따라 일괄 생성. 선택: 한 장씩 순차 생성.",
-    panelList: "콘티 목록", captionList: "말풍선 목록", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
+    panelList: "콘티 목록", turnaroundList: "턴어라운드 작업", addPanel: "콘티 추가", clear: "비우기", batchCreate: "일괄 생성", panelCount: "콘티 수",
     createBtn: "생성", autoFill: "자동 입력", fill: "입력", panelPrompt: "콘티 프롬프트", retry: "재시도",
-    bulkPrompts: "프롬프트 일괄 입력", bulkComicTitle: "콘티 프롬프트 일괄 입력", bulkCaptionTitle: "말풍선 프롬프트 일괄 입력",
-    bulkComicHint: "한 줄에 하나씩 콘티 순서대로 대응합니다. 다시 일괄 입력하면 기존 프롬프트를 덮어쓰며 빈 줄은 해당 콘티를 지웁니다.", bulkCaptionHint: "한 줄에 하나씩 이미지 파일명 순서대로 대응합니다. 빈 줄도 위치를 유지합니다.",
+    bulkPrompts: "프롬프트 일괄 입력", bulkComicTitle: "콘티 프롬프트 일괄 입력",
+    bulkComicHint: "한 줄에 하나씩 콘티 순서대로 대응합니다. 다시 일괄 입력하면 기존 프롬프트를 덮어쓰며 빈 줄은 해당 콘티를 지웁니다.",
     bulkPromptPlaceholder: "프롬프트 1\n프롬프트 2\n프롬프트 3", bulkPromptCount: "입력 {lines}줄 / 현재 {rows}개 {unit}",
-    applyBulkPrompts: "순서대로 입력", cancel: "취소", noBulkPrompts: "프롬프트 줄을 하나 이상 입력하세요", noCaptionImages: "먼저 이미지를 일괄 업로드하세요",
-    tooManyCaptionPrompts: "프롬프트는 {lines}개지만 이미지는 {rows}장뿐입니다. 초과 프롬프트를 삭제하거나 이미지를 더 업로드하세요.",
+    applyBulkPrompts: "순서대로 입력", cancel: "취소", noBulkPrompts: "프롬프트 줄을 하나 이상 입력하세요",
     overwriteBulkPrompts: "대응 위치에 기존 내용이 있습니다. 줄별로 덮어쓸까요? 빈 줄은 해당 위치를 지웁니다.", bulkPromptsApplied: "프롬프트 {count}개를 순서대로 입력했습니다", bulkPromptsRemaining: ", 나머지 {count}개 {unit}은 변경하지 않았습니다",
     reference: "참고", generateImage: "이미지 생성", generateAll: "모든 콘티 생성", cancelGeneration: "생성 취소",
     imageFolder: "이미지 폴더", zipFolder: "ZIP 폴더", notSelected: "선택 안 됨", zipName: "ZIP 이름(선택)...", projectExportName: "프로젝트 / 폴더 이름(선택)...",
@@ -711,7 +704,7 @@ const CLEAN_LOCALES = {
     emptyHint: "왼쪽에 프롬프트를 입력하고 생성 버튼을 누르세요", downloadPaths: "다운로드 경로",
     importWatermarkImages: "이미지를 가져와 Gemini 워터마크 제거", watermarkSettingsTitle: "Gemini 워터마크 제거", watermarkRemovalLabel: "생성 후 Gemini 워터마크 자동 제거", watermarkRemovalHint: "기본으로 켜져 있습니다. Gemini 결과를 기기에서 먼저 처리하며 화면, 캐시, 다운로드에는 처리된 이미지만 사용합니다.",
     imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택", imageAskEveryTime: "이미지를 저장할 때마다 경로 묻기", zipAskEveryTime: "ZIP을 저장할 때마다 경로 묻기", pathModeHint: "선택하지 않으면 위의 저장 폴더를 사용합니다. 선택하면 저장할 때마다 폴더를 다시 묻습니다.", textSelectAll: "전체 선택", textCut: "잘라내기", textCopy: "복사", textPaste: "붙여넣기",
-    historyTitle: "생성 기록", historyHint: "만화와 캡션 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
+    historyTitle: "생성 기록", historyHint: "만화와 턴어라운드 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
     maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", imageCacheTitle: "이미지 임시 캐시", cacheRetentionDays: "자동 정리 일수", cacheRetentionHint: "중계 이미지 URL 만료를 막기 위해 생성 성공 즉시 앱 내부에 캐시합니다. 선택한 폴더에는 ZIP 패키징 또는 폴더 저장을 실행할 때만 파일을 씁니다.", clearGeneratedCache: "지금 캐시 정리", cacheAutoHint: "캐시는 앱 시작 시와 새 이미지 생성 후 자동으로 정리됩니다.", cacheCleared: "캐시 이미지 {count}개를 정리했습니다", cacheCleanupFailed: "캐시 정리 실패: {reason}", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
     retryHint: "일반 API는 HTTP 400인 경우에만 자동 재시도합니다. 0은 비활성화이며 콘티별 설정이 우선합니다.",
@@ -720,7 +713,7 @@ const CLEAN_LOCALES = {
     grsaiSubmit504Waiting: "GrsAI 제출이 HTTP 504를 반환했습니다. {seconds}초 후 {retryIndex}/{maxRetries}번째 재시도를 진행합니다…",
     grsaiSubmit504Exhausted: "HTTP 504: GrsAI 제출이 {count}회의 자동 재시도 후에도 시간 초과되었습니다. 작업이 제출되었을 수 있으므로 수동 재시도 전에 GrsAI 대시보드를 확인하세요.",
     restoreProject: "프로젝트 복원", downloadProject: "프로젝트 내보내기", importExportedProject: "내보낸 프로젝트 복원", importingExportedProject: "내보낸 프로젝트 복원 중?", importProjectFolderHint: "앱에서 내보낸 프로젝트 폴더를 선택하세요", importProjectInvalid: "유효한 project.json을 찾지 못했습니다", importProjectRestored: "내보낸 폴더에서 프로젝트를 복원했습니다", viewPrompts: "프롬프트와 콘티 보기",
-    globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", captionProject: "말풍선 프로젝트", captionImageCol: "이미지", captionBubbleCol: "말풍선 텍스트",
+    globalPromptLabel: "전체 프롬프트", panelLabel: "콘티", noPrompt: "프롬프트 없음", comicProject: "만화 프로젝트", turnaroundProject: "턴어라운드 프로젝트", turnaroundImageCol: "캐릭터 참고", turnaroundPromptCol: "캐릭터 설명(선택)", turnaroundOutputCol: "출력",
     noHistory: "생성 기록 없음", expand: "펼치기", collapse: "접기",
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
@@ -1265,19 +1258,27 @@ function applyCleanLanguage() {
   updateProviderPanelVisibility(dom.apiProvider?.value || "custom");
   updateApiQuickState();
 
+  if (dom.skillsBtn) {
+    dom.skillsBtn.title = cleanText("skillsTitle");
+    dom.skillsBtn.setAttribute("aria-label", cleanText("skillsTitle"));
+  }
+  setIconLabel("#activeSkillsTitle", "skills", "activeSkillsTitle");
+  if (dom.openSkillsFromPanel) dom.openSkillsFromPanel.textContent = cleanText("manageSkills");
+  if (dom.activeSkillsHint) dom.activeSkillsHint.textContent = cleanText("activeSkillsHint");
+
   $$(".mode-tab", dom.modeTabs).forEach(tab => {
-    const iconKey = tab.dataset.mode === "comic" ? "comic" : tab.dataset.mode === "caption" ? "bubble" : "image";
-    const labelKey = tab.dataset.mode === "comic" ? "comicMode" : tab.dataset.mode === "caption" ? "captionMode" : "singleMode";
+    const iconKey = tab.dataset.mode === "comic" ? "comic" : tab.dataset.mode === "turnaround" ? "turnaround" : "image";
+    const labelKey = tab.dataset.mode === "comic" ? "comicMode" : tab.dataset.mode === "turnaround" ? "turnaroundMode" : "singleMode";
     setButtonText(tab, iconKey, labelKey);
   });
 
   const isComic = currentMode === "comic";
-  const isCaption = currentMode === "caption";
-  setText("#globalPromptField .field-label-text", isComic ? "globalPromptComic" : isCaption ? "globalPromptCaption" : "prompt");
+  const isTurnaround = currentMode === "turnaround";
+  setText("#globalPromptField .field-label-text", isComic ? "globalPromptComic" : "prompt");
   setButtonText(dom.importTxt, "file", "importTxt");
   if (dom.prompt) dom.prompt.placeholder = cleanText("promptPlaceholder");
   setText(".image-upload .upload-zone > span:last-child", isDragDropUnsupported() ? "uploadRefsClickOnly" : "uploadRefs");
-  setText("#captionUploadZone > span:last-child", isDragDropUnsupported() ? "captionUploadHintClickOnly" : "captionUploadHint");
+  setText("#turnaroundUploadZone > span:last-child", isDragDropUnsupported() ? "turnaroundUploadHintClickOnly" : "turnaroundUploadHint");
   setIconLabel("#useOrigSizeToggle > span", "size", "matchSize");
   setText("fieldset.field > legend", "resolution");
   setText(".size-option:nth-child(2) small", "landscape");
@@ -1299,25 +1300,23 @@ function applyCleanLanguage() {
   setButtonText(dom.addPanel, "plus", "addPanel");
   setButtonText(dom.bulkInputPanelPrompts, "file", "bulkPrompts");
   if (dom.clearPanels) dom.clearPanels.textContent = cleanText("clear");
-  setIconLabel("#captionSection .section-header > span", "bubble", "captionList");
-  setButtonText(dom.bulkInputCaptionPrompts, "file", "bulkPrompts");
-  if (dom.clearCaptionRows) dom.clearCaptionRows.textContent = cleanText("clear");
+  setIconLabel("#turnaroundSection .section-header > span", "turnaround", "turnaroundList");
+  if (dom.clearTurnaroundRows) dom.clearTurnaroundRows.textContent = cleanText("clear");
   setText(".tool-group:nth-child(1) .tool-label", "batchCreate");
   setText(".panel-count-control > span", "panelCount");
   if (dom.createPanels) dom.createPanels.textContent = cleanText("createBtn");
   setText(".tool-group-fill .tool-label", "autoFill");
   setButtonText(dom.autoFillPanels, "spark", "fill");
-  setText("#captionSection .tool-group-fill .tool-label", "autoFill");
-  setButtonText(dom.autoFillCaptionRows, "spark", "fill");
   updateBulkPromptDialogLanguage();
   setText(".panel-table th.col-prompt", "panelPrompt");
   setText(".panel-table th.col-size", "resolution");
   setText(".panel-table th.col-retry", "retry");
   setText(".panel-table th.col-img", "reference");
-  setText("#captionTable th.col-img", "captionImageCol");
-  setText("#captionTable th.col-prompt", "captionBubbleCol");
+  setText("#turnaroundTable th.col-img", "turnaroundImageCol");
+  setText("#turnaroundTable th.col-prompt", "turnaroundPromptCol");
+  setText("#turnaroundTable th.col-size", "turnaroundOutputCol");
 
-  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
+  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isTurnaround ? "generateAllTurnarounds" : "generateImage");
   setButtonText(dom.chooseImageDir, "image", "imageFolder");
   setButtonText(dom.chooseZipDir, "zip", "zipFolder");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
@@ -1331,7 +1330,7 @@ function applyCleanLanguage() {
   if (dom.failedRetryCount) dom.failedRetryCount.title = cleanText("failedRetryCountHint");
   setButtonText(dom.enqueueRemainingFailed, "plus", "enqueueRemainingFailed");
   setRetryFailedButtonText();
-  if (dom.zipFileName) dom.zipFileName.placeholder = cleanText(isComic || isCaption ? "projectExportName" : "zipName");
+  if (dom.zipFileName) dom.zipFileName.placeholder = cleanText(isComic || isTurnaround ? "projectExportName" : "zipName");
   if (dom.imageDirLabel && dom.imageDirLabel.textContent.trim()) dom.imageDirLabel.textContent = nativeDownload?.dirs?.images ? shortPathLabel(nativeDownload.dirs.images) : cleanText("notSelected");
   if (dom.zipDirLabel && dom.zipDirLabel.textContent.trim()) dom.zipDirLabel.textContent = nativeDownload?.dirs?.zips ? shortPathLabel(nativeDownload.dirs.zips) : cleanText("notSelected");
   setText("#emptyState h3", "emptyTitle");
@@ -1635,15 +1634,12 @@ const dom = {
   clearPanels:   $("#clearPanels"),
   bulkInputPanelPrompts: $("#bulkInputPanelPrompts"),
   panelTbody:    $("#panelTbody"),
-  // 嵌字专属
-  captionSection: $("#captionSection"),
-  captionUploadZone: $("#captionUploadZone"),
-  captionBulkInput: $("#captionBulkInput"),
-  captionTbody:  $("#captionTbody"),
-  clearCaptionRows: $("#clearCaptionRows"),
-  captionAutoFillTemplate: $("#captionAutoFillTemplate"),
-  autoFillCaptionRows: $("#autoFillCaptionRows"),
-  bulkInputCaptionPrompts: $("#bulkInputCaptionPrompts"),
+  // 三视图专属
+  turnaroundSection: $("#turnaroundSection"),
+  turnaroundUploadZone: $("#turnaroundUploadZone"),
+  turnaroundBulkInput: $("#turnaroundBulkInput"),
+  turnaroundTbody:  $("#turnaroundTbody"),
+  clearTurnaroundRows: $("#clearTurnaroundRows"),
   bulkPromptModal: $("#bulkPromptModal"),
   bulkPromptTitle: $("#bulkPromptTitle"),
   bulkPromptHint: $("#bulkPromptHint"),
@@ -1692,6 +1688,24 @@ const dom = {
   languageMenuButton:$("#languageMenuButton"),
   languageCurrent:$("#languageCurrent"),
   languageMenu:  $("#languageMenu"),
+  // 技能
+  skillsBtn: $("#skillsBtn"),
+  openSkillsFromPanel: $("#openSkillsFromPanel"),
+  activeSkillsSection: $("#activeSkillsSection"),
+  activeSkillsList: $("#activeSkillsList"),
+  activeSkillsHint: $("#activeSkillsHint"),
+  skillsModal: $("#skillsModal"),
+  closeSkills: $("#closeSkills"),
+  skillsManagerList: $("#skillsManagerList"),
+  addSkill: $("#addSkill"),
+  skillEditor: $("#skillEditor"),
+  skillEditorTitle: $("#skillEditorTitle"),
+  skillId: $("#skillId"),
+  skillName: $("#skillName"),
+  skillCategory: $("#skillCategory"),
+  skillScope: $("#skillScope"),
+  skillTemplate: $("#skillTemplate"),
+  cancelSkillEdit: $("#cancelSkillEdit"),
   // 设置
   settingsBtn:   $("#settingsBtn"),
   settingsModal: $("#settingsModal"),
@@ -1972,7 +1986,6 @@ const customSelects = {
   nImages: initCustomSelect(dom.nImages),
   savedSizes: initCustomSelect(dom.savedSizes),
   autoFillTemplate: initCustomSelect(dom.autoFillTemplate),
-  captionAutoFillTemplate: initCustomSelect(dom.captionAutoFillTemplate),
   desktopProxyMode: initCustomSelect(dom.desktopProxyMode),
   modelChoices: initModelCombobox(dom.modelChoices, dom.model),
 };
@@ -1985,10 +1998,206 @@ dom.modelChoices?.addEventListener("change", () => {
 });
 
 // ─── 状态 ──────────────────────────────────────────────────
-let currentMode = "single";   // "single" | "comic" | "caption"
+let currentMode = "single";   // "single" | "comic" | "turnaround"
 let panelCounter = 0;         // 分镜自增编号
-let captionRowCounter = 0;    // 嵌字行自增编号
+let turnaroundRowCounter = 0; // 三视图任务行自增编号
 let abortController = null;   // 用于取消批量生成
+
+const SKILLS_STORAGE_KEY = "ai_image_gen_skills_v1";
+const BUILT_IN_STYLE_SKILL = Object.freeze({
+  id: "builtin-anime-commercial-style",
+  name: "精致二次元商业漫画风格",
+  category: "style",
+  scope: "both",
+  template: "精致二次元赛璐璐上色，干净清晰线稿，色彩丰富，高质量商业漫画风格，背景层次分明，主体清晰，材质统一，自然纹理平滑，画面干净通透，细节丰富，避免过度锐化，避免色斑，避免噪点，避免文字乱码，避免肢体崩坏，避免多余手指，避免画面畸变",
+  builtIn: true,
+});
+
+function normalizeSkill(raw, index = 0) {
+  if (!raw || typeof raw !== "object") return null;
+  const name = String(raw.name || "").trim().slice(0, 80);
+  const template = String(raw.template || "").trim();
+  if (!name || !template) return null;
+  return {
+    id: String(raw.id || `skill-${Date.now()}-${index}`),
+    name,
+    category: raw.category === "functional" ? "functional" : "style",
+    scope: ["single", "comic", "both"].includes(raw.scope) ? raw.scope : "both",
+    template,
+    builtIn: raw.builtIn === true,
+  };
+}
+
+function defaultSkillState() {
+  return { schema: 1, skills: [{ ...BUILT_IN_STYLE_SKILL }], enabled: { single: [], comic: [] } };
+}
+
+function loadSkillState() {
+  const stored = safeStorageReadJson(SKILLS_STORAGE_KEY, null, value => value && Array.isArray(value.skills));
+  if (!stored) return defaultSkillState();
+  const skills = stored.skills.map(normalizeSkill).filter(Boolean);
+  const validIds = new Set(skills.map(skill => skill.id));
+  return {
+    schema: 1,
+    skills,
+    enabled: {
+      single: [...new Set(Array.isArray(stored.enabled?.single) ? stored.enabled.single.map(String) : [])].filter(id => validIds.has(id)),
+      comic: [...new Set(Array.isArray(stored.enabled?.comic) ? stored.enabled.comic.map(String) : [])].filter(id => validIds.has(id)),
+    },
+  };
+}
+
+let skillState = loadSkillState();
+
+function saveSkillState() {
+  safeStorageSetItem(SKILLS_STORAGE_KEY, JSON.stringify(skillState), { force: true });
+}
+
+function skillAppliesToMode(skill, mode) {
+  return mode === "single" || mode === "comic"
+    ? skill.scope === "both" || skill.scope === mode
+    : false;
+}
+
+function enabledSkillsForMode(mode) {
+  if (mode !== "single" && mode !== "comic") return [];
+  const enabledIds = new Set(skillState.enabled[mode] || []);
+  return skillState.skills.filter(skill => enabledIds.has(skill.id) && skillAppliesToMode(skill, mode));
+}
+
+function applyEnabledSkills(prompt, mode = currentMode) {
+  const base = String(prompt || "").trim();
+  const enabled = enabledSkillsForMode(mode);
+  if (!enabled.length) return base;
+  const injected = enabled.map(skill => skill.template.trim()).filter(Boolean).join("\n");
+  return [base, injected].filter(Boolean).join("\n\n");
+}
+
+function skillCategoryLabel(category) {
+  return cleanText(category === "functional" ? "functionalCategory" : "styleCategory");
+}
+
+function skillScopeLabel(scope) {
+  if (scope === "single") return "仅单图";
+  if (scope === "comic") return "仅漫画分镜";
+  return "单图与漫画分镜";
+}
+
+function renderActiveSkills() {
+  if (!dom.activeSkillsList || !dom.activeSkillsSection) return;
+  const mode = currentMode === "comic" ? "comic" : "single";
+  dom.activeSkillsSection.classList.toggle("hidden", currentMode === "turnaround");
+  dom.activeSkillsList.innerHTML = "";
+  const applicable = skillState.skills.filter(skill => skillAppliesToMode(skill, mode));
+  if (!applicable.length) {
+    dom.activeSkillsList.innerHTML = `<div class="active-skills-empty">${escapeHtml(cleanText("noSkills"))}</div>`;
+    return;
+  }
+  const selected = new Set(skillState.enabled[mode] || []);
+  ["functional", "style"].forEach(category => {
+    const skills = applicable.filter(skill => skill.category === category);
+    if (!skills.length) return;
+    const group = document.createElement("div");
+    group.className = "active-skill-group";
+    group.innerHTML = `<div class="active-skill-group-title">${skillCategoryLabel(category)}</div>`;
+    skills.forEach(skill => {
+      const label = document.createElement("label");
+      label.className = "active-skill-option";
+      label.innerHTML = `<input type="checkbox" data-skill-id="${escapeHtml(skill.id)}" ${selected.has(skill.id) ? "checked" : ""}><span class="active-skill-copy"><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.template.slice(0, 90))}${skill.template.length > 90 ? "…" : ""}</small></span>`;
+      label.querySelector("input").addEventListener("change", event => {
+        const current = new Set(skillState.enabled[mode] || []);
+        if (event.target.checked) current.add(skill.id); else current.delete(skill.id);
+        skillState.enabled[mode] = skillState.skills.map(item => item.id).filter(id => current.has(id));
+        saveSkillState();
+        scheduleOfficialCostSummaryUpdate();
+      });
+      group.appendChild(label);
+    });
+    dom.activeSkillsList.appendChild(group);
+  });
+}
+
+function renderSkillsManager() {
+  if (!dom.skillsManagerList) return;
+  dom.skillsManagerList.innerHTML = "";
+  ["functional", "style"].forEach(category => {
+    const skills = skillState.skills.filter(skill => skill.category === category);
+    const group = document.createElement("section");
+    group.className = "skills-category";
+    group.innerHTML = `<div class="skills-category-title">${skillCategoryLabel(category)}</div>`;
+    if (!skills.length) group.insertAdjacentHTML("beforeend", '<div class="active-skills-empty">暂无技能</div>');
+    skills.forEach(skill => {
+      const card = document.createElement("article");
+      card.className = "skill-card";
+      card.innerHTML = `<div class="skill-card-main"><div class="skill-card-head"><strong>${escapeHtml(skill.name)}</strong><span class="skill-badge">${skillScopeLabel(skill.scope)}</span>${skill.builtIn ? '<span class="skill-badge">内置</span>' : ""}</div><div class="skill-card-template">${escapeHtml(skill.template)}</div></div><div class="skill-card-actions"><button type="button" class="btn btn-xs edit-skill"><span class="ui-icon ui-icon-edit"></span>编辑</button><button type="button" class="btn btn-xs btn-danger delete-skill"><span class="ui-icon ui-icon-trash"></span>删除</button></div>`;
+      card.querySelector(".edit-skill").addEventListener("click", () => openSkillEditor(skill));
+      card.querySelector(".delete-skill").addEventListener("click", async () => {
+        if (!(await askConfirm(`确定删除技能「${skill.name}」？`))) return;
+        skillState.skills = skillState.skills.filter(item => item.id !== skill.id);
+        skillState.enabled.single = skillState.enabled.single.filter(id => id !== skill.id);
+        skillState.enabled.comic = skillState.enabled.comic.filter(id => id !== skill.id);
+        saveSkillState();
+        renderSkillsManager();
+        renderActiveSkills();
+      });
+      group.appendChild(card);
+    });
+    dom.skillsManagerList.appendChild(group);
+  });
+}
+
+function openSkillEditor(skill = null) {
+  dom.skillEditor?.classList.remove("hidden");
+  dom.skillEditorTitle.textContent = skill ? "编辑技能" : "新建技能";
+  dom.skillId.value = skill?.id || "";
+  dom.skillName.value = skill?.name || "";
+  dom.skillCategory.value = skill?.category || "functional";
+  dom.skillScope.value = skill?.scope || "both";
+  dom.skillTemplate.value = skill?.template || "";
+  requestAnimationFrame(() => dom.skillName?.focus());
+}
+
+function closeSkillEditor() {
+  dom.skillEditor?.classList.add("hidden");
+  dom.skillEditor?.reset();
+  if (dom.skillId) dom.skillId.value = "";
+}
+
+function openSkillsModal() {
+  renderSkillsManager();
+  closeSkillEditor();
+  openModal(dom.skillsModal);
+}
+
+[dom.skillsBtn, dom.openSkillsFromPanel].forEach(button => button?.addEventListener("click", openSkillsModal));
+dom.closeSkills?.addEventListener("click", () => closeModal(dom.skillsModal));
+dom.skillsModal?.addEventListener("click", event => { if (event.target === dom.skillsModal) closeModal(dom.skillsModal); });
+dom.addSkill?.addEventListener("click", () => openSkillEditor());
+dom.cancelSkillEdit?.addEventListener("click", closeSkillEditor);
+dom.skillEditor?.addEventListener("submit", event => {
+  event.preventDefault();
+  const candidate = normalizeSkill({
+    id: dom.skillId.value || `skill-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: dom.skillName.value,
+    category: dom.skillCategory.value,
+    scope: dom.skillScope.value,
+    template: dom.skillTemplate.value,
+    builtIn: skillState.skills.find(item => item.id === dom.skillId.value)?.builtIn === true,
+  });
+  if (!candidate) {
+    showStatus("请填写技能名称和提示词模板", "error");
+    return;
+  }
+  const existingIndex = skillState.skills.findIndex(skill => skill.id === candidate.id);
+  if (existingIndex >= 0) skillState.skills.splice(existingIndex, 1, candidate);
+  else skillState.skills.push(candidate);
+  saveSkillState();
+  renderSkillsManager();
+  renderActiveSkills();
+  closeSkillEditor();
+  showStatus(`技能「${candidate.name}」已保存`, "success");
+});
+
 const inpaintState = {
   source: null,
   sourceName: "",
@@ -2094,7 +2303,7 @@ function getVisibleBlockingOverlays() {
     .filter(inst => inst.isOpen())
     .map(inst => inst.wrapper.querySelector(".custom-select-list"))
     .filter(Boolean);
-  return [dom.settingsModal, dom.historyModal, dom.bulkPromptModal, dom.inpaintModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
+  return [dom.settingsModal, dom.skillsModal, dom.historyModal, dom.bulkPromptModal, dom.inpaintModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
     .filter(isOverlayVisible);
 }
 
@@ -2491,12 +2700,10 @@ function getOfficialEstimateItems() {
       const ready = panels.filter(panel => String(panel.prompt || "").trim());
       return (ready.length ? ready : panels).map(panel => panel.size || getSelectedSize());
     }
-    if (currentMode === "caption") {
-      const rows = collectCaptionRows();
-      const ready = rows.filter(row => row.reference && String(row.captionText || "").trim());
-      return (ready.length ? ready : rows).map(row => row.reference?.width && row.reference?.height
-        ? `${row.reference.width}x${row.reference.height}`
-        : getSelectedSize());
+    if (currentMode === "turnaround") {
+      const rows = collectTurnaroundRows();
+      const ready = rows.filter(row => row.reference);
+      return (ready.length ? ready : rows).map(() => getTurnaroundOutputSize());
     }
   } catch {}
   const count = Math.max(1, Math.min(10, Number(dom.nImages?.value) || 1));
@@ -2950,8 +3157,8 @@ const SIZE_POLICY_TEXT = Object.freeze({
 
 function updateSizePolicyUi() {
   const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
-  const isCaptionMode = !!dom.modeTabs?.querySelector('[data-mode="caption"].active');
-  if (dom.globalSizeField) dom.globalSizeField.classList.toggle("hidden", isCaptionMode);
+  const isTurnaroundMode = !!dom.modeTabs?.querySelector('[data-mode="turnaround"].active');
+  if (dom.globalSizeField) dom.globalSizeField.classList.toggle("hidden", isTurnaroundMode);
   if (!dom.sizePolicyHint) return;
   const language = SIZE_POLICY_TEXT[currentLanguage] || SIZE_POLICY_TEXT["zh-CN"];
   const key = provider === "official" && officialImageModelFamily(dom.model?.value || "") === "gpt-image-2"
@@ -5124,7 +5331,7 @@ document.addEventListener("change", () => {
 });
 document.addEventListener("click", event => {
   if (dom.officialCostSummary?.classList.contains("hidden")) return;
-  if (event.target.closest(".size-options, #comicPanelSection, #captionSection, #nImagesField, .provider-panel-official")) {
+  if (event.target.closest(".size-options, #comicPanelSection, #turnaroundSection, #nImagesField, .provider-panel-official")) {
     scheduleOfficialCostSummaryUpdate();
   }
 });
@@ -5569,7 +5776,7 @@ let textContextTarget = null;
 function isPromptTextTarget(target) {
   if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return false;
   if (target.disabled || target.readOnly) return false;
-  return target.matches("#prompt, #bulkPromptText") || !!target.closest("#panelTbody, #captionTbody");
+  return target.matches("#prompt, #bulkPromptText") || !!target.closest("#panelTbody, #turnaroundTbody");
 }
 
 function closeTextContextMenu() {
@@ -6173,44 +6380,48 @@ function switchMode(mode) {
   });
 
   const isComic = mode === "comic";
-  const isCaption = mode === "caption";
+  const isTurnaround = mode === "turnaround";
   dom.comicSection.classList.toggle("hidden", !isComic);
-  dom.captionSection.classList.toggle("hidden", !isCaption);
-  dom.nImagesField.classList.toggle("hidden", isComic || isCaption);
-  dom.referenceField.classList.toggle("hidden", isCaption);
+  dom.turnaroundSection.classList.toggle("hidden", !isTurnaround);
+  dom.nImagesField.classList.toggle("hidden", isComic || isTurnaround);
+  dom.referenceField.classList.toggle("hidden", isTurnaround);
+  $("#globalPromptField")?.classList.toggle("hidden", isTurnaround);
+  dom.activeSkillsSection?.classList.toggle("hidden", isTurnaround);
   updateSizePolicyUi();
-  dom.saveComicFolder.classList.toggle("hidden", !(isComic || isCaption));
+  dom.saveComicFolder.classList.toggle("hidden", !(isComic || isTurnaround));
   dom.progressWrap.classList.toggle("hidden", true);
 
   const label = $("#globalPromptField .field-label-text");
-  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : isCaption ? "全局提示词（注入所有图片）" : "提示词");
+  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : "提示词");
 
-  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
+  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isTurnaround ? "generateAllTurnarounds" : "generateImage");
 
   if (isComic) {
     dom.promptHint.textContent = tr("全局提示词将拼接在每个分镜提示词前面");
     if (dom.panelTbody.children.length === 0) addPanelRow();
-  } else if (isCaption) {
-    dom.promptHint.textContent = tr("全局提示词将拼接在每张图片的气泡文字前面");
+  } else if (isTurnaround) {
+    dom.promptHint.textContent = "";
   } else {
     dom.promptHint.textContent = "";
   }
 
   applyCleanLanguage();
+  renderActiveSkills();
   scheduleOfficialCostSummaryUpdate();
   clearStatus();
 }
 
 function refreshLocalizedUiState() {
   const isComic = currentMode === "comic";
-  const isCaption = currentMode === "caption";
+  const isTurnaround = currentMode === "turnaround";
   const label = $("#globalPromptField .field-label-text");
-  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : isCaption ? "全局提示词（注入所有图片）" : "提示词");
-  if (dom.promptHint) dom.promptHint.textContent = isComic ? tr("全局提示词将拼接在每个分镜提示词前面") : isCaption ? tr("全局提示词将拼接在每张图片的气泡文字前面") : "";
-  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isCaption ? "generateAllCaptions" : "generateImage");
+  if (label) label.textContent = tr(isComic ? "全局提示词（注入所有分镜）" : "提示词");
+  if (dom.promptHint) dom.promptHint.textContent = isComic ? tr("全局提示词将拼接在每个分镜提示词前面") : "";
+  setButtonText(dom.generateBtn, "spark", isComic ? "generateAll" : isTurnaround ? "generateAllTurnarounds" : "generateImage");
   setButtonText(dom.detectModels, "search", "detect");
   setButtonText(dom.downloadZip, "zip", "downloadZip");
   setButtonText(dom.saveComicFolder, "folder", "saveToFolder");
+  renderActiveSkills();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -6273,7 +6484,7 @@ function renderTxtBadges() {
   });
 }
 
-function getEffectivePrompt() {
+function getRawEffectivePrompt() {
   const parts = [];
   if (importedTxtFiles.length > 0) {
     parts.push(importedTxtFiles.map(f => f.content).join("\n\n"));
@@ -6282,6 +6493,15 @@ function getEffectivePrompt() {
     parts.push(dom.prompt.value.trim());
   }
   return parts.join("\n\n");
+}
+
+function getEffectivePrompt(mode = currentMode) {
+  return applyEnabledSkills(getRawEffectivePrompt(), mode);
+}
+
+function getTurnaroundOutputSize() {
+  const provider = dom.apiProvider?.value || inferApiProvider(dom.apiEndpoint?.value || "");
+  return provider === GEMINI_WEB_PROVIDER ? "1376x768" : "1536x864";
 }
 
 const MAX_REFERENCE_FILES = 100;
@@ -6399,12 +6619,12 @@ function currentProjectExportPanels(images = []) {
       references: serializableReferences(panel.references || []),
     }));
   }
-  if (currentMode === "caption") {
-    return collectCaptionRows().map(row => ({
+  if (currentMode === "turnaround") {
+    return collectTurnaroundRows().map(row => ({
       panelId: String(row.id || ""),
-      panelPrompt: row.captionText || "",
-      prompt: row.captionText || "",
-      size: "",
+      panelPrompt: row.prompt || "",
+      prompt: row.prompt || "",
+      size: getTurnaroundOutputSize(),
       retryCount: null,
       references: serializableReferences(row.reference ? [row.reference] : []),
     }));
@@ -6422,14 +6642,14 @@ function currentProjectExportPanels(images = []) {
 function buildCurrentProjectExportMeta(images, overrides = {}) {
   const mode = overrides.mode || currentMode;
   const isComic = mode === "comic";
-  const isCaption = mode === "caption";
+  const isTurnaround = mode === "turnaround";
   return {
-    title: overrides.title || (isComic ? cleanText("comicProject") : isCaption ? cleanText("captionProject") : cleanText("appTitle")),
+    title: overrides.title || (isComic ? cleanText("comicProject") : isTurnaround ? cleanText("turnaroundProject") : cleanText("appTitle")),
     mode,
     createdAt: overrides.createdAt || new Date().toISOString(),
     model: overrides.model || dom.model?.value?.trim?.() || "",
-    globalPrompt: overrides.globalPrompt ?? getEffectivePrompt(),
-    size: overrides.size || getSelectedSize(),
+    globalPrompt: overrides.globalPrompt ?? (isTurnaround ? TURNAROUND_BASE_PROMPT : getEffectivePrompt(mode)),
+    size: overrides.size || (isTurnaround ? getTurnaroundOutputSize() : getSelectedSize()),
     retryCount: overrides.retryCount ?? getGlobalRetryCount(),
     panels: Array.isArray(overrides.panels) ? overrides.panels : currentProjectExportPanels(images),
   };
@@ -7029,37 +7249,37 @@ dom.clearPanels.addEventListener("click", async () => {
   }
 });
 
-dom.captionUploadZone.addEventListener("click", e => {
+dom.turnaroundUploadZone.addEventListener("click", e => {
   e.preventDefault();
   e.stopPropagation();
-  openFileInputOnce(dom.captionBulkInput);
+  openFileInputOnce(dom.turnaroundBulkInput);
 });
-dom.captionUploadZone.addEventListener("dragover", e => { e.preventDefault(); dom.captionUploadZone.classList.add("drag-over"); });
-dom.captionUploadZone.addEventListener("dragleave", () => dom.captionUploadZone.classList.remove("drag-over"));
-dom.captionUploadZone.addEventListener("drop", e => {
+dom.turnaroundUploadZone.addEventListener("dragover", e => { e.preventDefault(); dom.turnaroundUploadZone.classList.add("drag-over"); });
+dom.turnaroundUploadZone.addEventListener("dragleave", () => dom.turnaroundUploadZone.classList.remove("drag-over"));
+dom.turnaroundUploadZone.addEventListener("drop", e => {
   e.preventDefault();
-  dom.captionUploadZone.classList.remove("drag-over");
-  addCaptionRowsFromFiles(e.dataTransfer.files);
+  dom.turnaroundUploadZone.classList.remove("drag-over");
+  addTurnaroundRowsFromFiles(e.dataTransfer.files);
 });
-dom.captionBulkInput.addEventListener("change", () => {
-  addCaptionRowsFromFiles(dom.captionBulkInput.files);
-  dom.captionBulkInput.value = "";
+dom.turnaroundBulkInput.addEventListener("change", () => {
+  addTurnaroundRowsFromFiles(dom.turnaroundBulkInput.files);
+  dom.turnaroundBulkInput.value = "";
 });
 
-[dom.uploadZone, dom.captionUploadZone].forEach(zone => {
+[dom.uploadZone, dom.turnaroundUploadZone].forEach(zone => {
   zone?.addEventListener("keydown", event => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     zone.click();
   });
 });
-dom.clearCaptionRows.addEventListener("click", async () => {
-  if (dom.captionTbody.children.length === 0 && !abortController) return;
-  if (await askConfirm("确定清空所有嵌字行？")) {
+dom.clearTurnaroundRows.addEventListener("click", async () => {
+  if (dom.turnaroundTbody.children.length === 0 && !abortController) return;
+  if (await askConfirm("确定清空所有三视图任务？")) {
     const wasGenerating = !!abortController;
-    stopCurrentGeneration("已取消当前生成并清空嵌字行");
-    dom.captionTbody.innerHTML = "";
-    captionRowCounter = 0;
+    stopCurrentGeneration("已取消当前生成并清空三视图任务");
+    dom.turnaroundTbody.innerHTML = "";
+    turnaroundRowCounter = 0;
     if (wasGenerating) {
       dom.resultGrid.innerHTML = "";
       dom.resultGrid.classList.add("hidden");
@@ -7073,30 +7293,18 @@ dom.clearCaptionRows.addEventListener("click", async () => {
 
 const AUTO_FILL_TEMPLATE_LABELS = {
   "panel-output": "输出分镜 N 的图片",
-  "ref-bubble-number": "参考图 N 加编号气泡",
-  "ref-caption-number": "参考图 N 加文字编号",
   custom: "自定义模板",
 };
 
 function renderAutoFillTemplate(template, vars) {
-  return template
-    .split("{n}").join(vars.n)
-    .split("{ref}").join(vars.ref)
-    .split("{caption}").join(vars.caption);
+  return template.split("{n}").join(vars.n);
 }
 
 function getAutoFillPrompt(row, customTemplate = "") {
   const n = row.querySelector(".panel-num").textContent;
-  const refIndex = n;
-  const vars = { n, ref: refIndex, caption: n };
+  const vars = { n };
   const templateType = dom.autoFillTemplate?.value || "panel-output";
 
-  if (templateType === "ref-bubble-number") {
-    return renderAutoFillTemplate("给参考图{ref}加入{caption}的气泡字幕", vars);
-  }
-  if (templateType === "ref-caption-number") {
-    return renderAutoFillTemplate("给参考图{ref}加入醒目的文字编号{caption}", vars);
-  }
   if (templateType === "custom") {
     return renderAutoFillTemplate(customTemplate, vars);
   }
@@ -7104,16 +7312,7 @@ function getAutoFillPrompt(row, customTemplate = "") {
 }
 
 dom.autoFillPanels.addEventListener("click", async () => {
-  const templateType = dom.autoFillTemplate?.value || "panel-output";
-  const shouldMatchReferenceCount = /^ref-/.test(templateType) && referenceImages.length > 0;
-
-  if (shouldMatchReferenceCount && dom.panelTbody.children.length < referenceImages.length) {
-    const rows = $$(".panel-row", dom.panelTbody);
-    const hasContent = rows.some(rowHasPanelContent);
-    if (!hasContent || (await askConfirm(`当前有 ${referenceImages.length} 张参考图，是否扩展为 ${referenceImages.length} 个分镜？`))) {
-      await setPanelCount(referenceImages.length);
-    }
-  } else if (dom.panelTbody.children.length === 0 && referenceImages.length > 0) {
+  if (dom.panelTbody.children.length === 0 && referenceImages.length > 0) {
     referenceImages.forEach(() => addPanelRow());
   }
 
@@ -7127,7 +7326,7 @@ dom.autoFillPanels.addEventListener("click", async () => {
 
   let customTemplate = "";
   if (dom.autoFillTemplate?.value === "custom") {
-    customTemplate = (await askPrompt("输入模板：可用 {n} 表示分镜编号，{ref} 表示参考图编号，{caption} 表示字幕内容", "给参考图{ref}加入{caption}的气泡字幕")) || "";
+    customTemplate = (await askPrompt("输入模板：可用 {n} 表示分镜编号", "输出分镜{n}的图片")) || "";
     if (!customTemplate.trim()) return;
   }
 
@@ -7138,49 +7337,7 @@ dom.autoFillPanels.addEventListener("click", async () => {
   showStatus(`已按「${label}」填写 ${rows.length} 个分镜`, "success");
 });
 
-const CAPTION_AUTO_FILL_TEMPLATE_LABELS = {
-  "numbered-bubble": "编号气泡",
-  custom: "自定义模板",
-};
-
-function getCaptionAutoFillText(row, customTemplate = "") {
-  const n = row.querySelector(".panel-num").textContent;
-  const vars = { n, ref: n, caption: n };
-  const templateType = dom.captionAutoFillTemplate?.value || "numbered-bubble";
-
-  if (templateType === "custom") {
-    return renderAutoFillTemplate(customTemplate, vars);
-  }
-  // 气泡的位置/颜色/样式交给全局提示词统一描述（全局提示词里说明"气泡文字对应下面的编号"即可），
-  // 这里只需要一句明确指令 AI 给该图加气泡字幕、并带上编号即可，不重复限定样式。
-  return renderAutoFillTemplate("给图片加入{n}的气泡字幕", vars);
-}
-
-dom.autoFillCaptionRows.addEventListener("click", async () => {
-  const rows = $$(".caption-row", dom.captionTbody);
-  if (rows.length === 0) {
-    showStatus("请先批量上传图片", "info"); return;
-  }
-
-  const hasContent = rows.some(row => row.querySelector(".caption-text").value.trim());
-  if (hasContent && !(await askConfirm("已有气泡文字，确定用当前模板覆盖吗？"))) return;
-
-  let customTemplate = "";
-  if (dom.captionAutoFillTemplate?.value === "custom") {
-    customTemplate = (await askPrompt("输入模板：可用 {n} 表示图片编号", "{n}")) || "";
-    if (!customTemplate.trim()) return;
-  }
-
-  rows.forEach(row => {
-    row.querySelector(".caption-text").value = getCaptionAutoFillText(row, customTemplate.trim());
-  });
-  const label = CAPTION_AUTO_FILL_TEMPLATE_LABELS[dom.captionAutoFillTemplate?.value || "numbered-bubble"] || "当前模板";
-  showStatus(`已按「${label}」填写 ${rows.length} 张图片`, "success");
-});
-
 // ─── 批量提示词：每行严格占一个位置，内部空行不能过滤，否则后续图片会错位。 ───
-let bulkPromptMode = "comic";
-
 function parseBulkPromptLines(value) {
   const normalized = String(value ?? "").replace(/\r\n?/g, "\n");
   if (!normalized) return [];
@@ -7190,22 +7347,20 @@ function parseBulkPromptLines(value) {
   return lines;
 }
 
-function getBulkPromptRows(mode = bulkPromptMode) {
-  return mode === "caption"
-    ? $$(".caption-row", dom.captionTbody)
-    : $$(".panel-row", dom.panelTbody);
+function getBulkPromptRows() {
+  return $$(".panel-row", dom.panelTbody);
 }
 
-function getBulkPromptInput(row, mode = bulkPromptMode) {
-  return mode === "caption" ? row.querySelector(".caption-text") : row.querySelector("textarea");
+function getBulkPromptInput(row) {
+  return row.querySelector("textarea");
 }
 
-function bulkPromptUnit(mode = bulkPromptMode) {
-  if (currentLanguage === "en") return mode === "caption" ? "images" : "panels";
-  if (currentLanguage === "ja") return mode === "caption" ? "枚の画像" : "コマ";
-  if (currentLanguage === "ko") return mode === "caption" ? "이미지" : "콘티";
-  if (currentLanguage === "zh-Hant") return mode === "caption" ? "張圖片" : "個分鏡";
-  return mode === "caption" ? "张图片" : "个分镜";
+function bulkPromptUnit() {
+  if (currentLanguage === "en") return "panels";
+  if (currentLanguage === "ja") return "コマ";
+  if (currentLanguage === "ko") return "콘티";
+  if (currentLanguage === "zh-Hant") return "個分鏡";
+  return "个分镜";
 }
 
 function updateBulkPromptCount() {
@@ -7217,22 +7372,20 @@ function updateBulkPromptCount() {
     rows,
     unit: bulkPromptUnit(),
   });
-  dom.bulkPromptCount.classList.toggle("is-warning", bulkPromptMode === "caption" && lines > rows);
+  dom.bulkPromptCount.classList.remove("is-warning");
 }
 
 function updateBulkPromptDialogLanguage() {
   if (!dom.bulkPromptModal) return;
-  const isCaption = bulkPromptMode === "caption";
-  dom.bulkPromptTitle.textContent = cleanText(isCaption ? "bulkCaptionTitle" : "bulkComicTitle");
-  dom.bulkPromptHint.textContent = cleanText(isCaption ? "bulkCaptionHint" : "bulkComicHint");
+  dom.bulkPromptTitle.textContent = cleanText("bulkComicTitle");
+  dom.bulkPromptHint.textContent = cleanText("bulkComicHint");
   dom.bulkPromptText.placeholder = cleanText("bulkPromptPlaceholder");
   dom.cancelBulkPrompts.textContent = cleanText("cancel");
   setButtonText(dom.applyBulkPrompts, "spark", "applyBulkPrompts");
   updateBulkPromptCount();
 }
 
-function openBulkPromptDialog(mode) {
-  bulkPromptMode = mode === "caption" ? "caption" : "comic";
+function openBulkPromptDialog() {
   dom.bulkPromptText.value = "";
   dom.bulkPromptCount.classList.remove("is-error", "is-warning");
   updateBulkPromptDialogLanguage();
@@ -7252,15 +7405,7 @@ async function applyBulkPromptLines() {
     return;
   }
   let rows = getBulkPromptRows();
-  if (bulkPromptMode === "caption" && rows.length === 0) {
-    setBulkPromptDialogError(cleanText("noCaptionImages"));
-    return;
-  }
-  if (bulkPromptMode === "caption" && lines.length > rows.length) {
-    setBulkPromptDialogError(interpolate(cleanText("tooManyCaptionPrompts"), { lines: lines.length, rows: rows.length }));
-    return;
-  }
-  if (bulkPromptMode === "comic" && lines.length > rows.length) {
+  if (lines.length > rows.length) {
     await setPanelCount(lines.length);
     rows = getBulkPromptRows();
   }
@@ -7270,12 +7415,7 @@ async function applyBulkPromptLines() {
     const current = getBulkPromptInput(row)?.value || "";
     return Boolean(current.trim());
   });
-  const wouldOverwrite = targetRows.some((row, index) => {
-    const current = getBulkPromptInput(row)?.value || "";
-    return current.trim() && current !== lines[index];
-  });
-  const requiresConfirmation = bulkPromptMode === "comic" ? hasExistingContent : wouldOverwrite;
-  if (requiresConfirmation && !(await askConfirm(cleanText("overwriteBulkPrompts")))) return;
+  if (hasExistingContent && !(await askConfirm(cleanText("overwriteBulkPrompts")))) return;
 
   targetRows.forEach((row, index) => {
     const input = getBulkPromptInput(row);
@@ -7293,8 +7433,7 @@ async function applyBulkPromptLines() {
   showStatus(message, "success");
 }
 
-dom.bulkInputPanelPrompts?.addEventListener("click", () => openBulkPromptDialog("comic"));
-dom.bulkInputCaptionPrompts?.addEventListener("click", () => openBulkPromptDialog("caption"));
+dom.bulkInputPanelPrompts?.addEventListener("click", openBulkPromptDialog);
 dom.bulkPromptText?.addEventListener("input", () => {
   dom.bulkPromptCount.classList.remove("is-error");
   updateBulkPromptCount();
@@ -7338,35 +7477,35 @@ async function waitForPanelReferenceTasks(panels) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  嵌字表格 CRUD
+//  三视图任务表格 CRUD
 // ═══════════════════════════════════════════════════════════
 
-const captionRowTemplate = $("#captionRowTemplate");
+const turnaroundRowTemplate = $("#turnaroundRowTemplate");
 
-function applyCaptionRowImage(row, ref) {
+function applyTurnaroundRowImage(row, ref) {
   const imgPreview = row.querySelector(".panel-img-preview");
-  const imgThumb = row.querySelector(".caption-img-thumb");
-  row._captionReference = ref;
+  const imgThumb = row.querySelector(".turnaround-img-thumb");
+  row._turnaroundReference = ref;
   imgPreview.style.backgroundImage = `url("${ref.dataUrl}")`;
   imgPreview.classList.remove("hidden");
   imgThumb.title = ref.fileName;
 }
 
-function addCaptionRow(prefilledRef = null) {
-  captionRowCounter++;
-  const clone = captionRowTemplate.content.cloneNode(true);
-  const row = clone.querySelector(".caption-row");
+function addTurnaroundRow(prefilledRef = null) {
+  turnaroundRowCounter++;
+  const clone = turnaroundRowTemplate.content.cloneNode(true);
+  const row = clone.querySelector(".turnaround-row");
 
-  row.querySelector(".panel-num").textContent = captionRowCounter;
-  row.dataset.captionId = captionRowCounter;
+  row.querySelector(".panel-num").textContent = turnaroundRowCounter;
+  row.dataset.turnaroundId = turnaroundRowCounter;
 
   row.querySelector(".delete-panel").addEventListener("click", () => {
     row.remove();
-    renumberCaptionRows();
+    renumberTurnaroundRows();
   });
 
   const imgInput = row.querySelector(".panel-img-input");
-  const imgThumb = row.querySelector(".caption-img-thumb");
+  const imgThumb = row.querySelector(".turnaround-img-thumb");
   const imgPreview = row.querySelector(".panel-img-preview");
 
   imgThumb.addEventListener("click", e => {
@@ -7378,63 +7517,63 @@ function addCaptionRow(prefilledRef = null) {
     const file = imgInput.files[0];
     if (file && file.type.startsWith("image/")) {
       const readTask = readImageReference(file);
-      row._captionReferenceTask = readTask;
+      row._turnaroundReferenceTask = readTask;
       imgThumb.disabled = true;
       try {
         const ref = await readTask;
         if (imgInput.files[0] !== file) return;
-        applyCaptionRowImage(row, ref);
-        showStatus(`第 ${row.dataset.captionId} 张已绑定图片`, "success");
+        applyTurnaroundRowImage(row, ref);
+        showStatus(`第 ${row.dataset.turnaroundId} 张已绑定图片`, "success");
       } catch (err) {
-        row._captionReference = null;
+        row._turnaroundReference = null;
         imgInput.value = "";
         imgThumb.title = "点击替换图片";
         imgPreview.style.backgroundImage = "";
         imgPreview.classList.add("hidden");
         showStatus(err.message || "图片读取失败", "error");
       } finally {
-        if (row._captionReferenceTask === readTask) row._captionReferenceTask = null;
+        if (row._turnaroundReferenceTask === readTask) row._turnaroundReferenceTask = null;
         imgThumb.disabled = false;
       }
     }
   });
 
-  if (prefilledRef) applyCaptionRowImage(row, prefilledRef);
+  if (prefilledRef) applyTurnaroundRowImage(row, prefilledRef);
 
-  dom.captionTbody.appendChild(row);
+  dom.turnaroundTbody.appendChild(row);
   return row;
 }
 
-async function addCaptionRowsFromFiles(fileList) {
+async function addTurnaroundRowsFromFiles(fileList) {
   try {
-    const imageFiles = validateImageImport(fileList, dom.captionTbody.children.length, { maxFiles: Infinity });
+    const imageFiles = validateImageImport(fileList, dom.turnaroundTbody.children.length, { maxFiles: Infinity });
     if (imageFiles.length === 0) return;
     const refs = sortReferencesByName(await mapWithConcurrency(imageFiles, 4, readImageReference));
-    refs.forEach(ref => addCaptionRow(ref));
-    showStatus(`已添加 ${refs.length} 张图片（共 ${dom.captionTbody.children.length} 张）`, "success");
+    refs.forEach(ref => addTurnaroundRow(ref));
+    showStatus(`已添加 ${refs.length} 张图片（共 ${dom.turnaroundTbody.children.length} 张）`, "success");
   } catch (err) {
     showStatus(err.message || "批量导入图片失败", "error");
   }
 }
 
-function renumberCaptionRows() {
-  $$(".caption-row", dom.captionTbody).forEach((row, i) => {
+function renumberTurnaroundRows() {
+  $$(".turnaround-row", dom.turnaroundTbody).forEach((row, i) => {
     row.querySelector(".panel-num").textContent = i + 1;
-    row.dataset.captionId = i + 1;
+    row.dataset.turnaroundId = i + 1;
   });
-  captionRowCounter = dom.captionTbody.children.length;
+  turnaroundRowCounter = dom.turnaroundTbody.children.length;
 }
 
-function collectCaptionRows() {
-  return $$(".caption-row", dom.captionTbody).map(row => ({
-    id: row.dataset.captionId,
-    captionText: row.querySelector(".caption-text").value.trim(),
-    reference: row._captionReference || null,
-    referenceTask: row._captionReferenceTask || null,
+function collectTurnaroundRows() {
+  return $$(".turnaround-row", dom.turnaroundTbody).map(row => ({
+    id: row.dataset.turnaroundId,
+    prompt: row.querySelector(".turnaround-prompt").value.trim(),
+    reference: row._turnaroundReference || null,
+    referenceTask: row._turnaroundReferenceTask || null,
   }));
 }
 
-async function waitForCaptionReferenceTasks(rows) {
+async function waitForTurnaroundReferenceTasks(rows) {
   const pending = rows.map(r => r.referenceTask).filter(Boolean);
   if (pending.length === 0) return;
   showStatus(`正在读取 ${pending.length} 张图片…`, "info");
@@ -7466,7 +7605,7 @@ function hideLoading() {
 function resetGenerateButton() {
   dom.generateBtn.disabled = false;
   dom.generateBtn.classList.remove("is-cancel");
-  setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : currentMode === "caption" ? "generateAllCaptions" : "generateImage");
+  setButtonText(dom.generateBtn, "spark", currentMode === "comic" ? "generateAll" : currentMode === "turnaround" ? "generateAllTurnarounds" : "generateImage");
   syncCodexGatewayGenerateAvailability();
 }
 
@@ -9628,18 +9767,32 @@ async function generateComic() {
   }
 }
 
-async function generateCaptions() {
+const TURNAROUND_BASE_PROMPT = `Create one strict 16:9 character turnaround sheet using the attached image as the sole identity, outfit, material, proportion, and visual-style reference.
+Show exactly three separate full-body views of the same character, arranged left to right: front view, exact 90-degree side profile, and back view.
+Keep the character's face, hair, body proportions, clothing construction, accessories, colors, materials, line quality, rendering technique, and original artistic medium precisely consistent with the reference. Do not redesign, beautify, simplify, restyle, change the outfit, or add props.
+Use identical scale, neutral standing pose, level camera, orthographic presentation, even spacing, and a pure blank white background.
+Every view must be fully visible from head to feet with no cropping, overlap, perspective distortion, extra views, duplicated limbs, or anatomy errors.
+Do not include any text, labels, written words, arrows, borders, logos, signatures, watermarks, interface elements, or decorative background details.`;
+
+function buildTurnaroundPrompt(userGuidance = "") {
+  const guidance = String(userGuidance || "").trim();
+  return guidance
+    ? `${TURNAROUND_BASE_PROMPT}\n\nTarget character guidance from the user: ${guidance}`
+    : TURNAROUND_BASE_PROMPT;
+}
+
+async function generateTurnarounds() {
   if (!validateCommon()) return;
 
-  const globalPrompt = getEffectivePrompt();
-  const globalSize   = getSelectedSize();
-  let rows           = collectCaptionRows();
-  await waitForCaptionReferenceTasks(rows);
-  rows               = collectCaptionRows();
+  const globalPrompt = TURNAROUND_BASE_PROMPT;
+  const globalSize   = getTurnaroundOutputSize();
+  let rows           = collectTurnaroundRows();
+  await waitForTurnaroundReferenceTasks(rows);
+  rows               = collectTurnaroundRows();
 
-  const validRows = rows.filter(r => r.captionText && r.reference);
+  const validRows = rows.filter(r => r.reference);
   if (validRows.length === 0) {
-    showStatus("请至少给一张图片上传图片并填写气泡文字", "error"); return;
+    showStatus("请至少导入一张角色参考图", "error"); return;
   }
   if (!(await validateProviderReady())) return;
 
@@ -9666,14 +9819,14 @@ async function generateCaptions() {
   const projectId = `project_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   run.projectId = projectId;
   const rowTasks = validRows.map(row => {
-    const fullPrompt = globalPrompt ? `${globalPrompt}\n\n${row.captionText}` : row.captionText;
-    const size = (row.reference?.width && row.reference?.height) ? `${row.reference.width}x${row.reference.height}` : globalSize;
+    const fullPrompt = buildTurnaroundPrompt(row.prompt);
+    const size = globalSize;
     const references = [row.reference];
     const retryCount = globalRetryCount;
     const placeholder = addResultPlaceholder(row.id, fullPrompt, {
-      mode: "caption",
+      mode: "turnaround",
       globalPrompt,
-      panelPrompt: row.captionText,
+      panelPrompt: row.prompt,
       prompt: fullPrompt,
       size,
       references,
@@ -9684,13 +9837,13 @@ async function generateCaptions() {
     const cardAbort = new AbortController();
     placeholder._cardRetryAbortController = cardAbort;
     run.cards.add(placeholder);
-    return { row, fullPrompt, size, references, retryCount, placeholder, cardAbort, globalPrompt };
+    return { row, fullPrompt, size, references, retryCount, placeholder, cardAbort };
   });
   initializeProjectCheckpoint({
     id: projectId,
-    type: "caption-project",
-    mode: "caption",
-    title: `${cleanText("captionProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
+    type: "turnaround-project",
+    mode: "turnaround",
+    title: `${cleanText("turnaroundProject")} ${new Date().toLocaleString(localeTagForCurrentLanguage())}`,
     createdAt: new Date().toISOString(),
     globalPrompt,
     model: apiSnapshot.model,
@@ -9703,8 +9856,8 @@ async function generateCaptions() {
     totalPanels: total,
     panels: rowTasks.map(({ row, size: rowSize, retryCount: rowRetries, references }) => ({
       panelId: String(row.id),
-      panelPrompt: row.captionText,
-      prompt: row.captionText,
+      panelPrompt: row.prompt,
+      prompt: row.prompt,
       size: rowSize,
       retryCount: rowRetries,
       references: [],
@@ -9726,7 +9879,7 @@ async function generateCaptions() {
       return;
     }
     try {
-      const data = await callImageAPI(fullPrompt, size, 1, `图片 ${row.id}`, {
+      const data = await callImageAPI(fullPrompt, size, 1, `三视图 ${row.id}`, {
         references, signal: combineSignals(run.signal, cardAbort.signal), maxRetries: retryCount,
         apiSnapshot,
         onRetryAttempt: info => updateCardRetryAttempt(placeholder, info),
@@ -9738,16 +9891,16 @@ async function generateCaptions() {
       if (!isGenerationCurrent(run)) return;
       const record = replacePlaceholder(placeholder, row.id, data, fullPrompt, {
         skipHistory: true,
-        recordPrompt: row.captionText,
+        recordPrompt: row.prompt,
         fullPrompt,
         apiSnapshot,
         size,
-        retryContext: { references, size, mode: "caption", globalPrompt, panelPrompt: row.captionText, prompt: fullPrompt, fullPrompt, retryCount, apiSnapshot, projectId },
+        retryContext: { references, size, mode: "turnaround", globalPrompt, panelPrompt: row.prompt, prompt: fullPrompt, fullPrompt, retryCount, apiSnapshot, projectId },
       });
       if (record) projectImages.push({
         ...record,
-        prompt: row.captionText,
-        panelPrompt: row.captionText,
+        prompt: row.prompt,
+        panelPrompt: row.prompt,
         fullPrompt,
         retryCount,
         _cachePromise: placeholder._imageCachePromise,
@@ -9766,9 +9919,9 @@ async function generateCaptions() {
         markPlaceholderFailed(placeholder, row.id, failure, {
           references,
           size,
-          mode: "caption",
+          mode: "turnaround",
           globalPrompt,
-          panelPrompt: row.captionText,
+          panelPrompt: row.prompt,
           prompt: fullPrompt,
           fullPrompt,
           retryCount,
@@ -9803,7 +9956,7 @@ async function generateCaptions() {
     if (failed > 0) {
       showStatus(`完成：${completed} 成功 / ${failed} 失败`, "error");
     } else if (completed > 0) {
-      showStatus(`全部 ${completed} 张图片生成完成！`, "success");
+      showStatus(`全部 ${completed} 个三视图任务生成完成！`, "success");
     }
   } catch (err) {
     if (err?.name !== "AbortError" && isGenerationCurrent(run)) {
@@ -10145,7 +10298,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   media.append(img, mediaStatus);
   card.appendChild(media);
   if (!/^(?:idb|cache):\/\//.test(String(imageUrl))) img.src = imageUrl;
-  const isProjectContext = options.retryContext?.mode === "comic" || options.retryContext?.mode === "caption";
+  const isProjectContext = options.retryContext?.mode === "comic" || options.retryContext?.mode === "turnaround";
   const recordPrompt = options.recordPrompt
     ?? (isProjectContext ? getPanelOnlyPrompt(options.retryContext, options.retryContext?.globalPrompt || "") : prompt);
   const fullPrompt = options.fullPrompt || options.retryContext?.fullPrompt || (recordPrompt !== prompt ? prompt : "");
@@ -10800,7 +10953,10 @@ function setRetryContext(card, panelId, context = {}) {
 }
 
 function composeRetryPrompt(context) {
-  if (context.mode === "comic" || context.mode === "caption") {
+  if (context.mode === "turnaround") {
+    return buildTurnaroundPrompt(context.panelPrompt || "");
+  }
+  if (context.mode === "comic") {
     if (context.excludeGlobalPrompt === true) return (context.panelPrompt || context.prompt || "").trim();
     return context.globalPrompt ? `${context.globalPrompt}\n\n${context.panelPrompt || ""}`.trim() : (context.panelPrompt || context.prompt || "");
   }
@@ -10809,16 +10965,24 @@ function composeRetryPrompt(context) {
 
 async function editRetryContext(context) {
   const next = { ...context };
-  if (next.mode === "comic" || next.mode === "caption") {
+  if (next.mode === "turnaround") {
+    const guidance = await askPrompt("修改该角色的补充说明（可留空）", next.panelPrompt || "");
+    if (guidance === null) return null;
+    next.globalPrompt = TURNAROUND_BASE_PROMPT;
+    next.panelPrompt = guidance.trim();
+    next.excludeGlobalPrompt = false;
+    next.prompt = buildTurnaroundPrompt(next.panelPrompt);
+    next.fullPrompt = next.prompt;
+    return next;
+  }
+  if (next.mode === "comic") {
     const moderationRevision = next.errorCategory === "moderation_blocked";
     const label = moderationRevision
       ? "审核修订：修改当前分镜内容。本次重试只提交当前分镜提示词，不附加可能污染镜头的全局提示词"
-      : next.mode === "caption"
-        ? "修改气泡文字内容（全局提示词会自动引用当前页面里的内容）"
-        : "修改该分镜提示词（全局提示词会自动引用当前页面里的内容）";
+      : "修改该分镜提示词（全局提示词会自动引用当前页面里的内容）";
     const panel = await askPrompt(label, next.panelPrompt || next.prompt || "");
     if (panel === null) return null;
-    next.globalPrompt = getEffectivePrompt();
+    next.globalPrompt = getEffectivePrompt("comic");
     next.panelPrompt = panel.trim();
     next.excludeGlobalPrompt = moderationRevision;
     next.prompt = composeRetryPrompt(next);
@@ -10883,8 +11047,8 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
       const currentPanel = collectPanels().find(panel => String(panel.id) === String(panelId));
       const restoredReferences = currentPanel ? getPanelRequestReferences(currentPanel) : [];
       if (restoredReferences.length) context = { ...context, references: restoredReferences, referencesMissing: false };
-    } else if (context.mode === "caption") {
-      const currentRow = collectCaptionRows().find(row => String(row.id) === String(panelId));
+    } else if (context.mode === "turnaround") {
+      const currentRow = collectTurnaroundRows().find(row => String(row.id) === String(panelId));
       if (currentRow?.reference) context = { ...context, references: [currentRow.reference], referencesMissing: false };
     }
     if (context.referencesMissing) {
@@ -10899,8 +11063,8 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   }
   const size = context.size || getSelectedSize();
   const retryCount = clampRetryCount(options.retryCountOverride ?? context.retryCount, getGlobalRetryCount());
-  const isProject = context.mode === "comic" || context.mode === "caption";
-  const label = context.mode === "caption" ? "图片" : "分镜";
+  const isProject = context.mode === "comic" || context.mode === "turnaround";
+  const label = context.mode === "turnaround" ? "图片" : "分镜";
   setRetryContext(card, panelId, { ...context, apiSnapshot, prompt: promptText, size, retryCount });
   renderRetryLoading(card, panelId, promptText, options);
   const cardAbort = new AbortController();
@@ -11302,8 +11466,8 @@ function loadHistory() {
 }
 
 function isHistoryProject(item) {
-  return item?.type === "comic-project" || item?.type === "caption-project"
-    || (Array.isArray(item?.images) && (item.mode === "comic" || item.mode === "caption"));
+  return item?.type === "comic-project" || item?.type === "turnaround-project"
+    || (Array.isArray(item?.images) && (item.mode === "comic" || item.mode === "turnaround"));
 }
 
 function getHistoryImages(item) {
@@ -11911,7 +12075,7 @@ function createHistoryProjectCard(item, images, thumbnail) {
   meta.className = "history-meta";
   const title = document.createElement("div");
   title.className = "history-project-title";
-  const projectType = item.mode === "caption" ? cleanText("captionProject") : cleanText("comicProject");
+  const projectType = item.mode === "turnaround" ? cleanText("turnaroundProject") : cleanText("comicProject");
   title.textContent = item.title || `${projectType} · ${images.length}`;
   const sub = document.createElement("div");
   sub.className = "history-sub";
@@ -12040,9 +12204,9 @@ async function downloadHistoryProject(item) {
       url: image.imageUrl || image.url,
       panelId: image.panelId || index + 1,
     })), {
-      folder: sanitizeFilePart(item.title || (item.mode === "caption" ? "caption-project" : "comic-project"), item.mode === "caption" ? "caption-project" : "comic-project"),
+      folder: sanitizeFilePart(item.title || (item.mode === "turnaround" ? "turnaround-project" : "comic-project"), item.mode === "turnaround" ? "turnaround-project" : "comic-project"),
       mode: item.mode || "comic",
-      title: item.title || cleanText(item.mode === "caption" ? "captionProject" : "comicProject"),
+      title: item.title || cleanText(item.mode === "turnaround" ? "turnaroundProject" : "comicProject"),
       createdAt: item.createdAt,
       model: item.model || "",
       globalPrompt: item.globalPrompt || "",
@@ -12051,7 +12215,7 @@ async function downloadHistoryProject(item) {
       panels: Array.isArray(item.panels) ? item.panels : [],
       globalReferences: [],
     });
-    const filename = `${sanitizeFilePart(item.title || (item.mode === "caption" ? "caption-project" : "comic-project"), item.mode === "caption" ? "caption-project" : "comic-project")}.zip`;
+    const filename = `${sanitizeFilePart(item.title || (item.mode === "turnaround" ? "turnaround-project" : "comic-project"), item.mode === "turnaround" ? "turnaround-project" : "comic-project")}.zip`;
     await saveOrDownloadBlob(zipBlob, filename, "application/zip", "zips");
     setDownloadProgress(100, `${cleanText("zipSaved")}: ${filename}`, true);
     showStatus(`${cleanText("zipSaved")}: ${filename}`, "success");
@@ -12071,12 +12235,12 @@ function applyHistoryPanelSize(row, size) {
 }
 
 function restoreHistoryProjectEditor(item, images) {
-  if (item.mode === "caption") {
-    switchMode("caption");
+  if (item.mode === "turnaround") {
+    switchMode("turnaround");
     clearAllReferenceImages();
     dom.prompt.value = item.globalPrompt || item.prompt || "";
-    dom.captionTbody.innerHTML = "";
-    captionRowCounter = 0;
+    dom.turnaroundTbody.innerHTML = "";
+    turnaroundRowCounter = 0;
 
     const sourceRows = Array.isArray(item.panels) && item.panels.length ? item.panels : images;
     sourceRows.forEach((panel, index) => {
@@ -12088,12 +12252,12 @@ function restoreHistoryProjectEditor(item, images) {
         prompt: panel.prompt || matchingImage.prompt || "",
         fullPrompt: panel.fullPrompt || matchingImage.fullPrompt || "",
       };
-      const row = addCaptionRow();
-      const captionInput = row.querySelector(".caption-text");
-      if (captionInput) captionInput.value = getPanelOnlyPrompt(rowData, item.globalPrompt || "");
+      const row = addTurnaroundRow();
+      const turnaroundInput = row.querySelector(".turnaround-prompt");
+      if (turnaroundInput) turnaroundInput.value = getPanelOnlyPrompt(rowData, item.globalPrompt || "");
     });
 
-    if (dom.captionTbody.children.length === 0) addCaptionRow();
+    if (dom.turnaroundTbody.children.length === 0) addTurnaroundRow();
     refreshLocalizedUiState();
     return;
   }
@@ -12211,7 +12375,7 @@ function restoreHistoryItem(item) {
     });
     updateFailedRetryTools();
     closeModal(dom.historyModal);
-    showStatus(item.mode === "caption" ? `已恢复嵌字项目：${images.length} 张图片` : `已恢复漫画项目：${images.length} 张图片`, "success");
+    showStatus(item.mode === "turnaround" ? `已恢复三视图项目：${images.length} 张图片` : `已恢复漫画项目：${images.length} 张图片`, "success");
     return;
   }
 
@@ -12277,8 +12441,8 @@ function captureWorkspaceDraft() {
     retryCount: panel.retryCount ?? getGlobalRetryCount(),
     hadReference: Boolean(panel.references?.length),
   }));
-  const captions = collectCaptionRows().map(row => ({
-    captionText: row.captionText || "",
+  const turnarounds = collectTurnaroundRows().map(row => ({
+    prompt: row.prompt || "",
     hadReference: Boolean(row.reference),
   }));
   return {
@@ -12292,7 +12456,7 @@ function captureWorkspaceDraft() {
     customWidth: dom.customWidth?.value || "",
     customHeight: dom.customHeight?.value || "",
     panels,
-    captions,
+    turnarounds,
   };
 }
 
@@ -12348,7 +12512,7 @@ function restoreWorkspaceDraft() {
     // History when they want to continue it.
     if (dom.resultGrid) dom.resultGrid.innerHTML = "";
     currentComicHistoryId = null;
-    switchMode(["single", "comic", "caption"].includes(draft.mode) ? draft.mode : "single");
+    switchMode(["single", "comic", "turnaround"].includes(draft.mode) ? draft.mode : "single");
     if (dom.prompt) dom.prompt.value = String(draft.prompt || "");
     if (dom.nImages) dom.nImages.value = String(draft.nImages || "1");
     if (dom.zipFileName) dom.zipFileName.value = String(draft.zipFileName || "");
@@ -12367,13 +12531,13 @@ function restoreWorkspaceDraft() {
       });
       syncPanelCountInput();
     }
-    if (Array.isArray(draft.captions) && draft.captions.length) {
-      dom.captionTbody.innerHTML = "";
-      captionRowCounter = 0;
-      draft.captions.forEach(item => {
-        const row = addCaptionRow();
-        const caption = row.querySelector(".caption-text");
-        if (caption) caption.value = String(item.captionText || "");
+    if (Array.isArray(draft.turnarounds) && draft.turnarounds.length) {
+      dom.turnaroundTbody.innerHTML = "";
+      turnaroundRowCounter = 0;
+      draft.turnarounds.forEach(item => {
+        const row = addTurnaroundRow();
+        const turnaround = row.querySelector(".turnaround-prompt");
+        if (turnaround) turnaround.value = String(item.prompt || "");
       });
     }
 
@@ -12388,7 +12552,7 @@ function installWorkspaceDraftAutosave() {
   if (workspaceDraftDisabledForTest()) return;
   document.addEventListener("input", () => scheduleWorkspaceDraftSave(), true);
   document.addEventListener("change", () => scheduleWorkspaceDraftSave(), true);
-  [dom.panelTbody, dom.captionTbody, dom.resultGrid].filter(Boolean).forEach(target => {
+  [dom.panelTbody, dom.turnaroundTbody, dom.resultGrid].filter(Boolean).forEach(target => {
     new MutationObserver(() => scheduleWorkspaceDraftSave())
       .observe(target, { childList: true, subtree: true });
   });
@@ -12598,7 +12762,7 @@ async function restoreExportedProjectFromFiles(files) {
   if (!project || typeof project !== "object" || !Array.isArray(project.images)) {
     throw new Error(cleanText("importProjectInvalid"));
   }
-  const mode = ["single", "comic", "caption"].includes(project.mode) ? project.mode : "comic";
+  const mode = ["single", "comic", "turnaround"].includes(project.mode) ? project.mode : "comic";
   const referenceById = new Map();
   const failedReferences = [];
   const referenceRows = Array.isArray(project.references) ? project.references : [];
@@ -12644,15 +12808,15 @@ async function restoreExportedProjectFromFiles(files) {
     });
     if (dom.panelTbody.children.length === 0) addPanelRow();
     renumberPanels();
-  } else if (mode === "caption") {
-    dom.captionTbody.innerHTML = "";
-    captionRowCounter = 0;
+  } else if (mode === "turnaround") {
+    dom.turnaroundTbody.innerHTML = "";
+    turnaroundRowCounter = 0;
     sourcePanels.forEach(panel => {
-      const row = addCaptionRow(refsFor(importedReferenceIdsFor(panel, project))[0] || null);
-      const caption = row.querySelector(".caption-text");
-      if (caption) caption.value = getPanelOnlyPrompt(panel, project.globalPrompt || "");
+      const row = addTurnaroundRow(refsFor(importedReferenceIdsFor(panel, project))[0] || null);
+      const turnaround = row.querySelector(".turnaround-prompt");
+      if (turnaround) turnaround.value = getPanelOnlyPrompt(panel, project.globalPrompt || "");
     });
-    if (dom.captionTbody.children.length === 0) addCaptionRow();
+    if (dom.turnaroundTbody.children.length === 0) addTurnaroundRow();
   }
 
   dom.resultGrid.innerHTML = "";
@@ -12699,14 +12863,14 @@ async function restoreExportedProjectFromFiles(files) {
     }
   }
 
-  if (mode === "comic" || mode === "caption") {
+  if (mode === "comic" || mode === "turnaround") {
     const importedId = `imported_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     currentComicHistoryId = importedId;
     await saveGenerationProject({
       id: importedId,
-      type: mode === "caption" ? "caption-project" : "comic-project",
+      type: mode === "turnaround" ? "turnaround-project" : "comic-project",
       mode,
-      title: String(project.title || cleanText(mode === "caption" ? "captionProject" : "comicProject")),
+      title: String(project.title || cleanText(mode === "turnaround" ? "turnaroundProject" : "comicProject")),
       createdAt: new Date().toISOString(),
       globalPrompt: String(project.globalPrompt || ""),
       model: String(project.model || ""),
@@ -13665,7 +13829,7 @@ function formatProjectFolderTimestamp(date = new Date()) {
 }
 
 function buildProjectFolderName(mode = currentMode, date = new Date()) {
-  const fallback = cleanText(mode === "caption" ? "captionProject" : "comicProject");
+  const fallback = cleanText(mode === "turnaround" ? "turnaroundProject" : "comicProject");
   const custom = String(dom.zipFileName?.value || "").trim().replace(/\.zip$/i, "").trim();
   // Keep room for the timestamp so a long custom name cannot trim away the
   // collision-resistant suffix on Windows, Android or Apple platforms.
@@ -14054,7 +14218,7 @@ function getCurrentResultImages() {
       }
       const img = card.querySelector("img");
       if (!img?.src) return null;
-      const isProjectContext = card._retryContext?.mode === "comic" || card._retryContext?.mode === "caption";
+      const isProjectContext = card._retryContext?.mode === "comic" || card._retryContext?.mode === "turnaround";
       return {
         url: img.src,
         panelId: card._retryContext?.panelId || String(index + 1),
@@ -14098,7 +14262,7 @@ async function downloadAllAsZip() {
       prompt: image.prompt || "",
     })), {
       ...currentMeta,
-      folder: currentMode === "comic" ? "comic-project" : currentMode === "caption" ? "caption-project" : "images",
+      folder: currentMode === "comic" ? "comic-project" : currentMode === "turnaround" ? "turnaround-project" : "images",
     });
     const customName = dom.zipFileName.value.trim();
     const filename = customName ? `${sanitizeFilePart(customName, "images")}.zip` : `ai-images-${Date.now()}.zip`;
@@ -14124,7 +14288,7 @@ async function saveProjectResultsToFolder() {
     showStatus(cleanText("noImagesToExport"), "error"); return;
   }
 
-  const isCaption = currentMode === "caption";
+  const isTurnaround = currentMode === "turnaround";
 
   dom.saveComicFolder.disabled = true;
   setButtonText(dom.saveComicFolder, "spark", "savingToFolder");
@@ -14134,7 +14298,7 @@ async function saveProjectResultsToFolder() {
     if (loadSettings().imageAskEveryTime === true || !nativeDownload.dirs.images) {
       await nativeDownload.chooseDir("images");
     }
-    const folder = buildProjectFolderName(isCaption ? "caption" : "comic");
+    const folder = buildProjectFolderName(isTurnaround ? "turnaround" : "comic");
     const exportMeta = buildCurrentProjectExportMeta(images, { title: folder });
     const references = await prepareProjectExportReferences(images, exportMeta);
     const failures = [];
@@ -14156,7 +14320,7 @@ async function saveProjectResultsToFolder() {
         if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl);
         const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
         const base64 = await blobToBase64(blob);
-        const fileName = `${isCaption ? "image" : "panel"}-${panelId}.${ext}`;
+        const fileName = `${isTurnaround ? "turnaround" : "panel"}-${panelId}.${ext}`;
         const outputFolder = image.actual?.dimensionStatus === "mismatch" ? `${folder}/raw-nonexact` : folder;
         await nativeDownload.saveFile("images", fileName, blob.type || "image/png", base64, outputFolder);
         exported.push({ ...image, filename: `${outputFolder === folder ? "" : "raw-nonexact/"}${fileName}` });
@@ -14265,7 +14429,7 @@ dom.generateBtn.addEventListener("click", () => {
     return;
   }
   if (currentMode === "comic") generateComic();
-  else if (currentMode === "caption") generateCaptions();
+  else if (currentMode === "turnaround") generateTurnarounds();
   else generateSingle();
 });
 
@@ -14364,6 +14528,7 @@ async function initializeApplication() {
   }
 
   initI18n();
+  renderActiveSkills();
   if (workspaceSessionAllowsRestore()) restoreWorkspaceDraft();
   installWorkspaceDraftAutosave();
   showStorageRecoveryIssues();

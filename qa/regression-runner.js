@@ -753,7 +753,7 @@ async function testReferencesAndAutoFill(cdp) {
       await new Promise(r => setTimeout(r, 80));
     }
     window.confirm = () => true;
-    document.getElementById("autoFillTemplate").value = "ref-bubble-number";
+    document.getElementById("autoFillTemplate").value = "panel-output";
     document.getElementById("autoFillPanels").click();
     await new Promise(r => setTimeout(r, 80));
     return {
@@ -767,27 +767,23 @@ async function testReferencesAndAutoFill(cdp) {
   assertQa(result.clickCounts.txtFileInput === 1, "txt import picker should open once per click.", result);
   assertQa(result.clickCounts["panel-img-input"] === 1, "Panel reference picker should open once per click.", result);
   assertQa(JSON.stringify(result.sortedNames) === JSON.stringify(["ref-1.png", "ref-2.png", "ref-10.png"]), "Global references should be sorted naturally by name.", result);
-  assertQa(result.panelCount === 3, "Reference auto-fill should create one panel per reference.", result);
-  assertQa(JSON.stringify(result.prompts) === JSON.stringify([
-    "给参考图1加入1的气泡字幕",
-    "给参考图2加入2的气泡字幕",
-    "给参考图3加入3的气泡字幕",
-  ]), "Reference bubble auto-fill template should match the requested wording.", result);
+  assertQa(result.panelCount === 1, "Comic mode should keep its explicitly created panel count when auto-fill runs.", result);
+  assertQa(JSON.stringify(result.prompts) === JSON.stringify(["输出分镜1的图片"]), "The remaining comic auto-fill template should fill the panel number correctly.", result);
 }
 
 async function testUploadDebounceWindow(cdp) {
-  logStep("openFileInputOnce()'s debounce must block a genuine same-instant double-fire but not a user's realistic impatient re-click a few hundred ms later -- caption mode's bulk upload zone gets clicked repeatedly in normal use, and users reported clicking it sometimes 'does nothing'");
+  logStep("openFileInputOnce()'s debounce must block a genuine same-instant double-fire but not a user's realistic impatient re-click a few hundred ms later -- turnaround mode's bulk upload zone gets clicked repeatedly in normal use, and users reported clicking it sometimes 'does nothing'");
   await loadFresh(cdp, "upload-debounce");
   const result = await cdp.eval(`(async () => {
     let clicks = 0;
     const originalClick = HTMLInputElement.prototype.click;
     HTMLInputElement.prototype.click = function () {
-      if (this === document.getElementById("captionBulkInput")) clicks++;
+      if (this === document.getElementById("turnaroundBulkInput")) clicks++;
     };
-    document.querySelector('[data-mode="caption"]').click();
+    document.querySelector('[data-mode="turnaround"]').click();
     await new Promise(r => setTimeout(r, 50));
 
-    const zone = document.getElementById("captionUploadZone");
+    const zone = document.getElementById("turnaroundUploadZone");
     zone.click();
     zone.click(); // near-instant second click -- simulates a single physical click firing twice
     await new Promise(r => setTimeout(r, 20));
@@ -913,15 +909,15 @@ async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
   assertQa(result.restoredThumbsVisible.every(value => value === false), "Reference thumbnails must remain empty after parameter-only restore.", result);
 }
 
-async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
-  logStep("Restoring a caption project keeps every row and caption but intentionally does not restore reference images");
-  await loadFresh(cdp, "restore-refs-and-fails-caption");
+async function testTurnaroundProjectRestorePreservesReferencesAndFailures(cdp) {
+  logStep("Restoring a turnaround project keeps every row and turnaround but intentionally does not restore reference images");
+  await loadFresh(cdp, "restore-refs-and-fails-turnaround");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (url, opts = {}) => {
-      // Every caption row carries its own reference image, so this always goes through the
+      // Every turnaround row carries its own reference image, so this always goes through the
       // OpenAI-compatible adapter's /v1/images/edits (multipart FormData), not the plain-JSON
       // /v1/images/generations endpoint.
       if (String(url).includes("/v1/images/generations") || String(url).includes("/v1/images/edits")) {
@@ -943,7 +939,7 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
     set("apiEndpoint", "http://mock.local");
     set("apiKey", "sk-test");
     set("model", "gpt-image-2");
-    document.querySelector('[data-mode="caption"]').click();
+    document.querySelector('[data-mode="turnaround"]').click();
     await new Promise(r => setTimeout(r, 50));
     set("prompt", "GLOBAL");
 
@@ -958,18 +954,18 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
     const dt = new DataTransfer();
     dt.items.add(await makeImageFile("cap-1.png", "#f33"));
     dt.items.add(await makeImageFile("cap-2.png", "#3f3"));
-    const bulkInput = document.getElementById("captionBulkInput");
+    const bulkInput = document.getElementById("turnaroundBulkInput");
     bulkInput.files = dt.files;
     bulkInput.dispatchEvent(new Event("change", { bubbles: true }));
     await new Promise(r => setTimeout(r, 300));
 
-    const rows = [...document.querySelectorAll(".caption-row")];
-    rows[0].querySelector(".caption-text").value = "row one text";
-    rows[0].querySelector(".caption-text").dispatchEvent(new Event("input", { bubbles: true }));
-    rows[1].querySelector(".caption-text").value = "row two text";
-    rows[1].querySelector(".caption-text").dispatchEvent(new Event("input", { bubbles: true }));
-    const ref1DataUrl = rows[0]._captionReference?.dataUrl;
-    const ref2DataUrl = rows[1]._captionReference?.dataUrl;
+    const rows = [...document.querySelectorAll(".turnaround-row")];
+    rows[0].querySelector(".turnaround-prompt").value = "row one text";
+    rows[0].querySelector(".turnaround-prompt").dispatchEvent(new Event("input", { bubbles: true }));
+    rows[1].querySelector(".turnaround-prompt").value = "row two text";
+    rows[1].querySelector(".turnaround-prompt").dispatchEvent(new Event("input", { bubbles: true }));
+    const ref1DataUrl = rows[0]._turnaroundReference?.dataUrl;
+    const ref2DataUrl = rows[1]._turnaroundReference?.dataUrl;
 
     document.getElementById("generateBtn").click();
     const start = Date.now();
@@ -986,7 +982,7 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
     const savedStatuses = (item.panels || []).map(p => p.status);
 
     document.getElementById("resultGrid").innerHTML = "";
-    document.getElementById("captionTbody").innerHTML = "";
+    document.getElementById("turnaroundTbody").innerHTML = "";
     document.querySelector('[data-mode="single"]').click();
     await new Promise(r => setTimeout(r, 50));
     document.getElementById("historyBtn").click();
@@ -994,24 +990,24 @@ async function testCaptionProjectRestorePreservesReferencesAndFailures(cdp) {
     document.querySelector(".history-project-card .history-actions .btn")?.click();
     await new Promise(r => setTimeout(r, 200));
 
-    const restoredRows = [...document.querySelectorAll(".caption-row")];
+    const restoredRows = [...document.querySelectorAll(".turnaround-row")];
     return {
       savedPanelsOmitRefs,
       savedStatuses,
       restoredRowCount: restoredRows.length,
-      restoredTexts: restoredRows.map(r => r.querySelector(".caption-text").value),
-      restoredRef1Matches: restoredRows[0]?._captionReference?.dataUrl === ref1DataUrl,
-      restoredRef2Matches: restoredRows[1]?._captionReference?.dataUrl === ref2DataUrl,
+      restoredTexts: restoredRows.map(r => r.querySelector(".turnaround-prompt").value),
+      restoredRef1Matches: restoredRows[0]?._turnaroundReference?.dataUrl === ref1DataUrl,
+      restoredRef2Matches: restoredRows[1]?._turnaroundReference?.dataUrl === ref2DataUrl,
       restoredThumbsVisible: restoredRows.map(r => !r.querySelector(".panel-img-preview")?.classList.contains("hidden")),
     };
   })()`, true);
 
-  assertQa(result.savedPanelsOmitRefs, "Caption project history must not persist reference-image bytes.", result);
-  assertQa(JSON.stringify(result.savedStatuses) === JSON.stringify(["success", "failed"]), "A partially-failed caption batch must still save a project record covering every row and tagging each one's status.", result);
-  assertQa(result.restoredRowCount === 2, "Restoring the project must recreate both caption rows, including the one that failed to generate.", result);
-  assertQa(JSON.stringify(result.restoredTexts) === JSON.stringify(["row one text", "row two text"]), "Restoring must refill each row's own caption text, for both the successful and the failed row.", result);
-  assertQa(!result.restoredRef1Matches && !result.restoredRef2Matches, "Restoring a caption project must not reattach old reference images.", result);
-  assertQa(result.restoredThumbsVisible.every(value => value === false), "Restored caption rows must show empty image slots until the user chooses references again.", result);
+  assertQa(result.savedPanelsOmitRefs, "Turnaround project history must not persist reference-image bytes.", result);
+  assertQa(JSON.stringify(result.savedStatuses) === JSON.stringify(["success", "failed"]), "A partially-failed turnaround batch must still save a project record covering every row and tagging each one's status.", result);
+  assertQa(result.restoredRowCount === 2, "Restoring the project must recreate both turnaround rows, including the one that failed to generate.", result);
+  assertQa(JSON.stringify(result.restoredTexts) === JSON.stringify(["row one text", "row two text"]), "Restoring must refill each row's own turnaround text, for both the successful and the failed row.", result);
+  assertQa(!result.restoredRef1Matches && !result.restoredRef2Matches, "Restoring a turnaround project must not reattach old reference images.", result);
+  assertQa(result.restoredThumbsVisible.every(value => value === false), "Restored turnaround rows must show empty image slots until the user chooses references again.", result);
 }
 
 async function testInterruptedProjectCheckpointResume(cdp) {
@@ -1706,7 +1702,7 @@ async function testSequentialToggleSharedAcrossModes(cdp) {
   assertQa(result.comicHidden === false, "Sequential/concurrent toggle should also be visible in comic mode (it used to be trapped inside the single-image-only field, so comic batches had no visible way to control it).", result);
   assertQa(result.nestedInNImagesField === false, "The toggle should live in the shared config area, not nested inside the single-image-only image-count field.", result);
   assertQa(result.checkedAfterClick === true, "Clicking the toggle should still work after being relocated.", result);
-  assertQa(result.keyboardMode === "caption" && result.selectedStates.filter(tab => tab.selected === "true" && tab.tabIndex === 0).length === 1, "Mode tabs must expose one selected tab and support arrow-key switching as a Windows input fallback.", result);
+  assertQa(result.keyboardMode === "turnaround" && result.selectedStates.filter(tab => tab.selected === "true" && tab.tabIndex === 0).length === 1, "Mode tabs must expose one selected tab and support arrow-key switching as a Windows input fallback.", result);
 }
 
 async function testColdStartupProfilesAndCoreControls(cdp) {
@@ -1821,7 +1817,7 @@ async function testColdStartupProfilesAndCoreControls(cdp) {
 }
 
 async function testSaveComicFolder(cdp) {
-  logStep("Project folder exports use the entered name, otherwise distinguish comic/caption projects, and always append a collision-safe local timestamp");
+  logStep("Project folder exports use the entered name, otherwise distinguish comic/turnaround projects, and always append a collision-safe local timestamp");
   await loadFresh(cdp, "save-folder");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -1900,12 +1896,12 @@ async function testSaveComicFolder(cdp) {
     set("zipFileName", "");
     const unnamedComicCalls = await saveFolderOnce();
 
-    document.querySelector('[data-mode="caption"]').click();
+    document.querySelector('[data-mode="turnaround"]').click();
     await new Promise(r => setTimeout(r, 50));
-    const captionNamePlaceholder = document.getElementById("zipFileName").placeholder;
-    const unnamedCaptionCalls = await saveFolderOnce();
+    const turnaroundNamePlaceholder = document.getElementById("zipFileName").placeholder;
+    const unnamedTurnaroundCalls = await saveFolderOnce();
 
-    const saveCalls = [...namedComicCalls, ...unnamedComicCalls, ...unnamedCaptionCalls];
+    const saveCalls = [...namedComicCalls, ...unnamedComicCalls, ...unnamedTurnaroundCalls];
     const rootFolders = calls => [...new Set(calls.map(c => c.folder).filter(folder => !String(folder).endsWith("/" + PROJECT_EXPORT_REFERENCE_DIR)))];
     return {
       singleHidden,
@@ -1913,14 +1909,14 @@ async function testSaveComicFolder(cdp) {
       saveCallCount: saveCalls.length,
       namedComicFolders: rootFolders(namedComicCalls),
       unnamedComicFolders: rootFolders(unnamedComicCalls),
-      unnamedCaptionFolders: rootFolders(unnamedCaptionCalls),
+      unnamedTurnaroundFolders: rootFolders(unnamedTurnaroundCalls),
       fileNames: [...new Set(saveCalls.map(c => c.fileName))],
       kinds: [...new Set(saveCalls.map(c => c.kind))],
       allHaveBase64: saveCalls.every(c => typeof c.base64 === "string" && c.base64.length > 0),
       referenceFolders: [...new Set(saveCalls.filter(c => String(c.fileName).includes("reference")).map(c => c.folder))],
       referenceDirectory: PROJECT_EXPORT_REFERENCE_DIR,
       projectNamePlaceholder,
-      captionNamePlaceholder,
+      turnaroundNamePlaceholder,
     };
   })()`, true);
 
@@ -1930,12 +1926,12 @@ async function testSaveComicFolder(cdp) {
   assertQa(result.referenceFolders.every(folder => String(folder).includes("/" + result.referenceDirectory)), "Folder export must place each reference image in the named reference subfolder.", result);
   assertQa(result.namedComicFolders.length === 1 && /^海边-故事_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.namedComicFolders[0]), "An entered project name must become the folder name, with invalid filename characters sanitized and a timestamp appended.", result);
   assertQa(result.unnamedComicFolders.length === 1 && /^漫画项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedComicFolders[0]), "An unnamed comic export must use the localized comic-project prefix plus timestamp.", result);
-  assertQa(result.unnamedCaptionFolders.length === 1 && /^嵌字项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedCaptionFolders[0]), "An unnamed caption export must use a different localized caption-project prefix plus timestamp.", result);
-  assertQa(new Set([result.namedComicFolders[0], result.unnamedComicFolders[0], result.unnamedCaptionFolders[0]]).size === 3, "Named, unnamed comic, and unnamed caption exports must never collapse into the same folder name.", result);
-  assertQa(/项目.*文件夹/.test(result.projectNamePlaceholder) && /项目.*文件夹/.test(result.captionNamePlaceholder), "Comic and caption modes should explain that the name field controls both the project and folder name.", result);
+  assertQa(result.unnamedTurnaroundFolders.length === 1 && /^三视图项目_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(result.unnamedTurnaroundFolders[0]), "An unnamed turnaround export must use a different localized turnaround-project prefix plus timestamp.", result);
+  assertQa(new Set([result.namedComicFolders[0], result.unnamedComicFolders[0], result.unnamedTurnaroundFolders[0]]).size === 3, "Named, unnamed comic, and unnamed turnaround exports must never collapse into the same folder name.", result);
+  assertQa(/项目.*文件夹/.test(result.projectNamePlaceholder) && /项目.*文件夹/.test(result.turnaroundNamePlaceholder), "Comic and turnaround modes should explain that the name field controls both the project and folder name.", result);
   assertQa(result.kinds.length === 1 && result.kinds[0] === "images", "Folder save should use the 'images' download-directory kind, matching the existing image-dir picker.", result);
   assertQa(result.allHaveBase64, "Every saveFile call should carry the actual image bytes as base64.", result);
-  assertQa(result.fileNames.length === 7 && result.fileNames.includes("panel-1.png") && result.fileNames.includes("image-1.png") && result.fileNames.some(name => String(name).includes("reference")), "Comic panels, caption images, references, manifests, and contact sheets should retain distinct filenames inside their project folder.", result);
+  assertQa(result.fileNames.length === 7 && result.fileNames.includes("panel-1.png") && result.fileNames.includes("turnaround-1.png") && result.fileNames.some(name => String(name).includes("reference")), "Comic panels, turnaround images, references, manifests, and contact sheets should retain distinct filenames inside their project folder.", result);
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
@@ -3262,7 +3258,7 @@ async function testUploadZoneHintTargetsCorrectSpan(cdp) {
   logStep("setText()'s hint-text calls for upload zones must land on the actual hint <span>, not the nested icon <span> — a bare 'span:last-child' selector matches whichever span comes first in document order that is the last child of ITS OWN parent, which is the icon span (the only child of .upload-icon), not the intended hint text; writing a long sentence into that ~18px icon silently balloons the whole upload zone to over 1000px tall by wrapping one character per line");
   await loadFresh(cdp, "upload-zone-hint-target");
   const result = await cdp.eval(`(async () => {
-    document.querySelector('[data-mode="caption"]').click();
+    document.querySelector('[data-mode="turnaround"]').click();
     await new Promise(r => setTimeout(r, 80));
     function measure(zoneSelector) {
       const zone = document.querySelector(zoneSelector);
@@ -3276,7 +3272,7 @@ async function testUploadZoneHintTargetsCorrectSpan(cdp) {
     }
     return {
       globalRef: measure("#uploadZone"),
-      caption: measure("#captionUploadZone"),
+      turnaround: measure("#turnaroundUploadZone"),
     };
   })()`, true);
 
@@ -3284,9 +3280,9 @@ async function testUploadZoneHintTargetsCorrectSpan(cdp) {
   assertQa(result.globalRef.iconOwnText === "", "The global reference upload zone's icon span must never contain the hint sentence.", result);
   assertQa(/点击|拖拽|Click|Drag|クリック|ドラッグ|클릭|드래그/.test(result.globalRef.hintText || ""), "The global reference upload zone's actual hint span must contain real hint text.", result);
 
-  assertQa(result.caption.zoneHeight < 200, `Caption mode's bulk-upload zone must stay compact (measured ${result.caption.zoneHeight}px) — a runaway height means the hint text landed on the wrong element again.`, result);
-  assertQa(result.caption.iconOwnText === "", "The caption upload zone's icon span must never contain the hint sentence.", result);
-  assertQa(/点击|拖拽|Click|Drag|クリック|ドラッグ|클릭|드래그/.test(result.caption.hintText || ""), "The caption upload zone's actual hint span must contain real hint text.", result);
+  assertQa(result.turnaround.zoneHeight < 200, `Turnaround mode's bulk-upload zone must stay compact (measured ${result.turnaround.zoneHeight}px) — a runaway height means the hint text landed on the wrong element again.`, result);
+  assertQa(result.turnaround.iconOwnText === "", "The turnaround upload zone's icon span must never contain the hint sentence.", result);
+  assertQa(/点击|拖拽|Click|Drag|クリック|ドラッグ|클릭|드래그/.test(result.turnaround.hintText || ""), "The turnaround upload zone's actual hint span must contain real hint text.", result);
 }
 
 async function testManualWheelScrollFallback(cdp) {
@@ -3551,9 +3547,9 @@ async function testModelComboboxBehavior(cdp) {
   assertQa(result.openBeforeOutsideClick && result.closedAfterOutsideClick, "Clicking outside the model field should close its open dropdown, same as every other custom-select.", result);
 }
 
-async function testCaptionMode(cdp) {
-  logStep("Caption mode: bulk-add sorts by filename, each row generates its own request carrying exactly one reference image (the whole point of the feature, avoiding the HTTP 413 from bundling many references into one request), results save as a single project, and per-row retry/restore both work correctly");
-  await loadFresh(cdp, "caption-mode");
+async function testTurnaroundMode(cdp) {
+  logStep("Turnaround mode: bulk-add sorts by filename, each row generates its own request carrying exactly one reference image (the whole point of the feature, avoiding the HTTP 413 from bundling many references into one request), results save as a single project, and per-row retry/restore both work correctly");
+  await loadFresh(cdp, "turnaround-mode");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
@@ -3563,7 +3559,7 @@ async function testCaptionMode(cdp) {
       if (String(url).includes("/v1/api/generate")) {
         let body = {};
         try { body = JSON.parse(opts.body || "{}"); } catch {}
-        calls.push({ prompt: body.prompt, imagesCount: (body.images || []).length });
+        calls.push({ prompt: body.prompt, size: body.size || body.aspectRatio, imagesCount: (body.images || []).length });
         return new Response(JSON.stringify({ status: "succeeded", data: [{ url: "data:image/png;base64," + png }] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -3580,11 +3576,13 @@ async function testCaptionMode(cdp) {
     };
     set("apiProvider", "grsai");
     set("apiEndpoint", "https://grsai.dakka.com.cn/v1/api/generate");
-    set("apiKey", "sk-qa-caption");
+    set("apiKey", "sk-qa-turnaround");
     set("model", "gpt-image-2");
-    document.querySelector('[data-mode="caption"]').click();
+    document.querySelector('[data-mode="turnaround"]').click();
     await new Promise(r => setTimeout(r, 50));
-    const globalSizeFieldHiddenInCaption = document.getElementById("globalSizeField").classList.contains("hidden");
+    const globalSizeFieldHiddenInTurnaround = document.getElementById("globalSizeField").classList.contains("hidden");
+    const globalPromptFieldHiddenInTurnaround = document.getElementById("globalPromptField").classList.contains("hidden");
+    const skillsHiddenInTurnaround = document.getElementById("activeSkillsSection").classList.contains("hidden");
     set("prompt", "GLOBAL STYLE");
 
     async function makeImageFile(name, color) {
@@ -3601,17 +3599,17 @@ async function testCaptionMode(cdp) {
     dt.items.add(await makeImageFile("cap-2.png", "#3f3"));
     dt.items.add(await makeImageFile("cap-10.png", "#33f"));
     dt.items.add(await makeImageFile("cap-1.png", "#f33"));
-    const input = document.getElementById("captionBulkInput");
+    const input = document.getElementById("turnaroundBulkInput");
     input.files = dt.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
     await new Promise(r => setTimeout(r, 500));
 
-    const rowsBeforeGenerate = [...document.querySelectorAll(".caption-row")];
-    const sortedFileNames = rowsBeforeGenerate.map(r => r.querySelector(".caption-img-thumb").title);
+    const rowsBeforeGenerate = [...document.querySelectorAll(".turnaround-row")];
+    const sortedFileNames = rowsBeforeGenerate.map(r => r.querySelector(".turnaround-img-thumb").title);
     const noEmptyRowBeforeUpload = rowsBeforeGenerate.length === 3; // no leftover auto-created blank row ahead of the bulk-added ones
     rowsBeforeGenerate.forEach((row, i) => {
-      const ta = row.querySelector(".caption-text");
-      ta.value = "bubble text " + (i + 1);
+      const ta = row.querySelector(".turnaround-prompt");
+      ta.value = "target character " + (i + 1);
       ta.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
@@ -3638,11 +3636,11 @@ async function testCaptionMode(cdp) {
     }
     await new Promise(r => setTimeout(r, 200));
 
-    // Restore from history and confirm it repopulates caption mode with the right rows.
+    // Restore from history and confirm it repopulates turnaround mode with the right rows.
     document.getElementById("resultGrid").innerHTML = "";
     document.getElementById("resultGrid").classList.add("hidden");
     document.getElementById("emptyState").classList.remove("hidden");
-    document.getElementById("captionTbody").innerHTML = "";
+    document.getElementById("turnaroundTbody").innerHTML = "";
     document.querySelector('[data-mode="single"]').click();
     await new Promise(r => setTimeout(r, 50));
     const globalSizeFieldVisibleInSingle = !document.getElementById("globalSizeField").classList.contains("hidden");
@@ -3655,10 +3653,14 @@ async function testCaptionMode(cdp) {
     return {
       sortedFileNames,
       noEmptyRowBeforeUpload,
-      globalSizeFieldHiddenInCaption,
+      globalSizeFieldHiddenInTurnaround,
+      globalPromptFieldHiddenInTurnaround,
+      skillsHiddenInTurnaround,
       globalSizeFieldVisibleInSingle,
       allRequestsHadExactlyOneImage: calls.every(c => c.imagesCount === 1),
       totalGenerationCalls: initialGenerationCalls,
+      hardPromptApplied: calls.slice(0, initialGenerationCalls).every(c => c.prompt.includes("exactly three separate full-body views") && c.prompt.includes("pure blank white background") && c.prompt.includes("Do not include any text") && !c.prompt.includes("GLOBAL STYLE")),
+      fixedWideSize: calls.slice(0, initialGenerationCalls).every(c => c.size === "1536x864"),
       historyLength: history.length,
       historyType: item.type,
       historyMode: item.mode,
@@ -3666,253 +3668,149 @@ async function testCaptionMode(cdp) {
       retryFiredExactlyOneMoreCall: calls.length === callsBeforeRetry + 1,
       projectCardsBeforeRestore,
       restoredActiveTabMode: document.querySelector(".mode-tab.active")?.dataset.mode,
-      restoredRowCount: document.querySelectorAll(".caption-row").length,
-      restoredCaptionTexts: [...document.querySelectorAll(".caption-text")].map(el => el.value).sort(),
+      restoredRowCount: document.querySelectorAll(".turnaround-row").length,
+      restoredTurnaroundTexts: [...document.querySelectorAll(".turnaround-prompt")].map(el => el.value).sort(),
     };
   })()`, true);
 
-  assertQa(result.noEmptyRowBeforeUpload, "Switching into caption mode must not leave a stray auto-created empty row ahead of bulk-uploaded images.", result);
-  assertQa(result.globalSizeFieldHiddenInCaption, "The global resolution picker must be hidden in caption mode — each row's output size always follows its own reference image's dimensions, so a global size control there is irrelevant noise.", result);
-  assertQa(result.globalSizeFieldVisibleInSingle, "The global resolution picker must still be visible in single mode (only caption mode hides it).", result);
+  assertQa(result.noEmptyRowBeforeUpload, "Switching into turnaround mode must not leave a stray auto-created empty row ahead of bulk-uploaded images.", result);
+  assertQa(result.globalSizeFieldHiddenInTurnaround, "The global resolution picker must be hidden in turnaround mode because the workflow owns a fixed 16:9 output policy.", result);
+  assertQa(result.globalPromptFieldHiddenInTurnaround && result.skillsHiddenInTurnaround, "Turnaround mode must hide the unrelated global prompt and skill controls.", result);
+  assertQa(result.globalSizeFieldVisibleInSingle, "The global resolution picker must still be visible in single mode (only turnaround mode hides it).", result);
   assertQa(JSON.stringify(result.sortedFileNames) === JSON.stringify(["cap-1.png", "cap-2.png", "cap-10.png"]),
     "Bulk-adding images with out-of-order but numeric filenames should create rows sorted in natural filename order (1, 2, 10), not upload order or lexical string order.", result);
-  assertQa(result.totalGenerationCalls === 3, "Bulk-generating 3 caption rows should fire exactly 3 separate generation requests, one per row.", result);
-  assertQa(result.allRequestsHadExactlyOneImage, "Every caption-mode generation request must carry exactly one reference image — this is the entire point of the feature (avoiding the HTTP 413 from bundling many reference images into a single request).", result);
-  assertQa(result.historyLength === 1 && result.historyType === "caption-project" && result.historyMode === "caption",
-    "Caption-mode results must be saved as a single combined 'caption-project' history entry, not three separate single-image records (a prior bug in saveGenerationProject() silently forced every project's type/mode back to comic regardless of what was passed in).", result);
-  assertQa(result.historyImageCount === 3, "The saved caption project should contain all 3 generated images.", result);
-  assertQa(result.retryFiredExactlyOneMoreCall, "Retrying a single caption result card should fire exactly one more generation call, not regenerate every row.", result);
-  assertQa(result.projectCardsBeforeRestore >= 1, "The caption project should show up as a project card in the history list (isHistoryProject() must recognize mode: caption).", result);
-  assertQa(result.restoredActiveTabMode === "caption", "Restoring a caption-project history entry should switch the app into caption mode, not comic mode.", result);
-  assertQa(result.restoredRowCount === 3, "Restoring a caption-project history entry should repopulate all 3 rows.", result);
-  assertQa(JSON.stringify(result.restoredCaptionTexts) === JSON.stringify(["bubble text 1", "bubble text 2", "bubble text 3"]),
-    "Restoring a caption-project history entry should refill each row's own caption text (not the combined global+row prompt, not blank).", result);
+  assertQa(result.totalGenerationCalls === 3, "Bulk-generating 3 turnaround rows should fire exactly 3 separate generation requests, one per row.", result);
+  assertQa(result.allRequestsHadExactlyOneImage, "Every turnaround-mode generation request must carry exactly one reference image — this is the entire point of the feature (avoiding the HTTP 413 from bundling many reference images into a single request).", result);
+  assertQa(result.hardPromptApplied, "Every turnaround request must carry the strict three-view, white-background, no-text template and must ignore the normal global prompt.", result);
+  assertQa(result.fixedWideSize, "Turnaround generation must request the fixed 16:9 output size rather than copying each source image's dimensions.", result);
+  assertQa(result.historyLength === 1 && result.historyType === "turnaround-project" && result.historyMode === "turnaround",
+    "Turnaround-mode results must be saved as a single combined 'turnaround-project' history entry, not three separate single-image records (a prior bug in saveGenerationProject() silently forced every project's type/mode back to comic regardless of what was passed in).", result);
+  assertQa(result.historyImageCount === 3, "The saved turnaround project should contain all 3 generated images.", result);
+  assertQa(result.retryFiredExactlyOneMoreCall, "Retrying a single turnaround result card should fire exactly one more generation call, not regenerate every row.", result);
+  assertQa(result.projectCardsBeforeRestore >= 1, "The turnaround project should show up as a project card in the history list (isHistoryProject() must recognize mode: turnaround).", result);
+  assertQa(result.restoredActiveTabMode === "turnaround", "Restoring a turnaround-project history entry should switch the app into turnaround mode, not comic mode.", result);
+  assertQa(result.restoredRowCount === 3, "Restoring a turnaround-project history entry should repopulate all 3 rows.", result);
+  assertQa(JSON.stringify(result.restoredTurnaroundTexts) === JSON.stringify(["target character 1", "target character 2", "target character 3"]),
+    "Restoring a turnaround-project history entry should refill each row's own turnaround text (not the combined global+row prompt, not blank).", result);
 }
 
-async function testCaptionAutoFill(cdp) {
-  logStep("Caption mode one-click-fill (一键填写): default numbered-bubble template substitutes each row's own number, overwrite requires confirmation, and a custom template can be typed in");
-  await loadFresh(cdp, "caption-autofill");
-  const result = await cdp.eval(`(async () => {
-    localStorage.clear();
-    const answerAskDialog = async (value) => {
-      const start = Date.now();
-      let overlay = null;
-      while (Date.now() - start < 2000) {
-        overlay = document.querySelector(".ask-dialog-overlay");
-        if (overlay) break;
-        await new Promise(r => setTimeout(r, 20));
-      }
-      if (!overlay) return false;
-      const input = overlay.querySelector(".ask-dialog-input");
-      if (input && value !== false) input.value = value === true ? "" : value;
-      overlay.querySelector(value === false ? ".ask-dialog-cancel" : ".ask-dialog-ok").click();
-      return true;
+async function testSkillsManagerAndPromptInjection(cdp) {
+  logStep("Skills: built-in style defaults off, custom skills support CRUD/scope, single and comic selections stay independent, injection follows list order, and turnaround ignores skills");
+  await loadFresh(cdp, "skills-manager");
+  const initial = await cdp.eval(`(async () => {
+    localStorage.removeItem(SKILLS_STORAGE_KEY);
+    skillState = defaultSkillState();
+    saveSkillState();
+    renderActiveSkills();
+
+    const builtIn = skillState.skills.find(skill => skill.id === "builtin-anime-commercial-style");
+    const defaultOff = skillState.enabled.single.length === 0 && skillState.enabled.comic.length === 0;
+    const builtInVisible = !!document.querySelector('[data-skill-id="builtin-anime-commercial-style"]');
+
+    document.querySelector('[data-skill-id="builtin-anime-commercial-style"]').click();
+    const singlePrompt = getEffectivePrompt("single");
+    const comicBefore = getEffectivePrompt("comic");
+
+    openSkillsModal();
+    document.getElementById("addSkill").click();
+    document.getElementById("skillName").value = "Identity Lock";
+    document.getElementById("skillCategory").value = "functional";
+    document.getElementById("skillScope").value = "single";
+    document.getElementById("skillTemplate").value = "KEEP_IDENTITY_EXACT";
+    document.getElementById("skillEditor").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    const custom = skillState.skills.find(skill => skill.name === "Identity Lock");
+    openSkillEditor(custom);
+    document.getElementById("skillName").value = "Identity Lock Edited";
+    document.getElementById("skillEditor").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 30));
+    const edited = skillState.skills.find(skill => skill.id === custom.id);
+
+    switchMode("single");
+    const customBox = document.querySelector('[data-skill-id="' + custom.id + '"]');
+    customBox.click();
+    const orderedPrompt = getEffectivePrompt("single");
+    switchMode("comic");
+    const customHiddenInComic = !document.querySelector('[data-skill-id="' + custom.id + '"]');
+    const comicStillOff = skillState.enabled.comic.length === 0;
+    const turnaroundUntouched = applyEnabledSkills("BASE", "turnaround") === "BASE";
+
+    return {
+      defaultOff,
+      builtInVisible,
+      singleHasBuiltIn: singlePrompt.includes(builtIn.template),
+      comicBefore,
+      editedName: edited?.name,
+      customHiddenInComic,
+      comicStillOff,
+      turnaroundUntouched,
+      orderCorrect: orderedPrompt.indexOf(builtIn.template) < orderedPrompt.indexOf("KEEP_IDENTITY_EXACT"),
+      persisted: JSON.parse(localStorage.getItem(SKILLS_STORAGE_KEY) || "null"),
     };
-
-    document.querySelector('[data-mode="caption"]').click();
-    await new Promise(r => setTimeout(r, 50));
-
-    async function makeImageFile(name, color) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 4; canvas.height = 4;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4);
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-      return new File([blob], name, { type: "image/png" });
-    }
-    const dt = new DataTransfer();
-    dt.items.add(await makeImageFile("a.png", "#f33"));
-    dt.items.add(await makeImageFile("b.png", "#3f3"));
-    const input = document.getElementById("captionBulkInput");
-    input.files = dt.files;
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    await new Promise(r => setTimeout(r, 300));
-
-    // Rows start empty, so the default template fill should apply with no overwrite prompt.
-    document.getElementById("captionAutoFillTemplate").value = "numbered-bubble";
-    document.getElementById("autoFillCaptionRows").click();
-    await new Promise(r => setTimeout(r, 80));
-    const afterDefaultFill = [...document.querySelectorAll(".caption-text")].map(el => el.value);
-
-    // Rows now have content: clicking fill again must ask for overwrite confirmation first.
-    document.getElementById("autoFillCaptionRows").click();
-    const dialogAppeared = await Promise.race([
-      answerAskDialog(false), // decline the overwrite this time
-      new Promise(r => setTimeout(() => r(false), 2500)),
-    ]);
-    await new Promise(r => setTimeout(r, 80));
-    const afterDeclinedOverwrite = [...document.querySelectorAll(".caption-text")].map(el => el.value);
-
-    // Now accept the overwrite and use a custom template (should prompt for the template text too).
-    document.getElementById("captionAutoFillTemplate").value = "custom";
-    document.getElementById("autoFillCaptionRows").click();
-    await answerAskDialog(true); // confirm overwrite
-    await answerAskDialog("图{n}号标注"); // supply the custom template
-    await new Promise(r => setTimeout(r, 80));
-    const afterCustomFill = [...document.querySelectorAll(".caption-text")].map(el => el.value);
-
-    return { afterDefaultFill, dialogAppeared, afterDeclinedOverwrite, afterCustomFill };
   })()`, true);
 
-  assertQa(JSON.stringify(result.afterDefaultFill) === JSON.stringify(["给图片加入1的气泡字幕", "给图片加入2的气泡字幕"]),
-    "The default numbered-bubble template should fill each row with an instruction sentence naming its own row number (bubble styling/position is meant to be described once in the global prompt, not repeated per row).", result);
-  assertQa(result.dialogAppeared, "Clicking fill again once rows already have content must show a confirm-before-overwrite dialog instead of silently overwriting.", result);
-  assertQa(JSON.stringify(result.afterDeclinedOverwrite) === JSON.stringify(result.afterDefaultFill),
-    "Declining the overwrite confirmation must leave the existing caption text untouched.", result);
-  assertQa(JSON.stringify(result.afterCustomFill) === JSON.stringify(["图1号标注", "图2号标注"]),
-    "Confirming the overwrite and supplying a custom template should fill each row using that template with {n} substituted.", result);
+  assertQa(initial.defaultOff && initial.builtInVisible, "The built-in style skill must exist and be unchecked on first use.", initial);
+  assertQa(initial.singleHasBuiltIn && !initial.comicBefore.includes("KEEP_IDENTITY_EXACT"), "Checking a single-mode skill must inject it only into the single prompt.", initial);
+  assertQa(initial.editedName === "Identity Lock Edited", "Custom skills must be editable through the manager.", initial);
+  assertQa(initial.customHiddenInComic && initial.comicStillOff, "Single-only skills must stay out of comic mode, whose selection state is independent.", initial);
+  assertQa(initial.turnaroundUntouched, "Turnaround prompts must bypass the skill system.", initial);
+  assertQa(initial.orderCorrect, "Enabled templates must be injected in skill-list order.", initial);
+  assertQa(initial.persisted?.enabled?.single?.length === 2, "Skill choices must be written to persistent storage.", initial);
+
+  await loadFresh(cdp, "skills-persist-reload");
+  const afterReload = await cdp.eval(`({
+    selectedSingle: skillState.enabled.single.length,
+    selectedComic: skillState.enabled.comic.length,
+    editedName: skillState.skills.find(skill => skill.template === "KEEP_IDENTITY_EXACT")?.name,
+    singleChecked: document.querySelectorAll('#activeSkillsList input:checked').length,
+  })`);
+  assertQa(afterReload.selectedSingle === 2 && afterReload.selectedComic === 0 && afterReload.singleChecked === 2, "Single/comic skill selections must survive a full reload independently.", afterReload);
+  assertQa(afterReload.editedName === "Identity Lock Edited", "Edited custom skill data must survive reload.", afterReload);
+
+  const deletion = await cdp.eval(`(async () => {
+    openSkillsModal();
+    window.askConfirm = async () => true;
+    const card = [...document.querySelectorAll(".skill-card")].find(item => item.textContent.includes("Identity Lock Edited"));
+    card.querySelector(".delete-skill").click();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    return {
+      removed: !skillState.skills.some(skill => skill.template === "KEEP_IDENTITY_EXACT"),
+      selectionRemoved: !skillState.enabled.single.some(id => id.includes("skill-")),
+    };
+  })()`, true);
+  assertQa(deletion.removed && deletion.selectionRemoved, "Deleting a custom skill must remove both the definition and its saved selections.", deletion);
 }
 
 async function testOrderedBulkPromptInput(cdp) {
-  logStep("Ordered bulk prompt input maps one line per comic panel/caption image, preserves blank positions, expands comic panels, and refuses caption overflow");
+  logStep("Ordered bulk prompt input remains a comic-only workflow, preserves blank positions, and expands panel rows");
   await loadFresh(cdp, "ordered-bulk-prompts");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
     document.querySelector('[data-mode="comic"]').click();
-    await sleep(60);
+    await new Promise(resolve => setTimeout(resolve, 60));
     document.getElementById("panelCount").value = "2";
     document.getElementById("createPanels").click();
-    await sleep(60);
+    await new Promise(resolve => setTimeout(resolve, 60));
     document.getElementById("bulkInputPanelPrompts").click();
-    await sleep(30);
-    const comicModalOpened = !document.getElementById("bulkPromptModal").classList.contains("hidden");
+    const opened = !document.getElementById("bulkPromptModal").classList.contains("hidden");
     const bulkText = document.getElementById("bulkPromptText");
-    bulkText.value = "镜头一\\n\\n镜头三\\n镜头四\\n";
+    bulkText.value = "shot one\\n\\nshot three\\nshot four\\n";
     bulkText.dispatchEvent(new Event("input", { bubbles: true }));
-    const comicCountBeforeApply = document.getElementById("bulkPromptCount").textContent;
+    const countBeforeApply = document.getElementById("bulkPromptCount").textContent;
     document.getElementById("applyBulkPrompts").click();
-    await sleep(100);
-    const comicPrompts = [...document.querySelectorAll("#panelTbody textarea")].map(el => el.value);
-
-    document.querySelector('[data-mode="caption"]').click();
-    await sleep(60);
-    async function makeImageFile(name, color) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 3; canvas.height = 3;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = color; ctx.fillRect(0, 0, 3, 3);
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-      return new File([blob], name, { type: "image/png" });
-    }
-    const dt = new DataTransfer();
-    dt.items.add(await makeImageFile("caption-1.png", "#f33"));
-    dt.items.add(await makeImageFile("caption-2.png", "#3f3"));
-    dt.items.add(await makeImageFile("caption-3.png", "#33f"));
-    const upload = document.getElementById("captionBulkInput");
-    upload.files = dt.files;
-    upload.dispatchEvent(new Event("change", { bubbles: true }));
-    await sleep(250);
-
-    document.getElementById("bulkInputCaptionPrompts").click();
-    await sleep(30);
-    bulkText.value = "文字一\\n文字二\\n文字三\\n多余文字";
-    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
-    document.getElementById("applyBulkPrompts").click();
-    await sleep(60);
-    const overflowStayedOpen = !document.getElementById("bulkPromptModal").classList.contains("hidden");
-    const overflowMessage = document.getElementById("bulkPromptCount").textContent;
-    const afterRejectedOverflow = [...document.querySelectorAll(".caption-text")].map(el => el.value);
-
-    bulkText.value = "文字一\\n文字二";
-    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
-    document.getElementById("applyBulkPrompts").click();
-    await sleep(80);
-    const captionPrompts = [...document.querySelectorAll(".caption-text")].map(el => el.value);
-    const statusAfterPartial = document.getElementById("status").textContent;
-
-    document.getElementById("bulkInputCaptionPrompts").click();
-    await sleep(30);
-    bulkText.value = "覆盖一";
-    bulkText.dispatchEvent(new Event("input", { bubbles: true }));
-    document.getElementById("applyBulkPrompts").click();
-    const start = Date.now();
-    let ask = null;
-    while (Date.now() - start < 1500) {
-      ask = document.querySelector(".ask-dialog-overlay");
-      if (ask) break;
-      await sleep(20);
-    }
-    const overwriteAsked = !!ask;
-    ask?.querySelector(".ask-dialog-cancel")?.click();
-    await sleep(50);
-    const afterDeclinedOverwrite = document.querySelector(".caption-text").value;
-    document.getElementById("cancelBulkPrompts").click();
-
+    await new Promise(resolve => setTimeout(resolve, 100));
     return {
-      comicModalOpened,
-      comicCountBeforeApply,
-      comicPrompts,
-      overflowStayedOpen,
-      overflowMessage,
-      afterRejectedOverflow,
-      captionPrompts,
-      statusAfterPartial,
-      overwriteAsked,
-      afterDeclinedOverwrite,
+      opened,
+      countBeforeApply,
+      prompts: [...document.querySelectorAll("#panelTbody textarea")].map(el => el.value),
+      turnaroundHasOnlyClearAction: document.querySelectorAll("#turnaroundSection .section-actions button").length === 1,
     };
   })()`, true);
-
-  assertQa(result.comicModalOpened, "The comic bulk-prompt button should open the shared dialog.", result);
-  assertQa(result.comicCountBeforeApply.includes("4") && result.comicCountBeforeApply.includes("2"), "The dialog should show live input-line and current-row counts before applying.", result);
-  assertQa(JSON.stringify(result.comicPrompts) === JSON.stringify(["镜头一", "", "镜头三", "镜头四"]), "Comic bulk input should expand to four panels and preserve the internal blank line as panel 2.", result);
-  assertQa(result.overflowStayedOpen && result.overflowMessage.includes("4") && result.overflowMessage.includes("3"), "Caption bulk input must keep the dialog open and explain when prompts outnumber uploaded images.", result);
-  assertQa(result.afterRejectedOverflow.every(value => value === ""), "Rejected caption overflow must not partially mutate any rows.", result);
-  assertQa(JSON.stringify(result.captionPrompts) === JSON.stringify(["文字一", "文字二", ""]), "A shorter caption list should update only matching images and leave the remaining image unchanged.", result);
-  assertQa(result.statusAfterPartial.includes("2") && result.statusAfterPartial.includes("1"), "Partial caption application should explicitly report applied and unchanged counts.", result);
-  assertQa(result.overwriteAsked && result.afterDeclinedOverwrite === "文字一", "Existing prompt text must require confirmation and remain unchanged when overwrite is declined.", result);
-
-  await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  try {
-    await loadFresh(cdp, "ordered-bulk-prompts-mobile");
-    const mobileLayout = await cdp.eval(`(async () => {
-      document.querySelector('[data-mode="comic"]').click();
-      await new Promise(r => setTimeout(r, 50));
-      document.getElementById("bulkInputPanelPrompts").click();
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const card = document.querySelector("#bulkPromptModal .modal-card").getBoundingClientRect();
-      const textarea = document.getElementById("bulkPromptText").getBoundingClientRect();
-      const actions = document.querySelector("#bulkPromptModal .bulk-prompt-actions").getBoundingClientRect();
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        card: { left: card.left, top: card.top, right: card.right, bottom: card.bottom },
-        textarea: { left: textarea.left, right: textarea.right, height: textarea.height },
-        actions: { left: actions.left, right: actions.right, bottom: actions.bottom },
-        bodyOverflow: document.body.style.overflow,
-      };
-    })()`, true);
-    const tolerance = 1;
-    assertQa(
-      mobileLayout.card.left >= -tolerance && mobileLayout.card.top >= -tolerance
-        && mobileLayout.card.right <= mobileLayout.viewport.width + tolerance
-        && mobileLayout.card.bottom <= mobileLayout.viewport.height + tolerance,
-      "The bulk-prompt modal card must remain fully inside a 390x844 mobile viewport.",
-      mobileLayout,
-    );
-    assertQa(
-      mobileLayout.textarea.left >= mobileLayout.card.left - tolerance
-        && mobileLayout.textarea.right <= mobileLayout.card.right + tolerance
-        && mobileLayout.textarea.height >= 180,
-      "The bulk textarea must stay inside the modal and remain comfortably editable on mobile.",
-      mobileLayout,
-    );
-    assertQa(
-      mobileLayout.actions.left >= mobileLayout.card.left - tolerance
-        && mobileLayout.actions.right <= mobileLayout.card.right + tolerance
-        && mobileLayout.actions.bottom <= mobileLayout.card.bottom + tolerance
-        && mobileLayout.bodyOverflow === "hidden",
-      "Mobile modal actions must stay visible and opening the modal must lock background scrolling.",
-      mobileLayout,
-    );
-  } finally {
-    await cdp.send("Emulation.clearDeviceMetricsOverride");
-  }
+  assertQa(result.opened, "The comic bulk-prompt button should open its dialog.", result);
+  assertQa(result.countBeforeApply.includes("4") && result.countBeforeApply.includes("2"), "The dialog should show live line and panel counts.", result);
+  assertQa(JSON.stringify(result.prompts) === JSON.stringify(["shot one", "", "shot three", "shot four"]), "Comic bulk input should expand to four panels and preserve the internal blank line.", result);
+  assertQa(result.turnaroundHasOnlyClearAction, "Turnaround mode should keep per-row guidance and expose no unrelated batch-prompt action.", result);
 }
 
 async function testComicBulkPromptOverwriteConfirmation(cdp) {
@@ -3989,7 +3887,7 @@ async function testComicBulkPromptOverwriteConfirmation(cdp) {
 }
 
 async function testBulkPromptInputBeyondOneHundred(cdp) {
-  logStep("Comic and caption bulk prompt workflows accept more than 100 ordered entries without an application hard limit");
+  logStep("Comic bulk prompts and turnaround image rows accept more than 100 items without an application hard limit");
   await loadFresh(cdp, "bulk-prompts-over-100");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -4010,40 +3908,37 @@ async function testBulkPromptInputBeyondOneHundred(cdp) {
       last: comicRows.at(-1)?.querySelector("textarea")?.value || "",
     };
 
-    document.querySelector('[data-mode="caption"]').click();
+    document.querySelector('[data-mode="turnaround"]').click();
     await sleep(40);
-    dom.captionTbody.innerHTML = "";
-    captionRowCounter = 0;
+    dom.turnaroundTbody.innerHTML = "";
+    turnaroundRowCounter = 0;
     const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     for (let index = 0; index < total; index++) {
-      addCaptionRow({ dataUrl: png, fileName: "caption-" + String(index + 1).padStart(3, "0") + ".png" });
+      addTurnaroundRow({ dataUrl: png, fileName: "turnaround-" + String(index + 1).padStart(3, "0") + ".png" });
     }
-    openBulkPromptDialog("caption");
-    dom.bulkPromptText.value = prompts.join("\\n");
-    await applyBulkPromptLines();
-    const captionRows = [...document.querySelectorAll("#captionTbody .caption-row")];
-    const caption = {
-      count: captionRows.length,
-      first: captionRows[0]?.querySelector(".caption-text")?.value || "",
-      last: captionRows.at(-1)?.querySelector(".caption-text")?.value || "",
+    const turnaroundRows = [...document.querySelectorAll("#turnaroundTbody .turnaround-row")];
+    const turnaround = {
+      count: turnaroundRows.length,
+      firstName: turnaroundRows[0]?.querySelector(".turnaround-img-thumb")?.title || "",
+      lastName: turnaroundRows.at(-1)?.querySelector(".turnaround-img-thumb")?.title || "",
     };
 
     const files = Array.from({ length: total }, (_, index) => new File(
       [new Uint8Array([index % 255])],
-      "caption-" + index + ".png",
+      "turnaround-" + index + ".png",
       { type: "image/png" },
     ));
     let globalReferenceRejected = false;
     try { validateImageImport(files, 0); } catch { globalReferenceRejected = true; }
-    const captionImportCount = validateImageImport(files, 0, { maxFiles: Infinity }).length;
-    return { total, comic, caption, globalReferenceRejected, captionImportCount };
+    const turnaroundImportCount = validateImageImport(files, 0, { maxFiles: Infinity }).length;
+    return { total, comic, turnaround, globalReferenceRejected, turnaroundImportCount };
   })()`, true);
 
   assertQa(result.comic.count === result.total && result.comic.inputCount === String(result.total), "Comic bulk input must auto-create every panel beyond the former 100-panel cap.", result);
   assertQa(result.comic.first === "批量提示词 1" && result.comic.last === `批量提示词 ${result.total}`, "Comic bulk prompts must preserve ordering beyond 100 entries.", result);
-  assertQa(result.caption.count === result.total && result.caption.first === "批量提示词 1" && result.caption.last === `批量提示词 ${result.total}`, "Caption bulk prompts must map beyond 100 imported images without truncation.", result);
-  assertQa(result.captionImportCount === result.total, "Caption image import must not retain the shared 100-reference hard limit.", result);
-  assertQa(result.globalReferenceRejected, "Removing the caption limit must not allow an unlimited number of global references in a single generation request.", result);
+  assertQa(result.turnaround.count === result.total && result.turnaround.firstName === "turnaround-001.png" && result.turnaround.lastName === "turnaround-105.png", "Turnaround task rows must scale beyond 100 imported images without truncation.", result);
+  assertQa(result.turnaroundImportCount === result.total, "Turnaround image import must not retain the shared 100-reference hard limit.", result);
+  assertQa(result.globalReferenceRejected, "Removing the turnaround limit must not allow an unlimited number of global references in a single generation request.", result);
 }
 
 async function testAndroidUpdateRedirect(cdp) {
@@ -4510,7 +4405,7 @@ async function testCodexGatewayOptionsPersistAcrossRestart(cdp) {
     { legacyProfile, legacyRestored },
   );
   // Do not leak a selected local gateway profile into unrelated provider and
-  // caption tests that follow in the shared browser process.
+  // turnaround tests that follow in the shared browser process.
   await cdp.eval(`(() => { localStorage.clear(); return true; })()`, true);
   await loadFresh(cdp, "codex-gateway-options-persist-cleanup");
 }
@@ -6621,6 +6516,7 @@ async function main() {
     await testStorageFaultIsolationAndHistoryDbRecovery(cdp);
     await testCustomSelects(cdp);
     await testApiConfig(cdp);
+    await testSkillsManagerAndPromptInjection(cdp);
     await testReferencesAndAutoFill(cdp);
     await testOrderedBulkPromptInput(cdp);
     await testComicBulkPromptOverwriteConfirmation(cdp);
@@ -6628,7 +6524,7 @@ async function main() {
     await testUploadDebounceWindow(cdp);
     await testComicProjectRestorePreservesReferencesAndFailures(cdp);
     await testWorkspaceDraftSurvivesFullDocumentReload(cdp);
-    await testCaptionProjectRestorePreservesReferencesAndFailures(cdp);
+    await testTurnaroundProjectRestorePreservesReferencesAndFailures(cdp);
     await testInterruptedProjectCheckpointResume(cdp);
     await testHistoryRestoreAndExport(cdp);
     await testExportedProjectFolderRoundTrip(cdp);
@@ -6671,8 +6567,7 @@ async function main() {
     await testManualWheelScrollFallback(cdp);
     await testModelChoicesWheelScroll(cdp);
     await testModelComboboxBehavior(cdp);
-    await testCaptionMode(cdp);
-    await testCaptionAutoFill(cdp);
+    await testTurnaroundMode(cdp);
     await testAndroidUpdateRedirect(cdp);
     await testWindowsInstallDirControl(cdp);
     cdp.assertNoRuntimeIssues();
