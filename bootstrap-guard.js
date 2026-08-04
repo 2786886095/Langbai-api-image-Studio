@@ -41,6 +41,16 @@
       showFallbackModal(document.querySelector("#settingsModal"));
       return;
     }
+    if (target.id === "skillsBtn" || target.id === "openSkillsFromPanel") {
+      event.preventDefault();
+      showFallbackModal(document.querySelector("#skillsModal"));
+      return;
+    }
+    if (target.id === "closeSkills") {
+      event.preventDefault();
+      hideFallbackModal(document.querySelector("#skillsModal"));
+      return;
+    }
     if (target.id === "closeSettings") {
       event.preventDefault();
       hideFallbackModal(document.querySelector("#settingsModal"));
@@ -55,8 +65,10 @@
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
       document.querySelector("#comicPanelSection")?.classList.toggle("hidden", mode !== "comic");
-      document.querySelector("#captionSection")?.classList.toggle("hidden", mode !== "caption");
+      document.querySelector("#turnaroundSection")?.classList.toggle("hidden", mode !== "turnaround");
       document.querySelector("#nImagesField")?.classList.toggle("hidden", mode !== "single");
+      document.querySelector("#globalPromptField")?.classList.toggle("hidden", mode === "turnaround");
+      document.querySelector("#activeSkillsSection")?.classList.toggle("hidden", mode === "turnaround");
     }
   }, true);
 

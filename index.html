@@ -7,7 +7,7 @@
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260804-1-6-27">
+  <link rel="stylesheet" href="style.css?v=20260804-1-6-28">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -41,11 +41,12 @@
         <input type="file" id="watermarkImageInput" accept="image/png,image/jpeg,image/webp" multiple hidden>
         <button type="button" id="historyBtn" class="icon-btn" title="查看生图记录" aria-label="查看生图记录"><span class="ui-icon ui-icon-history"></span></button>
         <button type="button" id="exportBtn" class="icon-btn" title="导出 ZIP" aria-label="导出 ZIP"><span class="ui-icon ui-icon-zip"></span></button>
+        <button type="button" id="skillsBtn" class="icon-btn" title="技能列表" aria-label="技能列表"><span class="ui-icon ui-icon-skills"></span></button>
         <button type="button" id="settingsBtn" class="icon-btn" title="设置" aria-label="设置"><span class="ui-icon ui-icon-settings"></span></button>
         <button type="button" id="themeToggle" class="icon-btn" title="切换主题" aria-label="切换主题"><span class="ui-icon ui-icon-moon"></span></button>
       </div>
       <h1><span class="brand-mark"><img class="brand-logo" src="assets/icons/mascot-avatar.png" alt=""></span>AI 图片生成器</h1>
-      <p class="subtitle">单图生成 · 漫画分镜 · 气泡嵌字</p>
+      <p class="subtitle">单图生成 · 漫画分镜 · 角色三视图</p>
     </header>
 
     <div class="main-layout">
@@ -411,8 +412,17 @@
         <div class="mode-tabs" id="modeTabs" role="tablist" aria-label="生成模式">
           <button type="button" class="mode-tab active" data-mode="single" role="tab" aria-selected="true" tabindex="0"><span class="ui-icon ui-icon-image"></span> 单图模式</button>
           <button type="button" class="mode-tab" data-mode="comic" role="tab" aria-selected="false" tabindex="-1"><span class="ui-icon ui-icon-comic"></span> 漫画分镜</button>
-          <button type="button" class="mode-tab" data-mode="caption" role="tab" aria-selected="false" tabindex="-1"><span class="ui-icon ui-icon-bubble"></span> 嵌字模式</button>
+          <button type="button" class="mode-tab" data-mode="turnaround" role="tab" aria-selected="false" tabindex="-1"><span class="ui-icon ui-icon-turnaround"></span> 三视图生成</button>
         </div>
+
+        <section class="active-skills" id="activeSkillsSection" aria-labelledby="activeSkillsTitle">
+          <div class="active-skills-header">
+            <strong id="activeSkillsTitle"><span class="ui-icon ui-icon-skills"></span> 当前模式技能</strong>
+            <button type="button" id="openSkillsFromPanel" class="btn btn-xs">管理技能</button>
+          </div>
+          <div id="activeSkillsList" class="active-skills-list"></div>
+          <p class="field-hint" id="activeSkillsHint">勾选后按列表顺序注入当前模式的生图提示词；单图与漫画分镜分别记忆。</p>
+        </section>
 
         <!-- ========== 单图模式专属：生成数量 ========== -->
         <label class="field single-only" id="nImagesField">
@@ -594,8 +604,6 @@
               </div>
               <select id="autoFillTemplate" class="custom-select-native auto-fill-select" title="一键填写模板" tabindex="-1" aria-hidden="true">
                 <option value="panel-output">输出分镜 N 的图片</option>
-                <option value="ref-bubble-number">参考图 N 加编号气泡</option>
-                <option value="ref-caption-number">参考图 N 加文字编号</option>
                 <option value="custom">自定义模板...</option>
               </select>
               <button type="button" id="autoFillPanels" class="btn btn-sm"><span class="ui-icon ui-icon-spark"></span> 填入</button>
@@ -619,50 +627,36 @@
           <p class="field-hint">分镜提示词会拼接在全局提示词之后一起发送</p>
         </div>
 
-        <!-- ========== 嵌字模式专属：批量上传 + 逐张气泡文字 ========== -->
-        <div class="comic-only hidden" id="captionSection">
+        <!-- ========== 三视图模式专属：批量导入 + 每图独立提示词 ========== -->
+        <div class="comic-only hidden" id="turnaroundSection">
           <div class="section-header">
-            <span><span class="ui-icon ui-icon-bubble"></span> 嵌字列表</span>
+            <span><span class="ui-icon ui-icon-turnaround"></span> 三视图任务</span>
             <div class="section-actions">
-              <button type="button" id="bulkInputCaptionPrompts" class="btn btn-sm"><span class="ui-icon ui-icon-file"></span> 批量输入提示词</button>
-              <button type="button" id="clearCaptionRows" class="btn btn-sm btn-danger">清空</button>
+              <button type="button" id="clearTurnaroundRows" class="btn btn-sm btn-danger">清空</button>
             </div>
           </div>
-          <div class="field" id="captionUploadField">
-            <input type="file" id="captionBulkInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden multiple>
-            <div class="upload-zone" id="captionUploadZone" role="button" tabindex="0" aria-label="批量上传嵌字图片">
+          <div class="field" id="turnaroundUploadField">
+            <input type="file" id="turnaroundBulkInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden multiple>
+            <div class="upload-zone" id="turnaroundUploadZone" role="button" tabindex="0" aria-label="批量导入角色参考图">
               <span class="upload-icon"><span class="ui-icon ui-icon-image"></span></span>
-              <span>点击或拖拽批量上传图片（自动按文件名顺序逐张生成，不会一次性打包发送）</span>
-            </div>
-          </div>
-          <div class="panel-tools">
-            <div class="tool-group tool-group-fill">
-              <span class="tool-label">一键填写</span>
-              <div class="custom-select custom-select-flex" id="captionAutoFillTemplateCustomSelect">
-                <button type="button" class="custom-select-trigger" id="captionAutoFillTemplateTrigger" aria-haspopup="listbox" aria-expanded="false"><span class="custom-select-value"></span></button>
-                <div class="custom-select-list hidden" id="captionAutoFillTemplateCustomList" role="listbox"></div>
-              </div>
-              <select id="captionAutoFillTemplate" class="custom-select-native auto-fill-select" title="一键填写模板" tabindex="-1" aria-hidden="true">
-                <option value="numbered-bubble">编号气泡</option>
-                <option value="custom">自定义模板...</option>
-              </select>
-              <button type="button" id="autoFillCaptionRows" class="btn btn-sm"><span class="ui-icon ui-icon-spark"></span> 填入</button>
+              <span>点击或拖拽导入所有角色图片；每张图片会成为一个独立三视图任务</span>
             </div>
           </div>
           <div class="panel-table-wrap">
-            <table class="panel-table" id="captionTable">
+            <table class="panel-table" id="turnaroundTable">
               <thead>
                 <tr>
                   <th class="col-num">#</th>
-                  <th class="col-img">图片</th>
-                  <th class="col-prompt">气泡文字</th>
+                  <th class="col-img">角色参考图</th>
+                  <th class="col-prompt">角色说明（可选）</th>
+                  <th class="col-size">输出</th>
                   <th class="col-act"></th>
                 </tr>
               </thead>
-              <tbody id="captionTbody"></tbody>
+              <tbody id="turnaroundTbody"></tbody>
             </table>
           </div>
-          <p class="field-hint">每张图片都会单独发送一次生成请求，气泡文字会拼接在全局提示词之后；输出尺寸自动跟随该图片本身的尺寸</p>
+          <p class="field-hint">每张图片单独生成一张 16:9 正面、90°侧面、背面全身三视图；多人图请在该行说明目标角色。三视图模式不注入技能。</p>
         </div>
 
         <!-- ========== 进度条（批量生成用） ========== -->
@@ -717,7 +711,7 @@
     </div>
   </div>
 
-  <!-- 漫画分镜 / 嵌字共用的批量提示词弹层 -->
+  <!-- 漫画分镜批量提示词弹层 -->
   <div class="modal hidden" id="bulkPromptModal" role="dialog" aria-modal="true" aria-labelledby="bulkPromptTitle">
     <div class="modal-card bulk-prompt-card" tabindex="-1">
       <div class="modal-header">
@@ -858,7 +852,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.27</strong>
+            <strong id="currentVersionLabel">v1.6.28</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -886,6 +880,40 @@
           </div>
           <p class="field-hint" id="updateStatus">可从 GitHub Releases 检测新版。Windows 会显示安装进度并自动覆盖安装目录、清理安装包、更新桌面快捷方式；安卓会跳转到 GitHub 发布页下载安装。</p>
         </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- 技能列表弹层 -->
+  <div class="modal hidden" id="skillsModal" role="dialog" aria-modal="true" aria-labelledby="skillsTitle">
+    <div class="modal-card modal-card-wide skills-modal-card" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="skillsTitle">技能列表</h2>
+          <p class="field-hint">技能是可复用的提示词模板，可设置适用于单图、漫画分镜或两者。</p>
+        </div>
+        <button type="button" class="icon-btn" id="closeSkills" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+      </div>
+      <div class="skills-layout">
+        <section class="skills-library" aria-label="已有技能">
+          <div class="section-header">
+            <strong>已有技能</strong>
+            <button type="button" id="addSkill" class="btn btn-sm"><span class="ui-icon ui-icon-plus"></span> 新建技能</button>
+          </div>
+          <div id="skillsManagerList" class="skills-manager-list"></div>
+        </section>
+        <form id="skillEditor" class="skill-editor hidden">
+          <input type="hidden" id="skillId">
+          <div class="skill-editor-heading">
+            <h3 id="skillEditorTitle">新建技能</h3>
+            <button type="button" id="cancelSkillEdit" class="btn btn-xs">取消编辑</button>
+          </div>
+          <label class="field"><span>技能名称</span><input type="text" id="skillName" maxlength="80" required placeholder="例如：电影光影"></label>
+          <label class="field"><span>分类</span><select id="skillCategory"><option value="functional">功能类</option><option value="style">风格类</option></select></label>
+          <label class="field"><span>适用模式</span><select id="skillScope"><option value="both">单图与漫画分镜</option><option value="single">仅单图</option><option value="comic">仅漫画分镜</option></select></label>
+          <label class="field"><span>提示词模板</span><textarea id="skillTemplate" rows="8" required placeholder="启用技能后追加到生图提示词的内容"></textarea></label>
+          <button type="submit" id="saveSkill" class="btn btn-primary"><span class="ui-icon ui-icon-save"></span> 保存技能</button>
+        </form>
       </div>
     </div>
   </div>
@@ -1043,29 +1071,30 @@
     </tr>
   </template>
 
-  <!-- 隐藏的模板：嵌字行 -->
-  <template id="captionRowTemplate">
-    <tr class="caption-row">
+  <!-- 隐藏的模板：三视图任务行 -->
+  <template id="turnaroundRowTemplate">
+    <tr class="turnaround-row">
       <td class="col-num"><span class="panel-num"></span></td>
       <td class="col-img">
         <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden class="panel-img-input">
-        <button type="button" class="caption-img-thumb" title="点击替换图片">
+        <button type="button" class="turnaround-img-thumb" title="点击替换图片">
           <span class="panel-img-preview hidden"></span>
-          <span class="ui-icon ui-icon-image caption-img-placeholder"></span>
+          <span class="ui-icon ui-icon-image turnaround-img-placeholder"></span>
         </button>
       </td>
-      <td class="col-prompt"><textarea rows="2" class="caption-text" placeholder="描述要添加的气泡文字和位置，例如：在图片右上角加一个白色对话气泡，文字是「你好！」"></textarea></td>
+      <td class="col-prompt"><textarea rows="3" class="turnaround-prompt" placeholder="可选：指定目标角色或补充必须保留的特征；多人图请明确角色位置、发色或服装"></textarea></td>
+      <td class="col-size turnaround-fixed-size"><strong>16:9</strong><small>三视图</small></td>
       <td class="col-act"><button type="button" class="btn btn-xs btn-danger delete-panel" title="删除"><span class="ui-icon ui-icon-trash"></span></button></td>
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260804-1-6-27"></script>
-  <script src="image-task-stability.js?v=20260804-1-6-27"></script>
-  <script src="codex-image-gateway.js?v=20260804-1-6-27"></script>
-  <script src="gemini-image-size-registry.js?v=20260804-1-6-27"></script>
-  <script src="gemini-web-image-adapter.js?v=20260804-1-6-27"></script>
-  <script src="gemini-selector-pack.js?v=20260804-1-6-27"></script>
-  <script src="gemini-watermark-remover.bundle.js?v=20260804-1-6-27"></script>
-  <script src="app.js?v=20260804-1-6-27"></script>
+  <script src="bootstrap-guard.js?v=20260804-1-6-28"></script>
+  <script src="image-task-stability.js?v=20260804-1-6-28"></script>
+  <script src="codex-image-gateway.js?v=20260804-1-6-28"></script>
+  <script src="gemini-image-size-registry.js?v=20260804-1-6-28"></script>
+  <script src="gemini-web-image-adapter.js?v=20260804-1-6-28"></script>
+  <script src="gemini-selector-pack.js?v=20260804-1-6-28"></script>
+  <script src="gemini-watermark-remover.bundle.js?v=20260804-1-6-28"></script>
+  <script src="app.js?v=20260804-1-6-28"></script>
 </body>
 </html>

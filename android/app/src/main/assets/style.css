@@ -246,7 +246,8 @@ body {
 .ui-icon-sun { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 1h2v4h-2V1Zm0 18h2v4h-2v-4ZM1 11h4v2H1v-2Zm18 0h4v2h-4v-2ZM4.22 2.8l2.83 2.83-1.42 1.42L2.8 4.22 4.22 2.8Zm14.15 14.15 2.83 2.83-1.42 1.42-2.83-2.83 1.42-1.42Zm1.41-14.15 1.42 1.42-2.83 2.83-1.42-1.42 2.83-2.83ZM5.63 16.95l1.42 1.42-2.83 2.83-1.42-1.42 2.83-2.83ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z'/%3E%3C/svg%3E"); }
 .ui-icon-image { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 4h16v16H4V4Zm2 2v9.2l3.4-3.4 3 3 2.1-2.1L18 16.2V6H6Zm3 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z'/%3E%3C/svg%3E"); }
 .ui-icon-comic { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4h8v7H3V4Zm10 0h8v7h-8V4ZM3 13h8v7H3v-7Zm10 0h8v7h-8v-7Z'/%3E%3C/svg%3E"); }
-.ui-icon-bubble { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 4h16v12H9l-5 5V4Z'/%3E%3C/svg%3E"); }
+.ui-icon-skills { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm12.5-.5h2v3h3v2h-3v3h-2v-3h-3v-2h3v-3Z'/%3E%3C/svg%3E"); }
+.ui-icon-turnaround { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 3h6v18H2V3Zm7 0h6v18H9V3Zm7 0h6v18h-6V3ZM4 6v5h2V6H4Zm7 0v5h2V6h-2Zm7 0v5h2V6h-2ZM4 13v5h2v-5H4Zm7 0v5h2v-5h-2Zm7 0v5h2v-5h-2Z'/%3E%3C/svg%3E"); }
 .ui-icon-save { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 3h12l2 2v16H5V3Zm2 2v5h9V5H7Zm0 14h10v-6H7v6Zm8-14h-2v3h2V5Z'/%3E%3C/svg%3E"); }
 .ui-icon-folder { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 6h7l2 2h9v11H3V6Z'/%3E%3C/svg%3E"); }
 .ui-icon-trash { --icon-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 3h8l1 2h4v2H3V5h4l1-2Zm1 6h2v10H9V9Zm4 0h2v10h-2V9Zm-6 0h10l-1 12H8L7 9Z'/%3E%3C/svg%3E"); }
@@ -1698,7 +1699,7 @@ select.custom-select-native {
   box-shadow: 0 2px 8px var(--primary-glow);
 }
 .panel-row textarea,
-.caption-row textarea {
+.turnaround-row textarea {
   min-height: 52px !important; padding: 7px 8px !important; font-size: 0.78rem !important;
   margin: 0;
 }
@@ -1726,24 +1727,24 @@ select.custom-select-native {
   width: 16px; height: 16px; font-size: 0.55rem; line-height: 1; vertical-align: middle;
 }
 
-/* 嵌字模式每一行都必然有一张图（跟漫画模式"参考图可选"不一样），用单个可点击缩略图代替
-   漫画那一套"按钮+缩略图+文件名+清除按钮"四件套纵向堆叠布局——四个元素堆在只有 56px 宽的
-   列里，撑出将近 90px 高的行，是"嵌字列表占的空间太大"这个反馈的真正原因（不是图片本身画
-   得大，是这一列堆叠内容的总高度顶开了整行）。 */
-#captionTable .col-img { width: 64px; }
-.caption-img-thumb {
+#turnaroundTable .col-img { width: 64px; }
+.turnaround-img-thumb {
   width: 44px; height: 44px; padding: 0; margin: 0;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface2); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; transition: var(--transition);
 }
-.caption-img-thumb:hover { border-color: var(--border-strong); }
-.caption-img-thumb .panel-img-preview {
+.turnaround-img-thumb:hover { border-color: var(--border-strong); }
+.turnaround-img-thumb .panel-img-preview {
   width: 100%; height: 100%; margin: 0; border: none; border-radius: 0;
 }
-.caption-img-placeholder { color: var(--text2); font-size: 1.1rem; }
-.caption-img-thumb .panel-img-preview:not(.hidden) ~ .caption-img-placeholder { display: none; }
+.turnaround-img-placeholder { color: var(--text2); font-size: 1.1rem; }
+.turnaround-img-thumb .panel-img-preview:not(.hidden) ~ .turnaround-img-placeholder { display: none; }
+.turnaround-fixed-size { text-align: center; }
+.turnaround-fixed-size strong,
+.turnaround-fixed-size small { display: block; }
+.turnaround-fixed-size small { margin-top: 3px; color: var(--text2); font-size: .68rem; }
 
 /* ===== Progress ===== */
 .progress-wrap {
@@ -2535,6 +2536,92 @@ details[open] .config-toggle::before { content: "v"; }
   background: var(--surface3);
   color: var(--text);
   box-shadow: inset 0 0 0 1px var(--primary-border);
+}
+
+.active-skills {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+}
+.active-skills-header,
+.skill-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.active-skills-header strong { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; }
+.active-skills-list { display: grid; gap: 8px; }
+.active-skill-group { display: grid; gap: 5px; }
+.active-skill-group-title,
+.skills-category-title {
+  color: var(--text2);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.active-skill-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.active-skill-option:hover { border-color: var(--primary-border); }
+.active-skill-option input { margin-top: 2px; }
+.active-skill-copy { min-width: 0; display: grid; gap: 2px; }
+.active-skill-copy strong { font-size: .78rem; }
+.active-skill-copy small { color: var(--text2); font-size: .68rem; line-height: 1.35; }
+.active-skills-empty { color: var(--text2); font-size: .76rem; }
+
+.skills-modal-card { width: min(960px, calc(100vw - 32px)); }
+.skills-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); gap: 16px; }
+.skills-library,
+.skill-editor {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+}
+.skills-manager-list { display: grid; gap: 12px; margin-top: 12px; }
+.skills-category { display: grid; gap: 7px; }
+.skill-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.skill-card-main { min-width: 0; display: grid; gap: 4px; }
+.skill-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.skill-card-head strong { font-size: .84rem; }
+.skill-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-size: .65rem;
+  font-weight: 800;
+}
+.skill-card-template { color: var(--text2); font-size: .72rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.skill-card-actions { display: flex; align-items: flex-start; gap: 5px; }
+.skill-editor { display: grid; align-content: start; gap: 10px; }
+.skill-editor.hidden { display: none; }
+.skill-editor h3 { margin: 0; }
+
+@media (max-width: 760px) {
+  .skills-layout { grid-template-columns: 1fr; }
+  .skills-modal-card { width: min(100%, calc(100vw - 16px)); }
 }
 
 .field > span,
