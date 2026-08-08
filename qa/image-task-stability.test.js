@@ -26,6 +26,10 @@ test("provider content-policies wording is classified as moderation instead of p
 
 test("HTTP error families remain distinct", () => {
   assert.equal(stability.classifyApiError("HTTP 400: unsupported size").category, "invalid_parameters");
+  const generic400 = stability.classifyApiError("HTTP 400: generate image failed");
+  assert.equal(generic400.category, "unknown");
+  assert.equal(generic400.retryPolicy, "manual_limited");
+  assert.equal(stability.retryDirective(generic400).retryable, true);
   const dimensionMismatch = stability.classifyApiError({
     status: 422,
     code: "image_dimension_mismatch",

@@ -63,10 +63,10 @@ const windowsRunner = read("windows/runner/win32_window.cpp");
 const windowsMain = read("windows/runner/main.cpp");
 const windowsInstaller = read("windows/installer/setup.iss");
 
-const expectedVersion = "1.6.30";
-const expectedBuild = 107;
-const expectedCacheToken = "20260804-1-6-30";
-const expectedSwCache = "ai-image-generator-1-6-30-20260804";
+const expectedVersion = "1.6.31";
+const expectedBuild = 108;
+const expectedCacheToken = "20260808-1-6-31";
+const expectedSwCache = "ai-image-generator-1-6-31-20260808";
 const version = app.match(/const APP_VERSION = "([^"]+)";/)?.[1];
 assert.equal(version, expectedVersion, "APP_VERSION must be the release source of truth");
 assert.match(pubspec, new RegExp(`^version:\\s*${expectedVersion.replaceAll(".", "\\.")}\\+${expectedBuild}$`, "m"));
@@ -82,9 +82,9 @@ assert.match(pubspec, /^\s*- gemini-embedded-worker\.js$/m);
 assert.doesNotMatch(pubspec, /gemini_companion/);
 assert.match(imageTaskStability, /moderation_blocked/);
 assert.match(imageTaskStability, /createOpenCodexRuntime/);
-assert.match(html, /v1\.6\.30/);
-assert.match(html, /20260804-1-6-30/g);
-assert.match(sw, /ai-image-generator-1-6-30-20260804/);
+assert.match(html, /v1\.6\.31/);
+assert.match(html, /20260808-1-6-31/g);
+assert.match(sw, /ai-image-generator-1-6-31-20260808/);
 const localCacheTokens = [
   ...html.matchAll(/(?:href|src)="(?:\.\/)?(?:style\.css|[a-z0-9-]+\.js)\?v=([^"]+)"/gi),
 ].map(match => match[1]);
@@ -109,10 +109,10 @@ assert.match(app, /async function removeGeminiWatermarkBlob\(blob\)/);
 assert.match(app, /transform:\s*"gemini_watermark_removed"/);
 assert.match(app, /async function processImportedWatermarkImages\(fileList\)/);
 assert.match(sw, /ignoreSearch:\s*true/);
-assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,30,107/);
-assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.30"/);
-assert.match(workflow, /const APP_VERSION = "1\.6\.30";/);
-assert.match(workflow, /bootstrap-guard\.js\\\?v=20260804-1-6-30/);
+assert.match(runnerRc, /VERSION_AS_NUMBER 1,6,31,108/);
+assert.match(runnerRc, /VERSION_AS_STRING "1\.6\.31"/);
+assert.match(workflow, /const APP_VERSION = "1\.6\.31";/);
+assert.match(workflow, /bootstrap-guard\.js\\\?v=20260808-1-6-31/);
 assert.match(workflow, /codex-image-gateway\.js/);
 assert.doesNotMatch(workflow, /Gemini-Chromium-Companion|gemini_companion/);
 assert.match(workflow, /gemini-embedded-worker\.js/);
@@ -668,7 +668,8 @@ for (const file of [
 
 assert.doesNotMatch(app, /HTTP\\s\*\(400\|502|400\/502\/503\/504/);
 assert.match(imageTaskStability, /category = ERROR_CATEGORIES\.moderation;[\s\S]*?retryPolicy = "edit_required"/);
-assert.match(imageTaskStability, /status === 400[\s\S]*?category = ERROR_CATEGORIES\.parameters;[\s\S]*?retryPolicy = "edit_required"/);
+assert.match(imageTaskStability, /status === 422[\s\S]*?category = ERROR_CATEGORIES\.parameters;[\s\S]*?retryPolicy = "edit_required"/);
+assert.match(imageTaskStability, /status === 400[\s\S]*?category = ERROR_CATEGORIES\.unknown;[\s\S]*?retryPolicy = "manual_limited"/);
 assert.match(imageTaskStability, /policy === "after_delay"/);
 assert.match(imageTaskStability, /policy === "manual_limited"/);
 assert.match(imageTaskStability, /policy === "after_probe"/);
