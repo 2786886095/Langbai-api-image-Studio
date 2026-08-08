@@ -3402,6 +3402,11 @@ main.result-panel .result-item.is-failed:hover {
   border-color: rgba(239, 68, 68, 0.95);
 }
 
+main.result-panel .result-item.retry-needs-attention {
+  border-color: var(--warning, #f59e0b);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning, #f59e0b) 34%, transparent), var(--shadow-card);
+}
+
 main.result-panel .result-item.is-retry-queued,
 main.result-panel .result-item.is-retry-queued:hover {
   border-color: color-mix(in srgb, var(--warning) 72%, transparent);
@@ -3603,7 +3608,49 @@ main.result-panel .result-actions .btn {
   padding-inline: 8px;
 }
 
+/* Both task editors live inside the narrow input rail even on desktop. Let
+   their fixed-layout tables use the rail width instead of forcing a second
+   horizontal viewport that hides retry/reference/delete controls. */
+#panelTable,
+#turnaroundTable {
+  min-width: 100%;
+}
+
+#panelTable :is(th, td).col-retry,
+#panelTable :is(th, td).col-img,
+#panelTable :is(th, td).col-act,
+#turnaroundTable :is(th, td).col-img,
+#turnaroundTable :is(th, td).col-act {
+  padding-inline: 4px;
+}
+
+#panelTable :is(th, td).col-act,
+#turnaroundTable :is(th, td).col-act {
+  padding-inline: 2px;
+}
+
+#panelTable .delete-panel,
+#turnaroundTable .delete-panel {
+  width: 28px;
+  min-width: 28px;
+  padding-inline: 0;
+}
+
 @media (max-width: 560px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app,
+  .main-layout,
+  .input-panel,
+  main.result-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .header {
     grid-template-areas:
       "title"
@@ -3612,31 +3659,104 @@ main.result-panel .result-actions .btn {
       "actions";
     gap: 5px;
     margin-bottom: 12px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .header-actions {
     justify-self: start;
-    justify-content: flex-start;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(64px, 1fr) repeat(6, 40px);
+    justify-content: stretch;
+    gap: 4px;
     margin-top: 4px;
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0;
   }
 
+  .language-control,
+  .language-button,
   .language-select {
-    min-width: 104px;
-    max-width: 112px;
-    height: 36px;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 40px;
   }
 
   .icon-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
   }
 
   .platform-strip {
     width: 100%;
+  }
+
+  .panel-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+  }
+
+  #panelTable,
+  #turnaroundTable {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  #panelTable th,
+  #panelTable td,
+  #turnaroundTable th,
+  #turnaroundTable td {
+    padding-inline: 2px;
+  }
+
+  #panelTable th,
+  #turnaroundTable th {
+    font-size: 0.66rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #panelTable .col-num,
+  #turnaroundTable .col-num { width: 28px; }
+  #panelTable .col-size { width: 68px; }
+  #panelTable .col-retry { width: 34px; }
+  #panelTable .col-img { width: 44px; }
+  #panelTable .col-act,
+  #turnaroundTable .col-act { width: 32px; }
+  #turnaroundTable .col-img { width: 42px; }
+  #turnaroundTable .col-size { width: 48px; }
+
+  #panelTable .panel-row textarea,
+  #turnaroundTable .turnaround-row textarea {
+    min-height: 62px !important;
+    padding: 5px !important;
+    font-size: 0.72rem !important;
+  }
+
+  #panelTable .panel-size-w,
+  #panelTable .panel-size-h {
+    width: 27px !important;
+    padding-inline: 1px !important;
+  }
+
+  #panelTable .panel-size-x { margin-inline: 0; }
+  #panelTable .panel-retry-count { width: 30px !important; }
+  #panelTable .panel-img-name { display: none; }
+  #panelTable .panel-img-preview { margin-left: 0; }
+  #panelTable .col-img:has(.panel-img-preview:not(.hidden)) .panel-img-btn { display: none; }
+  #panelTable .panel-img-btn,
+  #panelTable .delete-panel,
+  #turnaroundTable .delete-panel {
+    width: 30px;
+    min-width: 30px;
+    padding-inline: 0;
   }
 
   .api-quick-card {

@@ -138,13 +138,20 @@
       category = ERROR_CATEGORIES.timeout;
       retryPolicy = "manual_unknown_outcome";
     } else if (
-      status === 400
-      || status === 422
-      || /invalid[_\s-]*(request|parameter)|unsupported parameter|not supported|image_dimension_mismatch/.test(lower)
+      status === 422
+      || /invalid[_\s-]*(request|parameter)|unsupported(?: request| parameter| size| dimension)?|not supported|image_dimension_mismatch/.test(lower)
     ) {
       category = ERROR_CATEGORIES.parameters;
       retryPolicy = "edit_required";
       requiresEdit = true;
+    } else if (status === 400) {
+      // Several image relays use a bare `400: generate image failed` for a
+      // transient generation failure. Treating every HTTP 400 as an invalid
+      // parameter silently removed those cards from Retry All. Explicit
+      // parameter/moderation signals are handled above; an otherwise generic
+      // 400 is eligible for the user's bounded retry policy.
+      category = ERROR_CATEGORIES.unknown;
+      retryPolicy = "manual_limited";
     } else if (/base64|decode|invalid image|image data/.test(lower)) {
       category = ERROR_CATEGORIES.decode;
       retryPolicy = "manual";

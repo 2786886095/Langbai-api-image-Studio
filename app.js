@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.30";
+const APP_VERSION = "1.6.31";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -406,7 +406,7 @@ const CLEAN_LOCALES = {
     noImagesToExport: "没有可导出的图片", exportOpenedHistory: "当前结果为空，已打开历史记录，可在项目卡片点击「导出项目」", packaging: "打包中……", preparingZip: "准备打包 ZIP…",
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
     download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "取消",
-    failReason: "失败原因", retryFailedAll: "全部失败重试", cancelRetryFailedAll: "取消全部重试", cancellingRetryFailedAll: "正在取消全部重试", failedRetryCount: "失败后追加次数", failedRetryCountHint: "每张先执行 1 次；失败后最多追加 N 次。填写 10 表示最多共 11 次。", noFailedToRetry: "没有可重试的失败分镜",
+    failReason: "失败原因", retryFailedAll: "全部失败重试", cancelRetryFailedAll: "取消全部重试", cancellingRetryFailedAll: "正在取消全部重试", failedRetryCount: "失败后追加次数", failedRetryCountHint: "每张先执行 1 次；失败后最多追加 N 次。填写 10 表示最多共 11 次。", noFailedToRetry: "没有可重试的失败分镜", retryFailedAllCount: "全部失败重试（可重试 {eligible}/{total}）", retryBlockedNeedEdit: "有 {count} 个失败项需要先修改提示词或参数；已定位到第一个失败卡，请点击铅笔修改后重试",
     retryFailedAllStarted: "正在重试 {count} 个失败项", retryFailedAllCancelled: "已取消全部失败重试，可再次点击重试", retryQueued: "等待重试（队列第 {position} 个）", retryQueuedHint: "尚未发送请求，前面的任务完成后会自动开始", retryQueuedRound: "准备第 {attempt}/{maxAttempts} 次重试", bulkRetryRound: "全部重试第 {attempt}/{maxAttempts} 次", enqueueRemainingFailed: "补充剩余失败", remainingFailedAdded: "已补充 {count} 个遗漏的失败项", noRemainingFailed: "没有遗漏的失败项，当前队列已经完整",
     softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
     checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装", openReleasePage: "打开发布页",
@@ -484,7 +484,7 @@ const CLEAN_LOCALES = {
     noImagesToExport: "沒有可匯出的圖片", exportOpenedHistory: "目前結果為空，已開啟歷史記錄，可在專案卡片點擊「匯出專案」", packaging: "打包中……", preparingZip: "準備打包 ZIP…",
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
     download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "取消",
-    failReason: "失敗原因", retryFailedAll: "全部失敗重試", cancelRetryFailedAll: "取消全部重試", cancellingRetryFailedAll: "正在取消全部重試", failedRetryCount: "失敗後追加次數", failedRetryCountHint: "每張先執行 1 次；失敗後最多追加 N 次。填寫 10 表示最多共 11 次。", noFailedToRetry: "沒有可重試的失敗分鏡",
+    failReason: "失敗原因", retryFailedAll: "全部失敗重試", cancelRetryFailedAll: "取消全部重試", cancellingRetryFailedAll: "正在取消全部重試", failedRetryCount: "失敗後追加次數", failedRetryCountHint: "每張先執行 1 次；失敗後最多追加 N 次。填寫 10 表示最多共 11 次。", noFailedToRetry: "沒有可重試的失敗分鏡", retryFailedAllCount: "全部失敗重試（可重試 {eligible}/{total}）", retryBlockedNeedEdit: "有 {count} 個失敗項目需要先修改提示詞或參數；已定位第一個失敗卡，請點擊鉛筆修改後重試",
     retryFailedAllStarted: "正在重試 {count} 個失敗項目", retryFailedAllCancelled: "已取消全部失敗重試，可再次點擊重試", retryQueued: "等待重試（佇列第 {position} 個）", retryQueuedHint: "尚未送出請求，前面的工作完成後會自動開始", retryQueuedRound: "準備第 {attempt}/{maxAttempts} 次重試", bulkRetryRound: "全部重試第 {attempt}/{maxAttempts} 次", enqueueRemainingFailed: "補充剩餘失敗", remainingFailedAdded: "已補充 {count} 個遺漏的失敗項目", noRemainingFailed: "沒有遺漏的失敗項目，目前佇列已完整",
     softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
     checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝", openReleasePage: "開啟發布頁",
@@ -562,7 +562,7 @@ const CLEAN_LOCALES = {
     noImagesToExport: "No images to export", exportOpenedHistory: "Current results are empty. History is open; use Export Project on a project card.", packaging: "Packaging...", preparingZip: "Preparing ZIP...",
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
     download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Cancel",
-    failReason: "Failure reason", retryFailedAll: "Retry all failed", cancelRetryFailedAll: "Cancel all retries", cancellingRetryFailedAll: "Cancelling all retries", failedRetryCount: "Extra attempts after failure", failedRetryCountHint: "Each card gets 1 initial attempt, then up to N extra attempts. Entering 10 means 11 attempts total.", noFailedToRetry: "No failed panels to retry",
+    failReason: "Failure reason", retryFailedAll: "Retry all failed", cancelRetryFailedAll: "Cancel all retries", cancellingRetryFailedAll: "Cancelling all retries", failedRetryCount: "Extra attempts after failure", failedRetryCountHint: "Each card gets 1 initial attempt, then up to N extra attempts. Entering 10 means 11 attempts total.", noFailedToRetry: "No failed panels to retry", retryFailedAllCount: "Retry all failed ({eligible}/{total} retryable)", retryBlockedNeedEdit: "{count} failed item(s) require prompt or parameter edits first. The first blocked card is focused; use its pencil button to edit and retry.",
     retryFailedAllStarted: "Retrying {count} failed items", retryFailedAllCancelled: "All failed retries cancelled. You can retry again.", retryQueued: "Waiting to retry (queue position {position})", retryQueuedHint: "The request has not been sent yet. It will start automatically when an earlier task finishes.", retryQueuedRound: "Preparing retry {attempt}/{maxAttempts}", bulkRetryRound: "Retry-all attempt {attempt}/{maxAttempts}", enqueueRemainingFailed: "Add remaining failures", remainingFailedAdded: "Added {count} missed failed items", noRemainingFailed: "No missed failures. The current queue is complete.",
     softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
     checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install", openReleasePage: "Open release page",
@@ -640,7 +640,7 @@ const CLEAN_LOCALES = {
     noImagesToExport: "書き出せる画像がありません", exportOpenedHistory: "現在の結果は空です。履歴を開いたので、プロジェクトカードの書き出しを使ってください。", packaging: "パッケージ中...", preparingZip: "ZIP 準備中...",
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
     download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "キャンセル",
-    failReason: "失敗理由", retryFailedAll: "失敗分を再試行", cancelRetryFailedAll: "すべての再試行をキャンセル", cancellingRetryFailedAll: "すべての再試行をキャンセル中", failedRetryCount: "失敗後の追加回数", failedRetryCountHint: "各カードをまず 1 回実行し、失敗後に最大 N 回追加します。10 は合計最大 11 回です。", noFailedToRetry: "再試行できる失敗コマはありません",
+    failReason: "失敗理由", retryFailedAll: "失敗分を再試行", cancelRetryFailedAll: "すべての再試行をキャンセル", cancellingRetryFailedAll: "すべての再試行をキャンセル中", failedRetryCount: "失敗後の追加回数", failedRetryCountHint: "各カードをまず 1 回実行し、失敗後に最大 N 回追加します。10 は合計最大 11 回です。", noFailedToRetry: "再試行できる失敗コマはありません", retryFailedAllCount: "失敗分を再試行（{eligible}/{total} 件）", retryBlockedNeedEdit: "{count} 件は先にプロンプトまたはパラメータの修正が必要です。最初の失敗カードへ移動しました。鉛筆ボタンから修正して再試行してください。",
     retryFailedAllStarted: "{count} 件の失敗項目を再試行中", retryFailedAllCancelled: "失敗項目の再試行をキャンセルしました。再度実行できます。", retryQueued: "再試行待ち（キュー {position} 番）", retryQueuedHint: "まだリクエストは送信されていません。前の処理が終わると自動的に開始します。", retryQueuedRound: "{attempt}/{maxAttempts} 回目の再試行を準備中", bulkRetryRound: "一括再試行 {attempt}/{maxAttempts} 回目", enqueueRemainingFailed: "残りの失敗を追加", remainingFailedAdded: "漏れていた失敗項目を {count} 件追加しました", noRemainingFailed: "漏れている失敗項目はありません。現在のキューは完全です。",
     softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
     checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール", openReleasePage: "リリースページを開く",
@@ -718,7 +718,7 @@ const CLEAN_LOCALES = {
     noImagesToExport: "내보낼 이미지가 없습니다", exportOpenedHistory: "현재 결과가 비어 있어 기록을 열었습니다. 프로젝트 카드에서 프로젝트 내보내기를 사용하세요.", packaging: "패키징 중...", preparingZip: "ZIP 준비 중...",
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
     download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "취소",
-    failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", cancelRetryFailedAll: "모든 재시도 취소", cancellingRetryFailedAll: "모든 재시도 취소 중", failedRetryCount: "실패 후 추가 횟수", failedRetryCountHint: "각 카드를 먼저 1회 실행하고 실패 후 최대 N회 추가합니다. 10은 총 최대 11회입니다.", noFailedToRetry: "재시도할 실패 콘티가 없습니다",
+    failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", cancelRetryFailedAll: "모든 재시도 취소", cancellingRetryFailedAll: "모든 재시도 취소 중", failedRetryCount: "실패 후 추가 횟수", failedRetryCountHint: "각 카드를 먼저 1회 실행하고 실패 후 최대 N회 추가합니다. 10은 총 최대 11회입니다.", noFailedToRetry: "재시도할 실패 콘티가 없습니다", retryFailedAllCount: "실패 항목 재시도 ({eligible}/{total})", retryBlockedNeedEdit: "{count}개 실패 항목은 먼저 프롬프트 또는 매개변수를 수정해야 합니다. 첫 번째 실패 카드로 이동했으니 연필 버튼에서 수정 후 재시도하세요.",
     retryFailedAllStarted: "실패 항목 {count}개 재시도 중", retryFailedAllCancelled: "실패 항목 재시도를 모두 취소했습니다. 다시 시도할 수 있습니다.", retryQueued: "재시도 대기 중 (대기열 {position}번)", retryQueuedHint: "아직 요청을 보내지 않았습니다. 앞선 작업이 끝나면 자동으로 시작합니다.", retryQueuedRound: "{attempt}/{maxAttempts}번째 재시도 준비 중", bulkRetryRound: "전체 재시도 {attempt}/{maxAttempts}번째", enqueueRemainingFailed: "남은 실패 추가", remainingFailedAdded: "누락된 실패 항목 {count}개를 추가했습니다", noRemainingFailed: "누락된 실패 항목이 없습니다. 현재 대기열이 완전합니다.",
     softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
     checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치", openReleasePage: "릴리스 페이지 열기",
@@ -10619,15 +10619,17 @@ function getRetryEligibleFailedCards() {
   return getFailedResultCards().filter(card => card.dataset.retryBlocked !== "true");
 }
 
-function setRetryFailedButtonText(count = getFailedResultCards().length) {
+function setRetryFailedButtonText(totalCount = getFailedResultCards().length, eligibleCount = getRetryEligibleFailedCards().length) {
   if (!dom.retryFailedAll) return;
   if (retryAllFailedRun) {
     const key = retryAllFailedRun.cancelRequested ? "cancellingRetryFailedAll" : "cancelRetryFailedAll";
     dom.retryFailedAll.innerHTML = `${icon("x")} ${cleanText(key)} (${retryAllFailedRun.cards.length})`;
     return;
   }
-  const suffix = count > 0 ? ` (${count})` : "";
-  dom.retryFailedAll.innerHTML = `${icon("retry")} ${cleanText("retryFailedAll")}${suffix}`;
+  const label = totalCount > 0 && eligibleCount < totalCount
+    ? interpolate(cleanText("retryFailedAllCount"), { eligible: eligibleCount, total: totalCount })
+    : `${cleanText("retryFailedAll")}${eligibleCount > 0 ? ` (${eligibleCount})` : ""}`;
+  dom.retryFailedAll.innerHTML = `${icon("retry")} ${label}`;
 }
 
 function renderRetryQueued(card, position, run = retryAllFailedRun) {
@@ -10728,9 +10730,12 @@ function updateFailedRetryTools() {
   const hasActiveRun = !!retryAllFailedRun;
   dom.retryFailedTools?.classList.toggle("hidden", count === 0 && !hasActiveRun);
   if (dom.retryFailedAll) {
-    dom.retryFailedAll.disabled = hasActiveRun ? !!retryAllFailedRun.cancelRequested : eligibleCount === 0;
+    // Keep the control actionable whenever failed cards exist. A disabled button
+    // looked broken when every card required an edit; clicking now explains the
+    // blocked reason and focuses the first editable card instead.
+    dom.retryFailedAll.disabled = hasActiveRun ? !!retryAllFailedRun.cancelRequested : count === 0;
     dom.retryFailedAll.classList.toggle("is-cancel", hasActiveRun);
-    setRetryFailedButtonText(eligibleCount);
+    setRetryFailedButtonText(count, eligibleCount);
   }
   if (dom.enqueueRemainingFailed) {
     const remaining = hasActiveRun ? getUntrackedFailedCards(retryAllFailedRun).length : 0;
@@ -10883,10 +10888,21 @@ async function retryAllFailedResults() {
     cancelRetryAllFailedRun();
     return;
   }
+  const failedCards = getFailedResultCards();
   const cards = getRetryEligibleFailedCards();
   if (!cards.length) {
     updateFailedRetryTools();
-    showStatus(cleanText("noFailedToRetry"), "info");
+    if (failedCards.length) {
+      const firstBlocked = failedCards[0];
+      const editButton = firstBlocked.querySelector(".edit-retry, .retry-now:not(:disabled)");
+      firstBlocked.classList.add("retry-needs-attention");
+      firstBlocked.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
+      editButton?.focus?.({ preventScroll: true });
+      setTimeout(() => firstBlocked.classList.remove("retry-needs-attention"), 1800);
+      showStatus(interpolate(cleanText("retryBlockedNeedEdit"), { count: failedCards.length }), "error");
+    } else {
+      showStatus(cleanText("noFailedToRetry"), "info");
+    }
     return;
   }
 

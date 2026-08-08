@@ -2563,6 +2563,52 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
 }
 
+async function testRetryAllBlockedFailureExplainsRequiredEdit(cdp) {
+  logStep("Retry-all remains clickable and explains edit-required HTTP 400 failures");
+  await loadFresh(cdp, "retry-all-edit-required-feedback");
+  const result = await cdp.eval(`(async () => {
+    localStorage.clear();
+    applyLanguage("zh-CN");
+    const grid = document.getElementById("resultGrid");
+    grid.innerHTML = "";
+    grid.classList.remove("hidden");
+    document.getElementById("resultToolbar").classList.remove("hidden");
+    const card = addResultPlaceholder(89, "panel 89", {
+      mode: "comic", panelPrompt: "panel 89", prompt: "panel 89", size: "1024x1536", retryCount: 0,
+    });
+    markPlaceholderFailed(card, 89, "HTTP 400: unsupported parameter quality", card._retryContext);
+    const button = document.getElementById("retryFailedAll");
+    const before = {
+      failed: getFailedResultCards().length,
+      eligible: getRetryEligibleFailedCards().length,
+      disabled: button.disabled,
+      text: button.textContent.trim(),
+      status: document.getElementById("status").textContent,
+    };
+    button.click();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    return {
+      before,
+      after: {
+        status: document.getElementById("status").textContent,
+        statusType: document.getElementById("status").className,
+        expectedStatus: interpolate(cleanText("retryBlockedNeedEdit"), { count: 1 }),
+        focusedEdit: document.activeElement === card.querySelector(".edit-retry") || document.activeElement === card.querySelector(".retry-now"),
+        highlighted: card.classList.contains("retry-needs-attention"),
+        runStarted: !!retryAllFailedRun,
+      },
+    };
+  })()`, true);
+  assertQa(result.before.failed === 1 && result.before.eligible === 0 && !result.before.disabled,
+    "An edit-required HTTP 400 card must keep the retry-all control clickable instead of presenting a dead disabled action.", result);
+  assertQa(result.before.text.includes("0/1"),
+    "The retry-all label must disclose how many failed cards are actually eligible.", result);
+  assertQa(result.after.status === result.after.expectedStatus && /error/.test(result.after.statusType),
+    "Clicking retry-all with only blocked cards must explain the required edit instead of doing nothing.", result);
+  assertQa(result.after.focusedEdit && result.after.highlighted && !result.after.runStarted,
+    "The blocked retry-all action must focus and highlight the first editable failed card without resubmitting the unchanged request.", result);
+}
+
 async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
   logStep("Retry-all gives each card one base attempt plus the configured additional attempts, requeues repeated failures fairly, and stops immediately after success");
   await loadFresh(cdp, "retry-all-repeat-until-limit");
@@ -2590,7 +2636,7 @@ async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
       const card = addResultPlaceholder(panelId, prompt, {
         mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
       });
-      markPlaceholderFailed(card, panelId, "initial failure", {
+      markPlaceholderFailed(card, panelId, index === 0 ? "HTTP 400: generate image failed" : "initial failure", {
         mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
       });
     });
@@ -3770,7 +3816,7 @@ async function testTurnaroundMode(cdp) {
 async function testSkillsManagerAndPromptInjection(cdp) {
   logStep("Skills: sidebar defaults collapsed and expands on demand, built-in style defaults off, custom skills support CRUD/scope, single and comic selections stay independent, injection follows list order, and turnaround ignores skills");
   await loadFresh(cdp, "skills-manager");
-  const initial = await cdp.eval(`(async () => {
+  const initial = await cdp.eval(`(() => {
     localStorage.removeItem(SKILLS_STORAGE_KEY);
     skillState = defaultSkillState();
     saveSkillState();
@@ -3795,13 +3841,11 @@ async function testSkillsManagerAndPromptInjection(cdp) {
     document.getElementById("skillScope").value = "single";
     document.getElementById("skillTemplate").value = "KEEP_IDENTITY_EXACT";
     document.getElementById("skillEditor").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise(resolve => setTimeout(resolve, 30));
 
     const custom = skillState.skills.find(skill => skill.name === "Identity Lock");
     openSkillEditor(custom);
     document.getElementById("skillName").value = "Identity Lock Edited";
     document.getElementById("skillEditor").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise(resolve => setTimeout(resolve, 30));
     const edited = skillState.skills.find(skill => skill.id === custom.id);
 
     switchMode("single");
@@ -3850,17 +3894,18 @@ async function testSkillsManagerAndPromptInjection(cdp) {
   assertQa(afterReload.selectedSingle === 2 && afterReload.selectedComic === 0 && afterReload.singleChecked === 2, "Single/comic skill selections must survive a full reload independently.", afterReload);
   assertQa(afterReload.editedName === "Identity Lock Edited", "Edited custom skill data must survive reload.", afterReload);
 
-  const deletion = await cdp.eval(`(async () => {
+  await cdp.eval(`(() => {
     openSkillsModal();
     window.askConfirm = async () => true;
     const card = [...document.querySelectorAll(".skill-card")].find(item => item.textContent.includes("Identity Lock Edited"));
     card.querySelector(".delete-skill").click();
-    await new Promise(resolve => setTimeout(resolve, 50));
-    return {
+    return true;
+  })()`);
+  await sleep(60);
+  const deletion = await cdp.eval(`({
       removed: !skillState.skills.some(skill => skill.template === "KEEP_IDENTITY_EXACT"),
       selectionRemoved: !skillState.enabled.single.some(id => id.includes("skill-")),
-    };
-  })()`, true);
+  })`);
   assertQa(deletion.removed && deletion.selectionRemoved, "Deleting a custom skill must remove both the definition and its saved selections.", deletion);
 }
 
@@ -6617,6 +6662,7 @@ async function main() {
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
+    await testRetryAllBlockedFailureExplainsRequiredEdit(cdp);
     await testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp);
     await testRetryAllFailedManualSupplementButton(cdp);
     await testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp);
