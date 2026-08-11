@@ -10482,10 +10482,11 @@ function activeChatGptAccountIsReady() {
 }
 
 function refreshChatGptFailedRetryAvailability() {
-  const ready = activeChatGptAccountIsReady();
   for (const card of getFailedResultCards()) {
     if (!isChatGptAuthenticationRetry(card)) continue;
-    card.dataset.retryBlocked = ready ? "false" : "true";
+    // Authentication readiness changes what the click does (open sign-in or
+    // submit), never whether the user may click the manual retry action.
+    card.dataset.retryBlocked = "false";
     const retryNow = card.querySelector(".retry-now");
     if (retryNow) retryNow.disabled = false;
   }
@@ -10548,23 +10549,9 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
     (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"])[errorDetail.category] || "生成失败",
   );
   const requiresEdit = Boolean(errorDetail.requiresEdit);
-  const provider = retryContextProvider(card, retryContext);
-  const chatGptAuthentication = errorDetail.category === "authentication_failed"
-    && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
-  const chatGptManualTimeout = errorDetail.retryPolicy === "manual_unknown_outcome"
-    && provider === CODEX_IMAGE_GATEWAY_PROVIDER;
-  const manualRetryBlocked = Boolean(
-    errorDetail.retryPolicy === "never"
-    || errorDetail.category === "provider_ui_unavailable"
-    || (errorDetail.retryPolicy === "after_configuration_change" && !chatGptAuthentication)
-    || (errorDetail.retryPolicy === "manual_unknown_outcome" && !chatGptManualTimeout)
-  );
-  // An edit-required failure must stay out of "retry all" because resubmitting
-  // the unchanged request is pointless, but its single-card retry remains
-  // actionable: clicking it opens the edit dialog before sending a new request.
-  const bulkRetryBlocked = manualRetryBlocked
-    || requiresEdit
-    || (chatGptAuthentication && !activeChatGptAccountIsReady());
+  // Error policy controls automatic retries only. Every failed card must keep
+  // both explicit user actions available, including unknown-outcome 504s,
+  // authentication failures, moderation failures and invalid parameters.
   setRetryContext(card, panelId, {
     ...(card._retryContext || {}),
     ...(retryContext || {}),
@@ -10578,7 +10565,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   card.dataset.errorMessage = message;
   card.dataset.errorCategory = errorDetail.category;
   card.dataset.retryPolicy = errorDetail.retryPolicy;
-  card.dataset.retryBlocked = bulkRetryBlocked ? "true" : "false";
+  card.dataset.retryBlocked = "false";
   card._lastImageError = errorDetail;
   delete card.dataset.queuePosition;
   delete card._retryQueuedSnapshot;
@@ -10601,7 +10588,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
   card.title = message;
   const retryNow = card.querySelector(".retry-now");
   if (retryNow) {
-    retryNow.disabled = manualRetryBlocked;
+    retryNow.disabled = false;
     retryNow.title = requiresEdit ? (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"]).editRequired : cleanText("retry");
     retryNow.addEventListener("click", () => retryResultCard(card, requiresEdit));
   }
@@ -10616,7 +10603,10 @@ function getFailedResultCards() {
 }
 
 function getRetryEligibleFailedCards() {
-  return getFailedResultCards().filter(card => card.dataset.retryBlocked !== "true");
+  // Deliberately ignore legacy retryBlocked attributes. Older versions wrote
+  // them for policy errors, and restored cards must become manually retryable
+  // without requiring the user to recreate the project.
+  return getFailedResultCards();
 }
 
 function setRetryFailedButtonText(totalCount = getFailedResultCards().length, eligibleCount = getRetryEligibleFailedCards().length) {
@@ -10888,21 +10878,10 @@ async function retryAllFailedResults() {
     cancelRetryAllFailedRun();
     return;
   }
-  const failedCards = getFailedResultCards();
   const cards = getRetryEligibleFailedCards();
   if (!cards.length) {
     updateFailedRetryTools();
-    if (failedCards.length) {
-      const firstBlocked = failedCards[0];
-      const editButton = firstBlocked.querySelector(".edit-retry, .retry-now:not(:disabled)");
-      firstBlocked.classList.add("retry-needs-attention");
-      firstBlocked.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
-      editButton?.focus?.({ preventScroll: true });
-      setTimeout(() => firstBlocked.classList.remove("retry-needs-attention"), 1800);
-      showStatus(interpolate(cleanText("retryBlockedNeedEdit"), { count: failedCards.length }), "error");
-    } else {
-      showStatus(cleanText("noFailedToRetry"), "info");
-    }
+    showStatus(cleanText("noFailedToRetry"), "info");
     return;
   }
 
