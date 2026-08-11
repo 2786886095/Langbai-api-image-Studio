@@ -1,12 +1,20 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.31
+# Codex / Claude Handoff: AI 图片生成器 v1.6.32
 
-更新时间：2026-08-08
+更新时间：2026-08-11
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
 仓库：`https://github.com/2786886095/Langbai-api-image-Studio`
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.31+108`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.32+109`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.32 全失败手动重试修复
+
+- 错误分类仅决定自动重试策略，不再关闭用户主动发起的单张重试或全部失败重试。
+- `getRetryEligibleFailedCards()` 始终收集全部失败卡，兼容旧项目遗留的 `retryBlocked` 数据。
+- 参数与审核错误的单卡重试仍先打开编辑框；用户主动执行全部失败重试时允许原样提交一次。
+- 自动追加轮次仍使用 `imageTaskStability.retryDirective()`，未知结果 504、参数错误等不会被后台无限重复。
+- 完整浏览器回归、重试策略测试、静态审计、`flutter analyze` 与 Flutter 全量测试通过；Android 内嵌资源与主资源同步。
 
 ## v1.6.31 全部失败重试与多端布局修复
 
