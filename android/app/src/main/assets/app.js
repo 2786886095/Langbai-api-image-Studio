@@ -407,7 +407,7 @@ const CLEAN_LOCALES = {
     collectingImages: "收集图片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "导出失败",
     download: "下载", copyLink: "复制链接", editRetry: "编辑重试", reloadImage: "重新加载图片", stopCardRetry: "取消",
     failReason: "失败原因", retryFailedAll: "全部失败重试", cancelRetryFailedAll: "取消全部重试", cancellingRetryFailedAll: "正在取消全部重试", failedRetryCount: "失败后追加次数", failedRetryCountHint: "每张先执行 1 次；失败后最多追加 N 次。填写 10 表示最多共 11 次。", noFailedToRetry: "没有可重试的失败分镜", retryFailedAllCount: "全部失败重试（可重试 {eligible}/{total}）", retryBlockedNeedEdit: "有 {count} 个失败项需要先修改提示词或参数；已定位到第一个失败卡，请点击铅笔修改后重试",
-    retryFailedAllStarted: "正在重试 {count} 个失败项", retryFailedAllCancelled: "已取消全部失败重试，可再次点击重试", retryQueued: "等待重试（队列第 {position} 个）", retryQueuedHint: "尚未发送请求，前面的任务完成后会自动开始", retryQueuedRound: "准备第 {attempt}/{maxAttempts} 次重试", bulkRetryRound: "全部重试第 {attempt}/{maxAttempts} 次", enqueueRemainingFailed: "补充剩余失败", remainingFailedAdded: "已补充 {count} 个遗漏的失败项", noRemainingFailed: "没有遗漏的失败项，当前队列已经完整",
+    retryFailedAllStarted: "正在重试 {count} 个失败项", retryFailedAllCancelled: "已取消全部失败重试，可再次点击重试", retryQueued: "等待重试（队列第 {position} 个）", retryQueuedHint: "尚未发送请求，前面的任务完成后会自动开始", retryQueuedRound: "准备第 {attempt}/{maxAttempts} 次重试", bulkRetryRound: "全部重试第 {attempt}/{maxAttempts} 次", enqueueRemainingFailed: "补充剩余失败", remainingFailedAdded: "已重新加入 {count} 个失败项", noRemainingFailed: "没有可补充的失败项",
     softwareUpdate: "软件更新", currentVersion: "当前版本", latestVersion: "最新版本", updateAsset: "更新资源", notChecked: "未检测", releaseNotesPlaceholder: "检查更新后显示 GitHub Release 说明",
     checkUpdates: "检查更新", downloadUpdate: "下载更新包", installUpdate: "下载并安装", openReleasePage: "打开发布页",
     updateInitialHint: "可从 GitHub Releases 检测新版。Windows 可校验后覆盖安装；macOS 会下载并打开更新包；安卓和 iOS 会用系统浏览器打开发布页。",
@@ -485,7 +485,7 @@ const CLEAN_LOCALES = {
     collectingImages: "收集圖片", compressing: "生成 ZIP", zipSaved: "ZIP 已保存", exportFailed: "匯出失敗",
     download: "下載", copyLink: "複製連結", editRetry: "編輯重試", reloadImage: "重新載入圖片", stopCardRetry: "取消",
     failReason: "失敗原因", retryFailedAll: "全部失敗重試", cancelRetryFailedAll: "取消全部重試", cancellingRetryFailedAll: "正在取消全部重試", failedRetryCount: "失敗後追加次數", failedRetryCountHint: "每張先執行 1 次；失敗後最多追加 N 次。填寫 10 表示最多共 11 次。", noFailedToRetry: "沒有可重試的失敗分鏡", retryFailedAllCount: "全部失敗重試（可重試 {eligible}/{total}）", retryBlockedNeedEdit: "有 {count} 個失敗項目需要先修改提示詞或參數；已定位第一個失敗卡，請點擊鉛筆修改後重試",
-    retryFailedAllStarted: "正在重試 {count} 個失敗項目", retryFailedAllCancelled: "已取消全部失敗重試，可再次點擊重試", retryQueued: "等待重試（佇列第 {position} 個）", retryQueuedHint: "尚未送出請求，前面的工作完成後會自動開始", retryQueuedRound: "準備第 {attempt}/{maxAttempts} 次重試", bulkRetryRound: "全部重試第 {attempt}/{maxAttempts} 次", enqueueRemainingFailed: "補充剩餘失敗", remainingFailedAdded: "已補充 {count} 個遺漏的失敗項目", noRemainingFailed: "沒有遺漏的失敗項目，目前佇列已完整",
+    retryFailedAllStarted: "正在重試 {count} 個失敗項目", retryFailedAllCancelled: "已取消全部失敗重試，可再次點擊重試", retryQueued: "等待重試（佇列第 {position} 個）", retryQueuedHint: "尚未送出請求，前面的工作完成後會自動開始", retryQueuedRound: "準備第 {attempt}/{maxAttempts} 次重試", bulkRetryRound: "全部重試第 {attempt}/{maxAttempts} 次", enqueueRemainingFailed: "補充剩餘失敗", remainingFailedAdded: "已重新加入 {count} 個失敗項目", noRemainingFailed: "沒有可補充的失敗項目",
     softwareUpdate: "軟體更新", currentVersion: "目前版本", latestVersion: "最新版本", updateAsset: "更新資源", notChecked: "未檢測", releaseNotesPlaceholder: "檢查更新後顯示 GitHub Release 說明",
     checkUpdates: "檢查更新", downloadUpdate: "下載更新包", installUpdate: "下載並安裝", openReleasePage: "開啟發布頁",
     updateInitialHint: "可從 GitHub Releases 檢測新版。Windows 可在驗證後覆蓋安裝；macOS 會下載並開啟更新包；Android 與 iOS 會以系統瀏覽器開啟發布頁。",
@@ -563,7 +563,7 @@ const CLEAN_LOCALES = {
     collectingImages: "Collecting images", compressing: "Creating ZIP", zipSaved: "ZIP saved", exportFailed: "Export failed",
     download: "Download", copyLink: "Copy Link", editRetry: "Edit & Retry", reloadImage: "Reload image", stopCardRetry: "Cancel",
     failReason: "Failure reason", retryFailedAll: "Retry all failed", cancelRetryFailedAll: "Cancel all retries", cancellingRetryFailedAll: "Cancelling all retries", failedRetryCount: "Extra attempts after failure", failedRetryCountHint: "Each card gets 1 initial attempt, then up to N extra attempts. Entering 10 means 11 attempts total.", noFailedToRetry: "No failed panels to retry", retryFailedAllCount: "Retry all failed ({eligible}/{total} retryable)", retryBlockedNeedEdit: "{count} failed item(s) require prompt or parameter edits first. The first blocked card is focused; use its pencil button to edit and retry.",
-    retryFailedAllStarted: "Retrying {count} failed items", retryFailedAllCancelled: "All failed retries cancelled. You can retry again.", retryQueued: "Waiting to retry (queue position {position})", retryQueuedHint: "The request has not been sent yet. It will start automatically when an earlier task finishes.", retryQueuedRound: "Preparing retry {attempt}/{maxAttempts}", bulkRetryRound: "Retry-all attempt {attempt}/{maxAttempts}", enqueueRemainingFailed: "Add remaining failures", remainingFailedAdded: "Added {count} missed failed items", noRemainingFailed: "No missed failures. The current queue is complete.",
+    retryFailedAllStarted: "Retrying {count} failed items", retryFailedAllCancelled: "All failed retries cancelled. You can retry again.", retryQueued: "Waiting to retry (queue position {position})", retryQueuedHint: "The request has not been sent yet. It will start automatically when an earlier task finishes.", retryQueuedRound: "Preparing retry {attempt}/{maxAttempts}", bulkRetryRound: "Retry-all attempt {attempt}/{maxAttempts}", enqueueRemainingFailed: "Add remaining failures", remainingFailedAdded: "Re-added {count} failed items", noRemainingFailed: "No failed items are available to add.",
     softwareUpdate: "Software Update", currentVersion: "Current version", latestVersion: "Latest version", updateAsset: "Update asset", notChecked: "Not checked", releaseNotesPlaceholder: "GitHub Release notes appear after checking for updates",
     checkUpdates: "Check updates", downloadUpdate: "Download update", installUpdate: "Download and install", openReleasePage: "Open release page",
     updateInitialHint: "Checks GitHub Releases for a new version. Windows can verify and replace the installation; macOS downloads and opens the update package; Android and iOS open the release page in the system browser.",
@@ -641,7 +641,7 @@ const CLEAN_LOCALES = {
     collectingImages: "画像を収集中", compressing: "ZIP 作成中", zipSaved: "ZIP 保存済み", exportFailed: "書き出し失敗",
     download: "ダウンロード", copyLink: "リンクをコピー", editRetry: "編集して再試行", reloadImage: "画像を再読み込み", stopCardRetry: "キャンセル",
     failReason: "失敗理由", retryFailedAll: "失敗分を再試行", cancelRetryFailedAll: "すべての再試行をキャンセル", cancellingRetryFailedAll: "すべての再試行をキャンセル中", failedRetryCount: "失敗後の追加回数", failedRetryCountHint: "各カードをまず 1 回実行し、失敗後に最大 N 回追加します。10 は合計最大 11 回です。", noFailedToRetry: "再試行できる失敗コマはありません", retryFailedAllCount: "失敗分を再試行（{eligible}/{total} 件）", retryBlockedNeedEdit: "{count} 件は先にプロンプトまたはパラメータの修正が必要です。最初の失敗カードへ移動しました。鉛筆ボタンから修正して再試行してください。",
-    retryFailedAllStarted: "{count} 件の失敗項目を再試行中", retryFailedAllCancelled: "失敗項目の再試行をキャンセルしました。再度実行できます。", retryQueued: "再試行待ち（キュー {position} 番）", retryQueuedHint: "まだリクエストは送信されていません。前の処理が終わると自動的に開始します。", retryQueuedRound: "{attempt}/{maxAttempts} 回目の再試行を準備中", bulkRetryRound: "一括再試行 {attempt}/{maxAttempts} 回目", enqueueRemainingFailed: "残りの失敗を追加", remainingFailedAdded: "漏れていた失敗項目を {count} 件追加しました", noRemainingFailed: "漏れている失敗項目はありません。現在のキューは完全です。",
+    retryFailedAllStarted: "{count} 件の失敗項目を再試行中", retryFailedAllCancelled: "失敗項目の再試行をキャンセルしました。再度実行できます。", retryQueued: "再試行待ち（キュー {position} 番）", retryQueuedHint: "まだリクエストは送信されていません。前の処理が終わると自動的に開始します。", retryQueuedRound: "{attempt}/{maxAttempts} 回目の再試行を準備中", bulkRetryRound: "一括再試行 {attempt}/{maxAttempts} 回目", enqueueRemainingFailed: "残りの失敗を追加", remainingFailedAdded: "失敗項目を {count} 件再追加しました", noRemainingFailed: "追加できる失敗項目はありません。",
     softwareUpdate: "ソフトウェア更新", currentVersion: "現在のバージョン", latestVersion: "最新バージョン", updateAsset: "更新ファイル", notChecked: "未確認", releaseNotesPlaceholder: "更新確認後に GitHub Release ノートを表示",
     checkUpdates: "更新を確認", downloadUpdate: "更新をダウンロード", installUpdate: "ダウンロードしてインストール", openReleasePage: "リリースページを開く",
     updateInitialHint: "GitHub Releases から新しいバージョンを確認します。Windows は検証後にインストール先を更新し、macOS は更新パッケージをダウンロードして開き、Android と iOS はシステムブラウザでリリースページを開きます。",
@@ -719,7 +719,7 @@ const CLEAN_LOCALES = {
     collectingImages: "이미지 수집 중", compressing: "ZIP 생성 중", zipSaved: "ZIP 저장됨", exportFailed: "내보내기 실패",
     download: "다운로드", copyLink: "링크 복사", editRetry: "편집 후 재시도", reloadImage: "이미지 다시 불러오기", stopCardRetry: "취소",
     failReason: "실패 원인", retryFailedAll: "실패 항목 재시도", cancelRetryFailedAll: "모든 재시도 취소", cancellingRetryFailedAll: "모든 재시도 취소 중", failedRetryCount: "실패 후 추가 횟수", failedRetryCountHint: "각 카드를 먼저 1회 실행하고 실패 후 최대 N회 추가합니다. 10은 총 최대 11회입니다.", noFailedToRetry: "재시도할 실패 콘티가 없습니다", retryFailedAllCount: "실패 항목 재시도 ({eligible}/{total})", retryBlockedNeedEdit: "{count}개 실패 항목은 먼저 프롬프트 또는 매개변수를 수정해야 합니다. 첫 번째 실패 카드로 이동했으니 연필 버튼에서 수정 후 재시도하세요.",
-    retryFailedAllStarted: "실패 항목 {count}개 재시도 중", retryFailedAllCancelled: "실패 항목 재시도를 모두 취소했습니다. 다시 시도할 수 있습니다.", retryQueued: "재시도 대기 중 (대기열 {position}번)", retryQueuedHint: "아직 요청을 보내지 않았습니다. 앞선 작업이 끝나면 자동으로 시작합니다.", retryQueuedRound: "{attempt}/{maxAttempts}번째 재시도 준비 중", bulkRetryRound: "전체 재시도 {attempt}/{maxAttempts}번째", enqueueRemainingFailed: "남은 실패 추가", remainingFailedAdded: "누락된 실패 항목 {count}개를 추가했습니다", noRemainingFailed: "누락된 실패 항목이 없습니다. 현재 대기열이 완전합니다.",
+    retryFailedAllStarted: "실패 항목 {count}개 재시도 중", retryFailedAllCancelled: "실패 항목 재시도를 모두 취소했습니다. 다시 시도할 수 있습니다.", retryQueued: "재시도 대기 중 (대기열 {position}번)", retryQueuedHint: "아직 요청을 보내지 않았습니다. 앞선 작업이 끝나면 자동으로 시작합니다.", retryQueuedRound: "{attempt}/{maxAttempts}번째 재시도 준비 중", bulkRetryRound: "전체 재시도 {attempt}/{maxAttempts}번째", enqueueRemainingFailed: "남은 실패 추가", remainingFailedAdded: "실패 항목 {count}개를 다시 추가했습니다", noRemainingFailed: "추가할 수 있는 실패 항목이 없습니다.",
     softwareUpdate: "소프트웨어 업데이트", currentVersion: "현재 버전", latestVersion: "최신 버전", updateAsset: "업데이트 파일", notChecked: "확인 안 됨", releaseNotesPlaceholder: "업데이트 확인 후 GitHub Release 설명 표시",
     checkUpdates: "업데이트 확인", downloadUpdate: "업데이트 다운로드", installUpdate: "다운로드 및 설치", openReleasePage: "릴리스 페이지 열기",
     updateInitialHint: "GitHub Releases에서 새 버전을 확인합니다. Windows는 검증 후 설치를 교체하고, macOS는 업데이트 패키지를 내려받아 열며, Android와 iOS는 시스템 브라우저에서 릴리스 페이지를 엽니다.",
@@ -5763,7 +5763,7 @@ dom.failedRetryCount?.addEventListener("change", getFailedRetryCount);
 dom.enqueueRemainingFailed?.addEventListener("click", () => {
   const run = retryAllFailedRun;
   if (!run || run.cancelRequested) return;
-  const added = enqueueFailedCardsForRetryRun(run, getUntrackedFailedCards(run));
+  const added = enqueueFailedCardsForRetryRun(run, getSupplementableFailedCards(run), { restartCompleted: true });
   showStatus(added > 0
     ? interpolate(cleanText("remainingFailedAdded"), { count: added })
     : cleanText("noRemainingFailed"), added > 0 ? "success" : "info");
@@ -10679,13 +10679,26 @@ function restoreQueuedRetryCard(card) {
   markPlaceholderFailed(card, snapshot.panelId, snapshot.message, snapshot.context);
 }
 
-function enqueueFailedCardsForRetryRun(run, cards = getRetryEligibleFailedCards()) {
+function enqueueFailedCardsForRetryRun(run, cards = getRetryEligibleFailedCards(), { restartCompleted = false } = {}) {
   if (!run || run.cancelRequested || run.finished) return 0;
   let added = 0;
   cards.forEach(card => {
-    if (!card?.isConnected || run.seenCards.has(card)) return;
-    run.seenCards.add(card);
-    run.cards.push(card);
+    if (!card?.isConnected || run.activeCards.has(card) || run.pendingCards.includes(card)) return;
+    const seen = run.seenCards.has(card);
+    const completed = run.completedCards.has(card);
+    if (seen && !(restartCompleted && completed)) return;
+    if (!seen) {
+      run.seenCards.add(card);
+      run.cards.push(card);
+    } else {
+      run.completedCards.delete(card);
+      run.done = Math.max(0, run.done - 1);
+      if (run.failedCards.delete(card)) run.failed = Math.max(0, run.failed - 1);
+      if (run.succeededCards.delete(card)) run.ok = Math.max(0, run.ok - 1);
+      run.attempts.set(card, 0);
+      delete card.dataset.retryAttempt;
+      delete card.dataset.retryMaxAttempts;
+    }
     run.pendingCards.push(card);
     added++;
   });
@@ -10703,9 +10716,13 @@ function enqueueFailedCardsForRetryRun(run, cards = getRetryEligibleFailedCards(
   return added;
 }
 
-function getUntrackedFailedCards(run = retryAllFailedRun) {
+function getSupplementableFailedCards(run = retryAllFailedRun) {
   if (!run) return [];
-  return getRetryEligibleFailedCards().filter(card => !run.seenCards.has(card));
+  return getRetryEligibleFailedCards().filter(card => (
+    !run.activeCards.has(card)
+    && !run.pendingCards.includes(card)
+    && (!run.seenCards.has(card) || run.completedCards.has(card))
+  ));
 }
 
 function updateFailedRetryTools() {
@@ -10728,7 +10745,7 @@ function updateFailedRetryTools() {
     setRetryFailedButtonText(count, eligibleCount);
   }
   if (dom.enqueueRemainingFailed) {
-    const remaining = hasActiveRun ? getUntrackedFailedCards(retryAllFailedRun).length : 0;
+    const remaining = hasActiveRun ? getSupplementableFailedCards(retryAllFailedRun).length : 0;
     dom.enqueueRemainingFailed.classList.toggle("hidden", !hasActiveRun);
     // 即使当前扫描为 0 也保持可点：这个按钮就是自动收集链路失灵时的人工保险入口。
     dom.enqueueRemainingFailed.disabled = !hasActiveRun || !!retryAllFailedRun?.cancelRequested;
@@ -10782,21 +10799,24 @@ function executeRetryAllFailedRun(run) {
         refreshRetryQueuePositions(run);
         const attempt = (run.attempts.get(card) || 0) + 1;
         run.attempts.set(card, attempt);
+        run.activeCards.add(card);
         run.activeCount++;
         void (async () => {
           let result = null;
           let terminal = false;
+          let terminalFailed = false;
           try {
             if (card?.isConnected && card.classList.contains("is-failed")) {
               const beforeRetry = imageTaskStability.retryDirective(
                 card._lastImageError || classifyImageApiError(card.dataset.errorMessage || ""),
                 { attempt, baseDelayMs: 1500, phase: "submit" },
               );
-              // The first attempt follows an explicit user click and starts
-              // immediately. Backoff applies only after this run observes a
-              // fresh transient failure from the provider.
-              if (attempt > 1 && beforeRetry.retryable && beforeRetry.delayMs > 0) {
-                await sleep(beforeRetry.delayMs, run.abortController.signal);
+              // Retry-all is an explicit user-authorized sequence. Every error
+              // category receives the configured number of rounds; structured
+              // policy still supplies a longer backoff for transient failures.
+              if (attempt > 1) {
+                const delayMs = beforeRetry.retryable ? beforeRetry.delayMs : 1500;
+                if (delayMs > 0) await sleep(delayMs, run.abortController.signal);
               }
               result = await retryResultCard(card, false, {
                 // “失败后追加次数”由本层统一控制。单次调用不再嵌套 HTTP 400 自动重试，
@@ -10813,28 +10833,26 @@ function executeRetryAllFailedRun(run) {
               run.ok++;
               terminal = true;
             } else if (!run.cancelRequested && card?.isConnected && card.classList.contains("is-failed") && attempt < run.maxAttempts) {
-              const nextDirective = imageTaskStability.retryDirective(
-                card._lastImageError || classifyImageApiError(card.dataset.errorMessage || ""),
-                { attempt, baseDelayMs: 1500, phase: "submit" },
-              );
-              if (!nextDirective.retryable) {
-                run.failed++;
-                terminal = true;
-              } else {
               // 失败后放到队尾，先让其它卡片获得请求机会；成功后不会走到这里。
-                run.pendingCards.push(card);
-                run.requeued++;
-                refreshRetryQueuePositions(run);
-              }
+              run.pendingCards.push(card);
+              run.requeued++;
+              refreshRetryQueuePositions(run);
             } else {
               run.failed++;
               terminal = true;
+              terminalFailed = true;
             }
           } catch {
             run.failed++;
             terminal = true;
+            terminalFailed = true;
           } finally {
-            if (terminal) run.done++;
+            run.activeCards.delete(card);
+            if (terminal) {
+              run.done++;
+              run.completedCards.add(card);
+              (terminalFailed ? run.failedCards : run.succeededCards).add(card);
+            }
             run.activeCount--;
             updateProgress(run.done, Math.max(run.done, run.cards.length), run.done >= run.cards.length ? "✅" : "⏳");
             updateFailedRetryTools();
@@ -10892,6 +10910,10 @@ async function retryAllFailedResults() {
     pendingCards: [],
     seenCards: new Set(),
     attempts: new Map(),
+    activeCards: new Set(),
+    completedCards: new Set(),
+    failedCards: new Set(),
+    succeededCards: new Set(),
     maxAttempts: additionalRetryCount + 1,
     activeCount: 0,
     done: 0,
