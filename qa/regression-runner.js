@@ -2642,7 +2642,7 @@ async function testEveryFailureRemainsManuallyRetryable(cdp) {
 }
 
 async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
-  logStep("Retry-all gives each card one base attempt plus the configured additional attempts, requeues repeated failures fairly, and stops immediately after success");
+  logStep("Retry-all applies every configured round to moderation and unknown-outcome failures, requeues fairly, and stops immediately after success");
   await loadFresh(cdp, "retry-all-repeat-until-limit");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -2663,43 +2663,35 @@ async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
     grid.innerHTML = "";
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
-    ["eventual success", "always fails"].forEach((prompt, index) => {
+    ["moderation eventually succeeds", "504 always fails"].forEach((prompt, index) => {
       const panelId = index + 1;
       const card = addResultPlaceholder(panelId, prompt, {
         mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
       });
-      markPlaceholderFailed(card, panelId, index === 0 ? "HTTP 400: generate image failed" : "initial failure", {
+      markPlaceholderFailed(card, panelId, index === 0
+        ? "HTTP 400: prompt may violate our content policies"
+        : "HTTP 504: 504 Gateway Time-out", {
         mode: "comic", panelPrompt: prompt, prompt, size: "1024x1024", retryCount: 0,
       });
     });
 
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
-    const originalFetch = window.fetch.bind(window);
+    const originalCallImageAPI = callImageAPI;
     const calls = { success: 0, failure: 0 };
     const rounds = { success: [], failure: [] };
-    window.fetch = async (url, opts = {}) => {
-      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
-      let body = {};
-      try { body = JSON.parse(opts.body || "{}"); } catch {}
-      const successCard = String(body.prompt || "").includes("eventual success");
+    callImageAPI = async prompt => {
+      const successCard = String(prompt || "").includes("moderation eventually succeeds");
       const key = successCard ? "success" : "failure";
       const panelId = successCard ? "1" : "2";
       calls[key]++;
       rounds[key].push(document.querySelector(".result-item[data-panel-id='" + panelId + "']")?.dataset.retryAttempt || "");
       await sleep(20);
-      if (successCard && calls.success === 1) {
-        return new Response(JSON.stringify({ data: [] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
-      }
       if (successCard && calls.success === 3) {
-        return new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
-          status: 200, headers: { "Content-Type": "application/json" },
-        });
+        return { data: [{ b64_json: png }] };
       }
-      return new Response(JSON.stringify({ error: { message: "still failed" } }), {
-        status: 502, headers: { "Content-Type": "application/json" },
-      });
+      throw new Error(successCard
+        ? "HTTP 400: prompt may violate our content policies"
+        : "HTTP 504: 504 Gateway Time-out");
     };
 
     document.getElementById("retryFailedAll").click();
@@ -2715,18 +2707,18 @@ async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
       failureMessage: document.querySelector(".result-item[data-panel-id='2']")?.dataset.errorMessage || "",
       status: document.getElementById("status").textContent,
     };
-    window.fetch = originalFetch;
+    callImageAPI = originalCallImageAPI;
     return final;
   })()`, true);
 
-  assertQa(result.calls.success === 3 && result.calls.failure === 3, "Two additional attempts must mean at most three total submissions per card.", result);
-  assertQa(result.rounds.success.join(",") === "1,2,3" && result.rounds.failure.join(",") === "1,2,3", "Every repeated submission must expose the current retry-all round on its own card.", result);
+  assertQa(result.calls.success === 3 && result.calls.failure === 3, "Two additional attempts must mean three explicit submissions even for moderation and unknown-outcome 504 failures.", result);
+  assertQa(result.rounds.success.join(",") === "1,2,3" && result.rounds.failure.join(",") === "1,2,3", "Every policy-failure submission must expose the current retry-all round on its own card.", result);
   assertQa(result.images === 1 && result.failed === 1 && result.successAttempt === "3" && result.failureAttempt === "3", "A successful card must leave the queue immediately while a card that exhausts all rounds remains failed.", result);
-  assertQa(/still failed/.test(result.failureMessage), "The exhausted card must preserve the final API failure reason.", result);
+  assertQa(/504/.test(result.failureMessage), "The exhausted card must preserve its final HTTP 504 failure reason.", result);
 }
 
 async function testRetryAllFailedManualSupplementButton(cdp) {
-  logStep("Retry-all keeps a manual supplement button available as a fallback scanner for failed cards missed by automatic collection");
+  logStep("Retry-all supplement restarts exhausted failures from round one and also collects previously untracked failures");
   await loadFresh(cdp, "retry-all-manual-supplement");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
@@ -2747,28 +2739,42 @@ async function testRetryAllFailedManualSupplementButton(cdp) {
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
 
-    const first = addResultPlaceholder(1, "first tracked failure", {
-      mode: "comic", panelPrompt: "first tracked failure", prompt: "first tracked failure", size: "1024x1024", retryCount: 0,
+    const exhausted = addResultPlaceholder(1, "exhausted failure", {
+      mode: "comic", panelPrompt: "exhausted failure", prompt: "exhausted failure", size: "1024x1024", retryCount: 0,
     });
-    markPlaceholderFailed(first, 1, "initial failure", first._retryContext);
-    const originalFetch = window.fetch.bind(window);
-    let calls = 0;
-    window.fetch = async (url, opts = {}) => {
-      if (!String(url).includes("/v1/images/generations")) return originalFetch(url, opts);
-      calls++;
+    markPlaceholderFailed(exhausted, 1, "HTTP 400: prompt may violate our content policies", exhausted._retryContext);
+    const holding = addResultPlaceholder(2, "keep retry run open", {
+      mode: "comic", panelPrompt: "keep retry run open", prompt: "keep retry run open", size: "1024x1024", retryCount: 0,
+    });
+    markPlaceholderFailed(holding, 2, "initial failure", holding._retryContext);
+    const originalCallImageAPI = callImageAPI;
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    const calls = { exhausted: 0, holding: 0, missed: 0 };
+    callImageAPI = async (prompt, _size, _count, _label, options = {}) => {
+      if (String(prompt).includes("exhausted failure")) {
+        calls.exhausted++;
+        if (calls.exhausted === 1) throw new Error("HTTP 400: prompt may violate our content policies");
+        return { data: [{ b64_json: png }] };
+      }
+      if (String(prompt).includes("manually discovered failure")) {
+        calls.missed++;
+        return { data: [{ b64_json: png }] };
+      }
+      calls.holding++;
       return new Promise((resolve, reject) => {
-        opts.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        options.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
       });
     };
 
     const retryButton = document.getElementById("retryFailedAll");
     const supplement = document.getElementById("enqueueRemainingFailed");
     retryButton.click();
-    while (calls < 1) await sleep(10);
+    const exhaustedDeadline = Date.now() + 2000;
+    while (Date.now() < exhaustedDeadline && !(calls.exhausted === 1 && calls.holding === 1 && retryAllFailedRun?.failed === 1)) await sleep(10);
 
-    // Simulate an exceptional UI path that creates a failed card without calling
-    // updateFailedRetryTools(); the manual scanner must still be usable.
-    const missed = addResultPlaceholder(2, "manually discovered failure", {
+    // Simulate an exceptional UI path that did not call updateFailedRetryTools;
+    // the manual scanner must collect it alongside the exhausted known card.
+    const missed = addResultPlaceholder(3, "manually discovered failure", {
       mode: "comic", panelPrompt: "manually discovered failure", prompt: "manually discovered failure", size: "1024x1024", retryCount: 0,
     });
     missed.classList.add("is-failed");
@@ -2779,24 +2785,37 @@ async function testRetryAllFailedManualSupplementButton(cdp) {
       visible: !supplement.classList.contains("hidden"),
       enabled: !supplement.disabled,
       tracked: retryAllFailedRun?.cards.length || 0,
+      supplementable: getSupplementableFailedCards(retryAllFailedRun).length,
+      failed: retryAllFailedRun?.failed,
+      exhaustedAttempts: retryAllFailedRun?.attempts.get(exhausted),
     };
     supplement.click();
     const start = Date.now();
-    while (Date.now() - start < 1500 && calls < 2) await sleep(10);
+    while (Date.now() - start < 3000 && !(exhausted.dataset.status === "success" && missed.dataset.status === "success")) await sleep(10);
     const after = {
       calls,
       tracked: retryAllFailedRun?.cards.length || 0,
-      missedStarted: missed.dataset.status === "loading",
+      uniqueTracked: new Set(retryAllFailedRun?.cards || []).size,
+      exhaustedStatus: exhausted.dataset.status,
+      missedStatus: missed.dataset.status,
+      exhaustedRestartAttempt: retryAllFailedRun?.attempts.get(exhausted),
+      failed: retryAllFailedRun?.failed,
       status: document.getElementById("status").textContent,
     };
     retryButton.click();
     while (retryAllFailedRun) await sleep(10);
-    window.fetch = originalFetch;
+    callImageAPI = originalCallImageAPI;
     return { before, after };
   })()`, true);
 
-  assertQa(result.before.visible && result.before.enabled && result.before.tracked === 1, "The supplement button must remain visible and clickable throughout an active retry-all run, even when the latest automatic scan found zero omissions.", result);
-  assertQa(result.after.calls === 2 && result.after.tracked === 2 && result.after.missedStarted, "Clicking the supplement button must scan and start every untracked failed card exactly once.", result);
+  assertQa(result.before.visible && result.before.enabled && result.before.tracked === 2 && result.before.supplementable === 2 && result.before.failed === 1 && result.before.exhaustedAttempts === 1,
+    "The supplement button must expose both an exhausted known card and an untracked failed card while another request keeps the run active.", result);
+  assertQa(result.after.calls.exhausted === 2 && result.after.calls.missed === 1 && result.after.calls.holding === 1,
+    "Clicking supplement must resubmit the exhausted card and the newly discovered card without duplicating the active request.", result);
+  assertQa(result.after.tracked === 3 && result.after.uniqueTracked === 3 && result.after.exhaustedRestartAttempt === 1,
+    "Restarting an exhausted card must reset its attempt counter to round one without adding a duplicate card entry.", result);
+  assertQa(result.after.exhaustedStatus === "success" && result.after.missedStatus === "success" && result.after.failed === 0,
+    "Successful supplemented cards must leave the failed set and repair the run's aggregate failure count.", result);
 }
 
 async function testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp) {
