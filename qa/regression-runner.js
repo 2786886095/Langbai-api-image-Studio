@@ -2086,7 +2086,7 @@ async function testRetryClearReloadAndI18n(cdp) {
       const before = {
         category: card.dataset.errorCategory,
         enabled: !retryButton.disabled,
-        excludedFromBulk: card.dataset.retryBlocked === "true",
+        includedInBulk: getRetryEligibleFailedCards().includes(card),
       };
       retryButton.click();
       await new Promise(resolve => setTimeout(resolve, 30));
@@ -2127,8 +2127,8 @@ async function testRetryClearReloadAndI18n(cdp) {
     "The provider's 'content policies' HTTP 400 wording must be classified as moderation, not invalid parameters.", editRequiredRetry);
   assertQa(editRequiredRetry.single.enabled && editRequiredRetry.comic.enabled && editRequiredRetry.single.dialogOpened && editRequiredRetry.comic.dialogOpened,
     "An edit-required failure's visible retry button must stay enabled and open the edit dialog in both single and comic modes.", editRequiredRetry);
-  assertQa(editRequiredRetry.single.excludedFromBulk && editRequiredRetry.comic.excludedFromBulk,
-    "Edit-required cards must remain excluded from bulk unchanged resubmission even though manual retry is actionable.", editRequiredRetry);
+  assertQa(editRequiredRetry.single.includedInBulk && editRequiredRetry.comic.includedInBulk,
+    "Edit-required cards must remain available to an explicit retry-all command while their single-card retry still opens the edit dialog.", editRequiredRetry);
   assertQa(editRequiredRetry.single.finalStatus === "success" && editRequiredRetry.comic.finalStatus === "success",
     "Confirming the edited prompt must actually submit and replace both failed cards.", editRequiredRetry);
   assertQa(JSON.stringify(editRequiredRetry.calls) === JSON.stringify(["edited single prompt", "edited comic panel prompt"]),
@@ -2563,50 +2563,82 @@ async function testRetryClearReloadAndI18n(cdp) {
   assertQa(themeBad.length === 0, "Theme toggle should switch between dark and light themes.", themeBad);
 }
 
-async function testRetryAllBlockedFailureExplainsRequiredEdit(cdp) {
-  logStep("Retry-all remains clickable and explains edit-required HTTP 400 failures");
-  await loadFresh(cdp, "retry-all-edit-required-feedback");
+async function testEveryFailureRemainsManuallyRetryable(cdp) {
+  logStep("Every failure category remains available to single-card and retry-all manual actions");
+  await loadFresh(cdp, "all-failures-manually-retryable");
   const result = await cdp.eval(`(async () => {
     localStorage.clear();
     applyLanguage("zh-CN");
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    document.getElementById("apiProvider").value = "custom";
+    set("apiEndpoint", "https://api.example.test/v1/images/generations");
+    set("apiKey", "sk-test");
+    set("model", "gpt-image-2");
+    set("failedRetryCount", "0");
     const grid = document.getElementById("resultGrid");
     grid.innerHTML = "";
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
-    const card = addResultPlaceholder(89, "panel 89", {
-      mode: "comic", panelPrompt: "panel 89", prompt: "panel 89", size: "1024x1536", retryCount: 0,
+    const failures = [
+      "HTTP 504: 504 Gateway Time-out",
+      "HTTP 401: [invalid_api_key] Incorrect API key provided",
+      "HTTP 400: unsupported parameter quality",
+      "HTTP 400: prompt may violate our content policies",
+      "Gemini 网页界面能力不可用。missing temporary_chat_required",
+      "HTTP 404: image task not found",
+    ];
+    const cards = failures.map((message, index) => {
+      const id = index + 1;
+      const prompt = "manual retry contract " + id;
+      const card = addResultPlaceholder(id, prompt, {
+        mode: "comic", panelPrompt: prompt, prompt, size: "1024x1536", retryCount: 0,
+      });
+      markPlaceholderFailed(card, id, message, card._retryContext);
+      return card;
     });
-    markPlaceholderFailed(card, 89, "HTTP 400: unsupported parameter quality", card._retryContext);
+    // Simulate a project restored from an older release that persisted a block.
+    cards[0].dataset.retryBlocked = "true";
+    updateFailedRetryTools();
     const button = document.getElementById("retryFailedAll");
     const before = {
       failed: getFailedResultCards().length,
       eligible: getRetryEligibleFailedCards().length,
       disabled: button.disabled,
       text: button.textContent.trim(),
-      status: document.getElementById("status").textContent,
+      retryButtonsEnabled: cards.every(card => !card.querySelector(".retry-now").disabled),
+      categories: cards.map(card => card.dataset.errorCategory),
+    };
+
+    const originalCallImageAPI = callImageAPI;
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==";
+    let calls = 0;
+    callImageAPI = async () => {
+      calls++;
+      return { data: [{ b64_json: png }] };
     };
     button.click();
-    await new Promise(resolve => setTimeout(resolve, 50));
-    return {
-      before,
-      after: {
-        status: document.getElementById("status").textContent,
-        statusType: document.getElementById("status").className,
-        expectedStatus: interpolate(cleanText("retryBlockedNeedEdit"), { count: 1 }),
-        focusedEdit: document.activeElement === card.querySelector(".edit-retry") || document.activeElement === card.querySelector(".retry-now"),
-        highlighted: card.classList.contains("retry-needs-attention"),
-        runStarted: !!retryAllFailedRun,
-      },
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline && retryAllFailedRun) await new Promise(resolve => setTimeout(resolve, 20));
+    const after = {
+      calls,
+      runFinished: !retryAllFailedRun,
+      successCards: cards.filter(card => card.dataset.status === "success").length,
+      remainingFailed: getFailedResultCards().length,
     };
+    callImageAPI = originalCallImageAPI;
+    return { before, after };
   })()`, true);
-  assertQa(result.before.failed === 1 && result.before.eligible === 0 && !result.before.disabled,
-    "An edit-required HTTP 400 card must keep the retry-all control clickable instead of presenting a dead disabled action.", result);
-  assertQa(result.before.text.includes("0/1"),
-    "The retry-all label must disclose how many failed cards are actually eligible.", result);
-  assertQa(result.after.status === result.after.expectedStatus && /error/.test(result.after.statusType),
-    "Clicking retry-all with only blocked cards must explain the required edit instead of doing nothing.", result);
-  assertQa(result.after.focusedEdit && result.after.highlighted && !result.after.runStarted,
-    "The blocked retry-all action must focus and highlight the first editable failed card without resubmitting the unchanged request.", result);
+  assertQa(result.before.failed === 6 && result.before.eligible === 6 && !result.before.disabled && result.before.retryButtonsEnabled,
+    "504, authentication, parameter, moderation, provider-UI and missing-task failures must all keep manual retry controls enabled.", result);
+  assertQa(result.before.text.includes("(6)") && !result.before.text.includes("0/"),
+    "Retry-all must report every failed card as eligible, including legacy cards previously marked retryBlocked.", result);
+  assertQa(result.after.calls === 6 && result.after.runFinished && result.after.successCards === 6 && result.after.remainingFailed === 0,
+    "One explicit retry-all click must submit every failed card exactly once and stop each card immediately after an image succeeds.", result);
 }
 
 async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
@@ -6662,7 +6694,7 @@ async function main() {
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
     await testRetryClearReloadAndI18n(cdp);
-    await testRetryAllBlockedFailureExplainsRequiredEdit(cdp);
+    await testEveryFailureRemainsManuallyRetryable(cdp);
     await testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp);
     await testRetryAllFailedManualSupplementButton(cdp);
     await testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp);
