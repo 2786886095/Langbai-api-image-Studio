@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.33
+# Codex / Claude Handoff: AI 图片生成器 v1.6.34
 
 更新时间：2026-08-11
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
@@ -6,7 +6,15 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.33+110`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.34+111`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.34 导出完整性修复
+
+- `resolveExportImageBlob()` 统一按生成内存字节、生成缓存、IndexedDB 缓存、主地址与备用地址的顺序读取图片，并对地址读取执行最多 3 次有限重试。
+- `saveProjectResultsToFolder()` 在第一次磁盘写入前完成全部图片预检；缺少任意图片字节时整体中止，不再静默跳过。
+- 文件夹写入中途失败会停止后续清单写入并报告准确的已保存数量和失败分镜。
+- `buildImagesZip()` 不再生成带 `download-errors.txt` 的残缺 ZIP；只有导出图片数与输入数完全一致才创建压缩包。
+- 浏览器回归新增临时取图失败恢复、持续取图失败拒绝导出，以及磁盘写入失败不生成清单的覆盖。
 
 ## v1.6.33 全错误多轮重试与补充队列修复
 
