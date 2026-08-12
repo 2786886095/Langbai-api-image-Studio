@@ -13818,6 +13818,63 @@ async function imageUrlToBlobWithFallback(url, fallbackUrl = "", onProgress) {
   }
 }
 
+function isUsableExportBlob(value) {
+  return value instanceof Blob && value.size > 0;
+}
+
+async function resolveExportImageBlob(image, options = {}) {
+  const attempts = Math.max(1, Math.min(5, Number(options.attempts) || 3));
+  const retryDelayMs = Math.max(0, Number(options.retryDelayMs) || 250);
+  const errors = [];
+
+  if (isUsableExportBlob(image?.blob)) return image.blob;
+
+  if (image?.cachePromise) {
+    try {
+      const cached = await Promise.resolve(image.cachePromise);
+      if (isUsableExportBlob(cached)) return cached;
+      errors.push("生成缓存为空");
+    } catch (error) {
+      errors.push(`生成缓存读取失败：${error?.message || error}`);
+    }
+  }
+
+  if (image?.cacheKey) {
+    try {
+      const cached = await getGeneratedCacheBlob(image.cacheKey);
+      if (isUsableExportBlob(cached)) return cached;
+      errors.push("本地图片缓存不存在");
+    } catch (error) {
+      errors.push(`本地图片缓存读取失败：${error?.message || error}`);
+    }
+  }
+
+  const primaryUrl = image?.url || image?.imageUrl || "";
+  const fallbackUrl = image?.originalUrl || "";
+  if (!primaryUrl) {
+    throw new Error(errors.join("；") || "图片没有可导出的本地缓存或地址");
+  }
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const blob = await imageUrlToBlobWithFallback(primaryUrl, fallbackUrl, options.onProgress);
+      if (!isUsableExportBlob(blob)) throw new Error("返回了空图片文件");
+      return blob;
+    } catch (error) {
+      errors.push(`第 ${attempt}/${attempts} 次取图失败：${error?.message || error}`);
+      if (attempt < attempts && retryDelayMs > 0) await sleep(retryDelayMs * attempt);
+    }
+  }
+
+  throw new Error(errors.join("；"));
+}
+
+function createIncompleteExportError(failures, total) {
+  const details = failures.slice(0, 5).join("；");
+  const remaining = failures.length > 5 ? `；另有 ${failures.length - 5} 张失败` : "";
+  return new Error(`导出已中止：${failures.length}/${total} 张图片无法取得完整字节。${details}${remaining}`);
+}
+
 function sanitizeFilePart(value, fallback = "item") {
   const clean = String(value || fallback)
     .trim()
@@ -13979,16 +14036,12 @@ async function buildImagesZip(images, meta = {}) {
     try {
       if (image.metaPromise) await Promise.resolve(image.metaPromise).catch(() => null);
       setDownloadProgress(8 + Math.round((i / Math.max(images.length, 1)) * 52), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
-      // 优先用生成时抓下来的本地字节：远程生图 URL 可能已被中转站删除（约 2 小时），
-      // 只有本地缓存能保证"页面上显示什么，ZIP 里就有什么"。
-      let blob = image.blob instanceof Blob ? image.blob : null;
-      if (!blob && image.cachePromise) {
-        blob = await Promise.resolve(image.cachePromise).catch(() => null);
-        if (!(blob instanceof Blob)) blob = null;
-      }
-      if (!blob) blob = await imageUrlToBlobWithFallback(image.url || image.imageUrl, image.originalUrl || "", pct => {
-        const base = 8 + Math.round((i / Math.max(images.length, 1)) * 52);
-        setDownloadProgress(Math.min(60, base + Math.round((pct || 0) * 0.2)), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
+      const blob = await resolveExportImageBlob(image, {
+        attempts: 3,
+        onProgress: pct => {
+          const base = 8 + Math.round((i / Math.max(images.length, 1)) * 52);
+          setDownloadProgress(Math.min(60, base + Math.round((pct || 0) * 0.2)), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
+        },
       });
       const bytes = await blobToBytes(blob);
       const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
@@ -14000,6 +14053,12 @@ async function buildImagesZip(images, meta = {}) {
     } catch (err) {
       failures.push(`${image.panelId || i + 1}: ${err.message || err}`);
     }
+  }
+
+  // A ZIP that silently omits panels is not a successful export. Resolve and
+  // validate every source before adding metadata or producing an archive.
+  if (failures.length || exported.length !== images.length) {
+    throw createIncompleteExportError(failures.length ? failures : ["导出图片数量校验失败"], images.length);
   }
 
   for (const reference of references.files) {
@@ -14031,9 +14090,6 @@ async function buildImagesZip(images, meta = {}) {
     name: makeUniqueArchiveName(`${folder}/contact-sheet.html`, usedNames),
     data: encodeUtf8(buildContactSheetHtml(exported, meta, folder)),
   });
-  if (failures.length) entries.push({ name: makeUniqueArchiveName(`${folder}/download-errors.txt`, usedNames), data: encodeUtf8(failures.join("\n")) });
-  if (!exported.length && failures.length) throw new Error(failures.join("; "));
-
   setDownloadProgress(72, cleanText("compressing"));
   return makeZipBlob(entries);
 }
@@ -14235,6 +14291,7 @@ function getCurrentResultImages() {
           ...card._zipImage,
           blob: card._zipBlob || null,
           cachePromise: card._imageCachePromise || null,
+          cacheKey: card._generatedCacheKey || "",
         };
       }
       const img = card.querySelector("img");
@@ -14321,37 +14378,53 @@ async function saveProjectResultsToFolder() {
     }
     const folder = buildProjectFolderName(isTurnaround ? "turnaround" : "comic");
     const exportMeta = buildCurrentProjectExportMeta(images, { title: folder });
-    const references = await prepareProjectExportReferences(images, exportMeta);
-    const failures = [];
+    const preparedImages = [];
+    const sourceFailures = [];
     const exported = [];
     let saved = 0;
 
+    // Preflight every panel before the first disk write. This prevents a
+    // transient URL/cache failure halfway through from being reported as a
+    // successful but incomplete folder export.
     for (let i = 0; i < images.length; i++) {
       const image = images[i];
-      const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
       try {
         if (image.metaPromise) await Promise.resolve(image.metaPromise).catch(() => null);
-        setDownloadProgress(4 + Math.round((i / Math.max(images.length, 1)) * 90), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
-        // 与 buildImagesZip 相同的容错取字节顺序：生成时缓存的字节最可靠，远程 URL 可能已过期。
-        let blob = image.blob instanceof Blob ? image.blob : null;
-        if (!blob && image.cachePromise) {
-          blob = await Promise.resolve(image.cachePromise).catch(() => null);
-          if (!(blob instanceof Blob)) blob = null;
-        }
-        if (!blob) blob = await imageUrlToBlob(image.url || image.imageUrl);
-        const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
-        const base64 = await blobToBase64(blob);
-        const fileName = `${isTurnaround ? "turnaround" : "panel"}-${panelId}.${ext}`;
-        const outputFolder = image.actual?.dimensionStatus === "mismatch" ? `${folder}/raw-nonexact` : folder;
-        await nativeDownload.saveFile("images", fileName, blob.type || "image/png", base64, outputFolder);
-        exported.push({ ...image, filename: `${outputFolder === folder ? "" : "raw-nonexact/"}${fileName}` });
-        saved++;
+        setDownloadProgress(4 + Math.round((i / Math.max(images.length, 1)) * 45), `${cleanText("collectingImages")} ${i + 1}/${images.length}`);
+        const blob = await resolveExportImageBlob(image, { attempts: 3 });
+        preparedImages.push({ image, blob });
       } catch (err) {
-        failures.push(`${image.panelId || i + 1}: ${err.message || err}`);
+        sourceFailures.push(`${image.panelId || i + 1}: ${err.message || err}`);
       }
     }
 
-    if (exported.length) {
+    if (sourceFailures.length || preparedImages.length !== images.length) {
+      throw createIncompleteExportError(
+        sourceFailures.length ? sourceFailures : ["导出图片数量校验失败"],
+        images.length,
+      );
+    }
+
+    const references = await prepareProjectExportReferences(images, exportMeta);
+
+    for (let i = 0; i < preparedImages.length; i++) {
+      const { image, blob } = preparedImages[i];
+      const panelId = sanitizeFilePart(image.panelId || i + 1, String(i + 1));
+      const ext = imageExtFromBlob(image.url || image.imageUrl, blob);
+      const base64 = await blobToBase64(blob);
+      const fileName = `${isTurnaround ? "turnaround" : "panel"}-${panelId}.${ext}`;
+      const outputFolder = image.actual?.dimensionStatus === "mismatch" ? `${folder}/raw-nonexact` : folder;
+      setDownloadProgress(50 + Math.round((i / Math.max(preparedImages.length, 1)) * 42), `${cleanText("savingToFolder")} ${i + 1}/${preparedImages.length}`);
+      try {
+        await nativeDownload.saveFile("images", fileName, blob.type || "image/png", base64, outputFolder);
+      } catch (error) {
+        throw new Error(`文件夹保存中止：已写入 ${saved}/${images.length} 张；分镜 ${image.panelId || i + 1} 写入失败：${error?.message || error}`);
+      }
+      exported.push({ ...image, filename: `${outputFolder === folder ? "" : "raw-nonexact/"}${fileName}` });
+      saved++;
+    }
+
+    if (saved === images.length) {
       for (let index = 0; index < references.files.length; index++) {
         const reference = references.files[index];
         const relativeParts = reference.relativeFilename.split("/");
@@ -14367,19 +14440,18 @@ async function saveProjectResultsToFolder() {
           referenceFolder,
         );
       }
-      const metadata = buildProjectExportManifest(images, exported, exportMeta, references, failures);
+      const metadata = buildProjectExportManifest(images, exported, exportMeta, references, []);
       const projectBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
       const contactBlob = new Blob([buildContactSheetHtml(exported, metadata, "")], { type: "text/html" });
       await nativeDownload.saveFile("images", "project.json", "application/json", await blobToBase64(projectBlob), folder);
       await nativeDownload.saveFile("images", "contact-sheet.html", "text/html", await blobToBase64(contactBlob), folder);
     }
 
-    if (saved === 0) throw new Error(failures.join("; ") || cleanText("exportFailed"));
+    if (saved !== images.length) {
+      throw new Error(`保存数量校验失败：${saved}/${images.length}`);
+    }
     setDownloadProgress(100, `${cleanText("folderSaved")}: ${folder}`, true);
-    showStatus(
-      failures.length ? `${cleanText("folderSaved")}: ${saved}/${images.length}` : `${cleanText("folderSaved")}: ${folder}`,
-      failures.length ? "error" : "success"
-    );
+    showStatus(`${cleanText("folderSaved")}: ${folder} (${saved}/${images.length})`, "success");
   } catch (err) {
     hideDownloadProgress();
     showStatus(`${cleanText("exportFailed")}: ${err.message || err}`, "error");

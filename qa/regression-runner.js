@@ -1833,6 +1833,10 @@ async function testSaveComicFolder(cdp) {
         } else if (payload.action === "chooseDir") {
           body = "content://tree/mock-images";
         } else if (payload.action === "saveFile") {
+          if (window.__failSaveFileName && payload.fileName === window.__failSaveFileName) {
+            setTimeout(() => window.AiGenAndroidBridge.reject(payload.id, "simulated disk write failure"), 0);
+            return;
+          }
           body = "content://tree/mock-images/" + (payload.folder || "") + "/" + payload.fileName;
         } else {
           body = { ok: true };
@@ -1901,6 +1905,11 @@ async function testSaveComicFolder(cdp) {
     const turnaroundNamePlaceholder = document.getElementById("zipFileName").placeholder;
     const unnamedTurnaroundCalls = await saveFolderOnce();
 
+    window.__failSaveFileName = "turnaround-2.png";
+    const failedWriteCalls = await saveFolderOnce();
+    window.__failSaveFileName = "";
+    const failureStatus = document.getElementById("status").textContent;
+
     const saveCalls = [...namedComicCalls, ...unnamedComicCalls, ...unnamedTurnaroundCalls];
     const rootFolders = calls => [...new Set(calls.map(c => c.folder).filter(folder => !String(folder).endsWith("/" + PROJECT_EXPORT_REFERENCE_DIR)))];
     return {
@@ -1917,6 +1926,8 @@ async function testSaveComicFolder(cdp) {
       referenceDirectory: PROJECT_EXPORT_REFERENCE_DIR,
       projectNamePlaceholder,
       turnaroundNamePlaceholder,
+      failedWriteFileNames: failedWriteCalls.map(c => c.fileName),
+      failureStatus,
     };
   })()`, true);
 
@@ -1932,6 +1943,62 @@ async function testSaveComicFolder(cdp) {
   assertQa(result.kinds.length === 1 && result.kinds[0] === "images", "Folder save should use the 'images' download-directory kind, matching the existing image-dir picker.", result);
   assertQa(result.allHaveBase64, "Every saveFile call should carry the actual image bytes as base64.", result);
   assertQa(result.fileNames.length === 7 && result.fileNames.includes("panel-1.png") && result.fileNames.includes("turnaround-1.png") && result.fileNames.some(name => String(name).includes("reference")), "Comic panels, turnaround images, references, manifests, and contact sheets should retain distinct filenames inside their project folder.", result);
+  assertQa(
+    result.failedWriteFileNames.includes("turnaround-1.png")
+      && result.failedWriteFileNames.includes("turnaround-2.png")
+      && !result.failedWriteFileNames.includes("project.json")
+      && !result.failedWriteFileNames.includes("contact-sheet.html")
+      && /导出失败|Export failed/.test(result.failureStatus),
+    "A failed image write must stop the folder export and must never create manifests or report a partial folder as successful.",
+    result,
+  );
+}
+
+async function testStrictExportCompleteness(cdp) {
+  logStep("ZIP and folder source collection retry transient reads and reject incomplete image sets");
+  await loadFresh(cdp, "strict-export-completeness");
+  const result = await cdp.eval(`(async () => {
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const pngBlob = new Blob([base64ToBytes(png)], { type: "image/png" });
+    const originalLoader = imageUrlToBlobWithFallback;
+    let transientAttempts = 0;
+    let persistentAttempts = 0;
+    let zipSize = 0;
+    let persistentError = "";
+    try {
+      imageUrlToBlobWithFallback = async url => {
+        if (url === "https://qa.invalid/transient.png") {
+          transientAttempts++;
+          if (transientAttempts < 3) throw new Error("temporary read failure");
+        }
+        return pngBlob;
+      };
+      const zip = await buildImagesZip([
+        { panelId: "1", url: "https://qa.invalid/transient.png", prompt: "one" },
+        { panelId: "2", url: "data:image/png;base64," + png, blob: pngBlob, prompt: "two" },
+      ], { folder: "qa-export" });
+      zipSize = zip.size;
+
+      imageUrlToBlobWithFallback = async () => {
+        persistentAttempts++;
+        throw new Error("persistent read failure");
+      };
+      try {
+        await buildImagesZip([
+          { panelId: "1", url: "https://qa.invalid/persistent.png", prompt: "one" },
+          { panelId: "2", url: "data:image/png;base64," + png, blob: pngBlob, prompt: "two" },
+        ], { folder: "qa-export" });
+      } catch (error) {
+        persistentError = String(error?.message || error);
+      }
+    } finally {
+      imageUrlToBlobWithFallback = originalLoader;
+    }
+    return { transientAttempts, persistentAttempts, zipSize, persistentError };
+  })()`, true);
+
+  assertQa(result.transientAttempts === 3 && result.zipSize > 0, "A transient image read should be retried and the complete ZIP should still be produced.", result);
+  assertQa(result.persistentAttempts === 3 && /导出已中止/.test(result.persistentError) && /1\/2/.test(result.persistentError), "A persistent image read failure must abort the ZIP instead of producing an incomplete archive.", result);
 }
 
 async function testRetryClearReloadAndI18n(cdp) {
@@ -6712,6 +6779,7 @@ async function main() {
     await testRetryReplacesHistoryEntry(cdp);
     await testSequentialToggleSharedAcrossModes(cdp);
     await testSaveComicFolder(cdp);
+    await testStrictExportCompleteness(cdp);
     await testRetryClearReloadAndI18n(cdp);
     await testEveryFailureRemainsManuallyRetryable(cdp);
     await testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp);
