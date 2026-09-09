@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.34";
+const APP_VERSION = "1.6.35";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -6154,6 +6154,9 @@ window.AiGenProxy = { resolveDesktopProxyConfig, getDesktopProxyPayload, withDes
 
 // ─── 已知模型价格（跨平台通用） ─────────────────────────────
 const GRSAI_GPT_IMAGE_MODELS = Object.freeze([
+  "gpt-image-2.5",
+  "gpt-image-2.5-sunburst",
+  "gpt-image-2.5-flare",
   "gpt-image-2",
   "gpt-image-2-vip",
 ]);
@@ -6161,6 +6164,7 @@ const GRSAI_NANO_BANANA_MODELS = Object.freeze([
   "nano-banana",
   "nano-banana-fast",
   "nano-banana-2",
+  "nano-banana-2-lite",
   "nano-banana-2-cl",
   "nano-banana-2-2k-cl",
   "nano-banana-2-4k-cl",
@@ -6176,6 +6180,15 @@ const GRSAI_OFFICIAL_MODELS = Object.freeze([
 ]);
 const GRSAI_POLL_INTERVAL_MS = 2000;
 const GRSAI_POLL_GATEWAY_DELAY_MAX_MS = 30000;
+// Public catalog used by GrsAI's own model page; never send the user's key.
+const GRSAI_MODEL_CATALOG_URL = "https://eb.grsaiapi.com/client/serverGrsai/getModelListV2";
+const GRSAI_MODEL_CATALOG_KEY = "ai_image_grsai_model_catalog_v1";
+const GRSAI_CATALOG_VERIFIED_AT = "2026-09-09";
+// Offline discovery snapshot. Old saved/manual IDs remain selectable, but are
+// not advertised as current. Prices are read online, not guessed from old RMB data.
+const GRSAI_CURRENT_IMAGE_MODELS = Object.freeze(GRSAI_OFFICIAL_MODELS.filter(
+  id => !["nano-banana", "nano-banana-pro-vt"].includes(id),
+));
 
 const KNOWN_PRICES = {
   "gpt-image-2": "¥0.03/张", "gpt-image-2-vip": "¥0.065/张",
@@ -6203,6 +6216,10 @@ const KNOWN_PRICES = {
 };
 
 function priceLabel(modelId) {
+  if (dom.apiProvider?.value === "grsai") {
+    const row = readGrsaiModelCatalog()?.models.find(item => item.name === modelId);
+    return row && Number.isFinite(row.cost) ? ` · ${row.cost} 积分/次` : "";
+  }
   const p = KNOWN_PRICES[modelId];
   return p ? ` · ${p}` : "";
 }
@@ -6236,12 +6253,63 @@ function loadFallbackModels() {
   updateApiQuickState();
 }
 
-function loadGrsaiModels() {
-  const ids = GRSAI_OFFICIAL_MODELS;
-  setModelChoices(ids);
-  dom.model.value = "";
-  dom.model.placeholder = `已加载 ${ids.length} 个 GrsAI 模型，点击选择`;
+function normalizeGrsaiCatalogModels(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.filter(row => {
+    if (row?.type !== "image" || typeof row.name !== "string") return false;
+    const name = row.name.trim();
+    if (!name || name.length > 160 || /[\s<>\u0000-\u001f]/.test(name) || seen.has(name)) return false;
+    seen.add(name);
+    return true;
+  }).map(row => ({
+    name: row.name.trim(), type: "image",
+    cost: typeof row.cost === "number" && Number.isFinite(row.cost) && row.cost >= 0 && row.costType !== 1 ? row.cost : null,
+  }));
+}
+
+function readGrsaiModelCatalog() {
+  const cached = safeStorageReadJson(GRSAI_MODEL_CATALOG_KEY, null);
+  const models = normalizeGrsaiCatalogModels(cached?.models);
+  return models.length ? { models, fetchedAt: String(cached?.fetchedAt || "") } : null;
+}
+
+function loadGrsaiModels(models = null, source = "") {
+  const cached = readGrsaiModelCatalog();
+  const ids = models || cached?.models.map(row => row.name) || [...GRSAI_CURRENT_IMAGE_MODELS];
+  const current = dom.model.value.trim();
+  const choices = current && !ids.includes(current) ? [...ids, current] : ids;
+  setModelChoices(choices, { limit: choices.length });
+  dom.model.value = current;
+  const label = source || (cached ? `缓存 ${cached.fetchedAt.slice(0, 10)}` : `内置 ${GRSAI_CATALOG_VERIFIED_AT}`);
+  dom.model.placeholder = `GrsAI ${label}：${ids.length} 个生图模型，可手动输入`;
   updateApiQuickState();
+  return ids;
+}
+
+async function refreshGrsaiModels() {
+  const endpoint = dom.apiEndpoint.value.trim();
+  const sequence = apiConfigApplySequence;
+  const stillActive = () => dom.apiProvider?.value === "grsai"
+    && dom.apiEndpoint.value.trim() === endpoint && sequence === apiConfigApplySequence;
+  try {
+    const response = await smartFetch(GRSAI_MODEL_CATALOG_URL, {
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: "{}", credentials: "omit", nativeTimeoutMs: 15000,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const models = normalizeGrsaiCatalogModels(data?.data?.list);
+    if (data?.code !== 0 || !models.length) throw new Error("模型目录未返回有效的生图模型");
+    safeStorageSetItem(GRSAI_MODEL_CATALOG_KEY, JSON.stringify({models, fetchedAt: new Date().toISOString()}));
+    if (!stillActive()) return;
+    loadGrsaiModels(models.map(row => row.name), "在线");
+    showStatus(`已在线刷新 ${models.length} 个 GrsAI 生图模型；保留当前选择。积分以平台实际计费为准。`, "success");
+  } catch (error) {
+    if (!stillActive()) return;
+    loadGrsaiModels();
+    showStatus(`GrsAI 模型刷新失败：${error?.message || error}。现显示缓存或内置名单，可手动输入模型 ID；当前配置保持不变。`, "error");
+  }
 }
 
 function loadOfficialModels(models = OPENAI_OFFICIAL_IMAGE_MODELS) {
@@ -6261,7 +6329,7 @@ function loadOfficialModels(models = OPENAI_OFFICIAL_IMAGE_MODELS) {
 dom.model.addEventListener("change", () => {
   const m = dom.model.value.trim();
   updateOfficialOptionAvailability();
-  if (KNOWN_PRICES[m]) showStatus(`已选: ${m} · ${KNOWN_PRICES[m]}`, "info");
+  if (priceLabel(m)) showStatus(`已选: ${m}${priceLabel(m)}`, "info");
   persistCurrentProviderOptions();
   updateApiQuickState();
   scheduleOfficialCostSummaryUpdate();
@@ -8504,8 +8572,8 @@ registerAdapter({
   supportsReference: true,
   concurrency: 10,
 
-  fetchModels() {
-    loadGrsaiModels();
+  async fetchModels() {
+    await refreshGrsaiModels();
   },
 
   async generate(endpoint, apiKey, model, prompt, size, n, hasRef, refs = [], options = {}) {

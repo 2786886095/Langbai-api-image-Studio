@@ -5086,6 +5086,49 @@ async function testGrsaiOfficialAdapter(cdp) {
   assertQa(result.genericCalls.length === 1 && result.genericCalls[0].url.includes("/v1/images/generations"), "Custom API selection should use the generic OpenAI-compatible route, not the GrsAI /v1/api/generate route.", result);
 }
 
+async function testGrsaiLiveCatalog(cdp) {
+  logStep("GrsAI detects live image models without credentials, preserves selection and handles offline refresh");
+  await loadFresh(cdp, "grsai-live-catalog");
+  const result = await cdp.eval(`(async () => {
+    const originalSmartFetch = smartFetch;
+    const calls = [];
+    applyApiProvider("grsai", { forceEndpoint: true });
+    dom.apiKey.value = "qa-not-a-real-key";
+    dom.model.value = "gpt-image-2-vip";
+    const before = localStorage.getItem("ai_image_gen_apis");
+    try {
+      smartFetch = async (url, options) => {
+        calls.push({url, options});
+        return new Response(JSON.stringify({code:0,data:{list:[
+          {name:"gpt-image-2.5",type:"image",cost:600},
+          {name:"gpt-image-2.5-flare",type:"image",cost:3000},
+          {name:"nano-banana-2-lite",type:"image",cost:440},
+          {name:"not-an-image",type:"text",cost:1}
+        ]}}), {status:200});
+      };
+      await detectModelsForAdapter();
+      const loaded = [...dom.modelChoices.options].map(o=>o.value);
+      const selectedAfterDetect = dom.model.value;
+      dom.modelChoices.value = "gpt-image-2.5-flare";
+      dom.modelChoices.dispatchEvent(new Event("change", {bubbles:true}));
+      const picked = dom.model.value;
+      const afterPick = localStorage.getItem("ai_image_gen_apis");
+      smartFetch = async () => { throw new Error("offline fixture"); };
+      await detectModelsForAdapter();
+      return {calls,loaded,selectedAfterDetect,picked,
+        current:dom.model.value,key:dom.apiKey.value,
+        offlineStatus:dom.status.textContent,
+        offlinePreserved:afterPick===localStorage.getItem("ai_image_gen_apis"),
+        enabled:!dom.detectModels.disabled,
+      };
+    } finally { smartFetch = originalSmartFetch; }
+  })()`, true);
+  assertQa(result.calls.length===1 && !result.calls[0].options.headers.Authorization, "Catalog detection must make a real credential-free catalog request.", result);
+  assertQa(result.loaded.includes("gpt-image-2.5") && result.loaded.includes("nano-banana-2-lite") && !result.loaded.includes("not-an-image"), "Only live image models belong in the GrsAI picker.", result);
+  assertQa(result.selectedAfterDetect==="gpt-image-2-vip" && result.picked==="gpt-image-2.5-flare" && result.current===result.picked, "Refresh and offline retry must preserve the user's current model, and new models must be selectable.", result);
+  assertQa(result.enabled && result.offlinePreserved && result.key==="qa-not-a-real-key" && /刷新失败/.test(result.offlineStatus), "Offline detection must preserve API configuration and release the detect button.", result);
+}
+
 async function testNativeDownloadTimeoutOptOut(cdp) {
   logStep("Generation native calls have no arbitrary timeout, bounded calls still time out, and abort sends a real native cancellation message");
   await loadFresh(cdp, "native-timeout-optout");
@@ -6803,6 +6846,7 @@ async function main() {
     await testCodexImageGatewayIntegration(cdp);
     await testGeminiWebImageIntegration(cdp);
     await testGrsaiOfficialAdapter(cdp);
+    await testGrsaiLiveCatalog(cdp);
     await testNativeDownloadTimeoutOptOut(cdp);
     await testSavePathsTextMenuAndWindowsZipChunks(cdp);
     await testNativeSecureApiKeyMigration(cdp);
