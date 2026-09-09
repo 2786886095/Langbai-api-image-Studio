@@ -143,6 +143,10 @@ assert.ok(
 );
 assert.match(workflow, /node qa\/gemini-temporary-chat-state\.test\.js/);
 assert.match(workflow, /python qa\/chatgpt-session-cleanup\.test\.py/);
+assert.match(workflow, /\$ErrorActionPreference = 'Stop'/);
+assert.match(workflow, /\$PSNativeCommandUseErrorActionPreference = \$true/);
+const gatewayPillowRequirement = read("embedded_gateway/requirements-build.txt").split(/\r?\n/).find(line => line.startsWith("pillow=="));
+assert.ok(gatewayPillowRequirement && workflow.includes(`python -m pip install "${gatewayPillowRequirement}"`), "CI must install the same Pillow version used by the packaged gateway before running cleanup tests");
 assert.match(workflow, /node --test qa\/service-worker-consistency\.test\.js/);
 assert.match(workflow, /SHA256SUMS\.txt/);
 assert.match(embeddedGatewayLauncher, new RegExp(`version="${expectedVersion.replaceAll(".", "\\.")}"`));
