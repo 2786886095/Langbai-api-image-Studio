@@ -110,6 +110,23 @@ void main() {
     expect(windowsSelfTestWebViewProfileName, isNot('Default'));
   });
 
+  test('unsupported engine is terminal even if a stale ready flag exists', () {
+    final unsupported = WindowsAppHealthSnapshot.fromJavaScriptResult(
+      '{"ready":true,"runtimeState":"unsupported",'
+      '"error":"Update WebView2; saved settings are retained","missing":[]}',
+    );
+    expect(unsupported.requiresRuntimeUpdate, isTrue);
+    expect(unsupported.healthy, isFalse);
+    expect(unsupported.failureDescription,
+        'Update WebView2; saved settings are retained');
+    expect(windowsAppHealthProbeScript, contains('__AI_GEN_RUNTIME'));
+    final legacy = WindowsAppHealthSnapshot.fromJavaScriptResult(
+      '{"ready":true,"error":"","missing":[]}',
+    );
+    expect(legacy.requiresRuntimeUpdate, isFalse);
+    expect(legacy.healthy, isTrue);
+  });
+
   test(
       'packaged startup smoke exercises the main WebView without auxiliary profile probes',
       () {

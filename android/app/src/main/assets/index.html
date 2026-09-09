@@ -2,15 +2,14 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; base-uri 'none'; object-src 'none'; script-src 'self' file:; script-src-attr 'none'; style-src 'self' file: 'unsafe-inline'; font-src 'self' file: data:; img-src 'self' file: data: blob: http: https:; connect-src 'self' http: https: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'none'; media-src 'self' file: blob: data:; manifest-src 'self' file:; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#121417">
   <meta name="application-name" content="AI 图片生成器">
   <title>AI 图片生成器</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=20260909-1-6-35">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20260909-1-7-0">
+  <link rel="stylesheet" href="studio-shell.css?v=20260909-1-7-0">
   <link rel="icon" href="assets/icons/mascot-app-icon.png" type="image/png">
 </head>
 <body>
@@ -29,7 +28,7 @@
           <button type="button" id="languageMenuButton" class="language-button" aria-label="界面语言" aria-haspopup="listbox" aria-expanded="false">
             <span id="languageCurrent">简体</span>
           </button>
-          <div id="languageMenu" class="language-menu hidden" role="listbox" aria-label="界面语言">
+          <div id="languageMenu" data-ui-label="interfaceLanguage" class="language-menu hidden" role="listbox" aria-label="界面语言">
             <button type="button" class="language-option" role="option" data-lang="zh-CN">简体</button>
             <button type="button" class="language-option" role="option" data-lang="zh-Hant">繁體</button>
             <button type="button" class="language-option" role="option" data-lang="en">EN</button>
@@ -100,8 +99,8 @@
                   <div class="custom-select-list hidden" id="savedApisCustomList" role="listbox"></div>
                 </div>
                 <select id="savedApis" class="custom-select-native" tabindex="-1" aria-hidden="true"><option value="">— 手动填写 —</option></select>
-                <button type="button" id="setDefaultApi" class="btn btn-xs" title="设为默认 API"><span class="ui-icon ui-icon-save"></span> 默认</button>
-                <button type="button" id="deleteSavedApi" class="btn btn-xs btn-danger" title="删除当前配置" aria-label="删除当前配置"><span class="ui-icon ui-icon-trash"></span></button>
+                <button type="button" id="setDefaultApi" data-ui-label="setDefaultApiAction" class="btn btn-xs" title="设为默认 API"><span class="ui-icon ui-icon-save"></span> 默认</button>
+                <button type="button" id="deleteSavedApi" data-ui-label="deleteApi" class="btn btn-xs btn-danger" title="删除当前配置" aria-label="删除当前配置"><span class="ui-icon ui-icon-trash"></span></button>
               </div>
             </label>
             <label class="field" id="apiEndpointField">
@@ -112,7 +111,7 @@
               <span>API Key</span>
               <div class="password-wrap">
                 <input type="password" id="apiKey" placeholder="sk-...">
-                <button type="button" id="toggleKey" title="显示/隐藏" aria-label="显示或隐藏 API Key"><span class="ui-icon ui-icon-eye"></span></button>
+                <button type="button" id="toggleKey" data-ui-label="toggleKey" title="显示/隐藏" aria-label="显示或隐藏 API Key"><span class="ui-icon ui-icon-eye"></span></button>
               </div>
             </label>
             <label class="field" id="modelField">
@@ -365,7 +364,7 @@
                 <label class="provider-option field">
                   <span id="geminiQueueLabel">本地队列上限</span>
                   <input type="number" id="geminiClientQueue" min="1" max="100" step="1" value="10">
-                  <small>可输入 1–100；单个浏览器账号初始有效并发为 1。</small>
+                  <small id="geminiQueueHint">可输入 1–100；单个浏览器账号初始有效并发为 1。</small>
                 </label>
               </div>
 
@@ -402,14 +401,14 @@
 
             <label class="field" id="proxyEndpointField">
               <span>浏览器 CORS 转发地址 <em class="optional">(可选，仅用于 HTML 浏览器端)</em></span>
-              <input type="url" id="proxyEndpoint" placeholder="http://127.0.0.1:8787/proxy?token=启动时显示的令牌">
+              <input type="url" id="proxyEndpoint" data-ui-placeholder="proxyEndpointPlaceholder" placeholder="http://127.0.0.1:8787/proxy?token=启动时显示的令牌">
             </label>
             <button type="button" id="saveConfig" class="btn btn-sm"><span class="ui-icon ui-icon-save"></span> 保存配置</button>
           </div>
         </details>
 
         <!-- ========== 模式切换 ========== -->
-        <div class="mode-tabs" id="modeTabs" role="tablist" aria-label="生成模式">
+        <div class="mode-tabs" id="modeTabs" data-ui-label="generationMode" role="tablist" aria-label="生成模式">
           <button type="button" class="mode-tab active" data-mode="single" role="tab" aria-selected="true" tabindex="0"><span class="ui-icon ui-icon-image"></span> 单图模式</button>
           <button type="button" class="mode-tab" data-mode="comic" role="tab" aria-selected="false" tabindex="-1"><span class="ui-icon ui-icon-comic"></span> 漫画分镜</button>
           <button type="button" class="mode-tab" data-mode="turnaround" role="tab" aria-selected="false" tabindex="-1"><span class="ui-icon ui-icon-turnaround"></span> 三视图生成</button>
@@ -447,16 +446,16 @@
 
         <!-- ========== 全局配置（两种模式共用） ========== -->
         <!-- 全局提示词 -->
-        <label class="field" id="globalPromptField">
-          <span class="field-label-text">全局提示词</span>
+        <div class="field" id="globalPromptField">
+          <label class="field-label-text" for="prompt">全局提示词</label>
           <div class="textarea-toolbar">
-            <button type="button" id="importTxt" class="btn btn-xs" title="导入 txt 文件作为参考（支持多选）"><span class="ui-icon ui-icon-file"></span> 导入 txt</button>
+            <button type="button" id="importTxt" data-ui-label="importTextHint" class="btn btn-xs" title="导入 txt 文件作为参考（支持多选）"><span class="ui-icon ui-icon-file"></span> 导入 txt</button>
             <input type="file" id="txtFileInput" accept="text/plain,.txt" hidden multiple>
           </div>
           <textarea id="prompt" rows="4" placeholder="描述你想生成的图片，越详细越好……&#10;&#10;例如：一只橘猫坐在窗台上，阳光透过纱帘洒在它身上，油画风格，暖色调"></textarea>
           <div class="badge-list hidden" id="txtFileBadges"></div>
           <span class="field-hint" id="promptHint"></span>
-        </label>
+        </div>
 
         <!-- 生成按钮 -->
         <button type="button" id="generateBtn" class="btn btn-primary">
@@ -478,10 +477,10 @@
 
         <!-- 全局参考图片 -->
         <div class="field compact-reference-field" id="referenceField">
-          <span>全局参考图片 <em class="optional">(可选，支持多选)</em></span>
+          <span><span data-ui-text="references">全局参考图片</span> <em class="optional" data-ui-text="referenceOptional">（可选，支持多选）</em></span>
           <div class="image-upload" id="imageUpload">
             <input type="file" id="refImage" accept="image/png,image/jpeg,image/webp,image/gif" hidden multiple>
-            <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="上传全局参考图片">
+            <div class="upload-zone" id="uploadZone" data-ui-label="uploadReferences" role="button" tabindex="0" aria-label="上传全局参考图片">
               <span class="upload-icon"><span class="ui-icon ui-icon-image"></span></span>
               <span>点击或拖拽上传参考图（可多选）</span>
             </div>
@@ -532,14 +531,14 @@
               </span>
             </label>
             <div class="gemini-size-header hidden" id="geminiSizeGuide" data-size-provider="gemini">
-              <strong>Gemini 官方尺寸</strong>
-              <span>按 Google 官方“比例 × 1K/2K”标准选择；保存时保留网页返回的原图像素。</span>
+              <strong id="geminiSizeTitle">Gemini 官方尺寸</strong>
+              <span id="geminiSizeHint">按 Google 官方“比例 × 1K/2K”标准选择；保存时保留网页返回的原图像素。</span>
             </div>
             <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="1024x1024"><span>1024×1024</span><small>1K · 1:1</small></label>
             <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="1264x848"><span>1264×848</span><small>1K · 3:2</small></label>
             <label class="size-option hidden" data-size-kind="official" data-size-provider="gemini"><input type="radio" name="size" value="848x1264"><span>848×1264</span><small>1K · 2:3</small></label>
             <details class="size-presets-more hidden" data-size-provider="gemini">
-              <summary>Gemini 官方 1K / 2K 尺寸</summary>
+              <summary id="geminiSizeSummary">Gemini 官方 1K / 2K 尺寸</summary>
               <div class="size-preset-grid">
                 <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="896x1200"><span>896×1200</span><small>1K · 3:4</small></label>
                 <label class="size-option" data-size-kind="official"><input type="radio" name="size" value="1200x896"><span>1200×896</span><small>1K · 4:3</small></label>
@@ -568,7 +567,7 @@
             </div>
             <select id="savedSizes" class="custom-select-native" tabindex="-1" aria-hidden="true"><option value="">常用尺寸</option></select>
             <button type="button" id="saveSizePreset" class="btn btn-xs"><span class="ui-icon ui-icon-save"></span> 保存尺寸</button>
-            <button type="button" id="deleteSizePreset" class="btn btn-xs btn-danger" title="删除常用尺寸" aria-label="删除常用尺寸"><span class="ui-icon ui-icon-trash"></span></button>
+            <button type="button" id="deleteSizePreset" data-ui-label="deleteSize" class="btn btn-xs btn-danger" title="删除常用尺寸" aria-label="删除常用尺寸"><span class="ui-icon ui-icon-trash"></span></button>
           </div>
         </fieldset>
 
@@ -641,7 +640,7 @@
           </div>
           <div class="field" id="turnaroundUploadField">
             <input type="file" id="turnaroundBulkInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden multiple>
-            <div class="upload-zone" id="turnaroundUploadZone" role="button" tabindex="0" aria-label="批量导入角色参考图">
+            <div class="upload-zone" id="turnaroundUploadZone" data-ui-label="turnaroundUploadLabel" role="button" tabindex="0" aria-label="批量导入角色参考图">
               <span class="upload-icon"><span class="ui-icon ui-icon-image"></span></span>
               <span>点击或拖拽导入所有角色图片；每张图片会成为一个独立三视图任务</span>
             </div>
@@ -660,7 +659,7 @@
               <tbody id="turnaroundTbody"></tbody>
             </table>
           </div>
-          <p class="field-hint">每张图片单独生成一张 16:9 正面、90°侧面、背面全身三视图；多人图请在该行说明目标角色。三视图模式不注入技能。</p>
+          <p class="field-hint" data-ui-text="turnaroundModeHint">每张图片单独生成一张 16:9 正面、90°侧面、背面全身三视图；多人图请在该行说明目标角色。三视图模式不注入技能。</p>
         </div>
 
         <!-- ========== 进度条（批量生成用） ========== -->
@@ -723,7 +722,7 @@
           <h2 id="bulkPromptTitle">批量输入分镜提示词</h2>
           <p class="field-hint" id="bulkPromptHint">每行一条，按顺序对应分镜；空行也会占据一个位置。</p>
         </div>
-        <button type="button" class="icon-btn" id="closeBulkPrompts" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+        <button type="button" class="icon-btn" id="closeBulkPrompts" data-ui-label="close" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
       <label class="field bulk-prompt-field">
         <textarea id="bulkPromptText" rows="12" placeholder="第 1 条提示词&#10;第 2 条提示词&#10;第 3 条提示词"></textarea>
@@ -741,12 +740,12 @@
     <div class="modal-card" tabindex="-1">
       <div class="modal-header">
         <h2 id="settingsTitle">设置</h2>
-        <button type="button" class="icon-btn" id="closeSettings" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+        <button type="button" class="icon-btn" id="closeSettings" data-ui-label="close" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
       <div class="settings-grid">
         <section class="settings-section download-settings">
           <h3>下载路径</h3>
-          <p class="field-hint">安卓端会调用系统目录选择器并持久授权；电脑浏览器端使用浏览器默认下载目录。</p>
+          <p class="field-hint" data-ui-text="downloadPlatformHint">安卓端会调用系统目录选择器并持久授权；电脑浏览器端使用浏览器默认下载目录。</p>
           <div class="setting-row">
             <div>
               <strong>图片保存目录</strong>
@@ -793,6 +792,7 @@
           </label>
           <p class="field-hint">生成成功后立即缓存在应用内部，避免中转图片链接过期；只有打包 ZIP 或保存到文件夹时才会写入所选目录。</p>
           <button type="button" id="clearGeneratedCache" class="btn btn-sm">立即清理缓存</button>
+          <p class="field-hint" id="a7CacheCapacityStatus" data-a7-cache-capacity data-no-i18n role="status" aria-live="polite">存储容量：未知（浏览器未提供有效估算）。</p>
           <p class="field-hint" id="generatedCacheStatus" role="status" aria-live="polite">缓存会在应用启动和生成新图片时自动清理。</p>
         </section>
 
@@ -844,7 +844,7 @@
           </label>
           <label class="field">
             <span>自定义代理地址</span>
-            <input type="url" id="desktopProxyCustomUrl" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:10808">
+            <input type="url" id="desktopProxyCustomUrl" data-ui-placeholder="proxyCustomPlaceholder" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:10808">
           </label>
           <div class="proxy-actions">
             <button type="button" id="testDesktopProxy" class="btn btn-sm"><span class="ui-icon ui-icon-search"></span> 测试代理</button>
@@ -856,7 +856,7 @@
           <h3>软件更新</h3>
           <div class="update-version-row">
             <span>当前版本</span>
-            <strong id="currentVersionLabel">v1.6.35</strong>
+            <strong id="currentVersionLabel">v1.7.0</strong>
           </div>
           <div class="update-version-row">
             <span>最新版本</span>
@@ -894,15 +894,15 @@
       <div class="modal-header">
         <div>
           <h2 id="skillsTitle">技能列表</h2>
-          <p class="field-hint">技能是可复用的提示词模板，可设置适用于单图、漫画分镜或两者。</p>
+          <p class="field-hint" data-ui-text="skillsHint">技能是可复用的提示词模板，可设置适用于单图、漫画分镜或两者。</p>
         </div>
-        <button type="button" class="icon-btn" id="closeSkills" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+        <button type="button" class="icon-btn" id="closeSkills" data-ui-label="close" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
       <div class="skills-layout">
-        <section class="skills-library" aria-label="已有技能">
+        <section class="skills-library" data-ui-label="skillsLibrary" aria-label="已有技能">
           <div class="section-header">
-            <strong>已有技能</strong>
-            <button type="button" id="addSkill" class="btn btn-sm"><span class="ui-icon ui-icon-plus"></span> 新建技能</button>
+            <strong data-ui-text="skillsLibrary">已有技能</strong>
+            <button type="button" id="addSkill" class="btn btn-sm"><span class="ui-icon ui-icon-plus"></span> <span data-ui-text="newSkill">新建技能</span></button>
           </div>
           <div id="skillsManagerList" class="skills-manager-list"></div>
         </section>
@@ -910,13 +910,13 @@
           <input type="hidden" id="skillId">
           <div class="skill-editor-heading">
             <h3 id="skillEditorTitle">新建技能</h3>
-            <button type="button" id="cancelSkillEdit" class="btn btn-xs">取消编辑</button>
+            <button type="button" id="cancelSkillEdit" data-ui-text="cancelSkillEdit" class="btn btn-xs">取消编辑</button>
           </div>
-          <label class="field"><span>技能名称</span><input type="text" id="skillName" maxlength="80" required placeholder="例如：电影光影"></label>
-          <label class="field"><span>分类</span><select id="skillCategory"><option value="functional">功能类</option><option value="style">风格类</option></select></label>
-          <label class="field"><span>适用模式</span><select id="skillScope"><option value="both">单图与漫画分镜</option><option value="single">仅单图</option><option value="comic">仅漫画分镜</option></select></label>
-          <label class="field"><span>提示词模板</span><textarea id="skillTemplate" rows="8" required placeholder="启用技能后追加到生图提示词的内容"></textarea></label>
-          <button type="submit" id="saveSkill" class="btn btn-primary"><span class="ui-icon ui-icon-save"></span> 保存技能</button>
+          <label class="field"><span data-ui-text="skillName">技能名称</span><input type="text" id="skillName" data-ui-placeholder="skillNamePlaceholder" maxlength="80" required placeholder="例如：电影光影"></label>
+          <label class="field"><span data-ui-text="skillCategory">分类</span><select id="skillCategory"><option value="functional">功能类</option><option value="style">风格类</option></select></label>
+          <label class="field"><span data-ui-text="skillScope">适用模式</span><select id="skillScope"><option value="both" data-ui-text="skillBoth">单图与漫画分镜</option><option value="single" data-ui-text="skillSingle">仅单图</option><option value="comic" data-ui-text="skillComic">仅漫画分镜</option></select></label>
+          <label class="field"><span data-ui-text="skillTemplate">提示词模板</span><textarea id="skillTemplate" data-ui-placeholder="skillTemplatePlaceholder" rows="8" required placeholder="启用技能后追加到生图提示词的内容"></textarea></label>
+          <button type="submit" id="saveSkill" class="btn btn-primary"><span class="ui-icon ui-icon-save"></span> <span data-ui-text="saveSkill">保存技能</span></button>
         </form>
       </div>
     </div>
@@ -930,7 +930,7 @@
           <h2 id="historyTitle">生图记录</h2>
           <p class="field-hint">项目元数据与图片均保存在本机，提示词默认折叠。</p>
         </div>
-        <button type="button" class="icon-btn" id="closeHistory" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+        <button type="button" class="icon-btn" id="closeHistory" data-ui-label="close" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
       <div class="history-toolbar">
         <input type="search" id="historySearch" placeholder="搜索提示词 / 模型 / 日期">
@@ -951,23 +951,23 @@
           <h2 id="inpaintTitle">局部重绘</h2>
               <p class="field-hint" id="inpaintDisclosure">局部重绘支持 ChatGPT 网页生图与官方 OpenAI 的 gpt-image-2。</p>
         </div>
-        <button type="button" class="icon-btn" id="closeInpaint" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
+        <button type="button" class="icon-btn" id="closeInpaint" data-ui-label="close" title="关闭"><span class="ui-icon ui-icon-x"></span></button>
       </div>
 
       <div class="inpaint-layout">
         <section class="inpaint-workspace">
-          <div class="inpaint-toolbar" role="toolbar" aria-label="蒙版工具">
-            <div class="inpaint-tool-group" role="group" aria-label="绘制模式">
-              <button type="button" id="inpaintBrush" class="icon-btn active" title="画笔" aria-pressed="true"><span class="ui-icon ui-icon-brush"></span></button>
-              <button type="button" id="inpaintEraser" class="icon-btn" title="橡皮擦" aria-pressed="false"><span class="ui-icon ui-icon-eraser"></span></button>
+          <div class="inpaint-toolbar" role="toolbar" data-ui-label="maskTools" aria-label="蒙版工具">
+            <div class="inpaint-tool-group" role="group" data-ui-label="drawingMode" aria-label="绘制模式">
+              <button type="button" id="inpaintBrush" data-ui-label="brush" class="icon-btn active" title="画笔" aria-pressed="true"><span class="ui-icon ui-icon-brush"></span></button>
+              <button type="button" id="inpaintEraser" data-ui-label="eraser" class="icon-btn" title="橡皮擦" aria-pressed="false"><span class="ui-icon ui-icon-eraser"></span></button>
             </div>
-            <button type="button" id="inpaintUndo" class="icon-btn" title="撤销" disabled><span class="ui-icon ui-icon-undo"></span></button>
-            <button type="button" id="inpaintRedo" class="icon-btn" title="重做" disabled><span class="ui-icon ui-icon-redo"></span></button>
-            <button type="button" id="inpaintClearMask" class="icon-btn" title="清空蒙版"><span class="ui-icon ui-icon-trash"></span></button>
-            <button type="button" id="inpaintToggleMask" class="icon-btn active" title="显示或隐藏蒙版" aria-pressed="true"><span class="ui-icon ui-icon-eye"></span></button>
-            <button type="button" id="inpaintCompare" class="icon-btn" title="按住查看原图" aria-pressed="false"><span class="ui-icon ui-icon-compare"></span></button>
+            <button type="button" id="inpaintUndo" data-ui-label="undo" class="icon-btn" title="撤销" disabled><span class="ui-icon ui-icon-undo"></span></button>
+            <button type="button" id="inpaintRedo" data-ui-label="redo" class="icon-btn" title="重做" disabled><span class="ui-icon ui-icon-redo"></span></button>
+            <button type="button" id="inpaintClearMask" data-ui-label="clearMask" class="icon-btn" title="清空蒙版"><span class="ui-icon ui-icon-trash"></span></button>
+            <button type="button" id="inpaintToggleMask" data-ui-label="toggleMask" class="icon-btn active" title="显示或隐藏蒙版" aria-pressed="true"><span class="ui-icon ui-icon-eye"></span></button>
+            <button type="button" id="inpaintCompare" data-ui-label="compareOriginal" class="icon-btn" title="按住查看原图" aria-pressed="false"><span class="ui-icon ui-icon-compare"></span></button>
             <div class="inpaint-zoom-control">
-              <button type="button" id="inpaintZoomFit" class="btn btn-xs active" aria-pressed="true">适应</button>
+              <button type="button" id="inpaintZoomFit" data-ui-text="fit" class="btn btn-xs active" aria-pressed="true">适应</button>
               <button type="button" id="inpaintZoom100" class="btn btn-xs" aria-pressed="false">100%</button>
             </div>
           </div>
@@ -976,18 +976,18 @@
             <div class="inpaint-canvas-stage is-fit" id="inpaintCanvasStage">
               <canvas id="inpaintBaseCanvas"></canvas>
               <canvas id="inpaintPreviewCanvas"></canvas>
-              <canvas id="inpaintMaskCanvas" tabindex="0" role="application"
+              <canvas id="inpaintMaskCanvas" data-ui-label="maskCanvas" tabindex="0" role="application"
                 aria-label="局部重绘蒙版画布"
                 aria-describedby="inpaintCanvasKeyboardHint"></canvas>
             </div>
             <div class="inpaint-empty" id="inpaintEmpty">
               <span class="ui-icon ui-icon-image"></span>
-              <strong>选择一张图片开始</strong>
+              <strong data-ui-text="chooseImage">选择一张图片开始</strong>
             </div>
           </div>
 
-          <div class="inpaint-candidate-strip" id="inpaintCandidateStrip" aria-label="候选补丁"></div>
-          <p class="sr-only" id="inpaintCanvasKeyboardHint">聚焦画布后，使用方向键移动画笔，按空格绘制；按住 Shift 可擦除。</p>
+          <div class="inpaint-candidate-strip" id="inpaintCandidateStrip" data-ui-label="candidates" aria-label="候选补丁"></div>
+          <p class="sr-only" id="inpaintCanvasKeyboardHint" data-ui-text="maskKeyboard">聚焦画布后，使用方向键移动画笔，按空格绘制；按住 Shift 可擦除。</p>
         </section>
 
         <aside class="inpaint-controls">
@@ -1000,38 +1000,38 @@
           </label>
 
           <label class="field range-field">
-            <span>画笔大小 <output id="inpaintBrushSizeValue">48</output> px</span>
-            <input type="range" id="inpaintBrushSize" min="4" max="320" step="2" value="48">
+            <span><span data-ui-text="brushSize">画笔大小</span> <output id="inpaintBrushSizeValue">48</output> px</span>
+            <input type="range" id="inpaintBrushSize" data-ui-label="brushSize" min="4" max="320" step="2" value="48">
           </label>
 
           <label class="field range-field">
-            <span>边缘柔化 <output id="inpaintFeatherValue">12</output> px</span>
-            <input type="range" id="inpaintFeather" min="0" max="96" step="1" value="12">
+            <span><span data-ui-text="feather">边缘柔化</span> <output id="inpaintFeatherValue">12</output> px</span>
+            <input type="range" id="inpaintFeather" data-ui-label="feather" min="0" max="96" step="1" value="12">
           </label>
 
           <label class="field range-field">
-            <span>上下文范围 <output id="inpaintContextValue">15</output>%</span>
-            <input type="range" id="inpaintContext" min="5" max="40" step="1" value="15">
+            <span><span data-ui-text="context">上下文范围</span> <output id="inpaintContextValue">15</output>%</span>
+            <input type="range" id="inpaintContext" data-ui-label="context" min="5" max="40" step="1" value="15">
           </label>
 
           <label class="field">
-            <span>候选数量</span>
-            <input type="number" id="inpaintCandidateCount" min="1" max="4" step="1" value="2">
+            <span data-ui-text="candidateCount">候选数量</span>
+            <input type="number" id="inpaintCandidateCount" data-ui-label="candidateCount" min="1" max="4" step="1" value="2">
           </label>
 
           <div class="inpaint-alignment hidden" id="inpaintAlignment">
-            <strong>补丁对齐</strong>
+            <strong data-ui-text="alignment">补丁对齐</strong>
             <label class="field range-field">
-              <span>水平 <output id="inpaintOffsetXValue">0</output> px</span>
-              <input type="range" id="inpaintOffsetX" min="-256" max="256" step="1" value="0">
+              <span><span data-ui-text="horizontal">水平</span> <output id="inpaintOffsetXValue">0</output> px</span>
+              <input type="range" id="inpaintOffsetX" data-ui-label="horizontal" min="-256" max="256" step="1" value="0">
             </label>
             <label class="field range-field">
-              <span>垂直 <output id="inpaintOffsetYValue">0</output> px</span>
-              <input type="range" id="inpaintOffsetY" min="-256" max="256" step="1" value="0">
+              <span><span data-ui-text="vertical">垂直</span> <output id="inpaintOffsetYValue">0</output> px</span>
+              <input type="range" id="inpaintOffsetY" data-ui-label="vertical" min="-256" max="256" step="1" value="0">
             </label>
             <label class="field range-field">
-              <span>缩放 <output id="inpaintScaleValue">100</output>%</span>
-              <input type="range" id="inpaintScale" min="80" max="120" step="1" value="100">
+              <span><span data-ui-text="scale">缩放</span> <output id="inpaintScaleValue">100</output>%</span>
+              <input type="range" id="inpaintScale" data-ui-label="scale" min="80" max="120" step="1" value="100">
             </label>
           </div>
 
@@ -1044,7 +1044,7 @@
     </div>
   </div>
 
-  <div id="textContextMenu" class="text-context-menu hidden" role="menu" aria-label="文本编辑菜单">
+  <div id="textContextMenu" data-ui-label="textEditMenu" class="text-context-menu hidden" role="menu" aria-label="文本编辑菜单">
     <button type="button" role="menuitem" data-text-action="selectAll">全选</button>
     <button type="button" role="menuitem" data-text-action="cut">剪切</button>
     <button type="button" role="menuitem" data-text-action="copy">复制</button>
@@ -1057,12 +1057,13 @@
       <td class="col-num"><span class="panel-num"></span></td>
       <td class="col-prompt"><textarea rows="2" placeholder="该分镜的专属提示词…"></textarea></td>
       <td class="col-size">
-        <input type="number" class="panel-size-w" placeholder="宽" min="64" max="4096">
+        <input type="number" class="panel-size-w" placeholder="宽" aria-label="宽" min="64" max="4096">
         <span class="panel-size-x">×</span>
-        <input type="number" class="panel-size-h" placeholder="高" min="64" max="4096">
+        <input type="number" class="panel-size-h" placeholder="高" aria-label="高" min="64" max="4096">
       </td>
       <td class="col-retry">
-        <input type="number" class="panel-retry-count" placeholder="继承" min="0" max="10" step="1" title="该分镜自动重试次数，留空继承全局">
+        <span class="studio-cell-label">重试</span>
+        <input type="number" class="panel-retry-count" aria-label="重试" placeholder="继承" min="0" max="10" step="1" title="该分镜自动重试次数，留空继承全局">
       </td>
       <td class="col-img">
         <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden class="panel-img-input">
@@ -1071,7 +1072,7 @@
         <span class="panel-img-name"></span>
         <button type="button" class="btn-clear panel-img-clear hidden" title="清除"><span class="ui-icon ui-icon-x"></span></button>
       </td>
-      <td class="col-act"><button type="button" class="btn btn-xs btn-danger delete-panel" title="删除分镜"><span class="ui-icon ui-icon-trash"></span></button></td>
+      <td class="col-act"><button type="button" class="btn btn-xs btn-danger delete-panel" data-ui-label="deletePanel" title="删除分镜"><span class="ui-icon ui-icon-trash"></span></button></td>
     </tr>
   </template>
 
@@ -1088,17 +1089,18 @@
       </td>
       <td class="col-prompt"><textarea rows="3" class="turnaround-prompt" placeholder="可选：指定目标角色或补充必须保留的特征；多人图请明确角色位置、发色或服装"></textarea></td>
       <td class="col-size turnaround-fixed-size"><strong>16:9</strong><small>三视图</small></td>
-      <td class="col-act"><button type="button" class="btn btn-xs btn-danger delete-panel" title="删除"><span class="ui-icon ui-icon-trash"></span></button></td>
+      <td class="col-act"><button type="button" class="btn btn-xs btn-danger delete-panel" data-ui-label="deleteTurnaround" title="删除"><span class="ui-icon ui-icon-trash"></span></button></td>
     </tr>
   </template>
 
-  <script src="bootstrap-guard.js?v=20260909-1-6-35"></script>
-  <script src="image-task-stability.js?v=20260909-1-6-35"></script>
-  <script src="codex-image-gateway.js?v=20260909-1-6-35"></script>
-  <script src="gemini-image-size-registry.js?v=20260909-1-6-35"></script>
-  <script src="gemini-web-image-adapter.js?v=20260909-1-6-35"></script>
-  <script src="gemini-selector-pack.js?v=20260909-1-6-35"></script>
-  <script src="gemini-watermark-remover.bundle.js?v=20260909-1-6-35"></script>
-  <script src="app.js?v=20260909-1-6-35"></script>
+  <script type="application/x-ai-gen-script" data-src="image-task-stability.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="codex-image-gateway.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="gemini-image-size-registry.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="gemini-web-image-adapter.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="gemini-selector-pack.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="gemini-watermark-remover.bundle.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="app.js?v=20260909-1-7-0"></script>
+  <script type="application/x-ai-gen-script" data-src="studio-shell.js?v=20260909-1-7-0"></script>
+  <script src="bootstrap-guard.js?v=20260909-1-7-0" data-ai-gen-autoload></script>
 </body>
 </html>

@@ -1,8 +1,10 @@
-const CACHE_NAME = "ai-image-generator-1-6-35-20260909";
+const CACHE_NAME = "ai-image-generator-1-7-0-20260909-studio";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./style.css",
+  "./studio-shell.css",
+  "./studio-shell.js",
   "./bootstrap-guard.js",
   "./image-task-stability.js",
   "./codex-image-gateway.js",

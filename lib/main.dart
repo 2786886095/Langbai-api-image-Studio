@@ -1652,6 +1652,7 @@ const String windowsAppHealthProbeScript = r'''
     : [];
   return JSON.stringify({
     ready: window.__AI_GEN_APP_READY === true,
+    runtimeState: window.__AI_GEN_RUNTIME ? window.__AI_GEN_RUNTIME.state : "",
     error: errors.length ? errors[errors.length - 1] : "",
     missing
   });
@@ -1663,15 +1664,28 @@ class WindowsAppHealthSnapshot {
     required this.ready,
     required this.startupError,
     required this.missingControls,
+    this.runtimeState = '',
   });
 
   final bool ready;
   final String startupError;
   final List<String> missingControls;
+  final String runtimeState;
 
-  bool get healthy => ready && startupError.isEmpty && missingControls.isEmpty;
+  bool get requiresRuntimeUpdate => runtimeState == 'unsupported';
+
+  bool get healthy =>
+      !requiresRuntimeUpdate &&
+      ready &&
+      startupError.isEmpty &&
+      missingControls.isEmpty;
 
   String get failureDescription {
+    if (requiresRuntimeUpdate) {
+      return startupError.isNotEmpty
+          ? startupError
+          : 'WebView runtime update required';
+    }
     if (startupError.isNotEmpty) return 'startup error: $startupError';
     if (missingControls.isNotEmpty) {
       return 'missing controls: ${missingControls.join(', ')}';
@@ -1694,6 +1708,7 @@ class WindowsAppHealthSnapshot {
     final missing = decoded['missing'];
     return WindowsAppHealthSnapshot(
       ready: decoded['ready'] == true,
+      runtimeState: decoded['runtimeState']?.toString() ?? '',
       startupError: decoded['error']?.toString().trim() ?? '',
       missingControls: missing is List
           ? missing.map((value) => value.toString()).toList(growable: false)
@@ -1715,6 +1730,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   final ChatGptAccountStore _chatGptAccountStore = ChatGptAccountStore();
 
   bool _isReady = false;
+  bool _runtimeUnsupported = false;
   bool _isWindowSizeDegenerate = false;
   bool _trustedWindowsDocument = false;
   bool _isRebuildingWebView = false;
@@ -1743,6 +1759,8 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   }) async {
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       if (await _initializeWebView()) return true;
+      // An unsupported engine needs a user runtime update, not repeated reloads.
+      if (_runtimeUnsupported) return false;
       if (attempt < maxAttempts) {
         await Future<void>.delayed(
           Duration(milliseconds: 400 * (1 << (attempt - 1))),
@@ -1846,6 +1864,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
   }
 
   Future<bool> _initializeWebView() async {
+    _runtimeUnsupported = false;
     final generation = ++_webViewGeneration;
     windows_webview.WinWebViewController? controller;
     try {
@@ -1924,6 +1943,19 @@ class _WindowsWebShellState extends State<WindowsWebShell>
         return false;
       }
       final health = await _waitForWindowsAppReady(controller, generation);
+      if (health.requiresRuntimeUpdate) {
+        if (!mounted) return false;
+        setState(() {
+          _runtimeUnsupported = true;
+          _isReady = false;
+          _errorTitle = null;
+          _errorMessage = null;
+        });
+        // Retain the localized, visible ES5 diagnostic and existing data/profile.
+        // Do not declare APP_READY, sync settings or start a recovery timer.
+        if (_windowsWebViewSelfTest || _windowsWebViewInputSelfTest) exit(6);
+        return false;
+      }
       if (!health.healthy) {
         throw StateError(health.failureDescription);
       }
@@ -1982,6 +2014,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
       }
       try {
         final health = await _probeWindowsAppHealth(controller);
+        if (health.requiresRuntimeUpdate) return health;
         if (health.startupError.isNotEmpty) return health;
         if (health.ready) return health;
       } catch (error) {
@@ -3002,7 +3035,7 @@ class _WindowsWebShellState extends State<WindowsWebShell>
     }
 
     final controller = _controller;
-    if (!_isReady || controller == null) {
+    if ((!_isReady && !_runtimeUnsupported) || controller == null) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF879CFF)),
       );

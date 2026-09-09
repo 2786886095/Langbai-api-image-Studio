@@ -72,8 +72,12 @@ function createStaticServer() {
       const url = new URL(req.url, `http://${host}:${appPort}`);
       let pathname = decodeURIComponent(url.pathname);
       if (pathname === "/") pathname = "/index.html";
-      const filePath = path.resolve(projectRoot, `.${pathname}`);
-      if (!filePath.startsWith(projectRoot)) {
+      let filePath = path.resolve(projectRoot, `.${pathname}`);
+      if (process.env.AIGEN_QA_BASELINE_ROOT) {
+        const baseline = path.resolve(process.env.AIGEN_QA_BASELINE_ROOT, `.${pathname}`);
+        if (fs.existsSync(baseline)) filePath = baseline;
+      }
+      if (!filePath.startsWith(projectRoot) && !process.env.AIGEN_QA_BASELINE_ROOT) {
         res.writeHead(403);
         res.end("Forbidden");
         return;
@@ -246,7 +250,7 @@ async function testCustomSelects(cdp) {
   await loadFresh(cdp, "custom-selects");
 
   const apiProviderFlow = await cdp.eval(`(async () => {
-    document.getElementById("configSection").open = true;
+    keepApiConfigVisible();
     await new Promise(r => setTimeout(r, 80));
     const trigger = document.getElementById("apiProviderTrigger");
     const list = document.getElementById("apiProviderCustomList");
@@ -322,8 +326,8 @@ async function testApiConfig(cdp) {
     const config = document.getElementById("configSection").getBoundingClientRect();
     const prompt = document.getElementById("globalPromptField").getBoundingClientRect();
     return {
-      configOpen: document.getElementById("configSection").open,
-      quickBeforeConfig: quick.top < config.top,
+      configOpen: window.StudioShell ? !document.getElementById("studioApiModal").classList.contains("hidden") : document.getElementById("configSection").open,
+      quickBeforeConfig: window.StudioShell ? !document.querySelector(".input-panel").contains(document.getElementById("configSection")) : quick.top < config.top,
       promptStartsInViewport: prompt.top < window.innerHeight,
     };
   })()`, true);
@@ -366,7 +370,7 @@ async function testApiConfig(cdp) {
     document.getElementById("setDefaultApi").click();
     await new Promise(r => setTimeout(r, 50));
     return {
-      configOpen: document.getElementById("configSection").open,
+      configOpen: window.StudioShell ? !document.getElementById("studioApiModal").classList.contains("hidden") : document.getElementById("configSection").open,
       selected: document.getElementById("savedApis").value,
       apis: JSON.parse(localStorage.getItem("ai_image_gen_apis") || "[]"),
       active: JSON.parse(localStorage.getItem("ai_image_gen_config") || "{}"),
@@ -398,7 +402,7 @@ async function testApiConfig(cdp) {
       proxy: document.getElementById("proxyEndpoint").value,
       provider: document.getElementById("apiProvider").value,
       selected: document.getElementById("savedApis").value,
-      configOpen: document.getElementById("configSection").open,
+      configOpen: window.StudioShell ? !document.getElementById("studioApiModal").classList.contains("hidden") : document.getElementById("configSection").open,
     };
     const answerAskDialog = async (value) => {
       const start = Date.now();
@@ -650,7 +654,7 @@ async function testApiConfig(cdp) {
   assertQa(isolatedProfiles.restoredOfficial.provider === "official" && isolatedProfiles.restoredOfficial.endpoint.includes("api.openai.com") && isolatedProfiles.restoredOfficial.key === "sk-official-isolated-key" && isolatedProfiles.restoredOfficial.model === "gpt-image-2" && isolatedProfiles.restoredOfficial.proxy.endsWith("/official") && isolatedProfiles.restoredOfficial.quality === "high" && isolatedProfiles.restoredOfficial.outputFormat === "webp", "The official profile must restore its own key and all official-specific options without borrowing GrsAI values.", isolatedProfiles);
 
   const modelChoice = await cdp.eval(`(async () => {
-    document.getElementById("configSection").open = true;
+    keepApiConfigVisible();
     await new Promise(r => setTimeout(r, 50));
     const set = (id, value) => {
       const el = document.getElementById(id);
@@ -880,7 +884,7 @@ async function testComicProjectRestorePreservesReferencesAndFailures(cdp) {
     const savedPanelsOmitRefs = Array.isArray(item.panels) && item.panels.every(p => !p.references || p.references.length === 0);
     const savedStatuses = (item.panels || []).map(p => p.status);
 
-    document.getElementById("resultGrid").innerHTML = "";
+    clearAllResultCards();
     document.getElementById("panelTbody").innerHTML = "";
     document.querySelector('[data-mode="single"]').click();
     await new Promise(r => setTimeout(r, 50));
@@ -981,7 +985,7 @@ async function testTurnaroundProjectRestorePreservesReferencesAndFailures(cdp) {
     const savedPanelsOmitRefs = Array.isArray(item.panels) && item.panels.every(p => !p.references || p.references.length === 0);
     const savedStatuses = (item.panels || []).map(p => p.status);
 
-    document.getElementById("resultGrid").innerHTML = "";
+    clearAllResultCards();
     document.getElementById("turnaroundTbody").innerHTML = "";
     document.querySelector('[data-mode="single"]').click();
     await new Promise(r => setTimeout(r, 50));
@@ -1203,7 +1207,7 @@ async function testHistoryRestoreAndExport(cdp) {
     }
     const headerCurrentBlob = zipBlobs()[1];
     const headerCurrentEntries = headerCurrentBlob ? await listZipEntries(headerCurrentBlob.blob) : [];
-    document.getElementById("resultGrid").innerHTML = "";
+    clearAllResultCards();
     document.getElementById("resultGrid").classList.add("hidden");
     document.getElementById("emptyState").classList.remove("hidden");
     document.getElementById("resultToolbar").classList.add("hidden");
@@ -1318,8 +1322,8 @@ async function testExportedProjectFolderRoundTrip(cdp) {
     row.querySelector(".panel-size-h").value = "1536";
     const card = document.createElement("div");
     card.className = "result-item";
-    dom.resultGrid.innerHTML = "";
-    dom.resultGrid.appendChild(card);
+    clearAllResultCards();
+    registerResultCard(card);
     replacePlaceholder(card, "1", { data: [{ b64_json: png, mime_type: "image/png" }] }, "GLOBAL\\n\\nrestored panel prompt", {
       skipHistory: true,
       recordPrompt: "restored panel prompt",
@@ -1425,6 +1429,7 @@ async function testHistoryImageCacheFallback(cdp) {
       imageUrl: "idb://missing-history-blob", originalUrl, prompt: "fallback image", panelId: "1"
     }]));
     renderHistory();
+    openModal(dom.historyModal);
     await new Promise(r => setTimeout(r, 80));
     const previewSrc = document.querySelector(".history-card img")?.src || "";
     await openLightbox("idb://missing-history-blob", originalUrl);
@@ -1464,7 +1469,7 @@ async function testGeneratedImagePersistentCache(cdp) {
     await generatedCacheCleanupQueue.catch(() => {});
     await clearGeneratedCacheStore();
     saveSettings({ historyEnabled: false, cacheRetentionDays: 7 });
-    dom.resultGrid.innerHTML = "";
+    clearAllResultCards();
     dom.resultGrid.classList.remove("hidden");
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     const card = addResultPlaceholder("cache-1", "cache test", { mode: "single", prompt: "cache test" });
@@ -2283,7 +2288,7 @@ async function testRetryClearReloadAndI18n(cdp) {
     };
     const card = document.createElement("div");
     card.className = "result-item";
-    document.getElementById("resultGrid").appendChild(card);
+    registerResultCard(card);
     replacePlaceholder(card, 1, { data: [{ url: "https://example.test/mock-preview-image.png" }] }, "panel only", {
       skipHistory: true,
       retryContext: { mode: "comic", globalPrompt: "global", panelPrompt: "panel only", prompt: "global\\n\\npanel only" },
@@ -2406,7 +2411,7 @@ async function testRetryClearReloadAndI18n(cdp) {
     set("apiKey", "sk-test");
     set("model", "gpt-image-2");
     const grid = document.getElementById("resultGrid");
-    grid.innerHTML = "";
+    clearAllResultCards();
     grid.classList.remove("hidden");
     document.getElementById("emptyState").classList.add("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
@@ -2461,7 +2466,14 @@ async function testRetryClearReloadAndI18n(cdp) {
     const before = {
       cardCount: visibleCards.length,
       maxPerRow: Math.max(...rows.values()),
-      scrollable: grid.scrollHeight > grid.clientHeight + 24,
+      scrollable: (() => {
+        const owner = window.StudioShell ? grid.closest("main.result-panel") : grid;
+        const before = owner.scrollTop;
+        owner.scrollTop = before + 40;
+        const moved = owner.scrollTop !== before;
+        owner.scrollTop = before;
+        return owner.scrollHeight > owner.clientHeight + 24 && moved;
+      })(),
       metrics: {
         viewport: { width: window.innerWidth, height: window.innerHeight },
         gridClientHeight: grid.clientHeight,
@@ -2531,7 +2543,7 @@ async function testRetryClearReloadAndI18n(cdp) {
   })()`, true);
   assertQa(resultGrid.before.cardCount === 24, "Result grid should render all batch cards.", resultGrid);
   assertQa(resultGrid.before.maxPerRow <= 3, "Result grid should show no more than three cards per row.", resultGrid);
-  assertQa(resultGrid.before.scrollable, "Large result batches should scroll inside the result grid.", resultGrid);
+  assertQa(resultGrid.before.scrollable, "Large result batches must really scroll within their workspace owner.", resultGrid);
   assertQa(!resultGrid.before.failToolsHidden && resultGrid.before.failedCount === 4, "Failed-result toolbar should appear when failures exist.", resultGrid);
   assertQa(resultGrid.before.firstReason.includes("mocked failure reason") && resultGrid.before.minMediaHeight >= 170, "Failed cards should show their reason inside a stable media area.", resultGrid);
   assertQa(resultGrid.after.failedCount === 0 && resultGrid.after.imageCount === 24 && resultGrid.after.retryToolsHidden, "Retry all failed should replace failed cards and hide the failed toolbar.", resultGrid);
@@ -2556,6 +2568,8 @@ async function testRetryClearReloadAndI18n(cdp) {
         await new Promise(r => setTimeout(r, 80));
         const sizeDetails = document.querySelector(".size-presets-more");
         if (sizeDetails) sizeDetails.open = true;
+        // Secondary tools now live in a labelled menu; audit them expanded.
+        document.querySelector(".studio-tools")?.setAttribute("open", "");
         const sourceSizeLabels = [
           "更多常用尺寸", "官方 2K 方图", "官方 2K 横图", "官方 4K 横图", "官方 4K 竖图",
           "横屏 16:9", "竖屏 9:16", "2K 竖屏", "QHD 横屏", "QHD 竖屏",
@@ -2606,6 +2620,7 @@ async function testRetryClearReloadAndI18n(cdp) {
         });
       }
       const menuButton = document.getElementById("languageMenuButton");
+      document.querySelector(".studio-tools")?.removeAttribute("open");
       const menu = document.getElementById("languageMenu");
       const themeBefore = document.documentElement.getAttribute("data-theme");
       document.getElementById("themeToggle").click();
@@ -2648,7 +2663,7 @@ async function testEveryFailureRemainsManuallyRetryable(cdp) {
     set("model", "gpt-image-2");
     set("failedRetryCount", "0");
     const grid = document.getElementById("resultGrid");
-    grid.innerHTML = "";
+    clearAllResultCards();
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
     const failures = [
@@ -2727,7 +2742,7 @@ async function testRetryAllFailedRepeatsEachCardUntilSuccessOrLimit(cdp) {
     document.getElementById("apiProvider").value = "custom";
 
     const grid = document.getElementById("resultGrid");
-    grid.innerHTML = "";
+    clearAllResultCards();
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
     ["moderation eventually succeeds", "504 always fails"].forEach((prompt, index) => {
@@ -2802,7 +2817,7 @@ async function testRetryAllFailedManualSupplementButton(cdp) {
     set("failedRetryCount", "0");
     document.getElementById("apiProvider").value = "custom";
     const grid = document.getElementById("resultGrid");
-    grid.innerHTML = "";
+    clearAllResultCards();
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
 
@@ -2903,7 +2918,7 @@ async function testRetryAllFailedShowsQueuedCardsBeyondConcurrency(cdp) {
     document.getElementById("apiProvider").value = "custom";
 
     const grid = document.getElementById("resultGrid");
-    grid.innerHTML = "";
+    clearAllResultCards();
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
     for (let i = 1; i <= 12; i++) {
@@ -2980,7 +2995,7 @@ async function testRetryAllFailedCanCancelAndRestart(cdp) {
     document.getElementById("apiProvider").value = "custom";
 
     const grid = document.getElementById("resultGrid");
-    grid.innerHTML = "";
+    clearAllResultCards();
     grid.classList.remove("hidden");
     document.getElementById("resultToolbar").classList.remove("hidden");
     for (let i = 1; i <= 2; i++) {
@@ -3648,7 +3663,7 @@ async function testModelChoicesWheelScroll(cdp) {
   try {
     await loadFresh(cdp, "model-choices-wheel");
     const result = await cdp.eval(`(async () => {
-      document.getElementById("configSection").open = true;
+      keepApiConfigVisible();
       setModelChoices(Array.from({ length: 40 }, (_, i) => "model-" + i));
       await new Promise(r => setTimeout(r, 50));
       document.getElementById("model").click();
@@ -3874,7 +3889,7 @@ async function testTurnaroundMode(cdp) {
     await new Promise(r => setTimeout(r, 200));
 
     // Restore from history and confirm it repopulates turnaround mode with the right rows.
-    document.getElementById("resultGrid").innerHTML = "";
+    clearAllResultCards();
     document.getElementById("resultGrid").classList.add("hidden");
     document.getElementById("emptyState").classList.remove("hidden");
     document.getElementById("turnaroundTbody").innerHTML = "";
@@ -4514,13 +4529,14 @@ async function testOpenAiOfficialProviderOptionsAndIsolation(cdp) {
 }
 
 async function testOpenAiOfficialProviderResponsiveLayout(cdp) {
-  logStep("Official provider controls remain inside the input panel on desktop and mobile");
+  logStep("Official provider controls remain inside the API workspace on desktop and mobile");
   for (const viewport of [{ width: 1365, height: 768, mobile: false }, { width: 430, height: 760, mobile: true }]) {
     await loadFresh(cdp, `official-layout-${viewport.width}`, viewport);
     const layout = await cdp.eval(`(() => {
       applyApiProvider("official", { forceEndpoint: true });
+      keepApiConfigVisible();
       const panel = dom.officialProviderPanel.getBoundingClientRect();
-      const input = document.querySelector(".input-panel").getBoundingClientRect();
+      const input = document.querySelector(window.StudioShell ? ".studio-api-card" : ".input-panel").getBoundingClientRect();
       const overflow = [...dom.officialProviderPanel.querySelectorAll("button,input,select")].filter(element => element.scrollWidth > element.clientWidth + 2).length;
       return { panel: { left: panel.left, right: panel.right }, input: { left: input.left, right: input.right }, overflow, bodyOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 };
     })()`, true);
@@ -4847,7 +4863,7 @@ async function testInpaintModalInteractionSafety(cdp) {
     applyApiProvider(CODEX_IMAGE_GATEWAY_PROVIDER, { forceEndpoint: true });
     updateInpaintAvailability();
     dom.inpaintSourceInput.click = () => {};
-    dom.configSection.open = true;
+    keepApiConfigVisible();
     const trigger = dom.openInpaintFromFile;
     trigger.focus();
     trigger.click();
@@ -4888,7 +4904,9 @@ async function testInpaintModalInteractionSafety(cdp) {
       mainAfterWheel,
       trapped,
       closed: dom.inpaintModal.classList.contains("hidden"),
-      bodyUnlocked: document.body.style.overflow === "",
+      bodyUnlocked: window.StudioShell
+        ? document.body.style.overflow === "hidden" && getTopVisibleOverlay()?.id === "studioApiModal"
+        : document.body.style.overflow === "",
       focusReturned: document.activeElement === trigger,
       returnTargetCaptured,
       activeElementId: document.activeElement?.id || "",
@@ -4898,7 +4916,7 @@ async function testInpaintModalInteractionSafety(cdp) {
   })()`, true);
   assertQa(result.opened && result.bodyLocked && result.wheelCanceled && result.mainAfterWheel === result.mainBefore, "Opening inpaint must lock the page and wheel events must not scroll the main input panel.", result);
   assertQa(result.trapped, "Tab from the last inpaint control must wrap to the first control instead of escaping the modal.", result);
-  assertQa(result.closed && result.bodyUnlocked && result.focusReturned, "Escape must close inpaint, release body scroll, and restore focus to the opener.", result);
+  assertQa(result.closed && result.bodyUnlocked && result.focusReturned, "Escape must close inpaint, restore the parent dialog's scroll ownership when present, and focus the opener.", result);
 }
 
 async function testGrsaiOfficialAdapter(cdp) {
@@ -5612,6 +5630,7 @@ async function testProviderPanelsResponsiveAfterGateway(cdp) {
     await loadFresh(cdp, `provider-layout-${viewport.width}`, viewport);
     const result = await cdp.eval(`(() => {
       const checks = [];
+      keepApiConfigVisible();
       for (const provider of ["official", "grsai", "custom", "codexImageGateway"]) {
         applyApiProvider(provider, { forceEndpoint: true });
         const panel = provider === "official" ? dom.officialProviderPanel
@@ -5619,7 +5638,7 @@ async function testProviderPanelsResponsiveAfterGateway(cdp) {
           : provider === "custom" ? dom.customProviderPanel
           : dom.codexGatewayProviderPanel;
         const rect = panel.getBoundingClientRect();
-        const inputRect = document.querySelector(".input-panel").getBoundingClientRect();
+        const inputRect = document.querySelector(window.StudioShell ? ".studio-api-card" : ".input-panel").getBoundingClientRect();
         const overflowButtons = [...panel.querySelectorAll("button")].filter(button => {
           const box = button.getBoundingClientRect();
           return box.width > 0 && (box.left < rect.left - 1 || box.right > rect.right + 1);
@@ -5628,7 +5647,7 @@ async function testProviderPanelsResponsiveAfterGateway(cdp) {
       }
       return { checks, bodyOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
     })()`, true);
-    assertQa(result.checks.every(item => !item.hidden && item.left >= item.inputLeft - 1 && item.right <= item.inputRight + 1 && item.scrollWidth <= item.clientWidth + 1 && item.overflowButtons === 0), "Every provider panel must fit the input column without clipped or unclickable controls.", { viewport, result });
+    assertQa(result.checks.every(item => !item.hidden && item.left >= item.inputLeft - 1 && item.right <= item.inputRight + 1 && item.scrollWidth <= item.clientWidth + 1 && item.overflowButtons === 0), "Every provider panel must fit its API workspace without clipped controls.", { viewport, result });
     assertQa(!result.bodyOverflow, "Provider controls must not introduce horizontal page overflow.", { viewport, result });
   }
 }
@@ -5786,7 +5805,7 @@ async function testAndroidChatGptGatewayEntry(cdp) {
     await loadFresh(cdp, "android-chatgpt-gateway-entry", { width: 430, height: 820, mobile: true });
     const result = await cdp.eval(`(async () => {
       await new Promise(r => setTimeout(r, 80));
-      document.getElementById("configSection").open = true;
+      keepApiConfigVisible();
       applyApiProvider("codexImageGateway", { forceEndpoint: true });
       const ready = await checkCodexGatewayHealth({ announce: false, force: true });
       customSelects.apiProvider.renderOptions();
@@ -6800,6 +6819,16 @@ async function main() {
   let cdp;
   try {
     cdp = await setupBrowserPage();
+    await require("./studio-history-performance-checks")(cdp, { loadFresh, assertQa, logStep });
+    if (process.env.AIGEN_QA_FOCUS === "history-performance") { cdp.assertNoRuntimeIssues(); console.log("[qa] Focused history performance checks passed."); return; }
+    await require("./studio-runtime-browser-checks")(cdp, { loadFresh, assertQa, logStep });
+    if (process.env.AIGEN_QA_FOCUS === "runtime") { cdp.assertNoRuntimeIssues(); console.log("[qa] Focused runtime checks passed."); return; }
+    await require("./studio-i18n-browser-checks")(cdp, { loadFresh, assertQa, logStep });
+    await require("./studio-cache-browser-checks")(cdp, { loadFresh, assertQa, logStep });
+    await require("./studio-result-window-checks")(cdp, { loadFresh, assertQa, logStep });
+    if (process.env.AIGEN_QA_FOCUS === "completion") { cdp.assertNoRuntimeIssues(); console.log("[qa] Completion integration checks passed."); return; }
+    await require("./studio-audit-browser-checks")(cdp, { loadFresh, assertQa, logStep });
+    await require("./studio-workspace-checks")(cdp, { loadFresh, assertQa, logStep });
     await testColdStartupProfilesAndCoreControls(cdp);
     await testStorageFaultIsolationAndHistoryDbRecovery(cdp);
     await testCustomSelects(cdp);
