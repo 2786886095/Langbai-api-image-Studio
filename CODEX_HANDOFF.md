@@ -1,4 +1,4 @@
-# Codex / Claude Handoff: AI 图片生成器 v1.6.34
+# Codex / Claude Handoff: AI 图片生成器 v1.6.35
 
 更新时间：2026-08-11
 项目路径：`F:\AI\agent\codex\Langbai-api-image-Studio-v1624-release`
@@ -6,7 +6,17 @@
 
 ## 当前状态
 
-- 本交接对应源码版本 `1.6.34+111`；线上发布状态以 GitHub Releases 实际页面为准。
+- 本交接对应源码版本 `1.6.35+112`；线上发布状态以 GitHub Releases 实际页面为准。
+
+## v1.6.35 GrsAI 模型目录刷新
+
+- `GrsAI.fetchModels()` 调用 `refreshGrsaiModels()`，读取 GrsAI 自身网站使用的公开目录接口，不向目录请求附加 API Key。
+- 只收录 `type=image`，去重并校验名称，支持未来新增图片模型；已保存/手填的模型保持选择，不被名单覆盖。
+- `ai_image_grsai_model_catalog_v1` 独立存储目录和查询时间；请求失败、非法响应均保留缓存或带日期的内置名单。
+- `apiConfigApplySequence`、供应商和端点共同隔离迟到响应，避免切换 API 后被目录刷新覆盖。
+- GrsAI 价格展示线上返回的积分，不沿用旧版固定人民币价格。
+- 内置新增 gpt-image-2.5、gpt-image-2.5-sunburst、gpt-image-2.5-flare、nano-banana-2-lite；Gemini 去水印保持不变。
+- `qa/grsai-model-catalog.test.js` 与完整浏览器回归覆盖刷新、筛选、价格、离线和配置保留。
 
 ## v1.6.34 导出完整性修复
 
