@@ -10,7 +10,7 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const icon = name => `<span class="ui-icon ui-icon-${name}" aria-hidden="true"></span>`;
 const setIconText = (el, name, text) => { if (el) el.innerHTML = `${icon(name)} ${tr(text)}`; };
-const APP_VERSION = "1.6.35";
+const APP_VERSION = "1.7.0";
 const RELEASE_API_URL = "https://api.github.com/repos/2786886095/Langbai-api-image-Studio/releases/latest";
 const UPDATE_CHECK_STATE_KEY = "ai_image_update_check_state_v1";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -106,7 +106,8 @@ function showStorageRecoveryIssues() {
     issues: Object.freeze([...storageRecoveryIssues.entries()]),
   });
   const keys = [...storageRecoveryIssues.keys()].filter(key => !key.startsWith(STORAGE_RECOVERY_PREFIX));
-  showStatus(`检测到本地数据读取异常，原始值已备份并进入只读恢复状态：${keys.join("、")}`, "error");
+  const readOnly = [...storageReadOnlyKeys];
+  showStatus(`${uiText(readOnly.length ? "storageReadOnly" : "storageUnavailable")} ${(readOnly.length ? readOnly : keys).join(", ")}`, "error");
 }
 
 function openFileInputOnce(input) {
@@ -247,7 +248,6 @@ const I18N = {
   "清除": { "zh-Hant": "清除", en: "Remove", ja: "削除", ko: "제거" },
   "下载": { "zh-Hant": "下載", en: "Download", ja: "ダウンロード", ko: "다운로드" },
   "复制链接": { "zh-Hant": "複製連結", en: "Copy Link", ja: "リンクをコピー", ko: "링크 복사" },
-  "重试": { "zh-Hant": "重試", en: "Retry", ja: "再試行", ko: "재시도" },
   "编辑重试": { "zh-Hant": "編輯重試", en: "Edit & Retry", ja: "編集して再試行", ko: "편집 후 재시도" },
   "一键重试": { "zh-Hant": "一鍵重試", en: "Retry", ja: "再試行", ko: "재시도" },
   "编辑后重试": { "zh-Hant": "編輯後重試", en: "Edit & Retry", ja: "編集して再試行", ko: "편집 후 재시도" },
@@ -339,11 +339,17 @@ const I18N_PATTERNS = [
   [/^下载失败: (.+)$/, "下载失败: {1}", { "zh-Hant": "下載失敗：{1}", en: "Download failed: {1}", ja: "ダウンロードに失敗しました：{1}", ko: "다운로드 실패: {1}" }],
 ];
 
+// A displayed translation is not an identity: Retry, Edit & Retry and
+// Generating... each have multiple canonical sources. Never pick the last one.
 const I18N_REVERSE = new Map();
+const I18N_AMBIGUOUS_REVERSE = new Set();
 for (const [source, translations] of Object.entries(I18N)) {
-  I18N_REVERSE.set(source, source);
-  for (const value of Object.values(translations)) I18N_REVERSE.set(value, source);
+  for (const value of Object.values(translations)) {
+    if (I18N_REVERSE.has(value) && I18N_REVERSE.get(value) !== source) I18N_AMBIGUOUS_REVERSE.add(value);
+    else I18N_REVERSE.set(value, source);
+  }
 }
+for (const value of I18N_AMBIGUOUS_REVERSE) I18N_REVERSE.delete(value);
 
 const CLEAN_LOCALES = {
   "zh-CN": {
@@ -353,7 +359,7 @@ const CLEAN_LOCALES = {
     create: "创作", panels: "分镜", history: "历史", export: "导出", settings: "设置", skillsTitle: "技能列表", activeSkillsTitle: "当前模式技能", manageSkills: "管理技能", activeSkillsHint: "勾选后按列表顺序注入当前模式的生图提示词；单图与漫画分镜分别记忆。", functionalCategory: "功能类", styleCategory: "风格类", noSkills: "当前模式暂无可用技能，可在右上角技能列表中添加。",
     apiSettings: "API 配置", apiProvider: "API 类型", officialApi: "官方 API", opencodexApi: "OpenCodex 本地生图", geminiWebApi: "Gemini 网页生图", grsaiImageApi: "GrsAI 生图 API", customApi: "自定义 API",
     opencodexHint: "使用本机 OpenCodex 的 ChatGPT 登录转发生图；本地占位密钥不会发送给 OpenAI，实际额度类型由 ChatGPT 上游决定。",
-    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 初始并发 2（断连后降为 1）", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintRequiresGptImage2: "局部重绘仅支持 OpenCodex 或官方 OpenAI 的 gpt-image-2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。", inpaintOpenCodexDisclosure: "OpenCodex gpt-image-2 生成语义补丁；软件只在本地蒙版内合成。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
+    opencodexPanelTitle: "OpenCodex 本地图片代理", opencodexPanelHint: "复用本机 ChatGPT/Codex 或 Google Antigravity 登录；仅连接 127.0.0.1，不使用电脑端代理。", openCodexModel: "本地生图模型", openCodexModelHint: "GPT Image 2 适合通用生成；Nano Banana 2 擅长多参考图、文字和语义编辑。", opencodexQuality: "质量偏好", opencodexQualityHint: "私有额度上游实测固定为中等质量，其他档位不会生效。", opencodexBackground: "背景", opencodexBackgroundHint: "gpt-image-2 仅发送自动或不透明；不会发送透明背景。", openCodexAspectRatio: "画面比例", openCodexAspectRatioHint: "只能选择 Nano Banana 2 官方支持的画面比例。", openCodexImageSize: "分辨率档位", openCodexImageSizeHint: "512/1K 最多并发 5，2K 最多 3，4K 固定单任务。", opencodexFacts: "JSON 图片协议 · GPT Image 2 · 中等质量 · 约 157 万像素 · 初始并发 2（断连后降为 1）", opencodexCapability: "实测输出约 157 万像素、最长边 2172、质量固定为中等；软件会把尺寸比例写入提示词，并以实际返回尺寸为准。", openCodexNanoFacts: "JSON 图片协议 · Nano Banana 2 · 当前最多并发 {concurrency} · 单次超时 620 秒", openCodexNanoCapability: "支持最多 8 张客户端参考图、文字渲染和语义编辑；比例与档位是请求目标，结果以实际图片为准。", opencodexHealthCheck: "检测本地服务", opencodexHealthIdle: "尚未检测", opencodexHealthChecking: "正在连接 OpenCodex…", opencodexHealthReady: "本地服务可用 · OpenCodex {version}", opencodexHealthFailed: "本地服务不可用：{reason}", openInpaint: "局部重绘", inpaintRequiresNano: "局部重绘需要选择 Nano Banana 2", inpaintTitle: "局部重绘", inpaintDisclosure: "局部重绘仅支持两个 gpt-image-2 入口。", inpaintChooseSource: "选择原图", inpaintNoSource: "尚未选择图片", inpaintPromptLabel: "修改内容", inpaintGenerate: "生成候选补丁", inpaintApply: "应用并加入结果", inpaintInitial: "先选择原图，再涂抹要修改的区域。", inpaintNeedSource: "请先选择原图", inpaintNeedMask: "请先涂抹要修改的区域", inpaintNeedPrompt: "请输入修改内容", inpaintGenerating: "正在生成候选补丁 {done}/{total}…", inpaintApplied: "局部重绘结果已加入结果列表", inpaintCandidateFailed: "候选 {index} 失败：{reason}", inpaintRequestedActual: "请求：{requested} · 实际：{actual}",
     savedApis: "已保存的 API", manualApi: "手动填写", setDefaultApi: "默认", defaultApi: "默认 API",
     apiProviderHint: "推荐生图中转网站：https://grsai.com/zh；请在浏览器打开管理，软件内不跳转网站。",
     apiUrl: "API 地址", grsaiEndpoint: "https://grsai.dakka.com.cn/v1/api/generate", grsaiWebsite: "推荐生图中转网站：https://grsai.com/zh", useGrsaiEndpoint: "填入 GrsAI 地址",
@@ -394,7 +400,7 @@ const CLEAN_LOCALES = {
     imageSaveFolder: "图片保存目录", zipSaveFolder: "压缩包保存目录", chooseFolder: "选择目录", imageAskEveryTime: "每次保存图片时询问路径", zipAskEveryTime: "每次保存 ZIP 时询问路径", pathModeHint: "未勾选时使用上方保存目录；勾选后每次保存都会重新选择一次目录。", textSelectAll: "全选", textCut: "剪切", textCopy: "复制", textPaste: "粘贴",
     historyTitle: "生图记录", historyHint: "漫画与三视图任务按项目保存，提示词默认折叠；项目元数据与图片均保存在本机。",
     searchHistory: "搜索提示词 / 模型 / 日期", refresh: "刷新", autoSaveHistory: "自动保存成功生成的图片记录",
-    maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", imageCacheTitle: "图片临时缓存", cacheRetentionDays: "自动清理天数", cacheRetentionHint: "生成成功后立即缓存在应用内部，避免中转图片链接过期；只有打包 ZIP 或保存到文件夹时才会写入所选目录。", clearGeneratedCache: "立即清理缓存", cacheAutoHint: "缓存会在应用启动和生成新图片时自动清理。", cacheCleared: "已清理 {count} 张缓存图片", cacheCleanupFailed: "缓存清理失败：{reason}", autoRetry: "自动重试", globalRetries: "全局重试次数",
+    maxRecords: "最多保留记录数", clearAllHistory: "清空全部记录", imageCacheTitle: "图片临时缓存", cacheRetentionDays: "自动清理天数", cacheRetentionHint: "生成成功后立即缓存在应用内部，避免中转图片链接过期；只有打包 ZIP 或保存到文件夹时才会写入所选目录。", clearGeneratedCache: "立即清理缓存", cacheAutoHint: "缓存会在应用启动和生成新图片时自动清理。", confirmClearGeneratedCache: "清理应用内图片缓存？未导出的图片可能无法恢复，请先保存需要的作品。", cacheCleared: "已清理 {count} 张缓存图片", cacheCleanupFailed: "缓存清理失败：{reason}", autoRetry: "自动重试", globalRetries: "全局重试次数",
     retryHint: "通用 API 只有 HTTP 400 会自动重试；0 表示不自动重试。分镜里的重试次数可覆盖这里。",
     grsaiSubmit504Retries: "GrsAI 提交 504 重试次数", grsaiSubmit504Interval: "GrsAI 提交 504 间隔（秒）",
     grsaiSubmit504Hint: "仅用于 GrsAI 首次提交返回 HTTP 504；自动重提可能偶尔生成重复图片。次数设为 0 可关闭。",
@@ -472,7 +478,7 @@ const CLEAN_LOCALES = {
     imageSaveFolder: "圖片儲存目錄", zipSaveFolder: "壓縮包儲存目錄", chooseFolder: "選擇目錄", imageAskEveryTime: "每次儲存圖片時詢問路徑", zipAskEveryTime: "每次儲存 ZIP 時詢問路徑", pathModeHint: "未勾選時使用上方儲存目錄；勾選後每次儲存都會重新選擇一次目錄。", textSelectAll: "全選", textCut: "剪下", textCopy: "複製", textPaste: "貼上",
     historyTitle: "生圖記錄", historyHint: "漫畫與三視圖工作會按專案保存，提示詞預設摺疊；專案資料與圖片均保存在本機。",
     searchHistory: "搜尋提示詞 / 模型 / 日期", refresh: "重新整理", autoSaveHistory: "自動保存成功生成的圖片記錄",
-    maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", imageCacheTitle: "圖片暫存快取", cacheRetentionDays: "自動清理天數", cacheRetentionHint: "生成成功後會立即快取在應用程式內，避免中轉圖片連結過期；只有打包 ZIP 或儲存到資料夾時才會寫入所選目錄。", clearGeneratedCache: "立即清理快取", cacheAutoHint: "快取會在應用程式啟動和生成新圖片時自動清理。", cacheCleared: "已清理 {count} 張快取圖片", cacheCleanupFailed: "快取清理失敗：{reason}", autoRetry: "自動重試", globalRetries: "全域重試次數",
+    maxRecords: "最多保留記錄數", clearAllHistory: "清空全部記錄", imageCacheTitle: "圖片暫存快取", cacheRetentionDays: "自動清理天數", cacheRetentionHint: "生成成功後會立即快取在應用程式內，避免中轉圖片連結過期；只有打包 ZIP 或儲存到資料夾時才會寫入所選目錄。", clearGeneratedCache: "立即清理快取", cacheAutoHint: "快取會在應用程式啟動和生成新圖片時自動清理。", confirmClearGeneratedCache: "清理應用內圖片快取？未匯出的圖片可能無法恢復，請先儲存需要的作品。", cacheCleared: "已清理 {count} 張快取圖片", cacheCleanupFailed: "快取清理失敗：{reason}", autoRetry: "自動重試", globalRetries: "全域重試次數",
     retryHint: "通用 API 只有 HTTP 400 會自動重試；0 表示不自動重試。分鏡中的重試次數可覆蓋這裡。",
     grsaiSubmit504Retries: "GrsAI 提交 504 重試次數", grsaiSubmit504Interval: "GrsAI 提交 504 間隔（秒）",
     grsaiSubmit504Hint: "僅用於 GrsAI 首次提交回傳 HTTP 504；自動重提偶爾可能生成重複圖片。次數設為 0 可關閉。",
@@ -550,7 +556,7 @@ const CLEAN_LOCALES = {
     imageSaveFolder: "Image save folder", zipSaveFolder: "ZIP save folder", chooseFolder: "Choose Folder", imageAskEveryTime: "Ask where to save each image", zipAskEveryTime: "Ask where to save each ZIP", pathModeHint: "When unchecked, the saved folder above is used. When checked, a folder is requested for every save.", textSelectAll: "Select all", textCut: "Cut", textCopy: "Copy", textPaste: "Paste",
     historyTitle: "Generation History", historyHint: "Comic and turnaround jobs are saved as projects. Prompts stay collapsed; project data and images remain on this device.",
     searchHistory: "Search prompt / model / date", refresh: "Refresh", autoSaveHistory: "Automatically save successful generations",
-    maxRecords: "Maximum records", clearAllHistory: "Clear All Records", imageCacheTitle: "Temporary image cache", cacheRetentionDays: "Auto-clean after days", cacheRetentionHint: "Successful generations are cached inside the app immediately so relay URLs cannot expire first. Files are written to your chosen folder only when you package a ZIP or save to a folder.", clearGeneratedCache: "Clear cache now", cacheAutoHint: "The cache is cleaned automatically on app launch and after new images are generated.", cacheCleared: "Cleared {count} cached images", cacheCleanupFailed: "Cache cleanup failed: {reason}", autoRetry: "Auto Retry", globalRetries: "Global retries",
+    maxRecords: "Maximum records", clearAllHistory: "Clear All Records", imageCacheTitle: "Temporary image cache", cacheRetentionDays: "Auto-clean after days", cacheRetentionHint: "Successful generations are cached inside the app immediately so relay URLs cannot expire first. Files are written to your chosen folder only when you package a ZIP or save to a folder.", clearGeneratedCache: "Clear cache now", cacheAutoHint: "The cache is cleaned automatically on app launch and after new images are generated.", confirmClearGeneratedCache: "Clear the app image cache? Unexported images may become unavailable. Save any images you need first.", cacheCleared: "Cleared {count} cached images", cacheCleanupFailed: "Cache cleanup failed: {reason}", autoRetry: "Auto Retry", globalRetries: "Global retries",
     retryHint: "For generic APIs, only HTTP 400 retries automatically. 0 disables it. Per-panel retries override this.",
     grsaiSubmit504Retries: "GrsAI submit 504 retries", grsaiSubmit504Interval: "GrsAI submit 504 interval (seconds)",
     grsaiSubmit504Hint: "Used only when the initial GrsAI submission returns HTTP 504. Resubmitting can occasionally create duplicate images. Set retries to 0 to disable.",
@@ -628,7 +634,7 @@ const CLEAN_LOCALES = {
     imageSaveFolder: "画像保存先", zipSaveFolder: "ZIP 保存先", chooseFolder: "フォルダ選択", imageAskEveryTime: "画像保存時に毎回保存先を確認", zipAskEveryTime: "ZIP 保存時に毎回保存先を確認", pathModeHint: "未選択の場合は上の保存先を使用します。選択すると保存のたびにフォルダーを確認します。", textSelectAll: "すべて選択", textCut: "切り取り", textCopy: "コピー", textPaste: "貼り付け",
     historyTitle: "生成履歴", historyHint: "漫画と三面図タスクはプロジェクトとして保存されます。プロンプトは折りたたまれ、データと画像は端末内に保存されます。",
     searchHistory: "プロンプト / モデル / 日付を検索", refresh: "更新", autoSaveHistory: "成功した生成を自動保存",
-    maxRecords: "最大記録数", clearAllHistory: "すべて削除", imageCacheTitle: "画像一時キャッシュ", cacheRetentionDays: "自動削除までの日数", cacheRetentionHint: "中継画像 URL の期限切れを防ぐため、生成成功後すぐにアプリ内へキャッシュします。選択したフォルダーへ書き込むのは ZIP 作成またはフォルダー保存時だけです。", clearGeneratedCache: "今すぐキャッシュを削除", cacheAutoHint: "キャッシュはアプリ起動時と新しい画像の生成後に自動整理されます。", cacheCleared: "{count} 件のキャッシュ画像を削除しました", cacheCleanupFailed: "キャッシュの整理に失敗しました：{reason}", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
+    maxRecords: "最大記録数", clearAllHistory: "すべて削除", imageCacheTitle: "画像一時キャッシュ", cacheRetentionDays: "自動削除までの日数", cacheRetentionHint: "中継画像 URL の期限切れを防ぐため、生成成功後すぐにアプリ内へキャッシュします。選択したフォルダーへ書き込むのは ZIP 作成またはフォルダー保存時だけです。", clearGeneratedCache: "今すぐキャッシュを削除", cacheAutoHint: "キャッシュはアプリ起動時と新しい画像の生成後に自動整理されます。", confirmClearGeneratedCache: "アプリ内の画像キャッシュを削除しますか？未保存の画像を復元できなくなる場合があります。必要な作品を先に保存してください。", cacheCleared: "{count} 件のキャッシュ画像を削除しました", cacheCleanupFailed: "キャッシュの整理に失敗しました：{reason}", autoRetry: "自動再試行", globalRetries: "全体再試行回数",
     retryHint: "汎用 API は HTTP 400 の場合のみ自動再試行します。0 は無効。コマごとの設定が優先されます。",
     grsaiSubmit504Retries: "GrsAI 送信 504 の再試行回数", grsaiSubmit504Interval: "GrsAI 送信 504 の間隔（秒）",
     grsaiSubmit504Hint: "GrsAI の初回送信が HTTP 504 を返した場合だけ使用します。再送により重複画像が生成される場合があります。0 で無効化します。",
@@ -706,7 +712,7 @@ const CLEAN_LOCALES = {
     imageSaveFolder: "이미지 저장 폴더", zipSaveFolder: "ZIP 저장 폴더", chooseFolder: "폴더 선택", imageAskEveryTime: "이미지를 저장할 때마다 경로 묻기", zipAskEveryTime: "ZIP을 저장할 때마다 경로 묻기", pathModeHint: "선택하지 않으면 위의 저장 폴더를 사용합니다. 선택하면 저장할 때마다 폴더를 다시 묻습니다.", textSelectAll: "전체 선택", textCut: "잘라내기", textCopy: "복사", textPaste: "붙여넣기",
     historyTitle: "생성 기록", historyHint: "만화와 턴어라운드 작업은 프로젝트로 저장됩니다. 프롬프트는 접혀 있으며 데이터와 이미지는 이 기기에 보관됩니다.",
     searchHistory: "프롬프트 / 모델 / 날짜 검색", refresh: "새로고침", autoSaveHistory: "성공한 생성 자동 저장",
-    maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", imageCacheTitle: "이미지 임시 캐시", cacheRetentionDays: "자동 정리 일수", cacheRetentionHint: "중계 이미지 URL 만료를 막기 위해 생성 성공 즉시 앱 내부에 캐시합니다. 선택한 폴더에는 ZIP 패키징 또는 폴더 저장을 실행할 때만 파일을 씁니다.", clearGeneratedCache: "지금 캐시 정리", cacheAutoHint: "캐시는 앱 시작 시와 새 이미지 생성 후 자동으로 정리됩니다.", cacheCleared: "캐시 이미지 {count}개를 정리했습니다", cacheCleanupFailed: "캐시 정리 실패: {reason}", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
+    maxRecords: "최대 기록 수", clearAllHistory: "모든 기록 삭제", imageCacheTitle: "이미지 임시 캐시", cacheRetentionDays: "자동 정리 일수", cacheRetentionHint: "중계 이미지 URL 만료를 막기 위해 생성 성공 즉시 앱 내부에 캐시합니다. 선택한 폴더에는 ZIP 패키징 또는 폴더 저장을 실행할 때만 파일을 씁니다.", clearGeneratedCache: "지금 캐시 정리", cacheAutoHint: "캐시는 앱 시작 시와 새 이미지 생성 후 자동으로 정리됩니다.", confirmClearGeneratedCache: "앱 이미지 캐시를 삭제할까요? 내보내지 않은 이미지는 복구하지 못할 수 있습니다. 필요한 작품을 먼저 저장하세요.", cacheCleared: "캐시 이미지 {count}개를 정리했습니다", cacheCleanupFailed: "캐시 정리 실패: {reason}", autoRetry: "자동 재시도", globalRetries: "전체 재시도 횟수",
     retryHint: "일반 API는 HTTP 400인 경우에만 자동 재시도합니다. 0은 비활성화이며 콘티별 설정이 우선합니다.",
     grsaiSubmit504Retries: "GrsAI 제출 504 재시도 횟수", grsaiSubmit504Interval: "GrsAI 제출 504 간격(초)",
     grsaiSubmit504Hint: "GrsAI 최초 제출이 HTTP 504를 반환할 때만 사용합니다. 재제출로 중복 이미지가 생성될 수 있습니다. 0으로 비활성화합니다.",
@@ -757,26 +763,76 @@ Object.assign(CLEAN_LOCALES.ko, {
 
 const INPAINT_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
+    inpaintPromptPlaceholder: "例如：把杯子正面的图案改成黄色五角星，保持光线、透视和背景不变",
+    inpaintReadingSource: "正在读取本地图片缓存…",
+    inpaintSourceFailed: "读取原图失败：{reason}",
+    inpaintMaskTooLarge: "蒙版覆盖超过 95%，请直接使用参考图编辑，或缩小蒙版区域。",
+    inpaintCandidatesReady: "已生成 {count} 个候选。",
+    inpaintCandidatesPartial: "已生成 {count} 个候选；{failed} 个失败。",
+    inpaintCancelled: "已取消候选生成。",
+    inpaintFailed: "局部重绘失败：{reason}",
+    inpaintSelectCandidate: "请先生成并选择候选补丁。",
+    inpaintCandidateLabel: "候选 {index}",
     inpaintRequiresGptImage2: "局部重绘仅支持 ChatGPT 网页生图或官方 OpenAI 的 gpt-image-2",
     inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；软件仍会在本地保护蒙版外像素。",
     inpaintOpenCodexDisclosure: "ChatGPT 网页生图生成语义补丁；软件只在本地蒙版内合成。",
   }),
   "zh-Hant": Object.freeze({
+    inpaintPromptPlaceholder: "例如：將杯子正面的圖案改成黃色五角星，保持光線、透視和背景不變",
+    inpaintReadingSource: "正在讀取本機圖片快取…",
+    inpaintSourceFailed: "讀取原圖失敗：{reason}",
+    inpaintMaskTooLarge: "蒙版覆蓋超過 95%，請直接使用參考圖編輯，或縮小蒙版區域。",
+    inpaintCandidatesReady: "已產生 {count} 個候選。",
+    inpaintCandidatesPartial: "已產生 {count} 個候選；{failed} 個失敗。",
+    inpaintCancelled: "已取消候選生成。",
+    inpaintFailed: "局部重繪失敗：{reason}",
+    inpaintSelectCandidate: "請先產生並選擇候選補丁。",
+    inpaintCandidateLabel: "候選 {index}",
     inpaintRequiresGptImage2: "局部重繪僅支援 ChatGPT 網頁生圖或官方 OpenAI 的 gpt-image-2",
     inpaintOfficialDisclosure: "官方 OpenAI gpt-image-2 使用原生 mask；軟體仍會在本機保護蒙版外像素。",
     inpaintOpenCodexDisclosure: "ChatGPT 網頁生圖產生語意補丁；軟體只在本機蒙版內合成。",
   }),
   en: Object.freeze({
+    inpaintPromptPlaceholder: "Example: change the design on the front of the cup to a yellow star, keeping the lighting, perspective and background unchanged.",
+    inpaintReadingSource: "Reading the local image cache…",
+    inpaintSourceFailed: "Could not read the source image: {reason}",
+    inpaintMaskTooLarge: "The mask covers over 95%. Use reference-image editing or reduce the masked area.",
+    inpaintCandidatesReady: "Generated {count} candidates.",
+    inpaintCandidatesPartial: "Generated {count} candidates; {failed} failed.",
+    inpaintCancelled: "Candidate generation cancelled.",
+    inpaintFailed: "Local inpaint failed: {reason}",
+    inpaintSelectCandidate: "Generate and select a candidate patch first.",
+    inpaintCandidateLabel: "Candidate {index}",
     inpaintRequiresGptImage2: "Local inpaint supports only gpt-image-2 through ChatGPT Web Image or the official OpenAI API",
     inpaintOfficialDisclosure: "Official OpenAI gpt-image-2 receives a native mask; the app also preserves pixels outside the local mask.",
     inpaintOpenCodexDisclosure: "ChatGPT Web Image generates a semantic patch that the app composites only inside the local mask.",
   }),
   ja: Object.freeze({
+    inpaintPromptPlaceholder: "例：カップ正面の模様を黄色い星に変更し、光、遠近感、背景はそのままにします。",
+    inpaintReadingSource: "ローカル画像キャッシュを読み込み中…",
+    inpaintSourceFailed: "元画像の読み込みに失敗：{reason}",
+    inpaintMaskTooLarge: "マスクが 95% を超えています。参照画像編集を使うか、マスク範囲を縮小してください。",
+    inpaintCandidatesReady: "候補を {count} 件生成しました。",
+    inpaintCandidatesPartial: "候補を {count} 件生成、{failed} 件失敗しました。",
+    inpaintCancelled: "候補の生成をキャンセルしました。",
+    inpaintFailed: "部分再描画に失敗：{reason}",
+    inpaintSelectCandidate: "先に候補パッチを生成して選択してください。",
+    inpaintCandidateLabel: "候補 {index}",
     inpaintRequiresGptImage2: "部分再描画は ChatGPT Web 画像または公式 OpenAI の gpt-image-2 のみ対応します",
     inpaintOfficialDisclosure: "公式 OpenAI gpt-image-2 にはネイティブ mask を送信し、アプリでもマスク外の画素を保護します。",
     inpaintOpenCodexDisclosure: "ChatGPT Web 画像が意味パッチを生成し、アプリがローカルマスク内だけに合成します。",
   }),
   ko: Object.freeze({
+    inpaintPromptPlaceholder: "예: 컵 앞면 무늬를 노란 별로 바꾸고 조명, 원근감, 배경은 그대로 유지하세요.",
+    inpaintReadingSource: "로컬 이미지 캐시를 읽는 중…",
+    inpaintSourceFailed: "원본 이미지 읽기 실패: {reason}",
+    inpaintMaskTooLarge: "마스크가 95%를 넘습니다. 참고 이미지 편집을 사용하거나 마스크 영역을 줄이세요.",
+    inpaintCandidatesReady: "후보 {count}개를 생성했습니다.",
+    inpaintCandidatesPartial: "후보 {count}개 생성, {failed}개 실패.",
+    inpaintCancelled: "후보 생성을 취소했습니다.",
+    inpaintFailed: "부분 다시 그리기 실패: {reason}",
+    inpaintSelectCandidate: "먼저 후보 패치를 생성하고 선택하세요.",
+    inpaintCandidateLabel: "후보 {index}",
     inpaintRequiresGptImage2: "부분 다시 그리기는 ChatGPT 웹 이미지 또는 공식 OpenAI의 gpt-image-2만 지원합니다",
     inpaintOfficialDisclosure: "공식 OpenAI gpt-image-2에는 네이티브 mask를 보내며 앱도 마스크 밖 픽셀을 보호합니다.",
     inpaintOpenCodexDisclosure: "ChatGPT 웹 이미지가 의미 패치를 만들고 앱이 로컬 마스크 안에서만 합성합니다.",
@@ -806,12 +862,6 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCircuitRecovering: "网关正在自动恢复，{seconds} 秒后重新检测",
     codexGatewayKeyHint: "凭据由 Windows 或 Android 软件从系统安全存储读取，仅进入运行内存，不保存到 API 配置中",
     codexGatewayReferenceBoards: "已接收 {count} 张参考图；网关将聚合为编号参考板",
-    chatGptAuthTitle: "内置 ChatGPT 官方登录",
-    chatGptAuthStageHint: "账号令牌保存在系统安全存储；Windows 与 Android 会自动启动本机生图网关。",
-    chatGptLogin: "登录 ChatGPT", chatGptRelogin: "重新登录", chatGptLogout: "退出账号",
-    chatGptSignedOut: "尚未登录", chatGptReady: "登录有效",
-    chatGptWorking: "正在验证登录…", chatGptExpired: "登录已过期",
-    chatGptAuthError: "登录状态异常",
   }),
   "zh-Hant": Object.freeze({
     codexGatewayApi: "ChatGPT 網頁生圖", codexGatewayPanelTitle: "ChatGPT 網頁生圖",
@@ -827,12 +877,6 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCircuitRecovering: "閘道正在自動恢復，{seconds} 秒後重新檢測",
     codexGatewayKeyHint: "憑證由 Windows 或 Android 軟體從系統安全儲存讀取，只進入執行記憶體，不儲存到 API 設定中",
     codexGatewayReferenceBoards: "已接收 {count} 張參考圖；閘道將聚合為編號參考板",
-    chatGptAuthTitle: "內建 ChatGPT 官方登入",
-    chatGptAuthStageHint: "帳號權杖保存在系統安全儲存；Windows 與 Android 會自動啟動本機生圖閘道。",
-    chatGptLogin: "登入 ChatGPT", chatGptRelogin: "重新登入", chatGptLogout: "登出帳號",
-    chatGptSignedOut: "尚未登入", chatGptReady: "登入有效",
-    chatGptWorking: "正在驗證登入…", chatGptExpired: "登入已過期",
-    chatGptAuthError: "登入狀態異常",
   }),
   en: Object.freeze({
     codexGatewayApi: "ChatGPT Web Image", codexGatewayPanelTitle: "ChatGPT Web Image",
@@ -848,12 +892,6 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCircuitRecovering: "Gateway recovery in progress; checking again in {seconds}s",
     codexGatewayKeyHint: "Windows or Android loads the credential from OS secure storage into runtime memory only; it is not saved in API profiles",
     codexGatewayReferenceBoards: "{count} references received; the gateway will compile numbered contact sheets",
-    chatGptAuthTitle: "Built-in official ChatGPT sign-in",
-    chatGptAuthStageHint: "Account tokens stay in OS secure storage; Windows and Android automatically start a local image gateway.",
-    chatGptLogin: "Sign in to ChatGPT", chatGptRelogin: "Sign in again", chatGptLogout: "Sign out",
-    chatGptSignedOut: "Not signed in", chatGptReady: "Sign-in valid",
-    chatGptWorking: "Verifying sign-in…", chatGptExpired: "Sign-in expired",
-    chatGptAuthError: "Sign-in status error",
   }),
   ja: Object.freeze({
     codexGatewayApi: "ChatGPT Web 画像", codexGatewayPanelTitle: "ChatGPT Web 画像",
@@ -869,12 +907,6 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCircuitRecovering: "ゲートウェイを自動復旧中です。{seconds} 秒後に再確認します",
     codexGatewayKeyHint: "Windows または Android が OS の安全な保存領域から資格情報を実行メモリだけに読み込み、API 設定には保存しません",
     codexGatewayReferenceBoards: "参照画像 {count} 枚を受信。番号付き参照ボードに統合します",
-    chatGptAuthTitle: "内蔵 ChatGPT 公式ログイン",
-    chatGptAuthStageHint: "アカウントトークンは OS の安全な領域に保存され、Windows と Android はローカル画像ゲートウェイを自動起動します。",
-    chatGptLogin: "ChatGPT にログイン", chatGptRelogin: "再ログイン", chatGptLogout: "ログアウト",
-    chatGptSignedOut: "未ログイン", chatGptReady: "ログイン有効",
-    chatGptWorking: "ログインを確認中…", chatGptExpired: "ログイン期限切れ",
-    chatGptAuthError: "ログイン状態エラー",
   }),
   ko: Object.freeze({
     codexGatewayApi: "ChatGPT 웹 이미지", codexGatewayPanelTitle: "ChatGPT 웹 이미지",
@@ -890,12 +922,6 @@ const CODEX_GATEWAY_LOCALES = Object.freeze({
     codexGatewayCircuitRecovering: "게이트웨이를 자동 복구 중입니다. {seconds}초 후 다시 확인합니다",
     codexGatewayKeyHint: "Windows 또는 Android가 OS 보안 저장소의 자격 증명을 실행 메모리에서만 사용하며 API 설정에는 저장하지 않습니다",
     codexGatewayReferenceBoards: "참고 이미지 {count}장을 받았습니다. 번호 참조 보드로 통합합니다",
-    chatGptAuthTitle: "내장 ChatGPT 공식 로그인",
-    chatGptAuthStageHint: "계정 토큰은 OS 보안 저장소에 보관되며 Windows와 Android는 로컬 이미지 게이트웨이를 자동으로 시작합니다.",
-    chatGptLogin: "ChatGPT 로그인", chatGptRelogin: "다시 로그인", chatGptLogout: "로그아웃",
-    chatGptSignedOut: "로그인 안 됨", chatGptReady: "로그인 유효",
-    chatGptWorking: "로그인 확인 중…", chatGptExpired: "로그인 만료",
-    chatGptAuthError: "로그인 상태 오류",
   }),
 });
 
@@ -1080,7 +1106,9 @@ function fillTemplate(template, values = []) {
 }
 
 function normalizeI18nSource(text) {
-  const direct = I18N_REVERSE.get(String(text));
+  const value = String(text);
+  if (Object.prototype.hasOwnProperty.call(I18N, value) || I18N_AMBIGUOUS_REVERSE.has(value)) return value;
+  const direct = I18N_REVERSE.get(value);
   if (direct) return direct;
   const fromPattern = sourceFromPattern(text);
   return fromPattern || String(text);
@@ -1131,16 +1159,58 @@ function translateTextValue(value) {
   return translated ? `${leading}${translated}${trailing}` : value;
 }
 
+const I18N_NODE_BINDINGS = new WeakMap();
+
+function translateNodeValue(node, field, value, source = undefined) {
+  let bindings = I18N_NODE_BINDINGS.get(node);
+  const previous = bindings?.get(field);
+  const canonical = source !== undefined ? String(source)
+    : previous?.rendered === value ? previous.source : value;
+  const rendered = translateTextValue(canonical);
+  if (!bindings) I18N_NODE_BINDINGS.set(node, bindings = new Map());
+  bindings.set(field, { source: canonical, rendered });
+  return rendered;
+}
+
+function setI18nText(node, source) {
+  if (!node) return;
+  node.dataset.noI18n = "";
+  node.textContent = translateNodeValue(node, "textContent", node.textContent, source);
+}
+
+function refreshI18nBindings() {
+  const refresh = node => {
+    const bindings = I18N_NODE_BINDINGS.get(node);
+    if (!bindings) return;
+    for (const [field, binding] of bindings) {
+      const property = field === "nodeValue" || field === "textContent";
+      const value = property ? node[field] : node.getAttribute(field);
+      // Caller replaced/cleared the content: discard stale state instead of
+      // resurrecting an old status or a user's edited value.
+      if (value !== binding.rendered) { bindings.delete(field); continue; }
+      const next = translateNodeValue(node, field, value);
+      if (next !== value) {
+        if (property) node[field] = next;
+        else node.setAttribute(field, next);
+      }
+    }
+  };
+  refresh(document.body);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) refresh(walker.currentNode);
+}
+
 function translateElement(root = document.body) {
   if (!root || root.nodeType === Node.COMMENT_NODE) return;
   const shouldSkip = node => {
     const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    return !!el?.closest?.("[data-no-i18n], script, style");
+    return !!el?.closest?.("[data-no-i18n], script, style, .file-badge-name, .result-error-message, .history-project-title, .history-prompt, .history-prompt-text")
+      || (node.nodeType === Node.TEXT_NODE && !!el?.closest?.("textarea, [contenteditable]"));
   };
 
   if (root.nodeType === Node.TEXT_NODE) {
     if (!shouldSkip(root)) {
-      const next = translateTextValue(root.nodeValue);
+      const next = translateNodeValue(root, "nodeValue", root.nodeValue);
       if (next !== root.nodeValue) root.nodeValue = next;
     }
     return;
@@ -1152,7 +1222,7 @@ function translateElement(root = document.body) {
     ["title", "placeholder", "aria-label"].forEach(attr => {
       if (!root.hasAttribute(attr)) return;
       const current = root.getAttribute(attr);
-      const next = translateTextValue(current);
+      const next = translateNodeValue(root, attr, current);
       if (next !== current) root.setAttribute(attr, next);
     });
   }
@@ -1165,7 +1235,7 @@ function translateElement(root = document.body) {
   const textNodes = [];
   while (walker.nextNode()) textNodes.push(walker.currentNode);
   textNodes.forEach(node => {
-    const next = translateTextValue(node.nodeValue);
+    const next = translateNodeValue(node, "nodeValue", node.nodeValue);
     if (next !== node.nodeValue) node.nodeValue = next;
   });
 
@@ -1175,11 +1245,397 @@ function translateElement(root = document.body) {
       ["title", "placeholder", "aria-label"].forEach(attr => {
         if (!el.hasAttribute(attr)) return;
         const current = el.getAttribute(attr);
-        const next = translateTextValue(current);
+        const next = translateNodeValue(el, attr, current);
         if (next !== current) el.setAttribute(attr, next);
       });
     });
   }
+}
+
+// Explicit metadata keys avoid reverse-translating user content or ambiguous labels.
+const UI_METADATA_LOCALES = {
+  "resultNative": ["原生", "原生", "native", "元サイズ", "원본"],
+  "resultFinal": ["最终", "最終", "final", "最終", "최종"],
+  "resultExact": ["尺寸精确", "尺寸精確", "exact", "サイズ一致", "크기 일치"],
+  "resultMismatch": ["尺寸不符·将隔离导出", "尺寸不符·將隔離匯出", "size mismatch", "サイズ不一致・分離して出力", "크기 불일치·분리 내보내기"],
+  "resultCoverCrop": ["智能覆盖裁切（边缘可能被裁掉）", "智慧覆蓋裁切（邊緣可能被裁掉）", "cover-cropped (edges may be cropped)", "カバー切り抜き（端が切れる場合があります）", "영역 채움 자르기 (가장자리가 잘릴 수 있음)"],
+  "watermarkChooseImages": ["请选择 PNG、JPEG 或 WebP 图片。", "請選擇 PNG、JPEG 或 WebP 圖片。", "Choose PNG, JPEG, or WebP images.", "PNG、JPEG、WebP の画像を選択してください。", "PNG, JPEG 또는 WebP 이미지를 선택하세요."],
+  "watermarkPreparing": ["准备本地去水印…", "準備本機去浮水印…", "Preparing local watermark removal…", "ローカル透かし除去を準備中…", "로컬 워터마크 제거 준비 중…"],
+  "watermarkRemoving": ["正在去水印", "正在去浮水印", "Removing watermark", "透かしを除去中", "워터마크 제거 중"],
+  "watermarkSaved": ["已保存 {saved}/{total} 张去水印图片", "已儲存 {saved}/{total} 張去浮水印圖片", "Saved {saved}/{total} processed image(s)", "処理済み画像を {saved}/{total} 枚保存しました", "처리된 이미지 {saved}/{total}장 저장됨"],
+  "watermarkFinished": ["Gemini 去水印完成：{saved}/{total}", "Gemini 去浮水印完成：{saved}/{total}", "Watermark removal finished: {saved}/{total}", "Gemini 透かし除去完了：{saved}/{total}", "Gemini 워터마크 제거 완료: {saved}/{total}"],
+  "watermarkFailed": ["Gemini 去水印失败", "Gemini 去浮水印失敗", "Watermark removal failed", "Gemini 透かし除去失敗", "Gemini 워터마크 제거 실패"],
+  "watermarkNoOutput": ["没有生成有效的去水印图片", "未產生有效的去浮水印圖片", "No valid processed images were generated", "有効な処理済み画像が生成されませんでした", "유효한 처리 이미지가 생성되지 않았습니다"],
+  "interfaceLanguage": ["界面语言", "介面語言", "Interface language", "表示言語", "화면 언어"],
+  "turnaroundUploadLabel": ["批量导入角色参考图", "批次匯入角色參考圖", "Import character references in bulk", "キャラクター参照画像を一括読み込み", "캐릭터 참고 이미지 일괄 가져오기"],
+  "turnaroundModeHint": ["每张图片单独生成一张 16:9 正面、90°侧面、背面全身三视图；多人图请在该行说明目标角色。三视图模式不注入技能。", "每張圖片各自產生一張 16:9 正面、90°側面、背面全身三視圖；多人圖請在該行說明目標角色。三視圖模式不注入技能。", "Each image generates a separate 16:9 full-body front, 90° side and back turnaround. For group images, identify the target character in that row. Turnaround mode does not inject skills.", "各画像から 16:9 の全身正面・90°側面・背面の三面図を個別に生成します。複数人の画像は行内で対象を指定してください。三面図モードではスキルを追加しません。", "이미지마다 16:9 전신 정면·90° 측면·후면 삼면도를 따로 생성합니다. 단체 사진은 해당 행에 대상 캐릭터를 지정하세요. 삼면도 모드에는 스킬을 추가하지 않습니다."],
+  "setDefaultApiAction": ["设为默认 API", "設為預設 API", "Set as default API", "既定の API に設定", "기본 API로 설정"],
+  "downloadPlatformHint": ["安卓端会调用系统目录选择器并持久授权；电脑浏览器端使用浏览器默认下载目录。", "Android 會呼叫系統目錄選擇器並保留授權；電腦瀏覽器使用預設下載目錄。", "Android uses the system folder picker with persistent access; desktop browsers use their default download folder.", "Android はシステムのフォルダー選択でアクセス権を保持します。デスクトップブラウザーは既定のダウンロード先を使用します。", "Android는 시스템 폴더 선택기를 사용하고 접근 권한을 유지합니다. 데스크톱 브라우저는 기본 다운로드 폴더를 사용합니다."],
+  "skillsHint": ["技能是可复用的提示词模板，可设置适用于单图、漫画分镜或两者。", "技能是可重複使用的提示詞範本，可設定適用於單圖、漫畫分鏡或兩者。", "Skills are reusable prompt templates for single images, comic panels, or both.", "スキルは単一画像、漫画コマ、または両方に使える再利用可能なプロンプトテンプレートです。", "스킬은 단일 이미지, 만화 컷 또는 둘 다에 적용하는 재사용 가능한 프롬프트 템플릿입니다."],
+  "newSkill": ["新建技能", "新增技能", "New skill", "新しいスキル", "새 스킬"],
+  "editSkill": ["编辑技能", "編輯技能", "Edit skill", "スキルを編集", "스킬 편집"],
+  "cancelSkillEdit": ["取消编辑", "取消編輯", "Cancel editing", "編集をキャンセル", "편집 취소"],
+  "skillName": ["技能名称", "技能名稱", "Skill name", "スキル名", "스킬 이름"],
+  "skillNamePlaceholder": ["例如：电影光影", "例如：電影光影", "Example: cinematic lighting", "例：映画風の照明", "예: 영화 같은 조명"],
+  "skillCategory": ["分类", "分類", "Category", "カテゴリ", "분류"],
+  "skillScope": ["适用模式", "適用模式", "Applies to", "適用モード", "적용 모드"],
+  "skillBoth": ["单图与漫画分镜", "單圖與漫畫分鏡", "Single images and comic panels", "単一画像と漫画コマ", "단일 이미지 및 만화 컷"],
+  "skillSingle": ["仅单图", "僅單圖", "Single images only", "単一画像のみ", "단일 이미지만"],
+  "skillComic": ["仅漫画分镜", "僅漫畫分鏡", "Comic panels only", "漫画コマのみ", "만화 컷만"],
+  "skillTemplate": ["提示词模板", "提示詞範本", "Prompt template", "プロンプトテンプレート", "프롬프트 템플릿"],
+  "skillTemplatePlaceholder": ["启用技能后追加到生图提示词的内容", "啟用技能後附加至生圖提示詞的內容", "Content appended to the image prompt when this skill is enabled", "スキル有効時に画像プロンプトへ追加する内容", "스킬 사용 시 이미지 프롬프트에 추가할 내용"],
+  "saveSkill": ["保存技能", "儲存技能", "Save skill", "スキルを保存", "스킬 저장"],
+  "noSavedSkills": ["暂无技能", "暫無技能", "No skills yet", "スキルはまだありません", "저장된 스킬 없음"],
+  "builtInSkill": ["内置", "內建", "Built-in", "内蔵", "내장"],
+  "editAction": ["编辑", "編輯", "Edit", "編集", "편집"],
+  "deleteAction": ["删除", "刪除", "Delete", "削除", "삭제"],
+  "deleteSkillConfirm": ["确定删除技能「{name}」？", "確定刪除技能「{name}」？", "Delete the skill “{name}”?", "スキル「{name}」を削除しますか？", "스킬 「{name}」을 삭제할까요?"],
+  "proxyEndpointPlaceholder": ["http://127.0.0.1:8787/proxy?token=启动时显示的令牌", "http://127.0.0.1:8787/proxy?token=啟動時顯示的權杖", "http://127.0.0.1:8787/proxy?token=TOKEN_SHOWN_AT_STARTUP", "http://127.0.0.1:8787/proxy?token=起動時に表示されるトークン", "http://127.0.0.1:8787/proxy?token=시작_시_표시된_토큰"],
+  "proxyCustomPlaceholder": ["http://127.0.0.1:7890 或 socks5://127.0.0.1:10808", "http://127.0.0.1:7890 或 socks5://127.0.0.1:10808", "http://127.0.0.1:7890 or socks5://127.0.0.1:10808", "http://127.0.0.1:7890 または socks5://127.0.0.1:10808", "http://127.0.0.1:7890 또는 socks5://127.0.0.1:10808"],
+  "skillsLibrary": ["已有技能", "已有技能", "Saved skills", "保存済みスキル", "저장된 스킬"],
+  "textEditMenu": ["文本编辑菜单", "文字編輯選單", "Text editing menu", "テキスト編集メニュー", "텍스트 편집 메뉴"],
+  "dimensionNative": ["原生", "原生", "Native", "ネイティブ", "원본"],
+  "dimensionExact": ["精确输出", "精確輸出", "Exact output", "指定サイズ出力", "정확한 크기 출력"],
+  "dimensionStrict": ["严格原生", "嚴格原生", "Strict native", "厳密なネイティブ", "엄격한 원본"],
+  "references": [
+    "全局参考图片",
+    "全域參考圖片",
+    "Global reference images",
+    "共通の参照画像",
+    "공통 참고 이미지"
+  ],
+  "referenceOptional": [
+    "（可选，支持多选）",
+    "（選填，可多選）",
+    "(Optional, multiple images)",
+    "（任意・複数選択可）",
+    "(선택 사항, 여러 장 가능)"
+  ],
+  "uploadReferences": [
+    "上传全局参考图片",
+    "上傳全域參考圖片",
+    "Upload global reference images",
+    "共通の参照画像を追加",
+    "공통 참고 이미지 업로드"
+  ],
+  "generationMode": [
+    "生成模式",
+    "生成模式",
+    "Generation mode",
+    "生成モード",
+    "생성 모드"
+  ],
+  "deletePanel": [
+    "删除分镜",
+    "刪除分鏡",
+    "Delete panel",
+    "コマを削除",
+    "장면 삭제"
+  ],
+  "deleteTurnaround": [
+    "删除三视图任务",
+    "刪除三視圖任務",
+    "Delete turnaround task",
+    "三面図タスクを削除",
+    "삼면도 작업 삭제"
+  ],
+  "deletedRow": [
+    "已删除，可撤销最近 10 次删除。",
+    "已刪除，可復原最近 10 次刪除。",
+    "Deleted. You can undo the last 10 deletions.",
+    "削除しました。直近10回の削除を元に戻せます。",
+    "삭제했습니다. 최근 10회 삭제를 취소할 수 있습니다."
+  ],
+  "undo": [
+    "撤销",
+    "復原",
+    "Undo",
+    "元に戻す",
+    "실행 취소"
+  ],
+  "redo": [
+    "重做",
+    "重做",
+    "Redo",
+    "やり直す",
+    "다시 실행"
+  ],
+  "dismissUndo": [
+    "结束撤销",
+    "結束復原",
+    "Dismiss undo",
+    "復元履歴を閉じる",
+    "실행 취소 닫기"
+  ],
+  "close": [
+    "关闭",
+    "關閉",
+    "Close",
+    "閉じる",
+    "닫기"
+  ],
+  "deleteSize": [
+    "删除常用尺寸",
+    "刪除常用尺寸",
+    "Delete saved size",
+    "保存したサイズを削除",
+    "저장된 크기 삭제"
+  ],
+  "toggleKey": [
+    "显示或隐藏 API Key",
+    "顯示或隱藏 API Key",
+    "Show or hide API key",
+    "APIキーの表示を切り替え",
+    "API 키 표시 전환"
+  ],
+  "deleteApi": [
+    "删除当前配置",
+    "刪除目前設定",
+    "Delete current profile",
+    "現在の設定を削除",
+    "현재 설정 삭제"
+  ],
+  "maskTools": [
+    "蒙版工具",
+    "蒙版工具",
+    "Mask tools",
+    "マスクツール",
+    "마스크 도구"
+  ],
+  "drawingMode": [
+    "绘制模式",
+    "繪製模式",
+    "Drawing mode",
+    "描画モード",
+    "그리기 모드"
+  ],
+  "brush": [
+    "画笔",
+    "筆刷",
+    "Brush",
+    "ブラシ",
+    "브러시"
+  ],
+  "eraser": [
+    "橡皮擦",
+    "橡皮擦",
+    "Eraser",
+    "消しゴム",
+    "지우개"
+  ],
+  "clearMask": [
+    "清空蒙版",
+    "清空蒙版",
+    "Clear mask",
+    "マスクを消去",
+    "마스크 지우기"
+  ],
+  "toggleMask": [
+    "显示或隐藏蒙版",
+    "顯示或隱藏蒙版",
+    "Show or hide mask",
+    "マスク表示を切り替え",
+    "마스크 표시 전환"
+  ],
+  "compareOriginal": [
+    "按住查看原图",
+    "按住查看原圖",
+    "Hold to view original",
+    "押している間は元画像を表示",
+    "길게 눌러 원본 보기"
+  ],
+  "fit": [
+    "适应",
+    "適應",
+    "Fit",
+    "全体表示",
+    "화면에 맞추기"
+  ],
+  "maskCanvas": [
+    "局部重绘蒙版画布",
+    "局部重繪蒙版畫布",
+    "Inpaint mask canvas",
+    "部分再描画のマスクキャンバス",
+    "부분 재생성 마스크 캔버스"
+  ],
+  "candidates": [
+    "候选补丁",
+    "候選補丁",
+    "Candidate patches",
+    "パッチ候補",
+    "패치 후보"
+  ],
+  "chooseImage": [
+    "选择一张图片开始",
+    "選擇一張圖片開始",
+    "Choose an image to start",
+    "画像を選択して開始",
+    "이미지를 선택하여 시작"
+  ],
+  "brushSize": [
+    "画笔大小",
+    "筆刷大小",
+    "Brush size",
+    "ブラシサイズ",
+    "브러시 크기"
+  ],
+  "feather": [
+    "边缘柔化",
+    "邊緣柔化",
+    "Edge feathering",
+    "境界のぼかし",
+    "가장자리 부드럽게"
+  ],
+  "context": [
+    "上下文范围",
+    "上下文範圍",
+    "Context area",
+    "周辺の範囲",
+    "주변 영역"
+  ],
+  "candidateCount": [
+    "候选数量",
+    "候選數量",
+    "Candidate count",
+    "候補数",
+    "후보 수"
+  ],
+  "alignment": [
+    "补丁对齐",
+    "補丁對齊",
+    "Patch alignment",
+    "パッチの位置調整",
+    "패치 정렬"
+  ],
+  "horizontal": [
+    "水平",
+    "水平",
+    "Horizontal",
+    "水平方向",
+    "가로"
+  ],
+  "vertical": [
+    "垂直",
+    "垂直",
+    "Vertical",
+    "垂直方向",
+    "세로"
+  ],
+  "scale": [
+    "缩放",
+    "縮放",
+    "Scale",
+    "拡大率",
+    "배율"
+  ],
+  "maskKeyboard": [
+    "聚焦画布后，使用方向键移动画笔，按空格绘制；按住 Shift 可擦除。",
+    "聚焦畫布後，使用方向鍵移動筆刷，按空白鍵繪製；按住 Shift 可擦除。",
+    "Focus the canvas, move the brush with arrow keys and press Space to paint. Hold Shift to erase.",
+    "キャンバスにフォーカスし、矢印キーでブラシを移動、スペースで描画します。Shiftを押すと消去できます。",
+    "캔버스에 초점을 맞추고 방향키로 브러시를 이동한 뒤 스페이스로 그리세요. Shift를 누르면 지웁니다."
+  ],
+  "imageCountValue": [
+    "{count} 张",
+    "{count} 張",
+    "{count} images",
+    "{count} 枚",
+    "{count}장"
+  ],
+  "importTextHint": [
+    "导入 txt 文件作为参考（支持多选）",
+    "匯入 txt 檔案作為參考（可多選）",
+    "Import text files as reference (multiple files supported)",
+    "参照用のテキストファイルを読み込む（複数可）",
+    "참고용 텍스트 파일 가져오기 (여러 파일 가능)"
+  ],
+  "cacheQuota": [
+    "图片已生成，但本地缓存空间不足。请先下载图片，再清理应用缓存或释放磁盘空间。",
+    "圖片已生成，但本機快取空間不足。請先下載圖片，再清理快取或釋放磁碟空間。",
+    "Image generated, but local cache space is full. Download it first, then clear app cache or free disk space.",
+    "画像は生成済みですが、保存領域が不足しています。先に画像をダウンロードし、キャッシュやディスクの空きを確保してください。",
+    "이미지는 생성되었지만 로컬 캐시 공간이 부족합니다. 먼저 다운로드한 뒤 앱 캐시 또는 디스크 공간을 확보하세요."
+  ],
+  "cacheBlocked": [
+    "图片已生成，但浏览器或系统阻止了本地缓存。请下载图片并检查存储权限。",
+    "圖片已生成，但瀏覽器或系統封鎖了本機快取。請下載圖片並檢查儲存權限。",
+    "Image generated, but the browser or system blocked local storage. Download it and check storage permissions.",
+    "画像は生成済みですが、ブラウザーまたはシステムが保存をブロックしました。画像をダウンロードし、保存権限を確認してください。",
+    "이미지는 생성되었지만 브라우저 또는 시스템이 저장을 차단했습니다. 다운로드한 뒤 저장 권한을 확인하세요."
+  ],
+  "cacheUnavailable": [
+    "图片已生成，但本地缓存暂不可用。请先下载图片，再尝试重新加载缓存。",
+    "圖片已生成，但本機快取暫時無法使用。請先下載圖片，再重新載入快取。",
+    "Image generated, but local cache is temporarily unavailable. Download it first, then try reloading the cache.",
+    "画像は生成済みですが、キャッシュは一時的に利用できません。先にダウンロードしてから、再読み込みしてください。",
+    "이미지는 생성되었지만 캐시를 일시적으로 사용할 수 없습니다. 먼저 다운로드한 뒤 캐시를 다시 불러오세요."
+  ],
+  "cacheUnknown": [
+    "图片已生成，但本地缓存失败。请立即下载或重新加载图片。",
+    "圖片已生成，但本機快取失敗。請立即下載或重新載入圖片。",
+    "Image generated, but local caching failed. Download or reload the image now.",
+    "画像は生成済みですが、キャッシュに失敗しました。画像をダウンロードするか再読み込みしてください。",
+    "이미지는 생성되었지만 로컬 캐시에 실패했습니다. 지금 다운로드하거나 다시 불러오세요."
+  ],
+  "historyWriteFailed": [
+    "图片已生成，但历史记录写入失败；当前图片仍可下载。",
+    "圖片已生成，但歷史記錄寫入失敗；目前圖片仍可下載。",
+    "Image generated, but history could not be saved. The current image is still available to download.",
+    "画像は生成済みですが、履歴の保存に失敗しました。現在の画像はダウンロードできます。",
+    "이미지는 생성되었지만 기록 저장에 실패했습니다. 현재 이미지는 계속 다운로드할 수 있습니다."
+  ],
+  "storageReadOnly": [
+    "检测到损坏的本地数据，已尝试备份并阻止覆盖原值。只读恢复键：",
+    "偵測到損壞的本機資料，已嘗試備份並阻止覆寫原值。唯讀復原鍵：",
+    "Damaged local data detected. Backup was attempted and overwriting was blocked. Read-only recovery keys:",
+    "ローカルデータの破損を検出しました。バックアップを試み、元の値の上書きを停止しました。読み取り専用の復元キー：",
+    "손상된 로컬 데이터를 발견했습니다. 백업을 시도하고 원본 덮어쓰기를 차단했습니다. 읽기 전용 복구 키:"
+  ],
+  "storageUnavailable": [
+    "本地存储访问异常，请检查浏览器存储权限及可用空间。受影响的键：",
+    "本機儲存存取異常，請檢查瀏覽器權限及可用空間。受影響的鍵：",
+    "Local storage access failed. Check browser storage permissions and available space. Affected keys:",
+    "ローカル保存へのアクセスに失敗しました。保存権限と空き領域を確認してください。対象のキー：",
+    "로컬 저장소 접근에 실패했습니다. 저장 권한과 여유 공간을 확인하세요. 영향받은 키:"
+  ]
+};
+function uiText(key) {
+  const values = UI_METADATA_LOCALES[key];
+  return values?.[["zh-CN", "zh-Hant", "en", "ja", "ko"].indexOf(currentLanguage)] || values?.[0] || key;
+}
+
+function classifyLocalCacheFailure(error) {
+  const name = String(error?.name || "");
+  if (name === "QuotaExceededError") return "cacheQuota";
+  if (name === "SecurityError" || name === "NotAllowedError") return "cacheBlocked";
+  if (name === "InvalidStateError" || name === "AbortError") return "cacheUnavailable";
+  return "cacheUnknown";
+}
+
+function localizeUiMetadata(root = document) {
+  root.querySelectorAll("[data-cache-failure-key]").forEach(node => {
+    node.dataset.noI18n = "";
+    node.textContent = `${uiText(node.dataset.cacheFailureKey)} ${node.dataset.cacheFailureDetail || ""}`.trim();
+  });
+  root.querySelectorAll("[data-clean-label]").forEach(node => {
+    const key = node.dataset.cleanLabel;
+    const needsEdit = key === "retry" && node.closest(".result-item")?._lastImageError?.requiresEdit;
+    node.dataset.noI18n = "";
+    node.title = needsEdit ? (IMAGE_ERROR_TEXT[currentLanguage] || IMAGE_ERROR_TEXT["zh-CN"]).editRequired : cleanText(key);
+    node.setAttribute("aria-label", cleanText(key));
+  });
+  root.querySelectorAll("[data-ui-text], [data-ui-label], [data-ui-placeholder]").forEach(node => {
+    // These nodes contain UI only. Prompt values, filenames, output nodes and
+    // icons are deliberately excluded from replacement.
+    node.dataset.noI18n = "";
+    if (node.dataset.uiText) node.textContent = uiText(node.dataset.uiText);
+    if (node.dataset.uiPlaceholder) node.setAttribute("placeholder", uiText(node.dataset.uiPlaceholder));
+    if (node.dataset.uiLabel) {
+      const value = uiText(node.dataset.uiLabel);
+      node.setAttribute("aria-label", value);
+      if (node.tagName === "BUTTON") node.title = value;
+    }
+  });
 }
 
 function applyCleanLanguage() {
@@ -1195,7 +1651,7 @@ function applyCleanLanguage() {
       const option = dom.languageSelect.querySelector(`option[value="${value}"]`);
       if (option) option.textContent = label;
     });
-    dom.languageSelect.title = "Language";
+    dom.languageSelect.title = tr("界面语言");
   }
   if (dom.languageCurrent) dom.languageCurrent.textContent = langNames[currentLanguage] || cleanText("langZh");
   if (dom.languageMenu) {
@@ -1336,6 +1792,14 @@ function applyCleanLanguage() {
   setText("#emptyState h3", "emptyTitle");
   setText("#emptyState p", "emptyHint");
 
+  setText("#skillsTitle", "skillsTitle");
+  setText('#skillCategory option[value="functional"]', "functionalCategory");
+  setText('#skillCategory option[value="style"]', "styleCategory");
+  if (dom.skillEditorTitle) dom.skillEditorTitle.textContent = uiText(dom.skillId?.value ? "editSkill" : "newSkill");
+  if (dom.skillsModal && !dom.skillsModal.classList.contains("hidden")) renderSkillsManager();
+  setText("#settingsChooseImageDir", "chooseFolder");
+  setText("#settingsChooseZipDir", "chooseFolder");
+  updateDirLabels();
   setText("#settingsTitle", "settings");
   setText(".download-settings h3", "downloadPaths");
   setText(".download-settings .setting-row:nth-of-type(1) strong", "imageSaveFolder");
@@ -1417,7 +1881,6 @@ function applyLanguage(lang) {
   currentLanguage = SUPPORTED_LANGS.includes(lang) ? lang : "zh-CN";
   safeStorageSetItem(LANG_KEY, currentLanguage);
   document.documentElement.lang = currentLanguage;
-  document.title = tr("AI 图片生成器");
   if (dom.languageSelect) dom.languageSelect.value = currentLanguage;
   if (dom.languageSelect) dom.languageSelect.title = tr("界面语言");
   dom.languageMenu?.querySelectorAll(".language-option").forEach(option => {
@@ -1427,6 +1890,9 @@ function applyLanguage(lang) {
   try {
     refreshLocalizedUiState();
     applyCleanLanguage();
+    refreshLocalizedFormMetadata();
+    refreshI18nBindings();
+    a7CacheLocalize();
     renderSavedApis();
     renderSavedSizes?.();
     updateApiProviderHint(dom.apiProvider?.value || "custom");
@@ -1434,6 +1900,35 @@ function applyLanguage(lang) {
   } finally {
     isApplyingLanguage = false;
   }
+}
+
+function refreshLocalizedFormMetadata() {
+  // Existing rows do not produce a mutation on language changes. Translate UI
+  // metadata explicitly without traversing user prompts, filenames or values.
+  const controls = $$("#panelTbody button, #panelTbody input, #panelTbody textarea, #turnaroundTbody button, #turnaroundTbody textarea, #themeToggle, #languageMenuButton, #panelCount");
+  const panelCountLabel = dom.panelCount?.closest("label");
+  if (panelCountLabel) controls.push(panelCountLabel);
+  for (const control of controls) {
+    for (const attribute of ["title", "placeholder", "aria-label"]) {
+      if (control.hasAttribute(attribute)) control.setAttribute(attribute, translateNodeValue(control, attribute, control.getAttribute(attribute)));
+    }
+  }
+  // "Retry" is shared by multiple older dictionary entries; use canonical keys
+  // here instead of reverse-matching a translated value into a different action.
+  for (const [selector, key] of [[".panel-retry-count", "重试"], [".panel-size-w", "宽"], [".panel-size-h", "高"]]) {
+    $$(selector, dom.panelTbody).forEach(node => node.setAttribute("aria-label", tr(key)));
+  }
+  $$(".studio-cell-label").forEach(node => { node.textContent = tr("重试"); });
+  $$("#autoFillTemplate option, #comicPanelSection > .field-hint").forEach(node => translateElement(node));
+  customSelects.autoFillTemplate?.syncLabel();
+  dom.nImages?.querySelectorAll("option").forEach(option => {
+    option.dataset.noI18n = "";
+    option.textContent = uiText("imageCountValue").replace("{count}", option.value);
+    if (currentLanguage === "en" && option.value === "1") option.textContent = "1 image";
+  });
+  customSelects.nImages?.syncLabel();
+  if (customSelects.nImages?.isOpen()) customSelects.nImages.renderOptions();
+  localizeUiMetadata();
 }
 
 function initI18n() {
@@ -2078,9 +2573,7 @@ function skillCategoryLabel(category) {
 }
 
 function skillScopeLabel(scope) {
-  if (scope === "single") return "仅单图";
-  if (scope === "comic") return "仅漫画分镜";
-  return "单图与漫画分镜";
+  return uiText(scope === "single" ? "skillSingle" : scope === "comic" ? "skillComic" : "skillBoth");
 }
 
 function renderActiveSkills() {
@@ -2103,7 +2596,7 @@ function renderActiveSkills() {
     skills.forEach(skill => {
       const label = document.createElement("label");
       label.className = "active-skill-option";
-      label.innerHTML = `<input type="checkbox" data-skill-id="${escapeHtml(skill.id)}" ${selected.has(skill.id) ? "checked" : ""}><span class="active-skill-copy"><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.template.slice(0, 90))}${skill.template.length > 90 ? "…" : ""}</small></span>`;
+      label.innerHTML = `<input type="checkbox" data-skill-id="${escapeHtml(skill.id)}" ${selected.has(skill.id) ? "checked" : ""}><span class="active-skill-copy" data-no-i18n><strong data-no-i18n>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.template.slice(0, 90))}${skill.template.length > 90 ? "…" : ""}</small></span>`;
       label.querySelector("input").addEventListener("change", event => {
         const current = new Set(skillState.enabled[mode] || []);
         if (event.target.checked) current.add(skill.id); else current.delete(skill.id);
@@ -2125,14 +2618,14 @@ function renderSkillsManager() {
     const group = document.createElement("section");
     group.className = "skills-category";
     group.innerHTML = `<div class="skills-category-title">${skillCategoryLabel(category)}</div>`;
-    if (!skills.length) group.insertAdjacentHTML("beforeend", '<div class="active-skills-empty">暂无技能</div>');
+    if (!skills.length) group.insertAdjacentHTML("beforeend", `<div class="active-skills-empty">${escapeHtml(uiText("noSavedSkills"))}</div>`);
     skills.forEach(skill => {
       const card = document.createElement("article");
       card.className = "skill-card";
-      card.innerHTML = `<div class="skill-card-main"><div class="skill-card-head"><strong>${escapeHtml(skill.name)}</strong><span class="skill-badge">${skillScopeLabel(skill.scope)}</span>${skill.builtIn ? '<span class="skill-badge">内置</span>' : ""}</div><div class="skill-card-template">${escapeHtml(skill.template)}</div></div><div class="skill-card-actions"><button type="button" class="btn btn-xs edit-skill"><span class="ui-icon ui-icon-edit"></span>编辑</button><button type="button" class="btn btn-xs btn-danger delete-skill"><span class="ui-icon ui-icon-trash"></span>删除</button></div>`;
+      card.innerHTML = `<div class="skill-card-main"><div class="skill-card-head"><strong data-no-i18n>${escapeHtml(skill.name)}</strong><span class="skill-badge">${skillScopeLabel(skill.scope)}</span>${skill.builtIn ? `<span class="skill-badge">${escapeHtml(uiText("builtInSkill"))}</span>` : ""}</div><div class="skill-card-template" data-no-i18n>${escapeHtml(skill.template)}</div></div><div class="skill-card-actions"><button type="button" class="btn btn-xs edit-skill"><span class="ui-icon ui-icon-edit"></span>${escapeHtml(uiText("editAction"))}</button><button type="button" class="btn btn-xs btn-danger delete-skill"><span class="ui-icon ui-icon-trash"></span>${escapeHtml(uiText("deleteAction"))}</button></div>`;
       card.querySelector(".edit-skill").addEventListener("click", () => openSkillEditor(skill));
       card.querySelector(".delete-skill").addEventListener("click", async () => {
-        if (!(await askConfirm(`确定删除技能「${skill.name}」？`))) return;
+        if (!(await askConfirm(interpolate(uiText("deleteSkillConfirm"), { name: skill.name })))) return;
         skillState.skills = skillState.skills.filter(item => item.id !== skill.id);
         skillState.enabled.single = skillState.enabled.single.filter(id => id !== skill.id);
         skillState.enabled.comic = skillState.enabled.comic.filter(id => id !== skill.id);
@@ -2148,7 +2641,7 @@ function renderSkillsManager() {
 
 function openSkillEditor(skill = null) {
   dom.skillEditor?.classList.remove("hidden");
-  dom.skillEditorTitle.textContent = skill ? "编辑技能" : "新建技能";
+  dom.skillEditorTitle.textContent = uiText(skill ? "editSkill" : "newSkill");
   dom.skillId.value = skill?.id || "";
   dom.skillName.value = skill?.name || "";
   dom.skillCategory.value = skill?.category || "functional";
@@ -2303,7 +2796,7 @@ function getVisibleBlockingOverlays() {
     .filter(inst => inst.isOpen())
     .map(inst => inst.wrapper.querySelector(".custom-select-list"))
     .filter(Boolean);
-  return [dom.settingsModal, dom.skillsModal, dom.historyModal, dom.bulkPromptModal, dom.inpaintModal, ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
+  return [dom.settingsModal, dom.skillsModal, dom.historyModal, dom.bulkPromptModal, dom.inpaintModal, ...$$(".studio-api-modal"), ...$$(".ask-dialog-overlay"), ...$$(".lightbox"), ...openCustomSelectLists]
     .filter(isOverlayVisible);
 }
 
@@ -3013,6 +3506,19 @@ function updateCodexGatewayOptionAvailability() {
 
 const GEMINI_WEB_LOCALES = Object.freeze({
   "zh-CN": Object.freeze({
+    queueHint: "可输入 1–100；单个浏览器账号初始有效并发为 1。",
+    useAccount: "使用",
+    removeAccount: "删除",
+    deleteConfirm: "删除该 Gemini 本机账号配对？",
+    temporaryChatUnavailable: "未检测到临时对话",
+    loginContinue: "请在软件内窗口完成 Gemini 登录。",
+    loginOpening: "请在软件内窗口完成 Gemini 登录；成功后窗口会自动收起。",
+    loginComplete: "Gemini 登录成功，登录窗口已自动收起。",
+    keyPlaceholder: "由软件内置浏览器管理",
+    embeddedBrowser: "软件内置浏览器",
+    sizeTitle: "Gemini 官方尺寸",
+    sizeHint: "按 Google 官方“比例 × 1K/2K”标准选择；保存时保留网页返回的原图像素。",
+    sizeSummary: "Gemini 官方 1K / 2K 尺寸",
     title: "Gemini 网页生图", hint: "在软件内完成 Gemini 登录；登录成功后窗口自动收起，后续任务由隐藏浏览器执行。",
     accountTitle: "软件内 Gemini 账号", accountEmpty: "尚未登录 Gemini", accountHint: "账号只保存在当前设备的本地会话中；登录成功后页面自动收起，额度不足时可自动切换账号。",
     login: "添加 / 登录账号", relogin: "重新登录", test: "检测内置浏览器", autoSwitch: "额度不足时自动切换账号",
@@ -3028,6 +3534,19 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     capability: "选择 Gemini 时使用官方 1K / 2K 比例尺寸；默认在本机去水印并保持像素尺寸，不裁切、不缩小、不放大。关闭去水印后才保留网页原始字节。",
   }),
   "zh-Hant": Object.freeze({
+    queueHint: "可輸入 1–100；單一瀏覽器帳號初始有效並行數為 1。",
+    useAccount: "使用",
+    removeAccount: "刪除",
+    deleteConfirm: "刪除此 Gemini 本機帳號配對？",
+    temporaryChatUnavailable: "未偵測到臨時對話",
+    loginContinue: "請在軟體內視窗完成 Gemini 登入。",
+    loginOpening: "請在軟體內視窗完成 Gemini 登入；成功後視窗會自動收起。",
+    loginComplete: "Gemini 登入成功，登入視窗已自動收起。",
+    keyPlaceholder: "由軟體內建瀏覽器管理",
+    embeddedBrowser: "軟體內建瀏覽器",
+    sizeTitle: "Gemini 官方尺寸",
+    sizeHint: "按 Google 官方「比例 × 1K/2K」標準選擇；儲存時保留網頁傳回的原圖像素。",
+    sizeSummary: "Gemini 官方 1K / 2K 尺寸",
     title: "Gemini 網頁生圖", hint: "在軟體內完成 Gemini 登入；登入成功後視窗會自動收起，後續任務由隱藏瀏覽器執行。",
     accountTitle: "軟體內 Gemini 帳號", accountEmpty: "尚未登入 Gemini", accountHint: "帳號只保存在目前裝置的本機工作階段；登入成功後頁面自動收起，額度不足時可自動切換帳號。",
     login: "新增 / 登入帳號", relogin: "重新登入", test: "偵測內建瀏覽器", autoSwitch: "額度不足時自動切換帳號",
@@ -3043,6 +3562,19 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     capability: "選擇 Gemini 時使用官方 1K / 2K 比例尺寸；預設在本機移除浮水印並保持像素尺寸，不裁切、不縮小、不放大。關閉後才保留網頁原始位元組。",
   }),
   en: Object.freeze({
+    queueHint: "Enter 1–100; each browser account starts with an effective concurrency of 1.",
+    useAccount: "Use",
+    removeAccount: "Delete",
+    deleteConfirm: "Remove this local Gemini account pairing?",
+    temporaryChatUnavailable: "Temporary Chat unavailable",
+    loginContinue: "Complete sign-in in the in-app window.",
+    loginOpening: "Complete sign-in in the in-app Gemini window.",
+    loginComplete: "Gemini sign-in completed.",
+    keyPlaceholder: "Managed by the embedded browser",
+    embeddedBrowser: "Embedded browser",
+    sizeTitle: "Official Gemini sizes",
+    sizeHint: "Choose Google's official ratio × 1K/2K presets; saving preserves the pixels returned by the web app.",
+    sizeSummary: "Official Gemini 1K / 2K sizes",
     title: "Gemini Web Images", hint: "Sign in to Gemini inside the app. The login view closes automatically, while a hidden browser runs later tasks.",
     accountTitle: "In-app Gemini account", accountEmpty: "Not signed in to Gemini", accountHint: "Sessions remain local to this device. The app can switch accounts automatically when the active account has no quota.",
     login: "Add / sign in", relogin: "Sign in again", test: "Test embedded browser", autoSwitch: "Switch accounts when quota is unavailable",
@@ -3058,6 +3590,19 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     capability: "Gemini uses official 1K/2K ratio presets. Local watermark removal is enabled by default and preserves pixel dimensions without cropping or resizing; disable it to keep the original web bytes.",
   }),
   ja: Object.freeze({
+    queueHint: "1–100 を入力できます。各ブラウザーアカウントの初期有効同時実行数は 1 です。",
+    useAccount: "使用",
+    removeAccount: "削除",
+    deleteConfirm: "この端末の Gemini アカウント連携を削除しますか？",
+    temporaryChatUnavailable: "一時チャットを利用できません",
+    loginContinue: "アプリ内のウィンドウで Gemini にログインしてください。",
+    loginOpening: "アプリ内で Gemini にログインしてください。成功するとウィンドウは自動で閉じます。",
+    loginComplete: "Gemini にログインしました。ログインウィンドウは自動で閉じました。",
+    keyPlaceholder: "内蔵ブラウザーが管理します",
+    embeddedBrowser: "内蔵ブラウザー",
+    sizeTitle: "Gemini 公式サイズ",
+    sizeHint: "Google 公式の比率 × 1K/2K から選択し、保存時はウェブから返された元画像の画素を保持します。",
+    sizeSummary: "Gemini 公式 1K / 2K サイズ",
     title: "Gemini ウェブ画像", hint: "アプリ内で Gemini にログインします。成功後は画面を自動で閉じ、非表示ブラウザがタスクを実行します。",
     accountTitle: "アプリ内 Gemini アカウント", accountEmpty: "Gemini に未ログイン", accountHint: "セッションはこの端末だけに保存されます。上限到達時は別アカウントへ自動切替できます。",
     login: "追加 / ログイン", relogin: "再ログイン", test: "内蔵ブラウザを確認", autoSwitch: "上限到達時に自動切替",
@@ -3073,6 +3618,19 @@ const GEMINI_WEB_LOCALES = Object.freeze({
     capability: "Gemini は公式 1K / 2K 比率サイズを使用します。既定では端末内で透かしを除去し、画素サイズを保ったまま切り抜き・縮小・拡大を行いません。無効時のみ元のバイト列を保存します。",
   }),
   ko: Object.freeze({
+    queueHint: "1–100을 입력할 수 있습니다. 브라우저 계정별 초기 유효 동시 실행 수는 1입니다.",
+    useAccount: "사용",
+    removeAccount: "삭제",
+    deleteConfirm: "이 기기의 Gemini 계정 연결을 삭제할까요?",
+    temporaryChatUnavailable: "임시 채팅을 사용할 수 없음",
+    loginContinue: "앱 내 창에서 Gemini 로그인을 완료하세요.",
+    loginOpening: "앱 내 Gemini 창에서 로그인하세요. 성공하면 창이 자동으로 닫힙니다.",
+    loginComplete: "Gemini 로그인이 완료되어 로그인 창이 자동으로 닫혔습니다.",
+    keyPlaceholder: "내장 브라우저에서 관리",
+    embeddedBrowser: "내장 브라우저",
+    sizeTitle: "Gemini 공식 크기",
+    sizeHint: "Google 공식 비율 × 1K/2K 프리셋을 선택하며 저장 시 웹에서 반환된 원본 픽셀을 유지합니다.",
+    sizeSummary: "Gemini 공식 1K / 2K 크기",
     title: "Gemini 웹 이미지", hint: "앱 안에서 Gemini에 로그인합니다. 성공하면 화면이 자동으로 닫히고 숨겨진 브라우저가 작업을 실행합니다.",
     accountTitle: "앱 내 Gemini 계정", accountEmpty: "Gemini에 로그인하지 않음", accountHint: "세션은 현재 기기에만 저장됩니다. 할당량이 없으면 다른 계정으로 자동 전환할 수 있습니다.",
     login: "계정 추가 / 로그인", relogin: "다시 로그인", test: "내장 브라우저 확인", autoSwitch: "할당량 부족 시 계정 자동 전환",
@@ -3283,9 +3841,9 @@ function updateProviderOptionsLanguage() {
     button.textContent = button.dataset.value === "jpeg" ? "JPEG" : button.dataset.value.toUpperCase();
   });
   const dimensionLabels = {
-    native: currentLanguage === "en" ? "Native" : "原生",
-    exact_output: currentLanguage === "en" ? "Exact output" : "精确输出",
-    strict_native: currentLanguage === "en" ? "Strict native" : "严格原生",
+    native: uiText("dimensionNative"),
+    exact_output: uiText("dimensionExact"),
+    strict_native: uiText("dimensionStrict"),
   };
   document.querySelectorAll('[data-provider-control="codexGatewayDimensionMode"] button[data-value]').forEach(button => {
     button.textContent = dimensionLabels[button.dataset.value] || button.dataset.value;
@@ -3322,8 +3880,12 @@ function updateGeminiLanguage() {
     geminiQualityIntentLabel: "quality",
     geminiQualityIntentHint: "qualityHint",
     geminiQueueLabel: "queue",
+    geminiQueueHint: "queueHint",
     geminiFacts: "facts",
     geminiCapabilityNote: "capability",
+    geminiSizeTitle: "sizeTitle",
+    geminiSizeHint: "sizeHint",
+    geminiSizeSummary: "sizeSummary",
   };
   for (const [id, key] of Object.entries(textMap)) {
     const element = document.getElementById(id);
@@ -3350,6 +3912,7 @@ function updateGeminiLanguage() {
   if (dom.openGeminiLogin) dom.openGeminiLogin.textContent = geminiText("login");
   if (dom.testGeminiHealth) dom.testGeminiHealth.textContent = geminiText("test");
   if (dom.geminiAutoSwitchLabel) dom.geminiAutoSwitchLabel.textContent = geminiText("autoSwitch");
+  if (isGeminiWebSelected() && dom.apiKey) dom.apiKey.placeholder = geminiText("keyPlaceholder");
   renderGeminiAccounts(geminiAccountsState);
   setGeminiHealthState(geminiHealthState, geminiHealthDetail);
 }
@@ -3362,13 +3925,20 @@ function updateInpaintLanguage() {
   setButtonText(dom.generateInpaint, "spark", "inpaintGenerate");
   setButtonText(dom.applyInpaint, "save", "inpaintApply");
   setButtonText(dom.cancelInpaintGeneration, "x", "cancelGeneration");
-  if (dom.inpaintPrompt) dom.inpaintPrompt.placeholder = cleanText("inpaintPromptLabel");
-  const hasSource = Number(dom.inpaintBaseCanvas?.width || 0) > 0;
+  if (dom.inpaintPrompt) dom.inpaintPrompt.placeholder = cleanText("inpaintPromptPlaceholder");
+  const hasSource = !!inpaintState.source;
   const isGenerating = !dom.cancelInpaintGeneration?.classList.contains("hidden");
   if (dom.inpaintSourceMeta && !hasSource) dom.inpaintSourceMeta.textContent = cleanText("inpaintNoSource");
   if (dom.inpaintStatus && !hasSource && !isGenerating) {
     dom.inpaintStatus.textContent = cleanText("inpaintInitial");
   }
+  if (dom.inpaintStatus?._inpaintLocale) {
+    const { key, vars, type } = dom.inpaintStatus._inpaintLocale;
+    setInpaintStatusKey(key, type, vars);
+  }
+  dom.inpaintCandidateStrip?.querySelectorAll(".inpaint-candidate img").forEach((image, index) => {
+    image.alt = interpolate(cleanText("inpaintCandidateLabel"), { index: index + 1 });
+  });
   updateInpaintAvailability();
 }
 
@@ -3633,7 +4203,7 @@ function geminiAccountAvailabilityText(account) {
     account?.temporary_chat_available === false
     && account?.direct_protocol_available !== true
   ) {
-    return currentLanguage === "en" ? "Temporary Chat unavailable" : "未检测到临时对话";
+    return geminiText("temporaryChatUnavailable");
   }
   if (!isGeminiAccountReady(account)) return geminiText("accountPageNotReady");
   return geminiText("accountReady");
@@ -3698,6 +4268,7 @@ function renderGeminiAccounts(state = {}) {
   if (dom.geminiAccountIdentity) {
     const active = geminiAccountsState.accounts.find(account => account.local_account_id === geminiAccountsState.active_account_id)
       || geminiAccountsState.accounts[0];
+    dom.geminiAccountIdentity.dataset.noI18n = "";
     dom.geminiAccountIdentity.textContent = active
       ? [active.display_name, active.masked_email].filter(Boolean).join(" · ")
       : geminiText("accountEmpty");
@@ -3708,6 +4279,7 @@ function renderGeminiAccounts(state = {}) {
     if (!account?.local_account_id) continue;
     const item = document.createElement("div");
     item.className = "gemini-account-item";
+    item.dataset.noI18n = "";
     const copy = document.createElement("div");
     const title = document.createElement("strong");
     title.textContent = account.display_name || geminiText("accountTitle");
@@ -3723,7 +4295,7 @@ function renderGeminiAccounts(state = {}) {
       const use = document.createElement("button");
       use.type = "button";
       use.className = "btn btn-xs";
-      use.textContent = currentLanguage === "en" ? "Use" : "使用";
+      use.textContent = geminiText("useAccount");
       use.addEventListener("click", async () => {
         renderGeminiAccounts(await nativeDownload.selectGeminiAccount(account.local_account_id));
         geminiHealthCheckedAt = 0;
@@ -3737,15 +4309,15 @@ function renderGeminiAccounts(state = {}) {
     relogin.textContent = geminiText("relogin");
     relogin.addEventListener("click", async () => {
       await nativeDownload.openGeminiWebLogin(account.local_account_id);
-      showStatus(currentLanguage === "en" ? "Complete sign-in in the in-app window." : "请在软件内窗口完成 Gemini 登录。", "info");
+      showStatus(geminiText("loginContinue"), "info");
     });
     actions.append(relogin);
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "btn btn-danger btn-xs";
-    remove.textContent = currentLanguage === "en" ? "Delete" : "删除";
+    remove.textContent = geminiText("removeAccount");
     remove.addEventListener("click", async () => {
-      if (!(await askConfirm(currentLanguage === "en" ? "Remove this local Gemini account pairing?" : "删除该 Gemini 本机账号配对？"))) return;
+      if (!(await askConfirm(geminiText("deleteConfirm")))) return;
       renderGeminiAccounts(await nativeDownload.deleteGeminiAccount(account.local_account_id));
       setGeminiHealthState("idle");
     });
@@ -4037,7 +4609,7 @@ function updateApiProviderHint(provider = dom.apiProvider?.value || "custom") {
   const hints = {
     official: `${cleanText("officialApi")} · ${OFFICIAL_API_ENDPOINT}`,
     [CODEX_IMAGE_GATEWAY_PROVIDER]: `${cleanText("codexGatewayApi")} · ${CODEX_IMAGE_GATEWAY_BASE_URL}`,
-    [GEMINI_WEB_PROVIDER]: `${cleanText("geminiWebApi")} · 软件内置浏览器`,
+    [GEMINI_WEB_PROVIDER]: `${cleanText("geminiWebApi")} · ${geminiText("embeddedBrowser")}`,
     grsai: cleanText("apiProviderHint"),
     custom: `${cleanText("customApi")} · ${cleanText("apiUrl")}`,
   };
@@ -4064,7 +4636,7 @@ function applyApiProvider(provider = "custom", options = {}) {
   } else if (next === GEMINI_WEB_PROVIDER) {
     dom.apiEndpoint.value = geminiCredentials?.baseUrl || GEMINI_WEB_BASE_URL;
     dom.apiKey.value = "";
-    dom.apiKey.placeholder = currentLanguage === "en" ? "Managed by the embedded browser" : "由软件内置浏览器管理";
+    dom.apiKey.placeholder = geminiText("keyPlaceholder");
     dom.model.value = GEMINI_WEB_MODEL;
     setModelChoices([GEMINI_WEB_MODEL]);
   } else if (dom.apiKey) {
@@ -4345,6 +4917,7 @@ function findSavedApiIndex(value, apis = loadAllApis()) {
 }
 
 function keepApiConfigVisible() {
+  if (window.StudioShell?.openApi) { window.StudioShell.openApi(); return; }
   if (!dom.configSection) return;
   dom.configSection.open = true;
   const panel = dom.configSection.closest(".input-panel");
@@ -4588,7 +5161,7 @@ dom.testGeminiHealth?.addEventListener("click", () => {
 dom.openGeminiLogin?.addEventListener("click", async () => {
   try {
     await nativeDownload.openGeminiWebLogin();
-    showStatus(currentLanguage === "en" ? "Complete sign-in in the in-app Gemini window." : "请在软件内窗口完成 Gemini 登录；成功后窗口会自动收起。", "info");
+    showStatus(geminiText("loginOpening"), "info");
   } catch (error) {
     showStatus(`${geminiText("failed")} ${error?.message || error}`, "error");
   }
@@ -4629,8 +5202,16 @@ const INPAINT_PAINT_STATUS = Object.freeze({
 
 function setInpaintStatus(message, type = "info") {
   if (!dom.inpaintStatus) return;
+  delete dom.inpaintStatus._inpaintLocale;
+  dom.inpaintStatus.dataset.noI18n = "";
   dom.inpaintStatus.className = `status ${type} inpaint-status`;
   dom.inpaintStatus.textContent = String(message || "");
+}
+
+function setInpaintStatusKey(key, type = "info", vars = {}) {
+  const text = key === "sourceLoaded" ? (INPAINT_PAINT_STATUS[currentLanguage] || INPAINT_PAINT_STATUS["zh-CN"]) : cleanText(key);
+  setInpaintStatus(interpolate(text, vars), type);
+  if (dom.inpaintStatus) dom.inpaintStatus._inpaintLocale = { key, vars, type };
 }
 
 function loadImageElement(source) {
@@ -4758,10 +5339,11 @@ async function loadInpaintSourceBlob(blob, name = "image") {
   replayInpaintMask();
   dom.inpaintEmpty?.classList.add("hidden");
   if (dom.inpaintSourceMeta) {
+    dom.inpaintSourceMeta.dataset.noI18n = "";
     dom.inpaintSourceMeta.textContent = `${name} · ${width}×${height} · ${formatImageBytes(normalized.size)}`;
   }
   requestAnimationFrame(updateInpaintStageSize);
-  setInpaintStatus(INPAINT_PAINT_STATUS[currentLanguage] || INPAINT_PAINT_STATUS["zh-CN"], "info");
+  setInpaintStatusKey("sourceLoaded", "info");
 }
 
 async function openInpaintFromCard(card) {
@@ -4771,7 +5353,7 @@ async function openInpaintFromCard(card) {
     return;
   }
   openModal(dom.inpaintModal);
-  setInpaintStatus("正在读取本地图片缓存…", "info");
+  setInpaintStatusKey("inpaintReadingSource", "info");
   try {
     let blob = await Promise.resolve(card._imageCachePromise).catch(() => null);
     if (!(blob instanceof Blob)) {
@@ -4781,7 +5363,7 @@ async function openInpaintFromCard(card) {
     }
     await loadInpaintSourceBlob(blob, `分镜 ${card.dataset.panelId || ""}`.trim());
   } catch (error) {
-    setInpaintStatus(`读取原图失败：${error.message || error}`, "error");
+    setInpaintStatusKey("inpaintSourceFailed", "error", { reason: error.message || error });
   }
 }
 
@@ -5006,7 +5588,7 @@ function renderInpaintCandidates() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `inpaint-candidate${index === inpaintState.selectedCandidate ? " active" : ""}`;
-    button.innerHTML = `<img src="${candidate.dataUrl}" alt="候选 ${index + 1}"><span>${index + 1}</span>`;
+    button.innerHTML = `<img src="${candidate.dataUrl}" alt="${escapeHtml(interpolate(cleanText("inpaintCandidateLabel"), { index: index + 1 }))}"><span>${index + 1}</span>`;
     button.addEventListener("click", () => {
       inpaintState.selectedCandidate = index;
       renderInpaintCandidates();
@@ -5027,14 +5609,14 @@ function responseImageToDataUrl(data) {
 async function generateInpaintCandidates() {
   const source = inpaintState.source;
   const prompt = String(dom.inpaintPrompt?.value || "").trim();
-  if (!source) return setInpaintStatus(cleanText("inpaintNeedSource"), "error");
-  if (!prompt) return setInpaintStatus(cleanText("inpaintNeedPrompt"), "error");
+  if (!source) return setInpaintStatusKey("inpaintNeedSource", "error");
+  if (!prompt) return setInpaintStatusKey("inpaintNeedPrompt", "error");
   const providerMode = getInpaintProviderMode();
-  if (!providerMode) return setInpaintStatus(cleanText("inpaintRequiresGptImage2"), "error");
+  if (!providerMode) return setInpaintStatusKey("inpaintRequiresGptImage2", "error");
   const mask = analyzeInpaintMask();
-  if (!mask) return setInpaintStatus(cleanText("inpaintNeedMask"), "error");
+  if (!mask) return setInpaintStatusKey("inpaintNeedMask", "error");
   if (mask.coverage > 0.95) {
-    return setInpaintStatus("蒙版覆盖超过 95%，请直接使用参考图编辑，或缩小蒙版区域。", "error");
+    return setInpaintStatusKey("inpaintMaskTooLarge", "error");
   }
 
   let crop;
@@ -5121,7 +5703,7 @@ async function generateInpaintCandidates() {
         return null;
       } finally {
         completed++;
-        setInpaintStatus(interpolate(cleanText("inpaintGenerating"), { done: completed, total: candidateCount }), "info");
+        setInpaintStatusKey("inpaintGenerating", "info", { done: completed, total: candidateCount });
       }
     });
     generated.push(...results.filter(Boolean));
@@ -5132,12 +5714,12 @@ async function generateInpaintCandidates() {
     renderInpaintPreview();
     dom.inpaintAlignment?.classList.remove("hidden");
     dom.applyInpaint?.classList.remove("hidden");
-    setInpaintStatus(
-      failures.length ? `已生成 ${generated.length} 个候选；${failures.length} 个失败。` : `已生成 ${generated.length} 个候选。`,
-      failures.length ? "info" : "success"
+    setInpaintStatusKey(
+      failures.length ? "inpaintCandidatesPartial" : "inpaintCandidatesReady",
+      failures.length ? "info" : "success", { count: generated.length, failed: failures.length }
     );
   } catch (error) {
-    setInpaintStatus(error?.name === "AbortError" ? "已取消候选生成。" : `局部重绘失败：${error.message || error}`, error?.name === "AbortError" ? "info" : "error");
+    setInpaintStatusKey(error?.name === "AbortError" ? "inpaintCancelled" : "inpaintFailed", error?.name === "AbortError" ? "info" : "error", { reason: error.message || error });
   } finally {
     inpaintState.generating = false;
     inpaintState.abortController = null;
@@ -5148,7 +5730,7 @@ async function generateInpaintCandidates() {
 
 function applyInpaintResult() {
   if (!inpaintState.resultDataUrl || !inpaintState.source || !inpaintState.cropPlan) {
-    setInpaintStatus("请先生成并选择候选补丁。", "error");
+    setInpaintStatusKey("inpaintSelectCandidate", "error");
     return;
   }
   const base64 = inpaintState.resultDataUrl.split(",")[1] || "";
@@ -5199,7 +5781,7 @@ function applyInpaintResult() {
   dom.emptyState?.classList.add("hidden");
   dom.resultGrid?.classList.remove("hidden");
   dom.resultToolbar?.classList.remove("hidden");
-  setInpaintStatus(cleanText("inpaintApplied"), "success");
+  setInpaintStatusKey("inpaintApplied", "success");
   closeModal(dom.inpaintModal);
 }
 
@@ -5219,7 +5801,7 @@ dom.inpaintSourceInput?.addEventListener("change", async () => {
   try {
     await loadInpaintSourceBlob(file, file.name || "image");
   } catch (error) {
-    setInpaintStatus(`读取原图失败：${error.message || error}`, "error");
+    setInpaintStatusKey("inpaintSourceFailed", "error", { reason: error.message || error });
   }
 });
 dom.closeInpaint?.addEventListener("click", () => {
@@ -5607,7 +6189,10 @@ function initManualWheelScrollFix() {
 function getFocusableElements(container) {
   return [...(container?.querySelectorAll?.(
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-  ) || [])].filter(el => !el.closest(".hidden") && getComputedStyle(el).visibility !== "hidden");
+  ) || [])].filter(el => el.tabIndex >= 0 && !el.matches(":disabled") &&
+    !el.closest('.hidden, [hidden], [inert], [aria-hidden="true"]') &&
+    !el.matches('details:not([open]) > :not(summary), details:not([open]) > :not(summary) *') &&
+    el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden");
 }
 
 function clampGrsaiSubmit504RetryInterval(value, fallback = 30) {
@@ -5649,6 +6234,7 @@ function openModal(modal) {
   modal.classList.remove("hidden");
   updateBodyScrollLock();
   requestAnimationFrame(() => {
+    if (getTopVisibleOverlay() !== modal) return;
     const focusable = getFocusableElements(modal);
     (focusable[0] || modal.querySelector(".modal-card"))?.focus();
   });
@@ -5663,6 +6249,9 @@ function closeModal(modal) {
   if (returnFocus?.isConnected) {
     const restoreFocus = () => {
       if (!returnFocus.isConnected || returnFocus.disabled) return;
+      const top = getTopVisibleOverlay();
+      if (top && !top.contains(returnFocus)) return;
+      if (returnFocus.closest('.hidden, [hidden], [inert]') || !returnFocus.getClientRects().length) return;
       try { returnFocus.focus({ preventScroll: true }); }
       catch { returnFocus.focus(); }
     };
@@ -5733,7 +6322,10 @@ function askPrompt(message, defaultValue = "") {
   return openAskDialog({ message, kind: "prompt", defaultValue });
 }
 
-dom.settingsBtn?.addEventListener("click", () => openModal(dom.settingsModal));
+dom.settingsBtn?.addEventListener("click", () => {
+  openModal(dom.settingsModal);
+  void a7CacheRefreshCapacity();
+});
 dom.closeSettings?.addEventListener("click", () => closeModal(dom.settingsModal));
 dom.settingsModal?.addEventListener("click", e => { if (e.target === dom.settingsModal) closeModal(dom.settingsModal); });
 dom.historyEnabled?.addEventListener("change", () => saveSettings({ historyEnabled: dom.historyEnabled.checked }));
@@ -6480,6 +7072,7 @@ function switchMode(mode) {
 }
 
 function refreshLocalizedUiState() {
+  updateResultWindowLabels();
   const isComic = currentMode === "comic";
   const isTurnaround = currentMode === "turnaround";
   const label = $("#globalPromptField .field-label-text");
@@ -7151,6 +7744,61 @@ function applyPanelRowImage(row, ref) {
   imgClear.classList.remove("hidden");
 }
 
+// Keep detached DOM rows, not serialized copies: references, values and listeners
+// survive undo. History is scoped to each editor and explicitly invalidated on reset.
+const editorRowUndoStates = new WeakMap();
+function clearEditorRowUndo(tbody) {
+  const state = editorRowUndoStates.get(tbody);
+  if (!state) return;
+  state.entries.length = 0;
+  state.notice.remove();
+  editorRowUndoStates.delete(tbody);
+}
+
+function deleteEditorRowWithUndo(row, renumber) {
+  const tbody = row.parentElement;
+  if (!tbody) return;
+  let state = editorRowUndoStates.get(tbody);
+  if (!state) {
+    const notice = document.createElement("div");
+    notice.className = "editor-undo-notice";
+    const message = document.createElement("span");
+    message.setAttribute("role", "status");
+    message.dataset.uiText = "deletedRow";
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.className = "btn btn-xs";
+    undo.dataset.uiText = "undo";
+    undo.dataset.undoEditor = tbody.id;
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "btn btn-xs";
+    dismiss.dataset.uiText = "dismissUndo";
+    dismiss.addEventListener("click", () => clearEditorRowUndo(tbody));
+    state = { entries: [], notice, undo };
+    editorRowUndoStates.set(tbody, state);
+    undo.addEventListener("click", () => {
+      const entry = state.entries.pop();
+      if (!entry || !tbody.isConnected) { clearEditorRowUndo(tbody); return; }
+      const before = entry.next?.parentElement === tbody ? entry.next : tbody.children[entry.index] || null;
+      tbody.insertBefore(entry.row, before);
+      renumber();
+      localizeUiMetadata(entry.row);
+      entry.row.querySelector("textarea")?.focus({preventScroll:true});
+      if (!state.entries.length) clearEditorRowUndo(tbody);
+    });
+    notice.append(message, undo, dismiss);
+    const table = tbody.closest(".panel-table-wrap") || tbody.closest("table");
+    table.before(notice);
+  }
+  state.entries.push({ row, next: row.nextElementSibling, index: [...tbody.children].indexOf(row) });
+  if (state.entries.length > 10) state.entries.shift();
+  row.remove();
+  renumber();
+  localizeUiMetadata(state.notice);
+  state.undo.focus({preventScroll:true});
+}
+
 function addPanelRow(prefilledRef = null, { syncCount = true } = {}) {
   panelCounter++;
   const clone = panelRowTemplate.content.cloneNode(true);
@@ -7160,8 +7808,7 @@ function addPanelRow(prefilledRef = null, { syncCount = true } = {}) {
   row.dataset.panelId = panelCounter;
 
   row.querySelector(".delete-panel").addEventListener("click", () => {
-    row.remove();
-    renumberPanels();
+    deleteEditorRowWithUndo(row, renumberPanels);
   });
 
   const imgInput = row.querySelector(".panel-img-input");
@@ -7216,6 +7863,7 @@ function addPanelRow(prefilledRef = null, { syncCount = true } = {}) {
   if (prefilledRef) applyPanelRowImage(row, prefilledRef);
 
   dom.panelTbody.appendChild(row);
+  localizeUiMetadata(row);
   if (syncCount) syncPanelCountInput();
   return row;
 }
@@ -7280,6 +7928,7 @@ async function setPanelCount(targetCount) {
     return;
   }
 
+  clearEditorRowUndo(dom.panelTbody);
   rowsToRemove.forEach(row => row.remove());
   renumberPanels();
   showStatus(`已调整为 ${target} 个分镜`, "success");
@@ -7299,15 +7948,16 @@ dom.panelCount?.addEventListener("keydown", e => {
 
 dom.addPanel.addEventListener("click", () => addPanelRow());
 dom.clearPanels.addEventListener("click", async () => {
-  if (dom.panelTbody.children.length === 0 && !abortController) return;
+  if (dom.panelTbody.children.length === 0 && !abortController && !editorRowUndoStates.get(dom.panelTbody)?.entries.length) return;
   if (await askConfirm("确定清空所有分镜？")) {
     const wasGenerating = !!abortController;
     stopCurrentGeneration("已取消当前生成并清空分镜");
+    clearEditorRowUndo(dom.panelTbody);
     dom.panelTbody.innerHTML = "";
     panelCounter = 0;
     syncPanelCountInput();
     if (wasGenerating) {
-      dom.resultGrid.innerHTML = "";
+      clearAllResultCards();
       dom.resultGrid.classList.add("hidden");
       dom.emptyState.classList.remove("hidden");
       dom.resultToolbar.classList.add("hidden");
@@ -7342,14 +7992,15 @@ dom.turnaroundBulkInput.addEventListener("change", () => {
   });
 });
 dom.clearTurnaroundRows.addEventListener("click", async () => {
-  if (dom.turnaroundTbody.children.length === 0 && !abortController) return;
+  if (dom.turnaroundTbody.children.length === 0 && !abortController && !editorRowUndoStates.get(dom.turnaroundTbody)?.entries.length) return;
   if (await askConfirm("确定清空所有三视图任务？")) {
     const wasGenerating = !!abortController;
     stopCurrentGeneration("已取消当前生成并清空三视图任务");
+    clearEditorRowUndo(dom.turnaroundTbody);
     dom.turnaroundTbody.innerHTML = "";
     turnaroundRowCounter = 0;
     if (wasGenerating) {
-      dom.resultGrid.innerHTML = "";
+      clearAllResultCards();
       dom.resultGrid.classList.add("hidden");
       dom.emptyState.classList.remove("hidden");
       dom.resultToolbar.classList.add("hidden");
@@ -7568,8 +8219,7 @@ function addTurnaroundRow(prefilledRef = null) {
   row.dataset.turnaroundId = turnaroundRowCounter;
 
   row.querySelector(".delete-panel").addEventListener("click", () => {
-    row.remove();
-    renumberTurnaroundRows();
+    deleteEditorRowWithUndo(row, renumberTurnaroundRows);
   });
 
   const imgInput = row.querySelector(".panel-img-input");
@@ -7609,6 +8259,7 @@ function addTurnaroundRow(prefilledRef = null) {
   if (prefilledRef) applyTurnaroundRowImage(row, prefilledRef);
 
   dom.turnaroundTbody.appendChild(row);
+  localizeUiMetadata(row);
   return row;
 }
 
@@ -7653,7 +8304,7 @@ async function waitForTurnaroundReferenceTasks(rows) {
 // ═══════════════════════════════════════════════════════════
 
 function showStatus(msg, type) {
-  dom.status.textContent = translateTextValue(msg);
+  setI18nText(dom.status, msg);
   dom.status.className = `status ${type}`;
 }
 function clearStatus() {
@@ -7661,7 +8312,7 @@ function clearStatus() {
   dom.status.className = "status hidden";
 }
 function showLoading(text = "正在生成中……") {
-  dom.loadingText.textContent = tr(text);
+  setI18nText(dom.loadingText, text);
   dom.loadingOverlay.classList.remove("hidden");
   dom.emptyState.classList.add("hidden");
   dom.resultGrid.classList.add("hidden");
@@ -7717,7 +8368,7 @@ async function settlePendingGenerationCards(run, message = "已取消生成") {
   if (!run?.cards) return;
   const checkpointUpdates = [];
   run.cards.forEach(card => {
-    if (!card?.isConnected || !["loading", "queued", "pending"].includes(String(card.dataset.status || ""))) return;
+    if (!isLiveResultCard(card) || !["loading", "queued", "pending"].includes(String(card.dataset.status || ""))) return;
     card._cardRetryAbortController?.abort();
     const context = card._retryContext || {};
     const panelId = context.panelId || card.dataset.panelId || "取消";
@@ -9547,7 +10198,7 @@ async function generateSingle() {
   clearStatus();
 
   try {
-    dom.resultGrid.innerHTML = "";
+    clearAllResultCards();
     dom.resultGrid.classList.remove("hidden");
     dom.resultToolbar.classList.remove("hidden");
     dom.emptyState.classList.add("hidden");
@@ -9660,7 +10311,7 @@ async function generateComic() {
   const run = beginGeneration();
   const apiSnapshot = captureApiRequestSnapshot();
   clearStatus();
-  dom.resultGrid.innerHTML = "";
+  clearAllResultCards();
   dom.resultGrid.classList.remove("hidden");
   dom.resultToolbar.classList.remove("hidden");
   dom.emptyState.classList.add("hidden");
@@ -9867,7 +10518,7 @@ async function generateTurnarounds() {
   const run = beginGeneration();
   const apiSnapshot = captureApiRequestSnapshot();
   clearStatus();
-  dom.resultGrid.innerHTML = "";
+  clearAllResultCards();
   dom.resultGrid.classList.remove("hidden");
   dom.resultToolbar.classList.remove("hidden");
   dom.emptyState.classList.add("hidden");
@@ -10052,6 +10703,154 @@ function updateProgress(done, total, icon) {
 
 // ─── 结果卡片 / 人工重试 ─────────────────────────────────────
 
+// Result pagination is a render-only projection, NOT a data/selection filter.
+// Keep original DOM objects (including detached cards) for in-flight callbacks.
+// Every production insertion/clear must use these helpers; never patch DOM APIs.
+const RESULT_PAGE_SIZE = 60;
+const resultWindowState = { cards: [], members: new Set(), retired: new WeakSet(), page: 0, controls: null };
+const RESULT_WINDOW_TEXT = {
+  'zh-CN': ['结果分页', '上一页', '下一页', '第 {page}/{pages} 页 · {start}–{end} / {total} 张', '分页仅影响浏览。导出包含所有页的成功图片；失败重试及补充扫描所有页；清空移除全部结果。没有按页选择或筛选，审核状态也不筛选导出。'],
+  'zh-Hant': ['結果分頁', '上一頁', '下一頁', '第 {page}/{pages} 頁 · {start}–{end} / {total} 張', '分頁僅影響瀏覽。匯出包含所有頁的成功圖片；失敗重試及補充掃描所有頁；清空移除全部結果。沒有按頁選取或篩選，審核狀態也不篩選匯出。'],
+  en: ['Result pages', 'Previous page', 'Next page', 'Page {page}/{pages} · {start}–{end} of {total}', 'Pages affect browsing only. Export includes successful images on ALL pages; retry and supplement scan failures on ALL pages; Clear removes ALL results. There is no page selection or filter; review status does not filter exports.'],
+  ja: ['結果のページ', '前のページ', '次のページ', '{page}/{pages} ページ · {start}–{end} / {total} 件', 'ページ分けは表示のみです。エクスポートは全ページの成功画像、再試行と追加は全ページの失敗、クリアは全結果が対象です。ページ単位の選択や絞り込みはなく、確認状態もエクスポートを絞り込みません。'],
+  ko: ['결과 페이지', '이전 페이지', '다음 페이지', '{page}/{pages} 페이지 · {start}–{end} / {total}개', '페이지는 표시만 바꿉니다. 내보내기는 모든 페이지의 성공 이미지, 재시도와 추가는 모든 페이지의 실패, 비우기는 모든 결과에 적용됩니다. 페이지별 선택이나 필터는 없으며 검토 상태도 내보내기를 필터링하지 않습니다.'],
+};
+
+function getAllResultCards(selector = '') {
+  // Snapshot in canonical result order; optional predicates apply to ALL cards.
+  return selector ? resultWindowState.cards.filter(card => card.matches(selector)) : resultWindowState.cards.slice();
+}
+
+function isLiveResultCard(card) {
+  return resultWindowState.members.has(card);
+}
+
+function isLiveResultNode(card, node) {
+  // A retry can replace the children of the SAME live card. Reject old leases too.
+  return isLiveResultCard(card) && card.contains(node);
+}
+
+function registerResultCard(card, { prepend = false } = {}) {
+  if (!card || resultWindowState.retired.has(card)) return card;
+  if (!resultWindowState.members.has(card)) {
+    resultWindowState.members.add(card);
+    if (prepend) resultWindowState.cards.unshift(card);
+    else resultWindowState.cards.push(card);
+  }
+  if (prepend) resultWindowState.page = 0;
+  renderResultWindow();
+  return card;
+}
+
+function clearAllResultCards() {
+  // Retain the existing queue cancellation path, and also abort manual retries.
+  cancelRetryAllFailedRun({ announce: false });
+  pendingChatGptRetryCards.clear();
+  for (const card of resultWindowState.cards) {
+    resultWindowState.retired.add(card);
+    card._cardRetryAbortController?.abort();
+    releaseCardImageCache(card);
+    card.remove();
+  }
+  resultWindowState.cards.length = 0;
+  resultWindowState.members.clear();
+  resultWindowState.page = 0;
+  resultWindowState.controls?.remove();
+  resultWindowState.controls = null;
+  dom.resultGrid?.replaceChildren();
+}
+
+function updateResultWindowLabels() {
+  const nav = resultWindowState.controls;
+  if (!nav) return;
+  const [name, prev, next, status, scope] = RESULT_WINDOW_TEXT[currentLanguage] || RESULT_WINDOW_TEXT['zh-CN'];
+  const total = resultWindowState.cards.length;
+  const page = resultWindowState.page;
+  const pages = Math.max(1, Math.ceil(total / RESULT_PAGE_SIZE));
+  nav.setAttribute('aria-label', name);
+  for (const [direction, label, disabled] of [['prev', prev, page === 0], ['next', next, page >= pages - 1]]) {
+    const button = nav.querySelector(`[data-result-page="${direction}"]`);
+    if (button.textContent !== label) button.textContent = label;
+    button.setAttribute('aria-label', label);
+    button.disabled = disabled;
+  }
+  const counter = nav.querySelector('[data-result-page-status]');
+  const text = interpolate(status, { page: page + 1, pages, start: page * RESULT_PAGE_SIZE + 1, end: Math.min(total, (page + 1) * RESULT_PAGE_SIZE), total });
+  if (counter.textContent !== text) counter.textContent = text;
+  const hint = nav.querySelector('#resultPaginationScope');
+  if (hint.textContent !== scope) hint.textContent = scope;
+}
+
+function setResultPage(page) {
+  const last = Math.max(0, Math.ceil(resultWindowState.cards.length / RESULT_PAGE_SIZE) - 1);
+  resultWindowState.page = Math.min(last, Math.max(0, Math.trunc(Number(page) || 0)));
+  renderResultWindow();
+}
+
+function renderResultWindow() {
+  const grid = dom.resultGrid;
+  if (!grid) return;
+  const state = resultWindowState;
+  const last = Math.max(0, Math.ceil(state.cards.length / RESULT_PAGE_SIZE) - 1);
+  state.page = Math.min(state.page, last);
+  const pageCards = state.cards.slice(state.page * RESULT_PAGE_SIZE, (state.page + 1) * RESULT_PAGE_SIZE);
+  const wanted = new Set(pageCards);
+  // Remove first, then attach: even synchronously the attached card cap is 60.
+  for (const child of [...grid.children]) {
+    if (child.classList.contains('result-item') && !wanted.has(child)) child.remove();
+  }
+  if (state.cards.length > RESULT_PAGE_SIZE && !state.controls) {
+    const nav = document.createElement('nav');
+    nav.className = 'result-pagination';
+    nav.dataset.noI18n = '';
+    // Self-contained module styles; no dependency on root/history CSS changes.
+    nav.style.cssText = 'grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;';
+    const counter = document.createElement('span');
+    counter.dataset.resultPageStatus = '';
+    counter.setAttribute('role', 'status');
+    counter.setAttribute('aria-live', 'polite');
+    counter.setAttribute('aria-atomic', 'true');
+    counter.style.cssText = 'flex:1 1 140px;overflow-wrap:anywhere;';
+    for (const direction of ['prev', 'next']) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn btn-sm';
+      button.dataset.resultPage = direction;
+      button.setAttribute('aria-controls', grid.id);
+      button.setAttribute('aria-describedby', 'resultPaginationScope');
+      button.style.cssText = 'min-height:48px;min-width:48px;white-space:normal;';
+      button.addEventListener('click', () => {
+        setResultPage(state.page + (direction === 'prev' ? -1 : 1));
+        // A boundary disables the clicked control; keep keyboard focus in pager.
+        (button.disabled ? nav.querySelector('button:not(:disabled)') : button)?.focus({ preventScroll: true });
+      });
+      nav.appendChild(button);
+      if (direction === 'prev') nav.appendChild(counter);
+    }
+    const hint = document.createElement('small');
+    hint.id = 'resultPaginationScope';
+    hint.style.cssText = 'flex:1 1 100%;overflow-wrap:anywhere;color:var(--text2);';
+    nav.appendChild(hint);
+    state.controls = nav;
+    grid.prepend(nav);
+  }
+  updateResultWindowLabels();
+  let cursor = state.controls ? state.controls.nextSibling : grid.firstChild;
+  for (const card of pageCards) {
+    const wasDetached = !card.isConnected;
+    if (card !== cursor) grid.insertBefore(card, cursor);
+    if (wasDetached || card._resultUiLanguage !== currentLanguage) {
+      translateElement(card);
+      localizeUiMetadata(card);
+      a7CacheLocalize(card);
+      card._resultUiLanguage = currentLanguage;
+    }
+    cursor = card.nextSibling;
+  }
+}
+
+
+
 // 每张卡片从一进入 loading 状态开始就有一个"取消"按钮（不只是撞上自动重试之后才出现）——
 // 用户明确要求"单张图片能取消生成"，这个按钮在首次生成和自动重试期间都可以点，点击效果
 // 都是 abort 这张卡片自己的 AbortController。重建 innerHTML 会连带丢弃旧的事件监听器，
@@ -10068,7 +10867,7 @@ function wireCardStopRetryButton(card) {
 // 可见的（见 addResultPlaceholder()/renderRetryLoading()），这里对它的 classList.remove
 // 只是防御性的（万一以后有路径创建卡片时漏加可见状态），不是"只有重试时才露出来"。
 function updateCardRetryAttempt(card, { retryIndex, maxRetries, statusLabel } = {}) {
-  if (!card?.isConnected) return;
+  if (!isLiveResultCard(card)) return;
   const label = card.querySelector(".retry-attempt-label");
   if (label) {
     const source = `第 ${retryIndex}/${maxRetries} 次自动重试${statusLabel ? `（${statusLabel}）` : ""}`;
@@ -10097,10 +10896,10 @@ function addResultPlaceholder(panelId, prompt, retryContext = {}) {
       <button type="button" class="btn btn-xs stop-card-retry" title="${escapeHtml(cleanText("stopCardRetry"))}"><span class="ui-icon ui-icon-x"></span></button>
     </div>
     <div class="result-actions">
-      <span style="font-size:0.75rem;color:var(--text2);padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 60))}…</span>
+      <span data-no-i18n style="font-size:0.75rem;color:var(--text2);padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 60))}…</span>
     </div>`;
   wireCardStopRetryButton(card);
-  dom.resultGrid.appendChild(card);
+  registerResultCard(card);
   return card;
 }
 
@@ -10108,6 +10907,9 @@ function makeCardActionBtn(iconName, key, onClick) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "btn btn-sm card-action";
+  btn.dataset.noI18n = "";
+  // Review has its own stateful label; the other actions have stable keys.
+  if (key !== "review") btn.dataset.cleanLabel = key;
   btn.title = cleanText(key);
   btn.setAttribute("aria-label", cleanText(key));
   btn.innerHTML = icon(iconName);
@@ -10160,16 +10962,16 @@ function renderOpenCodexResultMeta(element, record) {
   const actual = record.actual;
   const requestedText = `${requested.size || "auto"} · ${requested.quality || "auto"}`;
   const actualParts = [];
-  if (actual.nativeSize) actualParts.push(`${currentLanguage === "en" ? "native" : "原生"} ${actual.nativeSize}`);
-  if (actual.finalSize) actualParts.push(`${currentLanguage === "en" ? "final" : "最终"} ${actual.finalSize}`);
+  if (actual.nativeSize) actualParts.push(`${uiText("resultNative")} ${actual.nativeSize}`);
+  if (actual.finalSize) actualParts.push(`${uiText("resultFinal")} ${actual.finalSize}`);
   if (actual.width && actual.height) actualParts.push(`${actual.width}×${actual.height}`);
   if (actual.responseQuality) actualParts.push(String(actual.responseQuality));
   if (actual.mimeType) actualParts.push(String(actual.mimeType).replace("image/", "").toUpperCase());
   if (actual.bytes) actualParts.push(formatImageBytes(actual.bytes));
-  if (actual.dimensionStatus === "exact") actualParts.push(currentLanguage === "en" ? "exact" : "尺寸精确");
-  if (actual.dimensionStatus === "mismatch") actualParts.push(currentLanguage === "en" ? "size mismatch" : "尺寸不符·将隔离导出");
+  if (actual.dimensionStatus === "exact") actualParts.push(uiText("resultExact"));
+  if (actual.dimensionStatus === "mismatch") actualParts.push(uiText("resultMismatch"));
   if (actual.dimensionAction === "smart_cover_crop") {
-    actualParts.push(currentLanguage === "en" ? "cover-cropped (edges may be cropped)" : "智能覆盖裁切（边缘可能被裁掉）");
+    actualParts.push(uiText("resultCoverCrop"));
   }
   if (actual.dimensionAction === "gemini_watermark_removed") {
     const watermarkLabels = {
@@ -10221,7 +11023,262 @@ function cycleResultReviewState(card, record) {
   showStatus(reviewStateLabel(next), next === "rejected" ? "error" : next === "passed" ? "success" : "info");
 }
 
+// A7 CACHE RECOVERY START — independent of UI_METADATA_LOCALES and history UI.
+const A7_CACHE_RECOVERY_TEXT = {
+  title: ["图片已生成；本地缓存恢复", "圖片已生成；本機快取復原", "Image generated; local cache recovery", "画像は生成済み・ローカルキャッシュの復旧", "이미지 생성 완료 · 로컬 캐시 복구"],
+  quota: ["本地缓存空间不足，原始图片仍保留在当前页面。", "本機快取空間不足，原始圖片仍保留在目前頁面。", "Local cache quota exceeded. The original image remains on this page.", "キャッシュの容量が不足しています。元画像はこのページに保持されています。", "로컬 캐시 용량이 부족합니다. 원본 이미지는 현재 페이지에 유지됩니다."],
+  blocked: ["本地缓存被阻止，请检查存储权限或关闭重复窗口后重试。", "本機快取遭到阻擋，請檢查儲存權限或關閉重複視窗後重試。", "Local caching is blocked. Check storage access or close duplicate windows before retrying.", "キャッシュがブロックされています。保存権限や重複ウィンドウを確認して再試行してください。", "로컬 캐시가 차단되었습니다. 저장 권한이나 중복 창을 확인한 뒤 다시 시도하세요."],
+  failed: ["本地缓存失败；生成结果未改变。", "本機快取失敗；生成結果未變更。", "Local caching failed; the generated result is unchanged.", "キャッシュに失敗しました。生成結果は変更されていません。", "로컬 캐시 저장에 실패했습니다. 생성 결과는 그대로 유지됩니다."],
+  retry: ["仅重试本地缓存", "僅重試本機快取", "Retry local caching only", "ローカルキャッシュのみ再試行", "로컬 캐시만 다시 시도"],
+  export: ["立即导出", "立即匯出", "Export now", "今すぐエクスポート", "지금 내보내기"],
+  caching: ["正在重试本地缓存，不会重新生成。", "正在重試本機快取，不會重新生成。", "Retrying local caching without regenerating.", "再生成せずにローカルキャッシュを再試行しています。", "다시 생성하지 않고 로컬 캐시를 재시도합니다."],
+  cached: ["本地缓存已保存；生成结果未改变。", "本機快取已儲存；生成結果未變更。", "Local cache saved; the generated result is unchanged.", "キャッシュを保存しました。生成結果は変更されていません。", "로컬 캐시가 저장되었습니다. 생성 결과는 그대로 유지됩니다."],
+  bytesMissing: ["原始字节暂不可用；请先使用图片重载操作。此操作不会重新生成。", "原始位元組暫不可用；請先使用圖片重新載入操作。此操作不會重新生成。", "Original bytes are unavailable. Use the separate image reload action first; this action never regenerates.", "元画像のデータがありません。先に画像の再読み込みを使用してください。この操作は再生成しません。", "원본 바이트가 없습니다. 먼저 별도의 이미지 다시 불러오기를 사용하세요. 이 작업은 이미지를 다시 생성하지 않습니다."],
+  timeout: ["本地缓存操作超时；原始图片未改变，可再次重试或立即导出。", "本機快取操作逾時；原始圖片未變更，可再次重試或立即匯出。", "Local cache operation timed out. The original is unchanged; retry or export now.", "キャッシュ操作がタイムアウトしました。元画像は変わりません。再試行またはエクスポートできます。", "로컬 캐시 작업 시간이 초과되었습니다. 원본은 유지되며 다시 시도하거나 내보낼 수 있습니다."],
+  exporting: ["正在导出原始图片…", "正在匯出原始圖片…", "Exporting the original image…", "元画像をエクスポートしています…", "원본 이미지를 내보내는 중…"],
+  exported: ["原始图片已交给导出程序。", "原始圖片已交給匯出程式。", "Original image handed off for export.", "元画像をエクスポート処理に渡しました。", "원본 이미지를 내보내기 처리에 전달했습니다."],
+  exportFailed: ["导出失败；原始图片仍保留，可再次导出。", "匯出失敗；原始圖片仍保留，可再次匯出。", "Export failed. The original is retained; you can try exporting again.", "エクスポートに失敗しました。元画像は保持されており、再試行できます。", "내보내기에 실패했습니다. 원본이 유지되므로 다시 내보낼 수 있습니다."],
+  exportPending: ["导出仍在等待系统完成；为避免重复保存，完成前不再提交。", "匯出仍在等待系統完成；為避免重複儲存，完成前不再提交。", "Export is still awaiting the system. Another export will not start until it settles.", "エクスポートはシステムの応答待ちです。完了するまで重複して開始しません。", "내보내기가 시스템 응답을 기다리고 있습니다. 완료될 때까지 중복 실행하지 않습니다."],
+  capacityUnknown: ["存储容量：未知（浏览器未提供有效估算）。", "儲存容量：未知（瀏覽器未提供有效估算）。", "Storage capacity: unknown (no valid browser estimate).", "保存容量：不明（有効な推定値がありません）。", "저장 용량: 알 수 없음 (유효한 브라우저 추정치 없음)."],
+  capacityKnown: ["此应用所在源的估算存储：已用 {usage} / 配额 {quota}；剩余 {remaining}。", "此應用程式所在來源的估算儲存：已用 {usage} / 配額 {quota}；剩餘 {remaining}。", "Estimated origin storage: {usage} used / {quota} quota; {remaining} remaining.", "オリジンの推定保存容量：使用 {usage} / 上限 {quota}・残り {remaining}。", "출처별 추정 저장 용량: 사용 {usage} / 할당량 {quota}, 남은 용량 {remaining}."],
+  capacityLow: ["可用配额偏低。", "可用配額偏低。", "Estimated quota is running low.", "推定空き容量が少なくなっています。", "남은 추정 할당량이 적습니다."],
+  capacityFull: ["估算可用配额已用尽。", "估算可用配額已用盡。", "Estimated quota is exhausted.", "推定空き容量がありません。", "추정 할당량이 소진되었습니다."]
+};
+const A7_CACHE_LIMITS = Object.freeze({ capacity: 4000, bytes: 30000, cache: 20000, export: 120000 });
+let a7CacheCapacityState = { status: "unknown", usage: null, quota: null, remaining: null };
+let a7CacheCapacityPending = null;
+
+function a7CacheText(key, values = {}) {
+  const row = A7_CACHE_RECOVERY_TEXT[key];
+  const text = row?.[["zh-CN", "zh-Hant", "en", "ja", "ko"].indexOf(currentLanguage)] || row?.[0] || key;
+  return text.replace(/\{(\w+)\}/g, (match, name) => values[name] ?? match);
+}
+
+function a7CacheError(name, key) {
+  return Object.assign(new Error(a7CacheText(key)), { name, a7CacheKey: key });
+}
+
+// Attach both handlers to the underlying work: a late rejection is observed,
+// but never converted into a successful retry. Abort cancels pending IDB writes.
+function a7CacheBounded(work, timeoutMs, controller = new AbortController()) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const error = a7CacheError("TimeoutError", "timeout");
+      controller.abort(error);
+      reject(error);
+    }, timeoutMs);
+    Promise.resolve().then(() => work(controller.signal)).then(resolve, reject)
+      .finally(() => clearTimeout(timer));
+  });
+}
+
+function a7CacheCapacityText() {
+  if (a7CacheCapacityState.status === "unknown") return a7CacheText("capacityUnknown");
+  const bytes = value => `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+  const text = a7CacheText("capacityKnown", {
+    usage: bytes(a7CacheCapacityState.usage), quota: bytes(a7CacheCapacityState.quota),
+    remaining: bytes(a7CacheCapacityState.remaining)
+  });
+  const extra = { low: "capacityLow", full: "capacityFull" }[a7CacheCapacityState.status];
+  return extra ? `${text} ${a7CacheText(extra)}` : text;
+}
+
+function a7CacheLocalize(root = document) {
+  // The result window is a projection; detached live cards still own notices.
+  const roots = root === document ? [document, ...getAllResultCards().filter(card => !card.isConnected)] : [root];
+  for (const scope of roots) {
+    scope.querySelectorAll("[data-a7-cache-text]").forEach(node => {
+      node.textContent = a7CacheText(node.dataset.a7CacheText);
+      if (node.tagName === "BUTTON") {
+        node.title = node.textContent;
+        node.setAttribute("aria-label", node.textContent);
+      }
+    });
+    scope.querySelectorAll("[data-a7-cache-capacity]").forEach(node => {
+      node.dataset.capacityStatus = a7CacheCapacityState.status;
+      node.textContent = a7CacheCapacityText();
+    });
+  }
+}
+
+function a7CacheRefreshCapacity() {
+  if (a7CacheCapacityPending) return a7CacheCapacityPending;
+  a7CacheCapacityPending = a7CacheBounded(async () => {
+    const storage = globalThis.navigator?.storage;
+    return typeof storage?.estimate === "function" ? storage.estimate() : null;
+  }, A7_CACHE_LIMITS.capacity).then(estimate => {
+    // Missing, null, strings, NaN, and negative values are unknown, NOT zero.
+    const valid = value => typeof value === "number" && Number.isFinite(value) && value >= 0;
+    if (!valid(estimate?.usage) || !valid(estimate?.quota)) {
+      return { status: "unknown", usage: null, quota: null, remaining: null };
+    }
+    const { usage, quota } = estimate;
+    const remaining = Math.max(0, quota - usage);
+    return { status: remaining === 0 ? "full" : remaining / quota <= 0.1 ? "low" : "available", usage, quota, remaining };
+  }, () => ({ status: "unknown", usage: null, quota: null, remaining: null }))
+    .then(state => { a7CacheCapacityState = state; a7CacheLocalize(); return state; })
+    .finally(() => { a7CacheCapacityPending = null; });
+  return a7CacheCapacityPending;
+}
+
+function a7CacheFailureKey(error) {
+  if (error?.a7CacheKey) return error.a7CacheKey;
+  if (error?.name === "QuotaExceededError") return "quota";
+  if (["SecurityError", "NotAllowedError", "BlockedError"].includes(error?.name) || /阻塞|blocked/i.test(error?.message || "")) return "blocked";
+  return "failed";
+}
+
+function a7CacheNotice(card) {
+  let notice = card.querySelector(".result-cache-recovery");
+  if (notice) return notice;
+  notice = document.createElement("section");
+  notice.className = "result-cache-warning result-cache-recovery";
+  notice.dataset.noI18n = "";
+  const title = document.createElement("strong");
+  title.dataset.a7CacheText = "title";
+  const message = document.createElement("p");
+  message.className = "a7-cache-message";
+  message.setAttribute("role", "status");
+  message.setAttribute("aria-live", "polite");
+  const capacity = document.createElement("p");
+  capacity.className = "field-hint";
+  capacity.dataset.a7CacheCapacity = "";
+  const actions = document.createElement("div");
+  actions.className = "result-actions";
+  for (const [key, action] of [["retry", a7CacheRetryLocal], ["export", a7CacheExportNow]]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-sm";
+    button.dataset.a7CacheText = key;
+    button.dataset.a7CacheAction = key;
+    button.addEventListener("click", event => {
+      event.preventDefault(); event.stopPropagation();
+      // The operation itself reports its failure on this card. Its returned
+      // promise still rejects for callers/tests; the DOM event owns this catch.
+      action(card).catch(error => console.warn(`A7 ${key}`, error));
+    });
+    actions.appendChild(button);
+  }
+  const exportStatus = document.createElement("p");
+  exportStatus.className = "a7-cache-export-status";
+  exportStatus.setAttribute("role", "status");
+  notice.append(title, message, capacity, actions, exportStatus);
+  card.appendChild(notice);
+  return notice;
+}
+
+function a7CacheRender(card) {
+  const notice = card.querySelector(".result-cache-recovery");
+  if (!notice) return;
+  notice.querySelector(".a7-cache-message").dataset.a7CacheText = card.dataset.cacheStatus === "cached"
+    ? "cached" : card.dataset.cacheStatus === "caching" ? "caching" : card._a7CacheFailureKey || "failed";
+  notice.querySelector('[data-a7-cache-action="retry"]').disabled = !!card._a7CacheRetryPromise || card.dataset.cacheStatus === "cached";
+  notice.querySelector('[data-a7-cache-action="export"]').disabled = !!card._a7CacheExportOperation;
+  if (card._a7CacheExportStatus) notice.querySelector(".a7-cache-export-status").dataset.a7CacheText = card._a7CacheExportStatus;
+  a7CacheLocalize(notice);
+}
+
+function a7CacheReportFailure(card, error) {
+  card.dataset.cacheStatus = "failed";
+  card._a7CacheFailureKey = a7CacheFailureKey(error);
+  card.dataset.cacheFailureReason = card._a7CacheFailureKey;
+  if (card._zipImage) card._zipImage.cacheWarning = a7CacheText(card._a7CacheFailureKey);
+  a7CacheNotice(card);
+  a7CacheRender(card);
+  void a7CacheRefreshCapacity();
+}
+
+async function a7CacheOriginalBytes(card) {
+  const blob = card._a7CacheOriginalBlob || card._zipBlob || await card._imageCachePromise;
+  if (!(blob instanceof Blob) || blob.size <= 0) throw a7CacheError("NotFoundError", "bytesMissing");
+  return blob;
+}
+
+function a7CacheRetryLocal(card) {
+  if (card._a7CacheRetryPromise) return card._a7CacheRetryPromise;
+  const owner = card._a7CacheOwner;
+  const key = card._generatedCacheKey;
+  const controller = new AbortController();
+  card._a7CacheRetryController = controller;
+  card.dataset.cacheStatus = "caching";
+  const pending = a7CacheBounded(async signal => {
+    const blob = await a7CacheOriginalBytes(card);
+    if (signal.aborted || card._a7CacheOwner !== owner) throw a7CacheError("AbortError", "failed");
+    // No fetch, generation, preview reload, history save or paid retry here.
+    await putGeneratedCacheBlob(key, blob, Date.now(), { signal });
+    if (signal.aborted || card._a7CacheOwner !== owner) throw a7CacheError("AbortError", "failed");
+    return blob;
+  }, A7_CACHE_LIMITS.cache, controller).then(blob => {
+    if (card._a7CacheOwner === owner) {
+      card.dataset.cacheStatus = "cached";
+      delete card.dataset.cacheFailureReason;
+      delete card._a7CacheFailureKey;
+      if (card._zipImage) delete card._zipImage.cacheWarning;
+    }
+    return blob;
+  }, error => {
+    if (card._a7CacheOwner === owner) a7CacheReportFailure(card, error);
+    throw error;
+  }).finally(() => {
+    if (card._a7CacheRetryPromise === pending) {
+      card._a7CacheRetryPromise = null;
+      card._a7CacheRetryController = null;
+      a7CacheRender(card);
+      void a7CacheRefreshCapacity();
+    }
+  });
+  card._a7CacheRetryPromise = pending;
+  a7CacheRender(card);
+  return pending;
+}
+
+function a7CacheExportNow(card) {
+  if (card._a7CacheExportOperation) return card._a7CacheExportOperation.promise;
+  const owner = card._a7CacheOwner;
+  const operation = {};
+  card._a7CacheExportOperation = operation;
+  card._a7CacheExportStatus = "exporting";
+  const raw = Promise.resolve().then(async () => {
+    const blob = await a7CacheBounded(() => a7CacheOriginalBytes(card), A7_CACHE_LIMITS.bytes);
+    if (card._a7CacheOwner !== owner) throw a7CacheError("AbortError", "failed");
+    const filename = `panel-${sanitizeFilePart(card._zipImage?.panelId, "image")}.${imageExtFromBlob("", blob)}`;
+    // downloadImage catches errors and can reopen a remote URL. Bypass it so
+    // this local-only action preserves exact bytes and exposes save failures.
+    await saveOrDownloadBlob(blob, filename, blob.type || "image/png", "images");
+    return { status: "exported", filename };
+  });
+  operation.promise = a7CacheBounded(() => raw, A7_CACHE_LIMITS.export).catch(error => {
+    if (card._a7CacheOwner === owner && !operation.settled && error.name === "TimeoutError") {
+      card._a7CacheExportStatus = "exportPending";
+      a7CacheRender(card);
+    }
+    throw error;
+  });
+  // Native save/picker work cannot be cancelled. Keep the single-flight lock
+  // even after the UI deadline, and report its eventual success/failure.
+  raw.then(() => {
+    operation.settled = true;
+    if (card._a7CacheOwner === owner) card._a7CacheExportStatus = "exported";
+  }, error => {
+    operation.settled = true;
+    if (card._a7CacheOwner === owner) {
+      card._a7CacheExportStatus = error.a7CacheKey === "bytesMissing" ? "bytesMissing" : "exportFailed";
+      a7CacheNotice(card);
+    }
+  }).finally(() => {
+    if (card._a7CacheExportOperation === operation) {
+      card._a7CacheExportOperation = null;
+      a7CacheRender(card);
+    }
+  });
+  a7CacheRender(card);
+  return operation.promise;
+}
+// A7 CACHE RECOVERY END
+
+
 function replacePlaceholder(card, panelId, data, prompt, options = {}) {
+  if (resultWindowState.retired.has(card)) return;
   const item = (data.data || [])[0];
   let imageUrl = null;
   if (item) {
@@ -10306,7 +11363,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
     if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("图片字节为空");
     const previousUrl = card._localImageUrl;
     const nextUrl = URL.createObjectURL(blob);
-    card._zipBlob = blob;
+    card._zipBlob = card._a7CacheOriginalBlob || blob;
     card._localImageUrl = nextUrl;
     if (previousUrl && previousUrl !== nextUrl) {
       setTimeout(() => URL.revokeObjectURL(previousUrl), 1000);
@@ -10317,6 +11374,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
 
   async function reloadPreviewFromBytes(force = false) {
     const seq = ++previewReloadSeq;
+    const reloadOwner = card._a7CacheOwner;
     reloadAttempted = true;
     reloadBtn.disabled = true;
     media.classList.remove("is-error");
@@ -10331,16 +11389,22 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
       }
       if (!blob) {
         card._imageCachePromise = imageUrlToBlobWithFallback(imageUrl, originalImageUrl)
-          .then(async freshBlob => {
-            await putGeneratedCacheBlob(card._generatedCacheKey, freshBlob);
+          .then(freshBlob => {
+            if (card._a7CacheOwner === reloadOwner) {
+              // Preview refresh is separate from persistence; quota failure must
+              // not erase successful bytes or turn a usable preview into an error.
+              if (!card._a7CacheOriginalBlob) card._a7CacheOriginalBlob = freshBlob;
+              card._zipBlob = card._a7CacheOriginalBlob;
+              void a7CacheRetryLocal(card).catch(error => console.warn("A7 preview cache", error));
+            }
             return freshBlob;
           });
         blob = await card._imageCachePromise;
       }
-      if (seq !== previewReloadSeq || !img.isConnected) return;
+      if (seq !== previewReloadSeq || !isLiveResultNode(card, img)) return;
       await setPreviewFromBlob(blob);
     } catch (err) {
-      if (seq !== previewReloadSeq || !img.isConnected) return;
+      if (seq !== previewReloadSeq || !isLiveResultNode(card, img)) return;
       console.warn(`分镜 ${panelId} 图片重新加载失败`, err);
       media.classList.remove("is-loading");
       media.classList.add("is-error");
@@ -10393,33 +11457,26 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
   card._generatedCacheKey = String(imageUrl).startsWith("cache://")
     ? String(imageUrl).slice(8)
     : sanitizeFilePart(recordId, "generated");
-  card._imageCachePromise = (String(imageUrl).startsWith("cache://")
+  const cacheOwner = card._a7CacheOwner;
+  card._imageCachePromise = a7CacheBounded(() => String(imageUrl).startsWith("cache://")
     ? getGeneratedCacheBlob(card._generatedCacheKey)
-    : imageUrlToBlobWithFallback(imageUrl, originalImageUrl).then(async blob => {
-        await putGeneratedCacheBlob(card._generatedCacheKey, blob);
-        return blob;
-      }))
+    : imageUrlToBlobWithFallback(imageUrl, originalImageUrl), A7_CACHE_LIMITS.bytes)
     .then(blob => {
-        if (!(blob instanceof Blob)) throw new Error("本地图片缓存不存在");
-        if (img.isConnected) setPreviewFromBlob(blob);
-        void cleanupGeneratedImageCache().catch(err => console.warn("自动清理生成图片缓存失败", err));
-        return blob;
-      })
-    .catch(err => {
-      console.warn(`分镜 ${panelId} 图片本地缓存失败，导出时将回退远程下载`, err);
-      card.dataset.cacheStatus = "failed";
-      if (card._zipImage) {
-        card._zipImage.cacheWarning = String(err?.message || err || "本地缓存失败");
-      }
-      if (card.isConnected && !card.querySelector(".result-cache-warning")) {
-        const warning = document.createElement("div");
-        warning.className = "result-cache-warning";
-        warning.setAttribute("role", "status");
-        warning.textContent = `图片已生成，但本地缓存失败：${String(err?.message || err || "未知错误").slice(0, 180)}`;
-        card.appendChild(warning);
-      }
-      showStatus(`分镜 ${panelId} 已生成，但本地缓存失败；请立即下载或重试缓存。`, "error");
-      return null;
+      if (!(blob instanceof Blob) || blob.size <= 0) throw a7CacheError("NotFoundError", "bytesMissing");
+      if (card._a7CacheOwner !== cacheOwner) return blob;
+      // Retain the immutable original BEFORE any persistence attempt. This
+      // promise represents available image bytes, not successful IDB persistence.
+      card._a7CacheOriginalBlob = blob;
+      card._zipBlob = blob;
+      if (isLiveResultNode(card, img)) setPreviewFromBlob(blob);
+      if (String(imageUrl).startsWith("cache://")) card.dataset.cacheStatus = "cached";
+      else void a7CacheRetryLocal(card).catch(error => console.warn("A7 initial cache", error));
+      void cleanupGeneratedImageCache().catch(err => console.warn("自动清理生成图片缓存失败", err));
+      return blob;
+    })
+    .catch(error => {
+      if (card._a7CacheOwner === cacheOwner) a7CacheReportFailure(card, error);
+      return null; // Acquisition failure is visible; cache retry itself rejects.
     });
 
   renderResultBilling(card, billing);
@@ -10493,6 +11550,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
       Promise.race([actualDimensionPromise.catch(() => null), decodedBlobDimensions, dimensionFallback]),
       cachedBlobPromise,
     ]).then(async ([dimensions, blob]) => {
+      if (!isLiveResultNode(card, providerMeta)) return record.actual;
       if (dimensions) {
         record.actual.width = dimensions.width;
         record.actual.height = dimensions.height;
@@ -10505,6 +11563,7 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
         record.actual.mimeType = blob.type || record.actual.mimeType;
         if (record.audit) record.audit.outputSha256 = await imageTaskStability.sha256Hex(blob).catch(() => "");
       }
+      if (!isLiveResultNode(card, providerMeta)) return record.actual;
       if (card._zipImage) {
         card._zipImage.requested = record.requested ? { ...record.requested } : null;
         card._zipImage.actual = record.actual ? { ...record.actual } : null;
@@ -10527,6 +11586,17 @@ function replacePlaceholder(card, panelId, data, prompt, options = {}) {
 }
 
 function releaseCardImageCache(card) {
+  card._a7CacheRetryController?.abort(a7CacheError("AbortError", "failed"));
+  card._a7CacheOwner = {};
+  card._a7CacheRetryPromise = null;
+  card._a7CacheRetryController = null;
+  card._a7CacheOriginalBlob = null;
+  // Keep any native export lock until the underlying save settles.
+  delete card._a7CacheFailureKey;
+  delete card._a7CacheExportStatus;
+  delete card.dataset.cacheStatus;
+  delete card.dataset.cacheFailureReason;
+  card.querySelector(".result-cache-recovery")?.remove();
   if (card._localImageUrl) URL.revokeObjectURL(card._localImageUrl);
   card._localImageUrl = "";
   card._zipBlob = null;
@@ -10601,7 +11671,7 @@ function resumePendingChatGptRetries() {
       pendingChatGptRetryCards.clear();
       showStatus(cleanText("chatGptRetryResuming"), "info");
       for (const card of cards) {
-        if (!card?.isConnected || !card.classList.contains("is-failed")) continue;
+        if (!isLiveResultCard(card) || !card.classList.contains("is-failed")) continue;
         await retryResultCard(card, false, { authRecoveryConfirmed: true });
       }
     } finally {
@@ -10611,6 +11681,7 @@ function resumePendingChatGptRetries() {
 }
 
 function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
+  if (resultWindowState.retired.has(card)) return;
   const errorDetail = classifyImageApiError(errMsg);
   const message = sanitizeImageErrorMessage(
     errMsg?.message || errMsg,
@@ -10649,8 +11720,8 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
       </div>
     </div>
     <div class="result-actions">
-      <button type="button" class="btn btn-sm card-action retry-now" title="${escapeHtml(cleanText("retry"))}" aria-label="${escapeHtml(cleanText("retry"))}">${icon("retry")}</button>
-      <button type="button" class="btn btn-sm card-action edit-retry" title="${escapeHtml(cleanText("editRetry"))}" aria-label="${escapeHtml(cleanText("editRetry"))}">${icon("edit")}</button>
+      <button type="button" class="btn btn-sm card-action retry-now" data-no-i18n data-clean-label="retry" title="${escapeHtml(cleanText("retry"))}" aria-label="${escapeHtml(cleanText("retry"))}">${icon("retry")}</button>
+      <button type="button" class="btn btn-sm card-action edit-retry" data-no-i18n data-clean-label="editRetry" title="${escapeHtml(cleanText("editRetry"))}" aria-label="${escapeHtml(cleanText("editRetry"))}">${icon("edit")}</button>
     </div>`;
   card.style.borderColor = "var(--error)";
   card.title = message;
@@ -10665,9 +11736,7 @@ function markPlaceholderFailed(card, panelId, errMsg, retryContext = {}) {
 }
 
 function getFailedResultCards() {
-  if (!dom.resultGrid) return [];
-  return Array.from(dom.resultGrid.querySelectorAll(".result-item.is-failed, .result-item[data-failed='true']"))
-    .filter(card => card.isConnected);
+  return getAllResultCards(".is-failed, [data-failed='true']");
 }
 
 function getRetryEligibleFailedCards() {
@@ -10691,7 +11760,7 @@ function setRetryFailedButtonText(totalCount = getFailedResultCards().length, el
 }
 
 function renderRetryQueued(card, position, run = retryAllFailedRun) {
-  if (!card?.isConnected) return;
+  if (!isLiveResultCard(card)) return;
   const context = card._retryContext || {};
   const panelId = context.panelId || card.dataset.panelId || "重试";
   const message = String(card.dataset.errorMessage || "生成失败");
@@ -10726,7 +11795,7 @@ function renderRetryQueued(card, position, run = retryAllFailedRun) {
 
 function refreshRetryQueuePositions(run) {
   if (!run) return;
-  run.pendingCards = run.pendingCards.filter(card => card?.isConnected);
+  run.pendingCards = run.pendingCards.filter(card => isLiveResultCard(card));
   run.pendingCards.forEach((card, index) => {
     const position = index + 1;
     if (card.dataset.status !== "queued") renderRetryQueued(card, position, run);
@@ -10743,7 +11812,7 @@ function refreshRetryQueuePositions(run) {
 
 function restoreQueuedRetryCard(card) {
   const snapshot = card?._retryQueuedSnapshot;
-  if (!card?.isConnected || !snapshot) return;
+  if (!isLiveResultCard(card) || !snapshot) return;
   markPlaceholderFailed(card, snapshot.panelId, snapshot.message, snapshot.context);
 }
 
@@ -10751,7 +11820,7 @@ function enqueueFailedCardsForRetryRun(run, cards = getRetryEligibleFailedCards(
   if (!run || run.cancelRequested || run.finished) return 0;
   let added = 0;
   cards.forEach(card => {
-    if (!card?.isConnected || run.activeCards.has(card) || run.pendingCards.includes(card)) return;
+    if (!isLiveResultCard(card) || run.activeCards.has(card) || run.pendingCards.includes(card)) return;
     const seen = run.seenCards.has(card);
     const completed = run.completedCards.has(card);
     if (seen && !(restartCompleted && completed)) return;
@@ -10874,7 +11943,7 @@ function executeRetryAllFailedRun(run) {
           let terminal = false;
           let terminalFailed = false;
           try {
-            if (card?.isConnected && card.classList.contains("is-failed")) {
+            if (isLiveResultCard(card) && card.classList.contains("is-failed")) {
               const beforeRetry = imageTaskStability.retryDirective(
                 card._lastImageError || classifyImageApiError(card.dataset.errorMessage || ""),
                 { attempt, baseDelayMs: 1500, phase: "submit" },
@@ -10900,7 +11969,7 @@ function executeRetryAllFailedRun(run) {
             if (result === true) {
               run.ok++;
               terminal = true;
-            } else if (!run.cancelRequested && card?.isConnected && card.classList.contains("is-failed") && attempt < run.maxAttempts) {
+            } else if (!run.cancelRequested && isLiveResultCard(card) && card.classList.contains("is-failed") && attempt < run.maxAttempts) {
               // 失败后放到队尾，先让其它卡片获得请求机会；成功后不会走到这里。
               run.pendingCards.push(card);
               run.requeued++;
@@ -11115,6 +12184,7 @@ function renderRetryLoading(card, panelId, promptText, options = {}) {
 }
 
 async function retryResultCard(card, editBeforeRetry = false, options = {}) {
+  if (!isLiveResultCard(card)) return false;
   const currentContext = card._retryContext || {};
   const useCurrentApiSnapshot = options.useCurrentApiSnapshot !== false;
   const apiSnapshot = options.apiSnapshot || (useCurrentApiSnapshot
@@ -11123,13 +12193,14 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
   let context = { ...currentContext, apiSnapshot };
   if (editBeforeRetry) {
     context = await editRetryContext(context);
-    if (!context) return false;
+    if (!context || !isLiveResultCard(card)) return false;
   }
   if (!options.authRecoveryConfirmed
       && isChatGptAuthenticationRetry(card, context, apiSnapshot)
       && !(await requestChatGptAuthenticationForRetry(card))) {
     return false;
   }
+  if (!isLiveResultCard(card)) return false;
   const panelId = context.panelId || card.dataset.panelId || "重试";
   if (context.referencesMissing && !(Array.isArray(context.references) && context.references.length)) {
     if (context.mode === "comic") {
@@ -11171,6 +12242,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
           })
         : undefined,
     });
+    if (!isLiveResultCard(card) || cardAbort.signal.aborted || card._cardRetryAbortController !== cardAbort) return false;
     const record = replacePlaceholder(card, panelId, data, promptText, {
       skipHistory: true, // 重试的历史记录更新自己接管（原地替换旧图），不走默认的“新增一条”逻辑
       recordPrompt: isProject ? getPanelOnlyPrompt(context, context.globalPrompt || "") : promptText,
@@ -11192,6 +12264,7 @@ async function retryResultCard(card, editBeforeRetry = false, options = {}) {
     if (!options.quiet) showStatus(`${label} ${panelId} 重试成功`, "success");
     return true;
   } catch (err) {
+    if (!isLiveResultCard(card) || card._cardRetryAbortController !== cardAbort) return false;
     if (err?.name === "AbortError" && cardAbort.signal.aborted) {
       markPlaceholderFailed(card, panelId, "已手动取消", { ...context, prompt: promptText, size, retryCount });
       if (!options.quiet) showStatus(`${label} ${panelId} 已手动取消`, "info");
@@ -11337,16 +12410,34 @@ async function getHistoryBlob(key) {
   });
 }
 
-async function putGeneratedCacheBlob(key, blob, createdAt = Date.now()) {
+async function putGeneratedCacheBlob(key, blob, createdAt = Date.now(), { signal } = {}) {
   if (!(blob instanceof Blob) || blob.size <= 0) throw new Error("图片缓存字节为空");
+  if (signal?.aborted) throw signal.reason || a7CacheError("AbortError", "failed");
   const db = await openHistoryBlobDb();
+  // A deadline can expire while the shared history DB opener is pending.
+  // Never perform a late write after cancellation (history opener stays owned by history).
+  if (signal?.aborted) throw signal.reason || a7CacheError("AbortError", "failed");
   await new Promise((resolve, reject) => {
     const tx = db.transaction([GENERATED_CACHE_STORE, GENERATED_CACHE_META_STORE], "readwrite");
-    tx.objectStore(GENERATED_CACHE_STORE).put({ blob, createdAt: Number(createdAt) || Date.now() }, key);
-    tx.objectStore(GENERATED_CACHE_META_STORE).put({ createdAt: Number(createdAt) || Date.now() }, key);
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error || new Error("生成图片缓存写入失败"));
-    tx.onabort = () => reject(tx.error || new Error("生成图片缓存写入已中止"));
+    const onAbort = () => {
+      try { tx.abort(); } catch (error) { /* A completed transaction has no pending write to abort. */ }
+      finish(signal.reason || a7CacheError("AbortError", "failed"));
+    };
+    const finish = error => {
+      signal?.removeEventListener("abort", onAbort);
+      error ? reject(error) : resolve();
+    };
+    tx.oncomplete = () => finish();
+    tx.onerror = () => finish(tx.error || new Error("生成图片缓存写入失败"));
+    tx.onabort = () => finish(tx.error || a7CacheError("AbortError", "failed"));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    try {
+      tx.objectStore(GENERATED_CACHE_STORE).put({ blob, createdAt: Number(createdAt) || Date.now() }, key);
+      tx.objectStore(GENERATED_CACHE_META_STORE).put({ createdAt: Number(createdAt) || Date.now() }, key);
+    } catch (error) {
+      try { tx.abort(); } catch (abortError) { /* Preserve the original write error. */ }
+      finish(error);
+    }
   });
 }
 
@@ -11393,7 +12484,7 @@ function collectLiveGeneratedCacheKeys() {
   };
   visit(loadHistory());
   visit(generatedImageUrls);
-  dom.resultGrid?.querySelectorAll?.(".result-item").forEach(card => {
+  getAllResultCards().forEach(card => {
     if (card._generatedCacheKey) keys.add(String(card._generatedCacheKey));
     visit(card._zipImage);
     visit(card._retryContext);
@@ -11433,6 +12524,7 @@ async function cleanupGeneratedImageCache({ now = Date.now(), updateStatus = fal
       dom.generatedCacheStatus.dataset.customStatus = "true";
       dom.generatedCacheStatus.textContent = interpolate(cleanText("cacheCleared"), { count: removed });
     }
+    void a7CacheRefreshCapacity();
     return removed;
   });
   try {
@@ -11448,7 +12540,11 @@ async function cleanupGeneratedImageCache({ now = Date.now(), updateStatus = fal
 }
 
 async function clearGeneratedImageCacheFromSettings() {
+  const button = dom.clearGeneratedCache;
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
   try {
+    if (!(await askConfirm(cleanText("confirmClearGeneratedCache")))) return;
     const count = await clearGeneratedCacheStore();
     if (dom.generatedCacheStatus) {
       dom.generatedCacheStatus.dataset.customStatus = "true";
@@ -11459,6 +12555,9 @@ async function clearGeneratedImageCacheFromSettings() {
       dom.generatedCacheStatus.dataset.customStatus = "true";
       dom.generatedCacheStatus.textContent = interpolate(cleanText("cacheCleanupFailed"), { reason: err.message || String(err) });
     }
+  } finally {
+    if (button) button.disabled = false;
+    void a7CacheRefreshCapacity();
   }
 }
 
@@ -11516,36 +12615,112 @@ function scheduleHistoryBlobPrune() {
   return historyBlobPruneQueue;
 }
 
+// History thumbnails share a visible-only, four-slot queue. Detached/stale jobs
+// never attach an object URL, and closing the dialog releases all preview leases.
+const historyPreviewJobs = new Map();
+let historyPreviewObserver = null;
+let historyPreviewActive = 0;
+let historyPreviewLifecycle = null;
+function historyPreviewIsOpen() {
+  return !dom.historyModal || !dom.historyModal.classList.contains("hidden");
+}
 function releaseHistoryPreviewUrls(root = dom.historyList) {
-  root?.querySelectorAll?.("img[data-history-object-url]").forEach(img => {
-    URL.revokeObjectURL(img.dataset.historyObjectUrl);
+  root?.querySelectorAll?.("img").forEach(img => {
+    const job = historyPreviewJobs.get(img);
+    if (job) job.cancelled = true;
+    historyPreviewJobs.delete(img);
+    historyPreviewObserver?.unobserve(img);
+    if (img.dataset.historyObjectUrl) {
+      URL.revokeObjectURL(img.dataset.historyObjectUrl);
+      delete img.dataset.historyObjectUrl;
+      img.removeAttribute("src");
+    }
   });
 }
-
-async function setHistoryImageSource(img, imageUrl, fallbackUrl = "") {
+function pumpHistoryPreviews() {
+  if (!historyPreviewIsOpen()) return;
+  for (const [img, job] of historyPreviewJobs) {
+    if (historyPreviewActive >= 4) break;
+    if (job.state !== "queued" || !job.visible || !img.isConnected || job.cancelled) continue;
+    job.state = "loading";
+    historyPreviewActive++;
+    Promise.resolve(setHistoryImageSource(img, job.source, job.fallback, job))
+      .catch(err => console.warn("History preview queue", err))
+      .finally(() => {
+        job.state = "done";
+        historyPreviewActive--;
+        pumpHistoryPreviews();
+      });
+  }
+}
+function queueHistoryImageSource(img, source, fallback = "") {
+  if (!img || !source) return;
+  img._historySource = { source, fallback };
+  if (historyPreviewJobs.has(img)) return;
+  if (!historyPreviewObserver && typeof IntersectionObserver === "function") {
+    historyPreviewObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const job = historyPreviewJobs.get(entry.target);
+        if (job) job.visible = entry.isIntersecting;
+      });
+      pumpHistoryPreviews();
+    }, { rootMargin: "180px 0px" });
+  }
+  const job = { source, fallback, state: "queued", visible: !historyPreviewObserver, cancelled: false };
+  historyPreviewJobs.set(img, job);
+  historyPreviewObserver?.observe(img);
+  if (!historyPreviewObserver) setTimeout(pumpHistoryPreviews, 0);
+}
+function observeHistoryPreviews() {
+  if (!historyPreviewLifecycle && dom.historyModal) {
+    historyPreviewLifecycle = new MutationObserver(() => {
+      if (!historyPreviewIsOpen()) {
+        releaseHistoryPreviewUrls();
+      } else observeHistoryPreviews();
+    });
+    historyPreviewLifecycle.observe(dom.historyModal, { attributes: true, attributeFilter: ["class"] });
+  }
+  if (!historyPreviewIsOpen()) return;
+  dom.historyList?.querySelectorAll("img").forEach(img => {
+    if (img._historySource) queueHistoryImageSource(img, img._historySource.source, img._historySource.fallback);
+  });
+  pumpHistoryPreviews();
+}
+async function setHistoryImageSource(img, imageUrl, fallbackUrl = "", job = null) {
   if (!img || !imageUrl) return;
-  const protectedGatewayUrl = isCodexGatewayProtectedImageUrl(imageUrl)
-    || isGeminiGatewayProtectedImageUrl(imageUrl);
-  if (!/^(?:idb|cache):\/\//.test(String(imageUrl)) && !protectedGatewayUrl) {
-    img.src = imageUrl;
+  const current = () => img.isConnected && (!job || (!job.cancelled && historyPreviewJobs.get(img) === job && historyPreviewIsOpen()));
+  const protectedUrl = value => isCodexGatewayProtectedImageUrl(value) || isGeminiGatewayProtectedImageUrl(value);
+  if (!/^(?:idb|cache):\/\//.test(String(imageUrl)) && !protectedUrl(imageUrl)) {
+    if (!job || current()) img.src = imageUrl;
     return;
   }
+  const applyFallback = async () => {
+    if (!fallbackUrl || !current()) return null;
+    if (protectedUrl(fallbackUrl)) return imageUrlToBlobWithFallback(fallbackUrl, "");
+    img.src = fallbackUrl;
+    return null;
+  };
   try {
-    const blob = protectedGatewayUrl
+    let blob = protectedUrl(imageUrl)
       ? await imageUrlToBlobWithFallback(imageUrl, fallbackUrl)
       : String(imageUrl).startsWith("cache://")
         ? await getGeneratedCacheBlob(String(imageUrl).slice(8))
         : await getHistoryBlob(String(imageUrl).slice(6));
-    if (!blob) {
-      if (fallbackUrl && img.isConnected) img.src = fallbackUrl;
-      return;
-    }
-    if (!img.isConnected) return;
+    if (!blob) blob = await applyFallback();
+    if (!blob || !current()) return;
     const objectUrl = URL.createObjectURL(blob);
+    if (img.dataset.historyObjectUrl) URL.revokeObjectURL(img.dataset.historyObjectUrl);
     img.dataset.historyObjectUrl = objectUrl;
     img.src = objectUrl;
   } catch (err) {
-    if (fallbackUrl && img.isConnected) img.src = fallbackUrl;
+    try {
+      const blob = await applyFallback();
+      if (blob && current()) {
+        const objectUrl = URL.createObjectURL(blob);
+        img.dataset.historyObjectUrl = objectUrl;
+        img.src = objectUrl;
+      }
+    } catch { /* Preserve the failed preview; never trigger generation. */ }
     console.warn("历史图片预览加载失败", err);
   }
 }
@@ -11646,7 +12821,7 @@ function saveHistory(list) {
       // storage quota failure must not turn a completed image into a failed
       // card and cause another paid submission.
       console.warn("History metadata persistence skipped after quota exhaustion", compactError);
-      showStatus("图片已生成，但历史记录缓存写入失败；当前图片仍可下载。", "error");
+      showStatus(uiText("historyWriteFailed"), "error");
     }
     console.warn("历史项目元数据超出 localStorage 限制，已裁剪旧记录并退回 URL 存储", err);
   }
@@ -12025,8 +13200,10 @@ async function updateComicHistoryPanel(projectId, panelId, record) {
 
 async function makeHistoryImageUrl(imageUrl, cachedBlob = null, preferredKey = "", generatedCacheKey = "") {
   if (!imageUrl || /^(?:idb|cache):\/\//.test(String(imageUrl))) return imageUrl;
+  // Keep acquired original bytes across persistence failures, including Promise<Blob> callers.
+  // Preview URLs may already be revoked or expired; recovery must not fetch them again.
+  let blob = cachedBlob instanceof Blob ? cachedBlob : null;
   try {
-    let blob = cachedBlob instanceof Blob ? cachedBlob : null;
     if (!blob && cachedBlob) blob = await Promise.resolve(cachedBlob).catch(() => null);
     if (!(blob instanceof Blob)) blob = await imageUrlToBlob(imageUrl);
     if (generatedCacheKey) {
@@ -12040,7 +13217,7 @@ async function makeHistoryImageUrl(imageUrl, cachedBlob = null, preferredKey = "
   } catch (err) {
     console.warn("IndexedDB 历史图片缓存失败，尝试退回 data URL", err);
     try {
-      const blob = cachedBlob instanceof Blob ? cachedBlob : await imageUrlToBlob(imageUrl);
+      if (!(blob instanceof Blob)) blob = await imageUrlToBlob(imageUrl);
       return await blobToDataUrl(blob);
     } catch {
       return imageUrl;
@@ -12087,39 +13264,145 @@ function getFilteredHistory() {
   });
 }
 
+let historySearchTimer = null;
+let historySearchComposing = false;
+function scheduleHistorySearch(event) {
+  clearTimeout(historySearchTimer);
+  if (event?.type === "compositionend") historySearchComposing = false;
+  if (historySearchComposing || event?.isComposing) return;
+  historySearchTimer = setTimeout(renderHistory, 180);
+}
+
+const historyViewState = { page: 0, query: "", cards: new Map(), groups: new Map(), pager: null };
+const HISTORY_PAGE_SIZE = 60;
+function historyNavigationText(key) {
+  const labels = {
+    noPreview: ["暂无可预览图片", "暫無可預覽圖片", "No preview images yet", "プレビュー画像はまだありません", "미리보기 이미지가 아직 없습니다"],
+    previous: ["上一页", "上一頁", "Previous", "前へ", "이전"],
+    next: ["下一页", "下一頁", "Next", "次へ", "다음"],
+    records: ["条记录", "筆記錄", "records", "件", "개 기록"],
+    label: ["历史分页", "歷史分頁", "History pages", "履歴ページ", "기록 페이지"]
+  };
+  const i = ["zh-CN", "zh-Hant", "en", "ja", "ko"].indexOf(currentLanguage);
+  return labels[key]?.[Math.max(0, i)] || key;
+}
+function reconcileHistoryChildren(parent, nodes) {
+  nodes.forEach((node, index) => {
+    if (parent.children[index] !== node) parent.insertBefore(node, parent.children[index] || null);
+  });
+  while (parent.children.length > nodes.length) parent.lastElementChild.remove();
+}
+function createHistoryPager() {
+  const nav = document.createElement("nav");
+  nav.className = "history-pagination";
+  const previous = document.createElement("button");
+  const status = document.createElement("span");
+  const next = document.createElement("button");
+  status.setAttribute("role", "status");
+  previous.type = next.type = "button";
+  previous.className = next.className = "btn btn-sm";
+  previous.dataset.historyPage = "previous";
+  next.dataset.historyPage = "next";
+  const change = delta => {
+    historyViewState.page += delta;
+    renderHistory();
+    dom.historyList?.scrollIntoView({ block: "start", behavior: "instant" });
+    // Keep the focused paging control in view; do not steal focus on a search.
+    (delta > 0 && !next.disabled ? next : previous.disabled ? next : previous).focus({ preventScroll: true });
+  };
+  previous.addEventListener("click", () => change(-1));
+  next.addEventListener("click", () => change(1));
+  nav.append(previous, status, next);
+  return nav;
+}
 function renderHistory() {
+  clearTimeout(historySearchTimer);
+  historySearchTimer = null;
   if (!dom.historyList) return;
   const list = getFilteredHistory();
-  releaseHistoryPreviewUrls();
-  dom.historyList.innerHTML = "";
-  if (!list.length) {
+  const query = (dom.historySearch?.value || "").trim().toLowerCase();
+  if (query !== historyViewState.query) historyViewState.page = 0;
+  historyViewState.query = query;
+  const pages = Math.max(1, Math.ceil(list.length / HISTORY_PAGE_SIZE));
+  historyViewState.page = Math.max(0, Math.min(pages - 1, historyViewState.page));
+  const start = historyViewState.page * HISTORY_PAGE_SIZE;
+  const windowItems = list.slice(start, start + HISTORY_PAGE_SIZE);
+  const groups = new Map();
+  const visible = new Set();
+  const duplicates = new Map();
+  windowItems.forEach(item => {
+    const base = String(item.id || `${item.createdAt}|${getHistoryThumbnail(item)}|${item.title || item.prompt}`);
+    const ordinal = duplicates.get(base) || 0;
+    duplicates.set(base, ordinal + 1);
+    const key = `${base}#${ordinal}`;
+    const signature = currentLanguage + JSON.stringify(item);
+    let entry = historyViewState.cards.get(key);
+    if (!entry || entry.signature !== signature) {
+      const expanded = entry?.card.querySelector("details")?.open;
+      if (entry) releaseHistoryPreviewUrls(entry.card);
+      const card = createHistoryCard(item);
+      card.dataset.historyId = String(item.id || key);
+      if (expanded && card.querySelector("details")) card.querySelector("details").open = true;
+      entry = { card, signature };
+    }
+    historyViewState.cards.delete(key);
+    historyViewState.cards.set(key, entry); // LRU, capped at two pages below.
+    visible.add(entry.card);
+    const label = formatDateGroup(item.createdAt);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(entry.card);
+  });
+  dom.historyList.querySelectorAll(".history-card").forEach(card => {
+    if (!visible.has(card)) releaseHistoryPreviewUrls(card);
+  });
+  while (historyViewState.cards.size > HISTORY_PAGE_SIZE * 2) {
+    const oldest = historyViewState.cards.keys().next().value;
+    releaseHistoryPreviewUrls(historyViewState.cards.get(oldest).card);
+    historyViewState.cards.get(oldest).card.remove();
+    historyViewState.cards.delete(oldest);
+  }
+  if (!list.length && !query) {
+    historyViewState.cards.forEach(entry => releaseHistoryPreviewUrls(entry.card));
+    historyViewState.cards.clear();
+  }
+  const nodes = [];
+  if (pages > 1) {
+    const pager = historyViewState.pager || (historyViewState.pager = createHistoryPager());
+    pager.setAttribute("aria-label", historyNavigationText("label"));
+    pager.children[0].textContent = historyNavigationText("previous");
+    pager.children[0].disabled = historyViewState.page === 0;
+    pager.children[1].textContent = `${start + 1}–${Math.min(start + HISTORY_PAGE_SIZE, list.length)} / ${list.length} ${historyNavigationText("records")}`;
+    pager.children[2].textContent = historyNavigationText("next");
+    pager.children[2].disabled = historyViewState.page === pages - 1;
+    nodes.push(pager);
+  }
+  groups.forEach((cards, label) => {
+    let group = historyViewState.groups.get(label);
+    if (!group) {
+      group = document.createElement("section");
+      group.className = "history-date-group";
+      const title = document.createElement("div");
+      title.className = "history-date-title";
+      const grid = document.createElement("div");
+      grid.className = "history-grid";
+      group.append(title, grid);
+    }
+    group.firstElementChild.textContent = `${label} · ${cards.length}`;
+    reconcileHistoryChildren(group.lastElementChild, cards);
+    historyViewState.groups.set(label, group);
+    nodes.push(group);
+  });
+  for (const label of historyViewState.groups.keys()) {
+    if (!groups.has(label)) historyViewState.groups.delete(label);
+  }
+  if (!nodes.length) {
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = cleanText("noHistory");
-    dom.historyList.appendChild(empty);
-    return;
+    nodes.push(empty);
   }
-
-  const groups = new Map();
-  list.forEach(item => {
-    const key = formatDateGroup(item.createdAt);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
-  });
-
-  groups.forEach((items, dateLabel) => {
-    const group = document.createElement("section");
-    group.className = "history-date-group";
-    const title = document.createElement("div");
-    title.className = "history-date-title";
-    title.textContent = `${dateLabel} · ${items.length}`;
-    const grid = document.createElement("div");
-    grid.className = "history-grid";
-
-    items.forEach(item => grid.appendChild(createHistoryCard(item)));
-    group.append(title, grid);
-    dom.historyList.appendChild(group);
-  });
+  reconcileHistoryChildren(dom.historyList, nodes);
+  observeHistoryPreviews();
 }
 
 function createHistoryProjectCard(item, images, thumbnail) {
@@ -12138,7 +13421,7 @@ function createHistoryProjectCard(item, images, thumbnail) {
     thumb.setAttribute("role", "button");
     const source = image.imageUrl || thumbnail;
     const fallback = image.originalUrl || "";
-    void setHistoryImageSource(thumb, source, fallback);
+    queueHistoryImageSource(thumb, source, fallback);
     thumb.addEventListener("click", () => void openLightbox(source, fallback));
     thumb.addEventListener("keydown", event => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -12150,7 +13433,13 @@ function createHistoryProjectCard(item, images, thumbnail) {
   if (!previewImages.length) {
     const failed = document.createElement("div");
     failed.className = "history-project-empty-preview";
-    failed.textContent = `${cleanText("failReason")} · ${item.totalPanels || item.panels?.length || 0}`;
+    const failedPanel = item.panels?.find(panel => panel.error || panel.status === "failed");
+    const detail = failedPanel?.error?.message || failedPanel?.error || "";
+    failed.classList.toggle("is-error", !!failedPanel);
+    failed.dataset.noI18n = "";
+    failed.textContent = detail
+      ? `${cleanText("failReason")} · ${String(detail).slice(0, 240)}`
+      : historyNavigationText("noPreview");
     strip.appendChild(failed);
   }
   if (images.length > previewImages.length) {
@@ -12191,16 +13480,22 @@ function createHistoryProjectCard(item, images, thumbnail) {
     promptList.appendChild(block);
   };
 
-  if (item.globalPrompt) addPromptBlock(cleanText("globalPromptLabel"), item.globalPrompt);
-  const panels = Array.isArray(item.panels) && item.panels.length ? item.panels : images;
-  panels.forEach((panel, index) => {
-    const panelId = panel.panelId || images[index]?.panelId || index + 1;
-    const text = getPanelOnlyPrompt({
-      panelPrompt: panel.panelPrompt || images[index]?.panelPrompt || "",
-      prompt: panel.prompt || images[index]?.prompt || "",
-      fullPrompt: panel.fullPrompt || images[index]?.fullPrompt || "",
-    }, item.globalPrompt || "");
-    addPromptBlock(`${cleanText("panelLabel")} ${panelId}`, text);
+  // Collapsed projects do not eagerly allocate every panel's prompt DOM.
+  let promptsRendered = false;
+  details.addEventListener("toggle", () => {
+    if (!details.open || promptsRendered) return;
+    promptsRendered = true;
+    if (item.globalPrompt) addPromptBlock(cleanText("globalPromptLabel"), item.globalPrompt);
+    const panels = Array.isArray(item.panels) && item.panels.length ? item.panels : images;
+    panels.forEach((panel, index) => {
+      const panelId = panel.panelId || images[index]?.panelId || index + 1;
+      const text = getPanelOnlyPrompt({
+        panelPrompt: panel.panelPrompt || images[index]?.panelPrompt || "",
+        prompt: panel.prompt || images[index]?.prompt || "",
+        fullPrompt: panel.fullPrompt || images[index]?.fullPrompt || "",
+      }, item.globalPrompt || "");
+      addPromptBlock(`${cleanText("panelLabel")} ${panelId}`, text);
+    });
   });
   details.append(summary, promptList);
   meta.append(title, sub, details);
@@ -12237,7 +13532,7 @@ function createHistoryCard(item) {
   img.loading = "lazy";
   img.tabIndex = 0;
   img.setAttribute("role", "button");
-  void setHistoryImageSource(img, thumbnail, item.originalUrl || "");
+  queueHistoryImageSource(img, thumbnail, item.originalUrl || "");
   img.addEventListener("click", () => void openLightbox(thumbnail, item.originalUrl || ""));
   img.addEventListener("keydown", event => {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -12328,6 +13623,7 @@ function restoreHistoryProjectEditor(item, images) {
     switchMode("turnaround");
     clearAllReferenceImages();
     dom.prompt.value = item.globalPrompt || item.prompt || "";
+    clearEditorRowUndo(dom.turnaroundTbody);
     dom.turnaroundTbody.innerHTML = "";
     turnaroundRowCounter = 0;
 
@@ -12354,6 +13650,7 @@ function restoreHistoryProjectEditor(item, images) {
   switchMode("comic");
   clearAllReferenceImages();
   dom.prompt.value = item.globalPrompt || item.prompt || "";
+  clearEditorRowUndo(dom.panelTbody);
   dom.panelTbody.innerHTML = "";
   panelCounter = 0;
 
@@ -12392,7 +13689,7 @@ function restoreHistoryItem(item) {
   if (isHistoryProject(item)) {
     const images = getHistoryImages(item);
     restoreHistoryProjectEditor(item, images);
-    dom.resultGrid.innerHTML = "";
+    clearAllResultCards();
     generatedImageUrls = [];
     currentComicHistoryId = item.id || null; // 恢复后重试某个分镜时，原地更新这条历史记录
     updateFailedRetryTools();
@@ -12434,7 +13731,7 @@ function restoreHistoryItem(item) {
           retryCount: image.retryCount ?? item.retryCount ?? getGlobalRetryCount(),
         },
       });
-      dom.resultGrid.appendChild(card);
+      registerResultCard(card);
     });
     const restoredIds = new Set(images.map(image => String(image.panelId || "")));
     (Array.isArray(item.panels) ? item.panels : []).forEach((panel, index) => {
@@ -12444,7 +13741,7 @@ function restoreHistoryItem(item) {
       const fullPrompt = item.globalPrompt ? `${item.globalPrompt}\n\n${panelPrompt}` : panelPrompt;
       const card = document.createElement("div");
       card.className = "result-item";
-      dom.resultGrid.appendChild(card);
+      registerResultCard(card);
       markPlaceholderFailed(
         card,
         panelId,
@@ -12484,7 +13781,7 @@ function restoreHistoryItem(item) {
     },
   });
   card._historyRecordId = item.id || null; // 恢复后重试时，原地替换这条历史记录而不是新增一条
-  dom.resultGrid.prepend(card);
+  registerResultCard(card, { prepend: true });
   updateFailedRetryTools();
   closeModal(dom.historyModal);
   showStatus("已从历史记录恢复到结果区", "success");
@@ -12599,7 +13896,7 @@ function restoreWorkspaceDraft() {
     // A reload or a new launch must never silently reopen project images in
     // the active result grid. Users can explicitly restore a project from
     // History when they want to continue it.
-    if (dom.resultGrid) dom.resultGrid.innerHTML = "";
+    if (dom.resultGrid) clearAllResultCards();
     currentComicHistoryId = null;
     switchMode(["single", "comic", "turnaround"].includes(draft.mode) ? draft.mode : "single");
     if (dom.prompt) dom.prompt.value = String(draft.prompt || "");
@@ -12608,6 +13905,7 @@ function restoreWorkspaceDraft() {
     applyWorkspaceSizeDraft(draft);
 
     if (Array.isArray(draft.panels) && draft.panels.length) {
+      clearEditorRowUndo(dom.panelTbody);
       dom.panelTbody.innerHTML = "";
       panelCounter = 0;
       draft.panels.forEach(panel => {
@@ -12621,6 +13919,7 @@ function restoreWorkspaceDraft() {
       syncPanelCountInput();
     }
     if (Array.isArray(draft.turnarounds) && draft.turnarounds.length) {
+      clearEditorRowUndo(dom.turnaroundTbody);
       dom.turnaroundTbody.innerHTML = "";
       turnaroundRowCounter = 0;
       draft.turnarounds.forEach(item => {
@@ -12884,6 +14183,7 @@ async function restoreExportedProjectFromFiles(files) {
 
   const sourcePanels = Array.isArray(project.panels) && project.panels.length ? project.panels : project.images;
   if (mode === "comic") {
+    clearEditorRowUndo(dom.panelTbody);
     dom.panelTbody.innerHTML = "";
     panelCounter = 0;
     sourcePanels.forEach((panel, panelIndex) => {
@@ -12898,6 +14198,7 @@ async function restoreExportedProjectFromFiles(files) {
     if (dom.panelTbody.children.length === 0) addPanelRow();
     renumberPanels();
   } else if (mode === "turnaround") {
+    clearEditorRowUndo(dom.turnaroundTbody);
     dom.turnaroundTbody.innerHTML = "";
     turnaroundRowCounter = 0;
     sourcePanels.forEach(panel => {
@@ -12908,7 +14209,7 @@ async function restoreExportedProjectFromFiles(files) {
     if (dom.turnaroundTbody.children.length === 0) addTurnaroundRow();
   }
 
-  dom.resultGrid.innerHTML = "";
+  clearAllResultCards();
   dom.resultGrid.classList.remove("hidden");
   dom.resultToolbar.classList.remove("hidden");
   dom.emptyState.classList.add("hidden");
@@ -12937,7 +14238,7 @@ async function restoreExportedProjectFromFiles(files) {
       };
       const card = document.createElement("div");
       card.className = "result-item";
-      dom.resultGrid.appendChild(card);
+      registerResultCard(card);
       const record = replacePlaceholder(card, panelId, { data: [{ url: source.dataUrl, mime_type: source.file?.type || "image/png" }] }, fullPrompt, {
         skipHistory: true,
         recordPrompt: mode === "single" ? fullPrompt : panelPrompt,
@@ -13039,7 +14340,12 @@ dom.projectZipInput?.addEventListener("change", () => { void importExportedProje
 dom.closeHistory?.addEventListener("click", () => closeModal(dom.historyModal));
 dom.historyModal?.addEventListener("click", e => { if (e.target === dom.historyModal) closeModal(dom.historyModal); });
 dom.refreshHistory?.addEventListener("click", renderHistory);
-dom.historySearch?.addEventListener("input", renderHistory);
+dom.historySearch?.addEventListener("input", scheduleHistorySearch);
+dom.historySearch?.addEventListener("compositionstart", () => {
+  historySearchComposing = true;
+  clearTimeout(historySearchTimer);
+});
+dom.historySearch?.addEventListener("compositionend", scheduleHistorySearch);
 dom.clearHistory?.addEventListener("click", async () => {
   if (!(await askConfirm("确定清空全部生图记录？"))) return;
   saveHistory([]);
@@ -13167,9 +14473,9 @@ const nativeDownload = (() => {
     onGeminiLoginState(state) {
       const status = String(state?.status || "");
       if (status === "ready") {
-        showStatus(currentLanguage === "en" ? "Gemini sign-in completed." : "Gemini 登录成功，登录窗口已自动收起。", "success");
+        showStatus(geminiText("loginComplete"), "success");
       } else if (status === "error" && state?.message) {
-        showStatus(`${geminiText("failed")} ${state.message}`, "error");
+        showStatus(interpolate(geminiText("failed"), { reason: state.message }), "error");
       }
     }
   };
@@ -13560,16 +14866,28 @@ window.addEventListener("aigen-native-ready", () => {
 migrateApiKeysToSecureStorage();
 
 function shortPathLabel(uri) {
-  if (!uri) return "未选择";
+  if (!uri) return cleanText("notSelected");
   try { return decodeURIComponent(uri).split("/").pop() || uri; }
   catch { return uri; }
 }
 
 function updateDirLabels() {
-  if (dom.imageDirLabel) dom.imageDirLabel.textContent = shortPathLabel(nativeDownload.dirs.images);
-  if (dom.zipDirLabel) dom.zipDirLabel.textContent = shortPathLabel(nativeDownload.dirs.zips);
-  if (dom.settingsImageDirLabel) dom.settingsImageDirLabel.textContent = shortPathLabel(nativeDownload.dirs.images);
-  if (dom.settingsZipDirLabel) dom.settingsZipDirLabel.textContent = shortPathLabel(nativeDownload.dirs.zips);
+  if (dom.imageDirLabel) {
+    dom.imageDirLabel.dataset.noI18n = "";
+    dom.imageDirLabel.textContent = shortPathLabel(nativeDownload.dirs.images);
+  }
+  if (dom.zipDirLabel) {
+    dom.zipDirLabel.dataset.noI18n = "";
+    dom.zipDirLabel.textContent = shortPathLabel(nativeDownload.dirs.zips);
+  }
+  if (dom.settingsImageDirLabel) {
+    dom.settingsImageDirLabel.dataset.noI18n = "";
+    dom.settingsImageDirLabel.textContent = shortPathLabel(nativeDownload.dirs.images);
+  }
+  if (dom.settingsZipDirLabel) {
+    dom.settingsZipDirLabel.dataset.noI18n = "";
+    dom.settingsZipDirLabel.textContent = shortPathLabel(nativeDownload.dirs.zips);
+  }
 }
 
 async function chooseDownloadDir(kind) {
@@ -14198,12 +15516,12 @@ async function processImportedWatermarkImages(fileList) {
   const files = Array.from(fileList || []).filter(file =>
     file instanceof Blob && file.size > 0 && (/^image\/(?:png|jpeg|webp)$/i.test(file.type) || /\.(?:png|jpe?g|webp)$/i.test(file.name || "")));
   if (!files.length) {
-    showStatus(currentLanguage === "en" ? "Choose PNG, JPEG, or WebP images." : "请选择 PNG、JPEG 或 WebP 图片。", "error");
+    showStatus(uiText("watermarkChooseImages"), "error");
     return;
   }
 
   dom.importWatermarkImages.disabled = true;
-  setDownloadProgress(1, currentLanguage === "en" ? "Preparing local watermark removal…" : "准备本地去水印…");
+  setDownloadProgress(1, uiText("watermarkPreparing"));
   const folderName = files.length > 1 ? buildWatermarkOutputFolderName() : "";
   const usedNames = new Set();
   const failures = [];
@@ -14220,7 +15538,7 @@ async function processImportedWatermarkImages(fileList) {
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       const progress = 5 + Math.round((index / Math.max(files.length, 1)) * 88);
-      setDownloadProgress(progress, `${currentLanguage === "en" ? "Removing watermark" : "正在去水印"} ${index + 1}/${files.length}`);
+      setDownloadProgress(progress, `${uiText("watermarkRemoving")} ${index + 1}/${files.length}`);
       try {
         const removed = await removeGeminiWatermarkBlob(file);
         const outputName = buildWatermarkOutputFileName(file, usedNames);
@@ -14237,21 +15555,17 @@ async function processImportedWatermarkImages(fileList) {
       }
     }
 
-    if (!saved) throw new Error(failures.join("; ") || "没有生成有效的去水印图片");
-    setDownloadProgress(100, currentLanguage === "en"
-      ? `Saved ${saved}/${files.length} processed image(s)`
-      : `已保存 ${saved}/${files.length} 张去水印图片`, true);
+    if (!saved) throw new Error(failures.join("; ") || uiText("watermarkNoOutput"));
+    setDownloadProgress(100, interpolate(uiText("watermarkSaved"), { saved, total: files.length }), true);
     showStatus(
-      currentLanguage === "en"
-        ? `Watermark removal finished: ${saved}/${files.length}`
-        : `Gemini 去水印完成：${saved}/${files.length}`,
+      interpolate(uiText("watermarkFinished"), { saved, total: files.length }),
       failures.length ? "error" : "success",
     );
     if (failures.length) console.warn("部分导入图片去水印失败", failures);
   } catch (error) {
     hideDownloadProgress();
     if (error?.name !== "AbortError") {
-      showStatus(`${currentLanguage === "en" ? "Watermark removal failed" : "Gemini 去水印失败"}: ${error?.message || error}`, "error");
+      showStatus(`${uiText("watermarkFailed")}: ${error?.message || error}`, "error");
     }
   } finally {
     dom.importWatermarkImages.disabled = false;
@@ -14351,8 +15665,7 @@ async function copyImageUrl(dataUrl, originalUrl) {
 dom.downloadZip.addEventListener("click", downloadAllAsZip);
 
 function getCurrentResultImages() {
-  if (!dom.resultGrid) return [];
-  return Array.from(dom.resultGrid.querySelectorAll(".result-item"))
+  return getAllResultCards()
     .map((card, index) => {
       if (card._zipImage?.url) {
         return {
@@ -14380,7 +15693,7 @@ function getCurrentResultImages() {
 
 dom.clearResults.addEventListener("click", () => {
   stopCurrentGeneration("已取消当前生成并清空结果");
-  dom.resultGrid.innerHTML = "";
+  clearAllResultCards();
   dom.resultGrid.classList.add("hidden");
   dom.emptyState.classList.remove("hidden");
   dom.resultToolbar.classList.add("hidden");
@@ -14602,6 +15915,7 @@ dom.prompt.addEventListener("keydown", (e) => {
 });
 
 function registerServiceWorker() {
+  if (new URLSearchParams(location.search).get("studio-preview") === "1") return;
   if (!("serviceWorker" in navigator)) return;
   if (!/^https?:$/.test(location.protocol)) return;
   navigator.serviceWorker.register("sw.js").catch(err => {
@@ -14611,6 +15925,7 @@ function registerServiceWorker() {
 
 // 启动时静默检测一次更新；如果有新版本，弹窗询问是否立即更新（不打扰用户的话直接取消即可）。
 async function checkForUpdatesOnLaunch() {
+  if (new URLSearchParams(location.search).get("studio-preview") === "1") return;
   try {
     const state = safeStorageReadJson(UPDATE_CHECK_STATE_KEY, {}, value => value && typeof value === "object" && !Array.isArray(value));
     if (Date.now() - Number(state.lastCheckedAt || 0) < UPDATE_CHECK_INTERVAL_MS) return;
@@ -14693,6 +16008,7 @@ async function initializeApplication() {
   if (workspaceSessionAllowsRestore()) restoreWorkspaceDraft();
   installWorkspaceDraftAutosave();
   showStorageRecoveryIssues();
+  void a7CacheRefreshCapacity();
   registerServiceWorker();
   initManualWheelScrollFix();
   setTimeout(() => {

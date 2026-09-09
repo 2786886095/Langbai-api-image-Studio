@@ -12,6 +12,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.0"
@@ -49,6 +52,14 @@ jobs:
           node qa/grsai-model-catalog.test.js
           node qa/gemini-temporary-chat-state.test.js
           node --test qa/service-worker-consistency.test.js
+          node qa/studio-audit-fixes.test.js
+          node qa/studio-status-locales.test.js
+          node qa/studio-shell-contract.test.js
+          node qa/studio-i18n-completion.test.js
+          node qa/studio-cache-recovery.test.js
+          node qa/studio-runtime-contract.test.js
+          node qa/studio-csp.test.js
+          node qa/verify-packaged-frontend.js
       - name: Browser regression suite
         run: node qa/regression-runner.js
       - run: flutter analyze
@@ -168,17 +179,19 @@ jobs:
         shell: pwsh
         run: |
           $assets = "build/windows/x64/runner/Release/data/flutter_assets"
+          node qa/verify-packaged-frontend.js $assets
+          if ($LASTEXITCODE -ne 0) { throw "Packaged frontend SHA-256 verification failed." }
           foreach ($name in @("index.html", "bootstrap-guard.js", "image-task-stability.js", "codex-image-gateway.js", "gemini-image-size-registry.js", "gemini-web-image-adapter.js", "gemini-selector-pack.js", "gemini-watermark-remover.bundle.js", "gemini-web-direct-protocol.js", "gemini-embedded-worker.js", "app.js", "style.css")) {
             $path = Join-Path $assets $name
             if (-not (Test-Path $path) -or (Get-Item $path).Length -le 0) {
               throw "Missing or empty packaged frontend asset: $name"
             }
           }
-          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.6.35";' -Quiet)) {
-            throw "Packaged app.js is not v1.6.35."
+          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.7.0";' -Quiet)) {
+            throw "Packaged app.js is not v1.7.0."
           }
-          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260909-1-6-35' -Quiet)) {
-            throw "Packaged index.html does not reference the v1.6.35 bootstrap guard."
+          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260909-1-7-0' -Quiet)) {
+            throw "Packaged index.html does not reference the v1.7.0 bootstrap guard."
           }
       - name: Run hidden Windows WebView2 startup smoke test
         shell: pwsh

@@ -1698,19 +1698,19 @@ select.custom-select-native {
   font-family: "Nunito", sans-serif;
   box-shadow: 0 2px 8px var(--primary-glow);
 }
-.panel-row textarea,
-.turnaround-row textarea {
-  min-height: 52px !important; padding: 7px 8px !important; font-size: 0.78rem !important;
+#panelTable .panel-row textarea,
+#turnaroundTable .turnaround-row textarea {
+  min-height: 52px; padding: 7px 8px; font-size: 0.78rem;
   margin: 0;
 }
-.panel-retry-count {
-  width: 40px !important;
-  padding: 6px 4px !important;
+#panelTable .panel-retry-count {
+  width: 40px;
+  padding: 6px 4px;
   text-align: center;
-  font-size: 0.74rem !important;
+  font-size: 0.74rem;
 }
-.panel-size-w, .panel-size-h {
-  width: 38px !important; padding: 4px 2px !important; font-size: 0.72rem !important;
+#panelTable .panel-size-w, #panelTable .panel-size-h {
+  width: 38px; padding: 4px 2px; font-size: 0.72rem;
   text-align: center;
 }
 .panel-size-x { color: var(--text2); font-size: 0.7rem; margin: 0 2px; }
@@ -3735,19 +3735,19 @@ main.result-panel .result-actions .btn {
 
   #panelTable .panel-row textarea,
   #turnaroundTable .turnaround-row textarea {
-    min-height: 62px !important;
-    padding: 5px !important;
-    font-size: 0.72rem !important;
+    min-height: 62px;
+    padding: 5px;
+    font-size: 0.72rem;
   }
 
   #panelTable .panel-size-w,
   #panelTable .panel-size-h {
-    width: 27px !important;
-    padding-inline: 1px !important;
+    width: 27px;
+    padding-inline: 1px;
   }
 
   #panelTable .panel-size-x { margin-inline: 0; }
-  #panelTable .panel-retry-count { width: 30px !important; }
+  #panelTable .panel-retry-count { width: 30px; }
   #panelTable .panel-img-name { display: none; }
   #panelTable .panel-img-preview { margin-left: 0; }
   #panelTable .col-img:has(.panel-img-preview:not(.hidden)) .panel-img-btn { display: none; }
