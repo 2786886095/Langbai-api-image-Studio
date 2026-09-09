@@ -224,6 +224,7 @@ async function loadFresh(
       url: location.href,
       readyState: document.readyState,
       appReady: window.__AI_GEN_APP_READY === true,
+      presentationPending: document.documentElement.classList.contains("studio-starting"),
       hasGenerateButton: !!document.getElementById("generateBtn"),
       title: document.title,
       bodyLength: document.body?.textContent?.length || 0,
@@ -233,7 +234,7 @@ async function loadFresh(
     // "interactive" after the application has fully initialized. Product
     // readiness is the explicit app flag plus required controls, not the
     // browser's unrelated load event for optional network assets.
-    if (lastState?.readyState !== "loading" && lastState.appReady && lastState.hasGenerateButton) {
+    if (lastState?.readyState !== "loading" && lastState.appReady && !lastState.presentationPending && lastState.hasGenerateButton) {
       await sleep(150);
       return;
     }

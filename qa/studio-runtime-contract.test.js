@@ -159,5 +159,42 @@ test("legacy fallback controls work without closest/classList, and relinquish re
   click(c.tabs[1]); assert.equal(c.tabs[1].attributes["aria-selected"], "true"); assert.doesNotMatch(c.comic.className, /hidden/);
   c.__AI_GEN_APP_READY = true; const count = prevented; click({tagName:"BUTTON",id:"settingsBtn"}); assert.equal(prevented, count);
 });
+const paintFixture = `
+  this.paint=node('studio-startup-status');paint.className='';
+  document.documentElement.className='studio-starting';
+  document.documentElement.setAttribute=function(k,v){this[k]=v;};
+  var originalQuery=document.querySelector;
+  document.querySelector=function(s){return s==='#studio-startup-status'?paint:originalQuery(s);};
+`;
+test("core ready never releases first paint; shell ready does, without storage writes", () => {
+  const c=boot({before:paintFixture});
+  c.__AI_GEN_APP_READY=true;c.listeners['ai-generator-ready']();
+  assert.equal(c.__AI_GEN_UI_READY,false);
+  assert.match(c.document.documentElement.className,/studio-starting/);
+  c.StudioShell={};c.listeners['studio-shell-ready']();
+  assert.equal(c.__AI_GEN_UI_READY,true);
+  assert.doesNotMatch(c.document.documentElement.className,/studio-starting/);
+  assert.match(c.paint.className,/hidden/);assert.equal(c.writes,0);
+});
+test("slow shell timeout stays visible without flashing legacy UI, and late ready recovers", () => {
+  const c=boot({before:paintFixture});c.__AI_GEN_APP_READY=true;
+  c.timers[0]();assert.match(c.paint.textContent,/timed out/);
+  assert.match(c.document.documentElement.className,/studio-starting/);
+  c.StudioShell={};c.listeners['studio-shell-ready']();c.timers[0]();
+  assert.equal(c.__AI_GEN_UI_READY,true);assert.match(c.paint.className,/hidden/);
+});
+test("load failure after core ready still releases a readable fallback; no stuck gate", () => {
+  const c=boot({before:paintFixture});c.__AI_GEN_APP_READY=true;
+  c.loads[0].onerror();
+  assert.equal(c.__AI_GEN_PRESENTATION,'fallback');assert.equal(c.__AI_GEN_UI_READY,false);
+  assert.doesNotMatch(c.document.documentElement.className,/studio-starting/);
+  assert.match(c.paint.textContent,/Script load failed/);assert.doesNotMatch(c.paint.className,/hidden/);
+  assert.equal(c.writes,0);
+});
+test("unsupported engines release the gate and retain their independent diagnostic", () => {
+  const c=boot({before:paintFixture+'Array.prototype.at=undefined;'});
+  assert.doesNotMatch(c.document.documentElement.className,/studio-starting/);
+  assert.match(c.banner.textContent,/WebView2 Runtime/);assert.equal(c.loads.length,0);
+});
 console.log(`RESULT: ${passed}/${passed + failed} runtime checks passed`);
 process.exitCode = failed ? 1 : 0;
