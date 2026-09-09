@@ -62,6 +62,8 @@ jobs:
           node qa/verify-packaged-frontend.js
       - name: Browser regression suite
         run: node qa/regression-runner.js
+      - name: Cold-start first-paint and delayed shell regression
+        run: node qa/studio-first-paint.test.js
       - run: flutter analyze
       - run: flutter test
 
@@ -187,11 +189,11 @@ jobs:
               throw "Missing or empty packaged frontend asset: $name"
             }
           }
-          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.7.0";' -Quiet)) {
-            throw "Packaged app.js is not v1.7.0."
+          if (-not (Select-String -Path (Join-Path $assets "app.js") -Pattern 'const APP_VERSION = "1.7.1";' -Quiet)) {
+            throw "Packaged app.js is not v1.7.1."
           }
-          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260909-1-7-0' -Quiet)) {
-            throw "Packaged index.html does not reference the v1.7.0 bootstrap guard."
+          if (-not (Select-String -Path (Join-Path $assets "index.html") -Pattern 'bootstrap-guard.js\?v=20260910-1-7-1' -Quiet)) {
+            throw "Packaged index.html does not reference the v1.7.1 bootstrap guard."
           }
       - name: Run hidden Windows WebView2 startup smoke test
         shell: pwsh

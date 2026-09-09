@@ -35,11 +35,45 @@
     }
   }
   window.__AI_GEN_APP_READY = false;
+  // Core-ready does not mean the asynchronously loaded Studio layout is ready.
+  window.__AI_GEN_UI_READY = false;
+  window.__AI_GEN_PRESENTATION = "loading";
   window.__AI_GEN_STARTUP_ERRORS = [];
   var runtime = { contract: "studio-runtime-v1", state: "unmanaged", supported: false, missing: [], optional: {}, loaded: [] };
   window.__AI_GEN_RUNTIME = runtime;
   var started = false;
   var failed = false;
+  var presentationLabels = {
+    "zh-CN": ["正在启动工作室…", "工作室界面加载失败，已显示备用界面；请重启软件。现有配置和历史不会被清理。"],
+    "zh-Hant": ["正在啟動工作室…", "工作室介面載入失敗，已顯示備用介面；請重新啟動。現有設定與歷史不會被清理。"],
+    "en": ["Starting Studio…", "Studio layout could not load. The fallback interface is available; restart the app. Your settings and history are preserved."],
+    "ja": ["Studio を起動しています…", "Studio の画面を読み込めませんでした。代替画面を表示しています。再起動してください。設定と履歴は保持されます。"],
+    "ko": ["Studio 시작 중…", "Studio 화면을 불러오지 못해 대체 화면을 표시합니다. 앱을 다시 시작하세요. 설정과 기록은 유지됩니다."]
+  };
+  function presentationText(index) {
+    var saved = "";
+    try { saved = window.localStorage.getItem("ai_image_gen_language"); } catch (_) {}
+    return presentationLabels[normalizeLanguage(saved) || normalizeLanguage(document.documentElement.lang) || "zh-CN"][index];
+  }
+  var initialStatus = query("#studio-startup-status");
+  if (initialStatus) {
+    initialStatus.textContent = presentationText(0);
+    try {
+      var theme = window.localStorage.getItem("ai_image_gen_theme");
+      if (theme === "light" || theme === "dark") document.documentElement.setAttribute("data-theme", theme);
+    } catch (_) {}
+  }
+  function finishPresentation(state, details) {
+    if (state !== "ready" && state !== "fallback") return;
+    window.__AI_GEN_PRESENTATION = state;
+    window.__AI_GEN_UI_READY = state === "ready";
+    toggleClass(document.documentElement, "studio-starting", false);
+    var status = query("#studio-startup-status");
+    if (status) {
+      toggleClass(status, "hidden", state === "ready");
+      if (state === "fallback") renderStatus(presentationText(1) + (details ? " " + details : ""));
+    }
+  }
   function recordError(value) {
     var message;
     try { message = String((value && (value.message || value.reason)) || value || "Unknown startup error"); }
@@ -51,7 +85,7 @@
     // Before the shell boots, #status sits far down the creation sidebar.
     // Unsupported engines get an independent, first-in-document alert instead.
     var unsupported = runtime.state === "unsupported";
-    var status = unsupported ? query("#ai-gen-runtime-status") : query("#status");
+    var status = unsupported ? query("#ai-gen-runtime-status") : (query("#studio-startup-status") || query("#status"));
     if (!status && document.body && document.createElement) {
       status = query("#ai-gen-runtime-status");
       if (!status) {
@@ -69,8 +103,9 @@
     toggleClass(status, "error", true);
   }
   function showFallback() {
-    if (window.__AI_GEN_APP_READY === true) return;
+    if (window.__AI_GEN_UI_READY === true || (window.__AI_GEN_APP_READY === true && !initialStatus)) return;
     if (runtime.state === "unsupported") {
+      finishPresentation("fallback");
       renderStatus(unsupportedMessage());
       return;
     }
@@ -83,9 +118,10 @@
   }
   function startupError(value) {
     recordError(value);
-    if (started && window.__AI_GEN_APP_READY !== true && runtime.state !== "unsupported") {
+    if (started && window.__AI_GEN_UI_READY !== true && runtime.state !== "unsupported") {
       failed = true;
       runtime.state = "error";
+      finishPresentation("fallback");
       showFallback();
     }
   }
@@ -93,6 +129,9 @@
   addEventListener("unhandledrejection", function (event) { startupError(event.reason); });
   addEventListener("ai-generator-ready", function () {
     if (started && !failed && runtime.state !== "unsupported" && window.__AI_GEN_APP_READY === true) runtime.state = "ready";
+  });
+  addEventListener("studio-shell-ready", function () {
+    if (window.__AI_GEN_APP_READY === true && window.StudioShell) finishPresentation("ready");
   });
   function inspect() {
     var missing = [];
@@ -202,7 +241,7 @@
     next();
     return true;
   }
-  window.AiGenRuntime = { inspect: inspect, start: start };
+  window.AiGenRuntime = { inspect: inspect, start: start, finishPresentation: finishPresentation };
   updateInspection();
   function showFallbackModal(modal) {
     if (!modal) return;
